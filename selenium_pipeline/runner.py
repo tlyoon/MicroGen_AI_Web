@@ -22,7 +22,11 @@ ROOT = Path(__file__).resolve().parent
 VENDOR = ROOT / "vendor_template_v2"
 REPO = ROOT.parent
 DEFAULT_TTS = "gemini-3.8-flash-lite-tts"
-DEFAULT_PRO = "gemini-3.1-pro-preview"
+DEFAULT_CAPTION_MODEL = "gemini-3.1-pro-preview"
+CAPTION_BENCHMARK_MODEL = "gemini-3.8-flash"
+DEFAULT_SLIDE_MODEL = "gemini-3.1-pro-preview"
+DEFAULT_NARRATION_MODEL = "gemini-3.1-pro-preview"
+DEFAULT_PRO = DEFAULT_SLIDE_MODEL
 STAGES = ("figures", "slides", "narration", "tts", "video")
 CHROME_STAGES = {"figures", "slides", "narration"}
 SCRIPTS = {
@@ -214,7 +218,10 @@ def execute(s: Settings) -> Path:
     planned = STAGES[first:last + 1]
     print(f"[microgen] production host: Dell-115 | job: {s.subchapter}")
     print(f"[microgen] input: {source} | work: {folder}")
-    print(f"[microgen] UI target model: {DEFAULT_PRO} (manual selection, NOT API enforced)")
+    print(f"[microgen] caption model: {DEFAULT_CAPTION_MODEL} (benchmark alternative: {CAPTION_BENCHMARK_MODEL})")
+    print(f"[microgen] slide model: {DEFAULT_SLIDE_MODEL}")
+    print(f"[microgen] narration model: {DEFAULT_NARRATION_MODEL}")
+    print("[microgen] browser models are operator-selected, NOT API-enforced")
     print(f"[microgen] TTS: {s.tts_provider} / {s.tts_model}")
     for stage in planned:
         print(f"[microgen] stage: {stage}")
@@ -229,8 +236,15 @@ def execute(s: Settings) -> Path:
     if state.get("source_sha256") not in (None, signature):
         raise RuntimeError("Checkpoint/source mismatch")
     state["source_sha256"] = signature
-    state["requested_models"] = {"ui": DEFAULT_PRO, "ui_selection_verified_automatically": False,
-                                  "tts": s.tts_model, "tts_provider": s.tts_provider}
+    state["requested_models"] = {
+        "caption": DEFAULT_CAPTION_MODEL,
+        "caption_benchmark": CAPTION_BENCHMARK_MODEL,
+        "slides": DEFAULT_SLIDE_MODEL,
+        "narration": DEFAULT_NARRATION_MODEL,
+        "ui_selection_verified_automatically": False,
+        "tts": s.tts_model,
+        "tts_provider": s.tts_provider,
+    }
     state.setdefault("completed", {})
     if s.force_from:
         for key in STAGES[STAGES.index(s.force_from):]:
@@ -241,7 +255,9 @@ def execute(s: Settings) -> Path:
     changed_upstream = False
     for stage in planned:
         # A changed stage invalidates every downstream stage, including final video.
-        model_stamp = f"{s.tts_provider}:{s.tts_model}:{s.tts_voice}" if stage == "tts" else DEFAULT_PRO
+        browser_model = {"figures": DEFAULT_CAPTION_MODEL, "slides": DEFAULT_SLIDE_MODEL,
+                         "narration": DEFAULT_NARRATION_MODEL}.get(stage, "deterministic-local")
+        model_stamp = f"{s.tts_provider}:{s.tts_model}:{s.tts_voice}" if stage == "tts" else browser_model
         if changed_upstream:
             state["completed"].pop(stage, None)
         if state["completed"].get(stage, {}).get("model") == model_stamp and check_valid(stage, folder):

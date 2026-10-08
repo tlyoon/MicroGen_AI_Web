@@ -22,7 +22,7 @@ The original files are not edited. We run a *copy* of the reference scripts in a
 4. **TTS:** Gemini API model `gemini-3.8-flash-lite-tts` by default. Select `gemini-3.8-flash-tts` for higher quality or `chirp3` for Google Cloud Chirp 3 HD. Output `slideN.wav`.
 5. **Video:** `slice_pdf.py`, `gen_video.py`, output `slides.mp4`.
 
-Gemini **3.1 Pro** is the desired **browser** model for the first three text/figure stages. The Gemini web UI does not expose an API-stable model ID; **this runner cannot force or independently verify the selected UI model**. Before any Selenium stage, the operator must select Pro in the Gemini browser and pass `--confirm-pro` as a human attestation. The checkpoint records a *requested* model rather than a false claim of machine verification.
+Gemini **3.1 Pro** is the default **browser** model for caption abstraction, slide generation and narration. For caption abstraction specifically, **Gemini 3.8 Flash** is retained as the benchmark/alternative model; it is not the production default until a representative Serway A/B quality test shows equivalent scientific fidelity and interpretation. The Gemini web UI does not expose an API-stable model ID; **this runner cannot force or independently verify the selected UI model**. Before any Selenium stage, the operator must select Pro in the Gemini browser and pass `--confirm-pro` as a human attestation. The checkpoint records a *requested* model rather than a false claim of machine verification.
 
 No Selenium browser quota bypass, account login bypass, proxy evasions, or unrestricted automated scraping is implemented. Use this only when authorized under Google's terms and your institutional account's policies. Selenium web requests may still be rate-limited.
 

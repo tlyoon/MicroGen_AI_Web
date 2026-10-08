@@ -2,10 +2,14 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from selenium_pipeline.runner import Settings, blocks, job_source, check_valid, execute, archive_existing_outputs
+from selenium_pipeline.runner import (Settings, blocks, job_source, check_valid, execute, archive_existing_outputs, DEFAULT_CAPTION_MODEL, CAPTION_BENCHMARK_MODEL)
 
 
 class PipelineTests(unittest.TestCase):
+    def test_caption_model_policy(self):
+        self.assertEqual(DEFAULT_CAPTION_MODEL, "gemini-3.1-pro-preview")
+        self.assertEqual(CAPTION_BENCHMARK_MODEL, "gemini-3.8-flash")
+
     def test_parse_reference_script(self):
         example = "**Slide 1 [10 sec]:\nTitle**\n\n**Slide 2 [40 sec]:\nPhysics explanation.**"
         self.assertEqual(blocks(example), [(1, "Title"), (2, "Physics explanation.")])
