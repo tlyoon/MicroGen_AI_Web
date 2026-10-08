@@ -42,6 +42,12 @@ script_tts_*.json
 cleaned_slides.tex
 defective_slides.tex
 
+# Selenium pipeline checkpoints, archived outputs and temporary audio
+.selenium_pipeline_state.json
+.tts_candidate/
+.history/
+MicroGen_AI_Web_Workspace/
+
 # Pipeline logs and temporary artifacts
 *.log
 _backup*/

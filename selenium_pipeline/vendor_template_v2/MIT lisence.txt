@@ -1,0 +1,9 @@
+# MicroGen_AI Educational Automation Package
+# © 2025 Dr. Yoon Tiem Leong, School of Physics, Universiti Sains Malaysia.
+# This file is part of the MicroGen_AI package.
+#
+# Licensed under the MIT License (see LICENSE file in the project root).
+#
+# You may not use this file except in compliance with the License.
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
+# -*- coding: utf-8 -*-

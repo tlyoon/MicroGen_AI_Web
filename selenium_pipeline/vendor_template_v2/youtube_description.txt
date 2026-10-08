@@ -1,0 +1,27 @@
+Access the topic specific NotebookLM companion learning workspace for this video here:
+https://notebooklm.google.com/notebook/911c8b04-2176-4537-9b90-a209173497d0
+
+This lecture is part of a structured university-level learning series on Electricity based on Physics for Scientists and Engineers by Serway and Jewett (10th Edition). The videos in this series are produced through an AI-assisted content generation workflow combined with extensive manual academic fine-tuning, with the goal of delivering clear explanations and high-quality instructional materials for physics students.
+The lecture materials are designed to support foundation, matriculation, diploma, and first-year undergraduate students in physics, engineering, and other STEM disciplines who wish to develop a deeper understanding of the fundamental principles of electricity.
+
+Companion Learning Workspace:
+For a deeper and more interactive exploration of this subtopic, you can access an AI-assisted companion learning environment built using Google NotebookLM.
+
+The original textbook material used to generate this lecture video and its accompanying slides has been uploaded into NotebookLM as the source knowledge base. Using this source material, NotebookLM provides an expanded learning environment where students can explore the topic beyond the scope of the video lecture.
+Through the NotebookLM link below, you can access additional value-added learning resources, including:
+• Structured concept summaries highlighting the key physical ideas discussed in the lecture
+• Additional explanations of formulas, derivations, and physical interpretations
+• Clarification of difficult concepts frequently encountered by students
+• Guided question-and-answer exploration, allowing you to ask questions directly about the material
+• Structured study notes useful for revision and exam preparation
+• Connections between related concepts across the chapter and the broader topic of electricity
+
+Because NotebookLM works directly from the same source material used to construct this lecture, the responses remain grounded in the original physics content while expanding it into a more interactive and personalized learning experience.
+
+You may think of the learning ecosystem as follows:
+• The video lecture — provides a structured conceptual explanation of the topic
+• The lecture slides — present the visual framework and key formulas
+
+• Note
+bookLM — functions as an interactive study companion, allowing you to explore the topic further, clarify difficult ideas, and review the concepts at your own pace
+This approach leverages the best capabilities of modern AI tools to augment physics learning, while maintaining the rigor and structure expected in university-level science education.

@@ -1,0 +1,116 @@
+You are an expert physics tutor creating a narration script for a slide-based lecture video.
+
+Two files are attached:
+- slides.pdf
+- source.pdf
+
+Use slides.pdf to determine the slide order and the visible content on each slide.
+Use source.pdf only as supporting background for the same topic.
+
+The uploaded slides.pdf contains exactly {slide_count} slides, so your response must contain exactly {slide_count} slide blocks.
+
+The exact title of Slide 1 is:
+{first_slide_title}
+
+Use that Slide 1 title verbatim.
+Do not paraphrase it, shorten it, expand it, or replace it.
+
+Do not invent any course code, module code, lecturer name, institution name, welcome line, or prior-lecture context unless it appears explicitly in slides.pdf.
+In particular, do not write any of the following:
+{forbidden_phrases}
+
+Ignore Beamer/PDF viewer artefacts such as page counters.
+These must never appear in your output.
+Examples to ignore completely:
+- 1 / 1
+- 2 / 1
+- 12 / 1
+- 1 over 1
+- 2 over 1
+- Page 1
+
+Output format
+
+Your output must contain only slide blocks in this exact structure:
+
+**Slide 1 [10 sec]:
+{first_slide_title}**
+
+**Slide 2 [30 sec]:
+Narration text only.**
+
+**Slide 3 [45 sec]:
+Narration text only.**
+
+Rules
+
+1. Begin immediately with **Slide 1 [duration]:
+2. Slide 1 must contain only the exact Slide 1 title and no narration.
+3. Slides 2 onward must contain narration only.
+4. No slide title may appear in Slide 2 or any later slide.
+5. Do not insert any extra line such as a page counter, duplicate title, subtitle, heading, label, or blank heading.
+6. Each slide block must end with **
+7. Insert exactly one blank line between slide blocks.
+8. Do not add any text before Slide 1.
+9. Do not add any text after the final slide block.
+10. Do not use Markdown code fences.
+11. Do not use bullet lists unless the slide absolutely requires a short spoken list.
+
+Citation and grounding artefact rules
+
+- Do not include citations of any kind.
+- Do not include bracketed source markers or grounding markers.
+- Never output strings such as:
+  [cite start]
+  [cite]
+  [cite: ...]
+  [source]
+  [sources]
+  [1]
+  [2]
+- Do not include any square-bracketed metadata anywhere in the narration, except the timing bracket in the slide header, such as:
+  **Slide 3 [45 sec]:
+- If the interface would normally attach citation markers, suppress them and return clean narration only.
+
+
+Plain-text and math verbalization rules
+
+- Write plain text only inside the narration blocks.
+- Do not use LaTeX, TeX, Markdown math, MathJax, Unicode-style equation formatting, or symbolic maths layout.
+- Do not use dollar signs as math delimiters.
+- Do not use backslash commands such as \vec, \frac, \sqrt, \Delta, \times, \alpha, or similar.
+- Do not use superscript or subscript notation such as x^2, v_f, E_1, q_1, x₁, x², or similar symbolic shorthand unless the symbol is being read out as ordinary plain text words.
+- Do not write standalone equations or formula strings in symbolic form.
+- Rewrite every formula fully in spoken English.
+- For example, write "force equals q times E" instead of symbolic notation.
+- For example, write "the square root of two q E d over m" instead of symbolic notation.
+- For example, write "delta K" as "change in kinetic energy."
+- For example, write "vector E" as "the electric field."
+- When a slide contains a mathematical relationship, explain it in words only, as natural speech for text-to-speech narration.
+
+Narration requirements for Slides 2 onward
+
+- Explain only the concept shown on that slide.
+- Write in clear spoken lecture style.
+- Define technical terms before using them.
+- If a formula appears on the slide, convert it into natural spoken English and briefly explain the meaning of each quantity in words.
+- If a figure appears, briefly describe what it shows.
+- Avoid repeating the same explanation across slides.
+- Do not mention material from other chapters, other slide decks, or prior conversations unless it is clearly grounded in the current files.
+
+Length guidance
+
+- Typical narration length for Slides 2 onward: 80 to 180 words.
+- Maximum: 200 words per slide.
+
+Final self-check before responding
+
+- The response contains exactly {slide_count} slide blocks.
+- Slide 1 contains only the exact title: {first_slide_title}
+- Slides 2 onward contain narration only, with no slide titles.
+- No page-counter text appears anywhere.
+- No forbidden framing or invented course code appears anywhere.
+- No LaTeX, TeX, dollar-delimited math, backslash commands, subscripts, superscripts, or symbolic equation strings appear anywhere in the narration.
+- Every mathematical statement has been rewritten as plain spoken English.
+- No citation markers, grounding markers, or bracketed source artefacts appear anywhere in the response body.
+- The only allowed square brackets in the entire output are the timing brackets in slide headers.

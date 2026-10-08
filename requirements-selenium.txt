@@ -1,0 +1,10 @@
+# Additive dependencies for the Selenium-first template_v2 pipeline
+-r requirements.txt
+selenium>=4.18
+google-genai>=1.0
+google-cloud-texttospeech>=2.0
+pypdf>=4.0
+Pillow>=10.0
+pyperclip>=1.8
+pywinauto>=0.6.8; sys_platform == "win32"
+contractions>=0.1

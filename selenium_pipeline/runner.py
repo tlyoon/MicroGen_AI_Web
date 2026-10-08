@@ -1,0 +1,344 @@
+"""Selenium-first MicroGen pipeline using the validated template_v2 scripts.
+
+The vendored scripts are invoked in isolated working folders. This module does
+not import the legacy selenium.py, which would shadow the Selenium distribution.
+"""
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import time
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+VENDOR = ROOT / "vendor_template_v2"
+REPO = ROOT.parent
+DEFAULT_TTS = "gemini-3.8-flash-lite-tts"
+DEFAULT_PRO = "gemini-3.1-pro-preview"
+STAGES = ("figures", "slides", "narration", "tts", "video")
+CHROME_STAGES = {"figures", "slides", "narration"}
+SCRIPTS = {
+    "figures": ("crop_figs_v3.py", "map_and_rename_selenium_v8.py", "merge_lettered_figs_v3.py"),
+    "slides": ("gen_slides_selenium_v11.py",),
+    "narration": ("gen_script_selenium_v15.py",),
+    "video": ("slice_pdf.py", "gen_video.py"),
+}
+RESOURCE_FILES = ("beamerthemeGelugor.sty", "usmlg.jpg", "usmemb.jpg", "logotype.jpg")
+OUTPUTS = {"slides": ("slides.tex", "slides.pdf"), "narration": ("script.txt",),
+           "video": ("slides.mp4",)}
+
+
+def utc() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def digest(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def blocks(script: str) -> list[tuple[int, str]]:
+    """Read the exact template_v2 '**Slide N [duration]:' format."""
+    matches = list(re.finditer(r"(?m)^\*\*Slide\s+(\d+)\s+\[[^\]\r\n]+\]:", script))
+    result = []
+    for i, match in enumerate(matches):
+        end = matches[i + 1].start() if i + 1 < len(matches) else len(script)
+        text = script[match.end():end].strip().strip("*").strip()
+        result.append((int(match.group(1)), text))
+    if not result or [n for n, _ in result] != list(range(1, len(result) + 1)):
+        raise ValueError("Narration lacks consecutive template_v2 slide headers")
+    if any(not text for _, text in result):
+        raise ValueError("Empty slide narration block")
+    return result
+
+
+def slide_pages(folder: Path) -> int:
+    try:
+        from pypdf import PdfReader
+    except ImportError:
+        from PyPDF2 import PdfReader
+    return len(PdfReader(str(folder / "slides.pdf")).pages)
+
+
+def valid(stage: str, folder: Path) -> bool:
+    if stage == "figures":
+        return (folder / "crops").is_dir() and any(folder.glob("Figure*.png"))
+    if stage in OUTPUTS and not all((folder / name).is_file() and
+                                    (folder / name).stat().st_size > 0 for name in OUTPUTS[stage]):
+        return False
+    if stage == "slides":
+        return slide_pages(folder) > 0
+    if stage == "narration":
+        return len(blocks((folder / "script.txt").read_text(encoding="utf-8"))) == slide_pages(folder)
+    if stage == "tts":
+        count = len(blocks((folder / "script.txt").read_text(encoding="utf-8")))
+        return all((folder / f"slide{i}.wav").is_file() and
+                   (folder / f"slide{i}.wav").stat().st_size > 44 for i in range(1, count + 1))
+    if stage == "video":
+        return (folder / "slides.mp4").stat().st_size > 0
+    return False
+
+
+def check_valid(stage: str, folder: Path) -> bool:
+    try:
+        return valid(stage, folder)
+    except (OSError, ValueError, RuntimeError, ImportError):
+        return False
+
+
+def prepare(source: Path, folder: Path, *, refresh_code: bool = True) -> None:
+    if not source.is_file() or source.suffix.lower() != ".pdf":
+        raise FileNotFoundError(f"Missing source PDF: {source}")
+    if folder.resolve() == VENDOR.resolve() or folder.resolve() == source.parent.resolve():
+        raise ValueError("Never run the pipeline inside the original source or reference folder")
+    folder.mkdir(parents=True, exist_ok=True)
+    target = folder / "source.pdf"
+    if target.exists() and digest(target) != digest(source):
+        raise RuntimeError("Existing job contains a different source.pdf; use another workspace")
+    if not target.exists():
+        shutil.copy2(source, target)
+    if refresh_code:
+        if not VENDOR.is_dir():
+            raise FileNotFoundError(f"Missing vendored template_v2: {VENDOR}")
+        for item in VENDOR.iterdir():
+            if item.is_file() and item.suffix.lower() in (".py", ".txt", ".sh"):
+                shutil.copy2(item, folder / item.name)
+        for name in RESOURCE_FILES:
+            file = REPO / name
+            if file.exists():
+                shutil.copy2(file, folder / name)
+
+
+def run_cmd(command: list[str], cwd: Path, log_path: Path, env: dict[str, str],
+            timeout_s: int = 3600) -> None:
+    """Stream progress without allowing a silent Selenium child to hang forever."""
+    from queue import Empty, Queue
+    from threading import Thread
+    stream: Queue[str] = Queue()
+    with log_path.open("a", encoding="utf-8") as logfile:
+        logfile.write("\n$ " + " ".join(command) + "\n")
+        logfile.flush()
+        with subprocess.Popen(command, cwd=str(cwd), env=env, stdout=subprocess.PIPE,
+                              stderr=subprocess.STDOUT, encoding="utf-8", errors="replace",
+                              text=True, bufsize=1) as proc:
+            assert proc.stdout is not None
+            def drain() -> None:
+                for line in proc.stdout:
+                    stream.put(line)
+            worker = Thread(target=drain, daemon=True)
+            worker.start()
+            started = time.monotonic()
+            while True:
+                try:
+                    line = stream.get(timeout=0.5)
+                    print(line, end="", flush=True)
+                    logfile.write(line)
+                    logfile.flush()
+                except Empty:
+                    pass
+                if time.monotonic() - started > timeout_s:
+                    proc.terminate()  # Only the child, never all Chrome windows.
+                    try:
+                        proc.wait(timeout=10)
+                    except subprocess.TimeoutExpired:
+                        proc.kill()
+                    raise TimeoutError(f"Stage timed out after {timeout_s}s; see {log_path}")
+                if proc.poll() is not None and not worker.is_alive() and stream.empty():
+                    break
+            code = proc.wait()
+        if code:
+            raise RuntimeError(f"Command failed ({code}): {' '.join(command)}")
+
+
+def archive_existing_outputs(stage: str, folder: Path) -> None:
+    """Move old outputs aside when a stage is explicitly being regenerated."""
+    names = {"slides": ("slides.tex", "slides.pdf"),
+             "narration": ("script.txt",), "video": ("slides.mp4",)}.get(stage, ())
+    existing = [folder / name for name in names if (folder / name).is_file()]
+    if not existing:
+        return
+    dest = folder / ".history" / datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S_%f") / stage
+    dest.mkdir(parents=True, exist_ok=True)
+    for item in existing:
+        item.replace(dest / item.name)
+    print(f"[microgen] archived prior {stage} files to {dest}")
+
+
+def job_source(root: Path, key: str) -> Path:
+    if not re.fullmatch(r"[0-9]+\.[0-9]+", key):
+        raise ValueError("Use subchapter notation like 22.1")
+    chapter = key.split(".")[0]
+    return root / chapter / key / "source.pdf"
+
+
+@dataclass
+class Settings:
+    source_root: Path
+    work_root: Path
+    subchapter: str
+    tts_provider: str = "gemini"
+    tts_model: str = DEFAULT_TTS
+    tts_voice: str = "Kore"
+    chrome_port: int = 9222
+    confirm_pro: bool = False
+    dry_run: bool = False
+    force_from: str | None = None
+    from_stage: str = "figures"
+    through_stage: str = "video"
+
+    def directory(self) -> Path:
+        return self.work_root / self.subchapter.split(".")[0] / self.subchapter
+
+    def source(self) -> Path:
+        return job_source(self.source_root, self.subchapter)
+
+
+def execute(s: Settings) -> Path:
+    source, folder = s.source(), s.directory()
+    if not source.is_file():
+        raise FileNotFoundError(source)
+    first, last = STAGES.index(s.from_stage), STAGES.index(s.through_stage)
+    if first > last:
+        raise ValueError("--from-stage must precede --through-stage")
+    planned = STAGES[first:last + 1]
+    print(f"[microgen] production host: Dell-115 | job: {s.subchapter}")
+    print(f"[microgen] input: {source} | work: {folder}")
+    print(f"[microgen] UI target model: {DEFAULT_PRO} (manual selection, NOT API enforced)")
+    print(f"[microgen] TTS: {s.tts_provider} / {s.tts_model}")
+    for stage in planned:
+        print(f"[microgen] stage: {stage}")
+    if s.dry_run:
+        return folder
+    if any(x in CHROME_STAGES for x in planned) and not s.confirm_pro:
+        raise RuntimeError("Before running Selenium stages, manually select Gemini Pro in the browser; rerun with --confirm-pro after checking. This is an operator attestation, NOT automated model verification.")
+    prepare(source, folder)
+    stamp = folder / ".selenium_pipeline_state.json"
+    state = json.loads(stamp.read_text(encoding="utf-8")) if stamp.exists() else {}
+    signature = digest(source)
+    if state.get("source_sha256") not in (None, signature):
+        raise RuntimeError("Checkpoint/source mismatch")
+    state["source_sha256"] = signature
+    state["requested_models"] = {"ui": DEFAULT_PRO, "ui_selection_verified_automatically": False,
+                                  "tts": s.tts_model, "tts_provider": s.tts_provider}
+    state.setdefault("completed", {})
+    if s.force_from:
+        for key in STAGES[STAGES.index(s.force_from):]:
+            state["completed"].pop(key, None)
+    env = os.environ.copy()
+    env.update({"SAFE_CHROME": "1", "GEMINI_DEBUG_PORT": str(s.chrome_port),
+                "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1"})
+    changed_upstream = False
+    for stage in planned:
+        # A changed stage invalidates every downstream stage, including final video.
+        model_stamp = f"{s.tts_provider}:{s.tts_model}:{s.tts_voice}" if stage == "tts" else DEFAULT_PRO
+        if changed_upstream:
+            state["completed"].pop(stage, None)
+        if state["completed"].get(stage, {}).get("model") == model_stamp and check_valid(stage, folder):
+            print(f"[microgen] reuse validated {stage}")
+            continue
+        state["completed"].pop(stage, None)
+        changed_upstream = True
+        log_file = folder / f"microgen_{stage}.log"
+        try:
+            if stage != "tts":
+                archive_existing_outputs(stage, folder)
+            if stage == "tts":
+                from .tts import synthesize_folder
+                synthesize_folder(folder, s.tts_provider, s.tts_model, s.tts_voice)
+            else:
+                for script in SCRIPTS[stage]:
+                    if not (folder / script).is_file():
+                        raise FileNotFoundError(f"Missing reference entrypoint: {script}")
+                    run_cmd([sys.executable, script], folder, log_file, env)
+            if not check_valid(stage, folder):
+                raise RuntimeError(f"Validation failed at {stage}; see {log_file}")
+            state["completed"][stage] = {"at_utc": utc(), "model": model_stamp}
+            stamp.write_text(json.dumps(state, indent=2), encoding="utf-8")
+            print(f"[microgen] {stage} OK")
+        except Exception:
+            state["failed_stage"] = stage
+            state["failed_at_utc"] = utc()
+            stamp.write_text(json.dumps(state, indent=2), encoding="utf-8")
+            raise
+    state.pop("failed_stage", None)
+    state.pop("failed_at_utc", None)
+    stamp.write_text(json.dumps(state, indent=2), encoding="utf-8")
+    return folder
+
+
+def doctor() -> None:
+    import importlib.util
+    for name in ("selenium", "pypdf", "google.genai", "google.cloud.texttospeech"):
+        try:
+            importlib.util.find_spec(name)
+            outcome = "available"
+        except (ModuleNotFoundError, ValueError):
+            outcome = "missing"
+        print(f"[doctor] {name}: {outcome}")
+    for command in ("pdflatex", "ffmpeg"):
+        print(f"[doctor] {command}: {shutil.which(command) or 'missing'}")
+    print(f"[doctor] vendored template: {'available' if VENDOR.exists() else 'missing'}")
+    print("[doctor] Gemini Pro must be selected manually in the authorized browser session.")
+
+
+def main(argv: list[str] | None = None) -> int:
+    p = argparse.ArgumentParser(description="MicroGen Selenium pipeline for Dell-115")
+    p.add_argument("--source-root", type=Path)
+    p.add_argument("--work-root", type=Path, default=Path.home() / "Documents" / "MicroGen_AI_Web_Workspace")
+    p.add_argument("--subchapter", help="One or comma-separated subchapters, e.g. 22.1,22.2")
+    p.add_argument("--chapter", help="Process all subchapters with source.pdf in chapter, sequentially")
+    p.add_argument("--tts-provider", choices=("gemini", "chirp3"), default="gemini")
+    p.add_argument("--tts-model", default=DEFAULT_TTS)
+    p.add_argument("--tts-voice", default="Kore")
+    p.add_argument("--chrome-port", type=int, default=9222)
+    p.add_argument("--from-stage", choices=STAGES, default="figures")
+    p.add_argument("--through-stage", choices=STAGES, default="video")
+    p.add_argument("--force-from", choices=STAGES)
+    p.add_argument("--confirm-pro", action="store_true", help="I checked Gemini Pro in Chrome; not an automated verification")
+    p.add_argument("--dry-run", action="store_true", help="Print plan; do not write files or call Gemini")
+    p.add_argument("--doctor", action="store_true", help="Inspect local dependencies")
+    args = p.parse_args(argv)
+    if args.doctor:
+        doctor()
+        return 0
+    if not args.source_root or (not args.subchapter and not args.chapter):
+        p.error("--source-root and --subchapter or --chapter are required unless --doctor")
+    if args.subchapter and args.chapter:
+        p.error("Choose --subchapter or --chapter, not both")
+    if args.chapter:
+        if not re.fullmatch(r"[0-9]+", args.chapter):
+            p.error("--chapter must be numeric, for example 22")
+        chapter_path = args.source_root / args.chapter
+        if not chapter_path.is_dir():
+            p.error(f"Missing chapter directory: {chapter_path}")
+        jobs = [p.name for p in chapter_path.iterdir()
+                if p.is_dir() and re.fullmatch(r"[0-9]+\.[0-9]+", p.name)
+                and (p / "source.pdf").is_file()]
+        jobs.sort(key=lambda x: (int(x.split(".")[0]), int(x.split(".")[1])))
+        if not jobs:
+            p.error(f"No source.pdf subchapters under {chapter_path}")
+    else:
+        jobs = [x.strip() for x in args.subchapter.split(",") if x.strip()]
+    for job in jobs:
+        execute(Settings(source_root=args.source_root, work_root=args.work_root,
+                         subchapter=job, tts_provider=args.tts_provider,
+                         tts_model=args.tts_model, tts_voice=args.tts_voice,
+                         chrome_port=args.chrome_port, from_stage=args.from_stage,
+                         through_stage=args.through_stage, force_from=args.force_from,
+                         confirm_pro=args.confirm_pro, dry_run=args.dry_run))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
