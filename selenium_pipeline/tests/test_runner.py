@@ -35,7 +35,7 @@ class PipelineTests(unittest.TestCase):
             self.assertEqual(folder, workspace / "22" / "22.1")
             self.assertFalse(folder.exists())
 
-    def test_pro_attestation_required_before_work(self):
+    def test_pro_verification_required_before_work(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td) / "root"
             folder = root / "22" / "22.1"
@@ -43,8 +43,9 @@ class PipelineTests(unittest.TestCase):
             (folder / "source.pdf").write_bytes(b"%PDF stub")
             dest = Path(td) / "working"
             with patch("selenium_pipeline.launch_gemini.launch", return_value=(9222, Path("profile"))):
-                with self.assertRaisesRegex(RuntimeError, "Select Gemini Pro"):
-                    execute(Settings(root, dest, "22.1"))
+                with patch("selenium_pipeline.gemini_model.ensure_pro", side_effect=RuntimeError("Pro not confirmed")):
+                    with self.assertRaisesRegex(RuntimeError, "Pro not confirmed"):
+                        execute(Settings(root, dest, "22.1"))
             self.assertFalse(dest.exists())
 
     def test_regeneration_preserves_previous_slide_files(self):

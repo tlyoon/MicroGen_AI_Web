@@ -237,8 +237,8 @@ def execute(s: Settings) -> Path:
             requested_port = 9223
         actual_port, _ = launch(s.alternate_gemini_user, requested_port)
         s.chrome_port = actual_port
-        if not s.confirm_pro:
-            raise RuntimeError("Gemini Chrome is ready. Select Gemini Pro in the browser if necessary; rerun with --confirm-pro after checking. Default mode reuses the persistent signed-in profile and does not request login.")
+        from .gemini_model import ensure_pro
+        print(f"[microgen] verified Gemini mode: {ensure_pro(s.chrome_port)}")
     prepare(source, folder)
     stamp = folder / ".selenium_pipeline_state.json"
     state = json.loads(stamp.read_text(encoding="utf-8")) if stamp.exists() else {}
@@ -251,7 +251,7 @@ def execute(s: Settings) -> Path:
         "caption_benchmark": CAPTION_BENCHMARK_MODEL,
         "slides": DEFAULT_SLIDE_MODEL,
         "narration": DEFAULT_NARRATION_MODEL,
-        "ui_selection_verified_automatically": False,
+        "ui_selection_verified_automatically": any(x in CHROME_STAGES for x in planned),
         "tts": s.tts_model,
         "tts_provider": s.tts_provider,
     }
@@ -277,6 +277,9 @@ def execute(s: Settings) -> Path:
         changed_upstream = True
         log_file = folder / f"microgen_{stage}.log"
         try:
+            if stage in CHROME_STAGES:
+                from .gemini_model import ensure_pro
+                print(f"[microgen] {stage} Gemini mode: {ensure_pro(s.chrome_port)}")
             if stage != "tts":
                 archive_existing_outputs(stage, folder)
             if stage == "tts":
