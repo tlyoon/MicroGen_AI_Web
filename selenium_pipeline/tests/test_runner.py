@@ -1,6 +1,7 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from selenium_pipeline.runner import (Settings, blocks, job_source, check_valid, execute, archive_existing_outputs, DEFAULT_CAPTION_MODEL, CAPTION_BENCHMARK_MODEL)
 
@@ -41,8 +42,9 @@ class PipelineTests(unittest.TestCase):
             folder.mkdir(parents=True)
             (folder / "source.pdf").write_bytes(b"%PDF stub")
             dest = Path(td) / "working"
-            with self.assertRaisesRegex(RuntimeError, "manually select Gemini Pro"):
-                execute(Settings(root, dest, "22.1"))
+            with patch("selenium_pipeline.launch_gemini.launch", return_value=(9222, Path("profile"))):
+                with self.assertRaisesRegex(RuntimeError, "Select Gemini Pro"):
+                    execute(Settings(root, dest, "22.1"))
             self.assertFalse(dest.exists())
 
     def test_regeneration_preserves_previous_slide_files(self):

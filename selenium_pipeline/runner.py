@@ -195,6 +195,7 @@ class Settings:
     tts_model: str = DEFAULT_TTS
     tts_voice: str = "Kore"
     chrome_port: int = 9222
+    alternate_gemini_user: str | None = None
     confirm_pro: bool = False
     dry_run: bool = False
     force_from: str | None = None
@@ -227,8 +228,17 @@ def execute(s: Settings) -> Path:
         print(f"[microgen] stage: {stage}")
     if s.dry_run:
         return folder
-    if any(x in CHROME_STAGES for x in planned) and not s.confirm_pro:
-        raise RuntimeError("Before running Selenium stages, manually select Gemini Pro in the browser; rerun with --confirm-pro after checking. This is an operator attestation, NOT automated model verification.")
+    if any(x in CHROME_STAGES for x in planned):
+        from .launch_gemini import launch
+        requested_port = s.chrome_port
+        # Keep 9222 for the normal persistent account. If alternate mode is
+        # requested without an explicit non-default port, isolate it on 9223.
+        if s.alternate_gemini_user and requested_port == 9222:
+            requested_port = 9223
+        actual_port, _ = launch(s.alternate_gemini_user, requested_port)
+        s.chrome_port = actual_port
+        if not s.confirm_pro:
+            raise RuntimeError("Gemini Chrome is ready. Select Gemini Pro in the browser if necessary; rerun with --confirm-pro after checking. Default mode reuses the persistent signed-in profile and does not request login.")
     prepare(source, folder)
     stamp = folder / ".selenium_pipeline_state.json"
     state = json.loads(stamp.read_text(encoding="utf-8")) if stamp.exists() else {}
@@ -318,6 +328,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--tts-model", default=DEFAULT_TTS)
     p.add_argument("--tts-voice", default="Kore")
     p.add_argument("--chrome-port", type=int, default=9222)
+    p.add_argument("--alternate-gemini-user", metavar="PROFILE_LABEL",
+                   help="Use a separate persistent Chrome profile; sign-in is interactive only if needed")
     p.add_argument("--from-stage", choices=STAGES, default="figures")
     p.add_argument("--through-stage", choices=STAGES, default="video")
     p.add_argument("--force-from", choices=STAGES)
@@ -350,7 +362,8 @@ def main(argv: list[str] | None = None) -> int:
         execute(Settings(source_root=args.source_root, work_root=args.work_root,
                          subchapter=job, tts_provider=args.tts_provider,
                          tts_model=args.tts_model, tts_voice=args.tts_voice,
-                         chrome_port=args.chrome_port, from_stage=args.from_stage,
+                         chrome_port=args.chrome_port, alternate_gemini_user=args.alternate_gemini_user,
+                         from_stage=args.from_stage,
                          through_stage=args.through_stage, force_from=args.force_from,
                          confirm_pro=args.confirm_pro, dry_run=args.dry_run))
     return 0
