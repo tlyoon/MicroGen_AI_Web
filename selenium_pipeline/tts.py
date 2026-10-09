@@ -7,6 +7,10 @@ from __future__ import annotations
 
 import argparse
 import base64
+import io
+import math
+import re
+import wave
 import os
 import shutil
 import subprocess
@@ -115,10 +119,112 @@ def _gemini_failover_request(text: str, number: int, model: str, voice: str) -> 
     )
 
 
-def _gemini_say_with_watchdog(text: str, number: int, model: str, voice: str) -> bytes:
-    timeout_seconds = max(10.0, float(os.environ.get("MICROGEN_TTS_HARD_TIMEOUT_SECONDS", "90")))
+def _tts_timeout_seconds(text: str) -> float:
+    """Return a length-aware hard timeout for one Gemini TTS request."""
+    override = os.environ.get("MICROGEN_TTS_HARD_TIMEOUT_SECONDS", "").strip()
+    if override:
+        return max(10.0, float(override))
+
+    base = max(30.0, float(os.environ.get("MICROGEN_TTS_TIMEOUT_BASE_SECONDS", "90")))
+    per_100 = max(0.0, float(os.environ.get("MICROGEN_TTS_TIMEOUT_PER_100_CHARS_SECONDS", "15")))
+    cap = max(base, float(os.environ.get("MICROGEN_TTS_TIMEOUT_MAX_SECONDS", "300")))
+    estimated = base + per_100 * math.ceil(max(1, len(text)) / 100)
+    return min(cap, estimated)
+
+
+def _split_tts_text(text: str, max_chars: int | None = None) -> list[str]:
+    """Split narration at sentence boundaries, then whitespace, as a last-resort fallback."""
+    if max_chars is None:
+        max_chars = max(200, int(os.environ.get("MICROGEN_TTS_CHUNK_MAX_CHARS", "450")))
+    cleaned = re.sub(r"\s+", " ", text).strip()
+    if not cleaned or len(cleaned) <= max_chars:
+        return [cleaned] if cleaned else []
+
+    sentences = re.split(r"(?<=[.!?])\s+", cleaned)
+    chunks: list[str] = []
+    current = ""
+
+    def flush_current() -> None:
+        nonlocal current
+        if current:
+            chunks.append(current.strip())
+            current = ""
+
+    for sentence in sentences:
+        sentence = sentence.strip()
+        if not sentence:
+            continue
+        if len(sentence) <= max_chars:
+            trial = sentence if not current else f"{current} {sentence}"
+            if len(trial) <= max_chars:
+                current = trial
+            else:
+                flush_current()
+                current = sentence
+            continue
+
+        flush_current()
+        remaining = sentence
+        while len(remaining) > max_chars:
+            cut = remaining.rfind(" ", 0, max_chars + 1)
+            if cut < max_chars // 2:
+                cut = max_chars
+            chunks.append(remaining[:cut].strip())
+            remaining = remaining[cut:].strip()
+        if remaining:
+            current = remaining
+
+    flush_current()
+    return [chunk for chunk in chunks if chunk]
+
+
+def _merge_wav_payloads(payloads: list[bytes]) -> bytes:
+    """Concatenate compatible PCM WAV payloads into one valid WAV."""
+    if not payloads:
+        raise ValueError("No WAV payloads to merge")
+
+    params = None
+    frames: list[bytes] = []
+    for payload in payloads:
+        with wave.open(io.BytesIO(payload), "rb") as wav:
+            signature = (
+                wav.getnchannels(),
+                wav.getsampwidth(),
+                wav.getframerate(),
+                wav.getcomptype(),
+                wav.getcompname(),
+            )
+            if params is None:
+                params = signature
+            elif signature != params:
+                raise RuntimeError("TTS chunk WAV formats do not match")
+            frames.append(wav.readframes(wav.getnframes()))
+
+    channels, sampwidth, framerate, comptype, compname = params
+    output = io.BytesIO()
+    with wave.open(output, "wb") as wav:
+        wav.setnchannels(channels)
+        wav.setsampwidth(sampwidth)
+        wav.setframerate(framerate)
+        wav.setcomptype(comptype, compname)
+        wav.writeframes(b"".join(frames))
+    return output.getvalue()
+
+
+def _gemini_say_with_watchdog(
+    text: str,
+    number: int,
+    model: str,
+    voice: str,
+    *,
+    allow_chunking: bool = True,
+    request_label: str | None = None,
+) -> bytes:
+    timeout_seconds = _tts_timeout_seconds(text)
     attempts = max(1, int(os.environ.get("MICROGEN_TTS_REQUEST_ATTEMPTS", "3")))
+    label = request_label or f"slide{number}"
     last_error: BaseException | None = None
+    timed_out_attempts = 0
 
     for attempt in range(1, attempts + 1):
         with tempfile.TemporaryDirectory(prefix=f"microgen_tts_slide{number}_") as tmp:
@@ -146,14 +252,15 @@ def _gemini_say_with_watchdog(text: str, number: int, model: str, voice: str) ->
                     env=os.environ.copy(),
                 )
             except subprocess.TimeoutExpired:
+                timed_out_attempts += 1
                 last_error = TimeoutError(
-                    f"Gemini TTS slide{number} exceeded hard timeout of "
+                    f"Gemini TTS {label} exceeded hard timeout of "
                     f"{timeout_seconds:.0f}s on attempt {attempt}/{attempts}"
                 )
                 if attempt < attempts:
                     print(f"[tts] {last_error}; retrying", flush=True)
                     continue
-                raise last_error
+                break
 
             if completed.returncode == 0 and output.is_file():
                 payload = output.read_bytes()
@@ -162,7 +269,7 @@ def _gemini_say_with_watchdog(text: str, number: int, model: str, voice: str) ->
 
             detail = (completed.stderr or completed.stdout or "").strip()
             last_error = RuntimeError(
-                f"Gemini TTS slide{number} worker failed on attempt {attempt}/{attempts}"
+                f"Gemini TTS {label} worker failed on attempt {attempt}/{attempts}"
                 + (f": {detail}" if detail else "")
             )
             if attempt < attempts:
@@ -170,9 +277,37 @@ def _gemini_say_with_watchdog(text: str, number: int, model: str, voice: str) ->
                 continue
             raise last_error
 
+    if (
+        allow_chunking
+        and timed_out_attempts == attempts
+        and len(text) > max(200, int(os.environ.get("MICROGEN_TTS_CHUNK_MAX_CHARS", "450")))
+    ):
+        chunks = _split_tts_text(text)
+        if len(chunks) > 1:
+            print(
+                f"[tts] {label}: full narration timed out {attempts} times; "
+                f"falling back to {len(chunks)} sentence-aware chunks",
+                flush=True,
+            )
+            payloads: list[bytes] = []
+            for index, chunk in enumerate(chunks, start=1):
+                chunk_label = f"{label} chunk {index}/{len(chunks)}"
+                print(f"[tts] requesting {chunk_label} ({len(chunk)} chars)", flush=True)
+                payloads.append(
+                    _gemini_say_with_watchdog(
+                        chunk,
+                        number,
+                        model,
+                        voice,
+                        allow_chunking=False,
+                        request_label=chunk_label,
+                    )
+                )
+            return _merge_wav_payloads(payloads)
+
     if last_error is not None:
         raise last_error
-    raise RuntimeError(f"Gemini TTS slide{number} failed without a result")
+    raise RuntimeError(f"Gemini TTS {label} failed without a result")
 
 
 def _chirp_say(client, text: str, voice: str) -> bytes:
