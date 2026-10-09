@@ -1,0 +1,409 @@
+Sub-chapter content source:
+Use the attached file source.pdf as the sole sub-chapter content source.
+Do not expect inline PDF text inside this prompt.
+
+======================================================================
+
+PNG DIMENSION METADATA
+======================================================================
+
+PNG dimension metadata:
+{png_dimension_json}
+
+Use the PNG dimension metadata above when deciding how to include any figure in the LaTeX slides.
+
+Mandatory figure rules:
+- The JSON gives the true width and height of each PNG file.
+- For every figure that is actually included, compute:
+  aspect_ratio = width / height
+- Preserve aspect ratio at all times.
+- Never distort figures.
+- Do NOT use a single unconstrained width-only or height-only strategy as the default.
+- Use bounded-box sizing so that every included figure is constrained by both a maximum width and a maximum height:
+  \includegraphics[width=...,height=...,keepaspectratio]{...}
+- The purpose of specifying both width and height is NOT to distort the figure. It is to impose an upper bound in both directions while keepaspectratio preserves the original shape.
+- Use the metadata only for figure sizing and layout decisions, never for inventing academic content.
+
+Mandatory tightened figure sizing heuristics:
+1. Figure-dominant single-column slide:
+   - Use only when the figure is central to the slide and text is minimal.
+   - Preferred sizing:
+     \includegraphics[width=0.88\textwidth,height=0.56\textheight,keepaspectratio]{...}
+
+2. Balanced figure-and-text single-column slide:
+   - Use when the slide contains a short explanatory block or a few bullets together with a nontrivial figure.
+   - Preferred sizing:
+     \includegraphics[width=0.76\textwidth,height=0.42\textheight,keepaspectratio]{...}
+
+3. Text-heavy slide with supporting figure:
+   - Use when the figure is present only to support the explanation.
+   - Preferred sizing:
+     \includegraphics[width=0.62\textwidth,height=0.32\textheight,keepaspectratio]{...}
+
+4. Two-column slide image:
+   - Use when portrait/tall figures or side-by-side explanation clearly improve readability.
+   - Preferred sizing inside the image column:
+     \includegraphics[width=\linewidth,height=0.52\textheight,keepaspectratio]{...}
+
+5. Tall portrait figure in two-column layout:
+   - Preferred sizing inside the image column:
+     \includegraphics[width=\linewidth,height=0.56\textheight,keepaspectratio]{...}
+
+Aspect-ratio-guided layout rule:
+- Use aspect ratio to help choose the slide layout class, not as the sole determinant of the raw image scale.
+- Recommended interpretation:
+  * aspect_ratio > 1.6:
+    usually single-column, figure-dominant or balanced
+  * 1.1 <= aspect_ratio <= 1.6:
+    usually balanced single-column or two-column depending on text density
+  * 0.8 <= aspect_ratio < 1.1:
+    usually balanced or text-heavy depending on content density
+  * aspect_ratio < 0.8:
+    strongly prefer two-column layout first
+
+Slide content density rule:
+- Text must never overlap with figures.
+- Figures must never extend beyond slide boundaries.
+- If there are 4 or more bullets above a figure, do NOT use the figure-dominant box.
+- If there are 3 or more bullets and the figure is nontrivial, prefer two-column layout.
+- If text appears above the figure, prefer the balanced or text-heavy bounded box rather than the figure-dominant bounded box.
+- If the figure remains too small to read under the bounded box, reduce text on that slide.
+- If readability is still insufficient, split into two consecutive slides:
+  1. concept/explanation slide,
+  2. immediate figure-focused slide.
+- Never compensate for poor readability by letting the figure exceed the bounded-box height limit.
+
+Figure placement rule:
+- Place figures as centered blocks, not inline with text.
+- Preferred structure:
+  \begin{center}
+  \includegraphics[...,keepaspectratio]{...}
+  \end{center}
+- Or use the required figure wrapper defined later in this prompt.
+
+Two-column layout rule:
+- When a figure is tall (portrait orientation), when png_dimension_json recommends two_columns, or when side-by-side explanation clearly improves readability, Gemini should use a two-column Beamer layout.
+- Strong triggers for two-column layout:
+  1. aspect_ratio < 0.8
+  2. figure_category = portrait_photo
+  3. recommended_columns_layout = two_columns
+  4. a balanced conceptual explanation plus a moderately sized figure fits better side by side than in vertical stacking
+  5. the slide has 3 or more bullets and a nontrivial figure
+- In these cases, prefer a structure such as:
+  \begin{columns}
+    \column{0.58\textwidth}
+    concise explanatory bullets or short derivation
+
+    \column{0.42\textwidth}
+    \begin{center}
+    \includegraphics[width=\linewidth,height=0.52\textheight,keepaspectratio]{filename.png}
+    \end{center}
+  \end{columns}
+- For portrait scientist photos, prefer approximately 0.60\textwidth for text and 0.40\textwidth for the image column, with image height capped at 0.56\textheight.
+- For balanced concept-and-figure slides with moderately wide or square figures, use two columns when it clearly improves readability and avoids overflow.
+- If a figure is wide, keep a single-column layout unless the PNG metadata strongly indicates otherwise.
+- Do not use two-column layout if it makes text or labels too small to read.
+
+======================================================================
+CRITICAL LATEX OUTPUT SAFETY (MUST OBEY)
+======================================================================
+
+- Output ASCII only.
+- Do NOT output Unicode minus '-' (U+2212) or plus-minus '±' (U+00B1).
+- Use '-' for minus and \pm for plus-minus, always inside math mode.
+- Replace any Unicode arrows with LaTeX, for example $\rightarrow$.
+- Output ONLY raw LaTeX source.
+- Do NOT output Markdown.
+- Do NOT output code fences such as ``` or ```latex.
+- Do NOT output any explanatory text before or after the LaTeX document.
+- Do NOT output placeholders such as "Here is the LaTeX code:".
+- The first non-space characters of the output must be:
+  \documentclass
+- The final line must be:
+  \end{document}
+
+Reserved character rules for normal text:
+- Never output raw LaTeX-reserved characters in ordinary prose unless they are valid LaTeX syntax.
+- Escape these literal characters when they are needed in normal text:
+  &  -> \&
+  %  -> \%
+  $  -> \$
+  #  -> \#
+  _  -> \_
+  {  -> \{
+  }  -> \}
+- Prefer rewriting ordinary prose rather than using symbolic shorthand.
+- Write "and" instead of "&" in normal prose whenever possible.
+- Write "percent" instead of "%" in normal prose whenever possible.
+- Avoid raw symbolic shorthand in prose if simple words are clearer and safer.
+
+Math mode safety:
+- Put all mathematics in proper LaTeX math mode.
+- Use $...$ for inline math.
+- Use \[...\] or \begin{equation}...\end{equation} for display math.
+- Do not place math-only symbols outside math mode.
+- Always typeset comparison symbols inside math mode.
+- Never output plain "<" or ">" in text mode.
+- Use $\rightarrow$ and $\leftarrow$ for directional arrows.
+
+Environment safety:
+- Every \begin{X} must have a matching \end{X}.
+- Do not output incomplete environments.
+- Do not output stray backticks.
+- Do not output stray braces.
+- Do not output stray percent markers in prose.
+- Do not use verbatim, lstlisting, minted, or any code-display environment.
+
+Final internal syntax audit before emitting output:
+- Check for any raw '&' characters outside valid LaTeX alignment or tabular contexts.
+- Check for any raw '%' characters used as prose.
+- Check for any Markdown fences or backticks.
+- Check for unmatched braces.
+- Check for unmatched \begin / \end pairs.
+- Check that literal underscores in normal text are escaped.
+- If any such issue exists, silently correct it before printing the final LaTeX.
+
+======================================================================
+
+Phase 0 - Preflight and Safety Rails
+======================================================================
+
+Goal: Set up strict anti-omission rules before extraction and slide generation.
+
+Hard constraints:
+- Use ONLY the text in the attached source.pdf for academic content.
+- Use the PNG dimension metadata ONLY for figure sizing and layout decisions.
+- If boundaries or spans are ambiguous, do NOT invent content. Record a gap and continue.
+- Preserve every defined item: definitions, theorems/claims, laws/properties, examples, worked steps, named subsections, cautions/notes, and any explicitly labeled figures/tables/equations that fall within the target span.
+
+Mandatory planning outputs (for internal planning only; do NOT print them):
+- CoverageMap: compact list of included line ranges and page anchors.
+- GapList: any suspected omissions (empty if none).
+- FigureMap: figure IDs found and the derived PNG filenames to include.
+- FigureSizeAudit: for each included figure, record filename, width, height, aspect_ratio, and chosen LaTeX sizing strategy.
+
+Target section rule:
+- The target section is the FIRST valid sub-topic title encountered in the attached source.pdf.
+- You MUST NOT skip the first valid sub-topic title.
+
+======================================================================
+
+Phase 1 - High-Fidelity Sub-Chapter Content Isolation
+======================================================================
+
+Objective: Accurately isolate ONLY the text belonging to the first valid sub-chapter.
+
+1) Identify Sub-Topic Title Pattern
+- Title lines begin with a numeric identifier (e.g., "22.3", "22.4", "4.1.2") followed by title text on the same line.
+- Exclude from titles:
+  * chapter headers/footers and running heads,
+  * isolated page numbers,
+  * figure/table captions,
+  * standalone equation numbers,
+  * in-text references without a leading numeric-section title.
+
+2) Determine TargetSectionNumber
+- Select the first valid sub-topic title encountered.
+- Extract both the numeric id and the title text.
+
+3) Locate Next Title Line
+- From the line after the target title, find the next valid title that logically follows.
+
+4) Determine Content Boundaries
+- Content starts at the target title line.
+- Content ends just before the next valid title, if it exists.
+- Record any apparent page anchors for internal audit only.
+
+5) Extract and Filter
+- Keep only the lines belonging to the target section.
+- Remove obvious headers/footers while preserving the academic content.
+
+6) Validation
+- Ensure the filtered content begins with the target title and forms a cohesive unit.
+- Record CoverageMap and SubHeadingsFound internally.
+- If something appears skipped, add it to GapList.
+
+7) Noise and Artifact Removal
+- Remove residual square-bracketed numeric anchors such as [98], [260], [112, 132], [44-47].
+- Do NOT remove square brackets that are genuinely part of mathematics.
+
+======================================================================
+
+Phase 1B - Span-Completeness Audit
+======================================================================
+
+Internal checks before slide writing:
+- Continuity check for missing subsection numbering.
+- Figure reference check for nearby descriptive content.
+- Law/property enumeration check.
+- Page-span contribution check.
+- If a gap is suspected, keep GapList and later insert a brief GapSlide.
+
+======================================================================
+
+Phase 2 - LaTeX Beamer Presentation Generation
+======================================================================
+
+Constraint:
+- Use ONLY the filtered content derived from the attached source.pdf for academic content.
+- Use the PNG dimension metadata ONLY for figure layout optimization.
+
+NON-NEGOTIABLE:
+- Output MUST begin with \documentclass{...} and MUST end with \end{document}.
+- Every \begin{X} must have a matching \end{X}.
+- Inline math must use $...$.
+- Display math must use \[...\] or \begin{equation}...\end{equation}.
+- Use ASCII only.
+- Output raw LaTeX only.
+- No Markdown, no HTML, no commentary.
+- No code fences or backticks.
+- Escape special ASCII characters in normal text.
+- Use math arrows in math mode.
+- Do not leave residual square-bracketed numeric anchors in the final LaTeX.
+- The final output must be directly compilable by pdflatex without manual correction.
+
+Initial Slides Template
+- First line: \documentclass[10.5pt]{beamer}
+- \usetheme{Madrid}
+- \setbeamertemplate{frametitle}[default]
+- \definecolor{lightblue}{RGB}{173,216,230}
+- \setbeamercolor{frametitle}{bg=lightblue, fg=black}
+- \setbeamertemplate{headline}{%
+    \hfill%
+    \insertframenumber{} / \inserttotalframenumber%
+    \par%
+  }
+- \setbeamertemplate{footline}{}
+- \usepackage{amsmath}
+- \usepackage{amssymb}
+- \usepackage{amsfonts}
+- \usepackage[utf8]{inputenc}
+- \usepackage{graphicx}
+- \title{Title}
+- \author{}
+- \date{}
+- \begin{document}
+- \begin{frame}\titlepage\end{frame}
+- \begin{frame}{Outline}
+  \textbf{Key Topics Covered:}
+  \begin{itemize}
+    \item Item 1
+    \item Item 2
+    \item $\cdots$
+  \end{itemize}
+  \end{frame}
+
+Content Density Rules
+- Each content frame: at most 1-2 main concepts.
+- Use 3-5 concise bullets only.
+- If a frame would be overcrowded, split it into multiple frames using the same frametitle with "(cont.)".
+
+Figure Policy
+- Include a figure only if the filtered content explicitly references it.
+- Derive the PNG filename literally from the reference.
+- For each included figure, look up its dimensions in the PNG dimension metadata.
+- Preserve aspect ratio at all times.
+- Use bounded-box sizing by default.
+- Follow the mandatory tightened figure sizing heuristics defined at the top of this prompt.
+- Adjust surrounding text so that the figure remains readable.
+- If a figure needs more space, first reduce text or move to a dedicated figure-focused slide.
+- Do not allow a figure to exceed its bounded-box limits merely to make it larger.
+
+Required wrapper for all included figures:
+- Always use this exact outer structure:
+  \IfFileExists{filename.png}{%
+    \begin{figure}
+      \centering
+      \includegraphics[CHOSEN_OPTION,keepaspectratio]{filename.png}
+    \end{figure}
+  }{}
+- Replace CHOSEN_OPTION with one bounded-box option such as:
+  * width=0.88\textwidth,height=0.56\textheight
+  * width=0.76\textwidth,height=0.42\textheight
+  * width=0.62\textwidth,height=0.32\textheight
+  * width=\linewidth,height=0.52\textheight
+  * width=\linewidth,height=0.56\textheight
+- Do not omit keepaspectratio.
+- Do not use raw scale=...
+- Do not use unconstrained width-only sizing as the default.
+- Do not use unconstrained height-only sizing as the default.
+- On mixed-content slides, do not use the figure-dominant option unless the text is genuinely minimal.
+- If a slide has 4 or more bullets, prefer the balanced, text-heavy, or two-column option.
+
+Equations
+- Default to unnumbered equations unless explicit numbering is needed on that slide.
+
+Concluding Slides
+- Add one concise Summary frame with 3-5 bullets.
+- Add one final frame with two thoughtful review questions tied directly to the filtered content.
+
+Academic Quality
+- Rigorous, clear, compact, and suitable for strong undergraduate or early graduate level.
+- No Markdown contamination.
+
+Beamer Fragility
+- Do not use \pause.
+- Every content frame must have \frametitle{...}.
+- Add [fragile] only if absolutely necessary.
+
+======================================================================
+
+Phase 2A - Slide Planning
+======================================================================
+
+Before writing frames, create an internal SlidePlan only:
+- One plan entry per definition, law/property, example/worked step, remark/caution, named subheading, figure mention, and key equation.
+- Preserve original order.
+- Ensure each subheading receives at least one planned slide.
+- For each figure slide, internally classify it as:
+  1. figure-dominant,
+  2. balanced figure-and-text,
+  3. text-heavy with supporting figure.
+- Use that classification together with the PNG metadata and the mandatory sizing heuristics to choose the final \includegraphics option.
+- Also decide whether the frame should be single-column or two-column. If the PNG metadata gives recommended_columns_layout = two_columns, treat that as a strong layout preference unless it would harm readability.
+
+======================================================================
+
+Phase 2B - GapSlide
+======================================================================
+
+If GapList is non-empty:
+- Insert a frame titled "Potential Gaps Detected (for instructor review)".
+- Keep it brief.
+- Do not invent missing content.
+
+======================================================================
+
+Phase 2C - Post-Generation Audit
+======================================================================
+
+Before emitting the final LaTeX:
+- Check frame density.
+- Check begin/end environment matching.
+- Check ASCII-only output.
+- Check coverage against the filtered content.
+- Check figure usage:
+  * metadata used when available,
+  * aspect ratio preserved,
+  * bounded-box sizing used unless there is a strong reason not to,
+  * both maximum width and maximum height specified for normal figures,
+  * mixed-content slides do not use over-large figure boxes,
+  * slides with 3 or more bullets plus a nontrivial figure are checked for two-column suitability,
+  * figure remains readable,
+  * no figure overflow,
+  * no overlap or crowding,
+  * two-column layout used when strongly indicated by the metadata or the portrait/tall-figure rules.
+- Check that no residual square-bracketed numeric anchors remain.
+- Check that no raw prose ampersands, raw prose percent signs, raw backticks, or Markdown fences remain.
+- If any check fails, revise internally before output.
+
+======================================================================
+
+OUTPUT PROTOCOL
+======================================================================
+
+- Output ONLY the final LaTeX Beamer document.
+- No commentary.
+- No planning artifacts.
+- No code fences.
+- No backticks anywhere in the output.

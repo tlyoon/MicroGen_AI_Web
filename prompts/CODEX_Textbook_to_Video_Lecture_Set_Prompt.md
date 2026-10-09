@@ -108,13 +108,16 @@ V7_DEFAULT
 
 `V7_DEFAULT` means: **do not override the model choices already defined by the current MicroGen_AI v7/hybrid package**.
 
-At the time this prompt was written, the package defaults are approximately:
+Current development-phase policy:
 
 - figure mapping: `gemini-3.8-flash`,
-- slide generation: `gemini-3.1-pro-preview`,
-- narration generation: `gemini-3.1-pro-preview`.
+- slide generation: `gemini-3.8-flash`,
+- narration generation: `gemini-3.8-flash`,
+- TTS: Flash-family TTS as configured by the package.
 
-Treat the code package itself as authoritative if those defaults later change.
+This is a temporary debugging policy. Keep `MICROGEN_MODEL_PHASE=development` until the entire package passes point-to-point end-to-end validation. Only after all implementation bugs are fixed should the package be switched to `MICROGEN_MODEL_PHASE=production`, which restores Gemini Pro for the browser/LLM stages. The final Pro-mode run must reproduce the same smooth behavior established under Flash.
+
+Treat the code package itself as authoritative if these defaults later change.
 
 If `LLM_MODEL` is changed to an explicit model name, for example:
 

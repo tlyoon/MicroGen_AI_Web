@@ -1,0 +1,2 @@
+# Preserve original legacy source exactly; inherited whitespace is not a new-code defect.
+selenium_pipeline/vendor_template_v2/** -whitespace
