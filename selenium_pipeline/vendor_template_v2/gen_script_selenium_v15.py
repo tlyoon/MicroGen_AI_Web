@@ -125,7 +125,7 @@ EXACT_TITLES_JSON = Path(os.environ.get("EXACT_TITLES_JSON", "slide_titles_exact
 OUT_SCRIPT = Path(os.environ.get("OUT_SCRIPT", "script.txt"))
 WAIT_CAP = int(os.environ.get("WAIT_CAP", "420"))
 MIN_RESPONSE_CHARS = int(os.environ.get("MIN_RESPONSE_CHARS", "1200"))
-RETRY_COUNT = int(os.environ.get("RETRY_COUNT", "1"))
+RETRY_COUNT = int(os.environ.get("RETRY_COUNT", "2"))
 DEFAULT_DURATION = os.environ.get("DEFAULT_DURATION", "30 sec")
 CUSTOM_FORBIDDEN_PHRASES = os.environ.get(
     "FORBIDDEN_PHRASES",
