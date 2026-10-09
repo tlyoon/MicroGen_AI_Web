@@ -188,11 +188,25 @@ def inspect_audio(
     *,
     model: str = DEFAULT_MODEL,
 ) -> dict[str, Any]:
+    from google import genai
     from google.genai import types
-    from gemini_keys import call_with_client_failover, create_gemini_client
+    from gemini_keys import call_with_client_failover
 
     audio = wav_path.read_bytes()
     prompt = QA_PROMPT.replace("{script}", script)
+    timeout_ms = max(
+        120_000,
+        int(os.environ.get("MICROGEN_TTS_QA_REQUEST_TIMEOUT_MS", "360000")),
+    )
+
+    def qa_client(api_key: str):
+        return genai.Client(
+            api_key=api_key,
+            http_options=types.HttpOptions(
+                timeout=timeout_ms,
+                retry_options=types.HttpRetryOptions(attempts=1),
+            ),
+        )
 
     def request(client):
         return client.models.generate_content(
@@ -205,7 +219,7 @@ def inspect_audio(
         )
 
     response = call_with_client_failover(
-        create_gemini_client,
+        qa_client,
         request,
         label=f"TTS fidelity {wav_path.name}",
         max_retries=2,
