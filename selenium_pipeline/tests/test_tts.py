@@ -2,6 +2,7 @@ import sys
 import tempfile
 import os
 import io
+import json
 import wave
 import subprocess
 import types
@@ -69,6 +70,8 @@ class TTSTests(unittest.TestCase):
             self.assertEqual((folder / "slide2.wav").read_bytes(), WAV)
             self.assertFalse((folder / ".tts_candidate").exists())
             self.assertFalse((folder / ".tts.lock").exists())
+            manifest = json.loads((folder / "tts_input_manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(manifest["slides"][1]["tts_text"], "Electric flux is proportional to charge.")
             self.assertEqual(models.requests[0]["model"], "gemini-3.8-flash-lite-tts")
 
     def test_failure_does_not_destroy_previous_audio(self):

@@ -59,7 +59,7 @@ DEFAULT_BROWSER_UI_MODE = os.getenv(
 if DEFAULT_BROWSER_UI_MODE not in {"flash", "pro"}:
     raise ValueError("MICROGEN_GEMINI_UI_MODE must be 'flash' or 'pro'")
 
-STAGES = ("figures", "slides", "narration", "tts", "video")
+STAGES = ("figures", "slides", "narration", "tts", "tts_qa", "video")
 CHROME_STAGES = {"figures", "slides", "narration"}
 SCRIPTS = {
     "figures": ("crop_figs_v3.py", "map_and_rename_selenium_v8.py", "merge_lettered_figs_v3.py"),
@@ -68,8 +68,12 @@ SCRIPTS = {
     "video": ("slice_pdf.py", "gen_video.py"),
 }
 RESOURCE_FILES = ("beamerthemeGelugor.sty", "usmlg.jpg", "usmemb.jpg", "logotype.jpg")
-OUTPUTS = {"slides": ("slides.tex", "slides.pdf"), "narration": ("script.txt",),
-           "video": ("slides.mp4",)}
+OUTPUTS = {
+    "slides": ("slides.tex", "slides.pdf"),
+    "narration": ("script.txt",),
+    "tts_qa": ("tts_fidelity_report.json", "tts_fidelity_report.md"),
+    "video": ("slides.mp4",),
+}
 
 
 def load_microvid_env() -> Path | None:
@@ -184,6 +188,9 @@ def valid(stage: str, folder: Path) -> bool:
         count = len(blocks((folder / "script.txt").read_text(encoding="utf-8")))
         return all((folder / f"slide{i}.wav").is_file() and
                    (folder / f"slide{i}.wav").stat().st_size > 44 for i in range(1, count + 1))
+    if stage == "tts_qa":
+        report = json.loads((folder / "tts_fidelity_report.json").read_text(encoding="utf-8"))
+        return int(report.get("summary", {}).get("blocking_failures", 1)) == 0
     if stage == "video":
         return (folder / "slides.mp4").stat().st_size > 0
     return False
@@ -262,8 +269,12 @@ def run_cmd(command: list[str], cwd: Path, log_path: Path, env: dict[str, str],
 
 def archive_existing_outputs(stage: str, folder: Path) -> None:
     """Move old outputs aside when a stage is explicitly being regenerated."""
-    names = {"slides": ("slides.tex", "slides.pdf"),
-             "narration": ("script.txt",), "video": ("slides.mp4",)}.get(stage, ())
+    names = {
+        "slides": ("slides.tex", "slides.pdf"),
+        "narration": ("script.txt",),
+        "tts_qa": ("tts_fidelity_report.json", "tts_fidelity_report.md"),
+        "video": ("slides.mp4",),
+    }.get(stage, ())
     existing = [folder / name for name in names if (folder / name).is_file()]
     if not existing:
         return
@@ -289,6 +300,8 @@ class Settings:
     tts_provider: str = "gemini"
     tts_model: str = DEFAULT_TTS
     tts_voice: str = "Kore"
+    tts_qa_model: str = ACTIVE_LLM_MODEL
+    tts_qa_threshold: float = 99.0
     chrome_port: int = 9222
     alternate_gemini_user: str | None = None
     confirm_pro: bool = False
@@ -320,6 +333,8 @@ def execute(s: Settings) -> Path:
     print(f"[microgen] slide model: {DEFAULT_SLIDE_MODEL}")
     print(f"[microgen] narration model: {DEFAULT_NARRATION_MODEL}")
     print(f"[microgen] TTS: {s.tts_provider} / {s.tts_model}")
+    if "tts_qa" in planned:
+        print(f"[microgen] TTS QA: {s.tts_qa_model} | threshold {s.tts_qa_threshold:.3f}%")
     for stage in planned:
         print(f"[microgen] stage: {stage}")
     if s.dry_run:
@@ -352,6 +367,8 @@ def execute(s: Settings) -> Path:
         "ui_selection_verified_automatically": any(x in CHROME_STAGES for x in planned),
         "tts": s.tts_model,
         "tts_provider": s.tts_provider,
+        "tts_qa": s.tts_qa_model,
+        "tts_qa_threshold": s.tts_qa_threshold,
     }
     state.setdefault("completed", {})
     if s.force_from:
@@ -376,7 +393,12 @@ def execute(s: Settings) -> Path:
         # A changed stage invalidates every downstream stage, including final video.
         browser_model = {"figures": DEFAULT_CAPTION_MODEL, "slides": DEFAULT_SLIDE_MODEL,
                          "narration": DEFAULT_NARRATION_MODEL}.get(stage, "deterministic-local")
-        model_stamp = f"{s.tts_provider}:{s.tts_model}:{s.tts_voice}" if stage == "tts" else browser_model
+        if stage == "tts":
+            model_stamp = f"{s.tts_provider}:{s.tts_model}:{s.tts_voice}"
+        elif stage == "tts_qa":
+            model_stamp = f"{s.tts_qa_model}:threshold={s.tts_qa_threshold:.3f}:v1"
+        else:
+            model_stamp = browser_model
         if changed_upstream:
             state["completed"].pop(stage, None)
         if state["completed"].get(stage, {}).get("model") == model_stamp and check_valid(stage, folder):
@@ -407,6 +429,26 @@ def execute(s: Settings) -> Path:
                         s.tts_model,
                         "--voice",
                         s.tts_voice,
+                    ],
+                    REPO,
+                    log_file,
+                    env,
+                )
+            elif stage == "tts_qa":
+                qa_python = tts_python_executable()
+                print(f"[microgen] TTS QA Python: {qa_python}")
+                run_cmd(
+                    [
+                        qa_python,
+                        "-m",
+                        "selenium_pipeline.tts_fidelity",
+                        "--folder",
+                        str(folder),
+                        "--model",
+                        s.tts_qa_model,
+                        "--threshold",
+                        str(s.tts_qa_threshold),
+                        "--strict",
                     ],
                     REPO,
                     log_file,
@@ -458,6 +500,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--tts-provider", choices=("gemini", "chirp3"), default="gemini")
     p.add_argument("--tts-model", default=DEFAULT_TTS)
     p.add_argument("--tts-voice", default="Kore")
+    p.add_argument("--tts-qa-model", default=ACTIVE_LLM_MODEL)
+    p.add_argument("--tts-qa-threshold", type=float, default=99.0)
     p.add_argument("--chrome-port", type=int, default=9222)
     p.add_argument("--alternate-gemini-user", metavar="PROFILE_LABEL",
                    help="Use a separate persistent Chrome profile; sign-in is interactive only if needed")
@@ -494,6 +538,8 @@ def main(argv: list[str] | None = None) -> int:
         execute(Settings(source_root=args.source_root, work_root=args.work_root,
                          subchapter=job, tts_provider=args.tts_provider,
                          tts_model=args.tts_model, tts_voice=args.tts_voice,
+                         tts_qa_model=args.tts_qa_model,
+                         tts_qa_threshold=args.tts_qa_threshold,
                          chrome_port=args.chrome_port, alternate_gemini_user=args.alternate_gemini_user,
                          from_stage=args.from_stage,
                          through_stage=args.through_stage, force_from=args.force_from,
