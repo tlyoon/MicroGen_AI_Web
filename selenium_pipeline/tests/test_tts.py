@@ -1,12 +1,14 @@
 import sys
 import tempfile
+import os
+import subprocess
 import types
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from selenium_pipeline.tts import _tts_workspace_lock, synthesize_folder
+from selenium_pipeline.tts import _tts_workspace_lock, _gemini_say_with_watchdog, synthesize_folder
 
 WAV = b"RIFF" + b"X" * 80
 
@@ -94,6 +96,18 @@ class TTSTests(unittest.TestCase):
                     with _tts_workspace_lock(folder):
                         pass
             self.assertFalse((folder / ".tts.lock").exists())
+
+
+    def test_watchdog_retries_and_times_out(self):
+        timeout = subprocess.TimeoutExpired(cmd=["python"], timeout=10)
+        with patch.dict(os.environ, {
+            "MICROGEN_TTS_HARD_TIMEOUT_SECONDS": "10",
+            "MICROGEN_TTS_REQUEST_ATTEMPTS": "2",
+        }):
+            with patch("selenium_pipeline.tts.subprocess.run", side_effect=timeout) as run:
+                with self.assertRaises(TimeoutError):
+                    _gemini_say_with_watchdog("hello", 7, "gemini-3.8-flash-lite-tts", "Kore")
+                self.assertEqual(run.call_count, 2)
 
     def test_stale_lock_is_recovered(self):
         with tempfile.TemporaryDirectory() as tmp:
