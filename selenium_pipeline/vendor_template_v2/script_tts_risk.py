@@ -43,7 +43,13 @@ def _sentence_start(text: str, pos: int) -> bool:
 
 def collect_tts_risks(text: str, *, slide: int | None = None) -> list[dict[str, Any]]:
     findings: list[dict[str, Any]] = []
-    default_severity = "warning" if slide == 1 else "blocking"
+    # Historical Google Cloud TTS trouble tokens are evidence for what the
+    # acoustic QA should inspect, not proof that Gemini Flash Lite TTS will
+    # mispronounce them. Therefore pronunciation-risk constructs are warnings.
+    # Reserve blocking for wording whose intended meaning is intrinsically
+    # ambiguous even before synthesis.
+    default_severity = "warning"
+    blocking_severity = "warning" if slide == 1 else "blocking"
 
     def add(kind: str, token: str, pos: int, message: str, severity: str | None = None):
         line, column = _line_col(text, pos)
@@ -64,42 +70,74 @@ def collect_tts_risks(text: str, *, slide: int | None = None) -> list[dict[str, 
             "dotted_abbreviation",
             match.group(0),
             match.start(),
-            "Dotted abbreviation may be expanded or pronounced unpredictably by TTS; spell out the intended spoken words.",
+            "Dotted abbreviation is a historical TTS pronunciation risk; verify its actual Flash Lite rendering acoustically.",
+            severity="warning",
         )
 
     for match in SINGLE_DOTTED_LETTER.finditer(text):
         if any(a <= match.start() < b for a, b in covered):
             continue
         covered.append(match.span())
+        token = match.group(1)
+        # A period after a physics variable is often sentence punctuation.
+        # Older Google Cloud TTS sometimes expanded forms such as c. in
+        # undesirable ways, but Flash Lite must be judged empirically.
         add(
             "dotted_single_letter",
             match.group(0),
             match.start(),
-            "A single letter followed by a period may be interpreted as an abbreviation (for example, c. can be expanded unexpectedly).",
+            "Single letter followed by a period is a historical TTS pronunciation risk and must be checked acoustically with the current Flash Lite output.",
+            severity="warning",
         )
+
+    explicit_role_re = re.compile(
+        r"(?:variable|charge|point|object|sphere|axis|component|coordinate|"
+        r"denoted|option|choice|letter|radius|distance|area|length|field|"
+        r"magnitude|constant|density|volume|surface|line|plate|rod)\s+$"
+    )
 
     for match in STANDALONE_LETTER.finditer(text):
         token = match.group(1)
         pos = match.start(1)
         if any(a <= pos < b for a, b in covered):
             continue
-        tail = text[match.end(1):match.end(1) + 12].lower()
-        head = text[max(0, pos - 14):pos].lower()
+        tail_raw = text[match.end(1):match.end(1) + 24]
+        tail = tail_raw.lower()
+        head = text[max(0, pos - 24):pos].lower()
 
         if token == "a" or token == "I":
             continue
         if token == "A" and _sentence_start(text, pos):
             continue
-        if re.match(r"(?:-|\s+)(?:axis|coordinate|component|direction)\b", tail):
-            continue
-        if re.search(r"(?:variable|charge|point|object|sphere|axis|component|coordinate|denoted|option|choice|letter)\s+$", head):
-            continue
 
+        explicit_context = bool(
+            re.match(r"(?:-|\s+)(?:axis|coordinate|component|direction)\b", tail)
+            or explicit_role_re.search(head)
+        )
+
+        # Mid-sentence capital A is uniquely dangerous because it may be either
+        # the article "a" or the letter name "A". Keep unexplained cases
+        # blocking, but treat clearly labelled scientific variables as warnings
+        # for acoustic verification rather than regeneration blockers.
+        if token == "A" and not explicit_context:
+            next_word = re.match(r"\s+([A-Za-z][A-Za-z'-]*)", tail_raw)
+            if next_word:
+                add(
+                    "ambiguous_capital_a",
+                    token,
+                    pos,
+                    "Mid-sentence capital A may be an accidental article or a letter label. Rewrite so the intended spoken meaning is explicit.",
+                    severity=blocking_severity,
+                )
+                continue
+
+        kind = "contextual_letter" if explicit_context else "isolated_letter"
         add(
-            "isolated_letter",
+            kind,
             token,
             pos,
-            f"Isolated letter {token!r} may be pronounced as the wrong word or sound. State its role explicitly, such as 'the variable {token}', 'charge {token}', or '{token}-axis'.",
+            f"Letter {token!r} must be checked acoustically to confirm the intended letter/variable pronunciation.",
+            severity="warning",
         )
 
     for match in RAW_MATH.finditer(text):
@@ -107,7 +145,8 @@ def collect_tts_risks(text: str, *, slide: int | None = None) -> list[dict[str, 
             "symbolic_notation",
             match.group(0),
             match.start(),
-            "Symbolic notation can be pronounced unpredictably; narration should contain the intended spoken words.",
+            "Symbolic notation is a pronunciation risk; verify the actual Flash Lite rendering acoustically.",
+            severity="warning",
         )
 
     for match in ALL_CAPS.finditer(text):

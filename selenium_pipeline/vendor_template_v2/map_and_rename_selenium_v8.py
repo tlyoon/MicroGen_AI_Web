@@ -518,7 +518,7 @@ def wait_for_mapping_response_ready(client, baseline_text: str = "", timeout: fl
     stable = 0
     t0 = time.time()
     stall_started = None
-    stall_limit = float(os.getenv("GEMINI_MAPPING_STALL_SECONDS", "25"))
+    stall_limit = max(30.0, float(os.getenv("GEMINI_MAPPING_STALL_SECONDS", "90")))
 
     while time.time() - t0 < timeout:
         cur = clean_model_text(get_latest_response_text(client.driver))

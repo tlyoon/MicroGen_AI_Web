@@ -113,6 +113,41 @@ def load_microvid_env() -> Path | None:
     return None
 
 
+def pipeline_python_executable() -> str:
+    """Return a Python executable with the dependencies required by vendored stages."""
+    override = os.getenv("MICROGEN_PIPELINE_PYTHON", "").strip()
+    candidates = [Path(override)] if override else []
+    if os.name == "nt":
+        candidates.extend([
+            REPO / ".venv" / "Scripts" / "python.exe",
+            Path.home() / ".conda" / "envs" / "docling_dell" / "python.exe",
+        ])
+    else:
+        candidates.extend([
+            REPO / ".venv" / "bin" / "python",
+            Path.home() / ".conda" / "envs" / "docling_dell" / "bin" / "python",
+        ])
+    candidates.append(Path(sys.executable))
+
+    probe = "import docling, selenium, pypdf"
+    for candidate in candidates:
+        if not candidate or not candidate.is_file():
+            continue
+        check = subprocess.run(
+            [str(candidate), "-c", probe],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+        if check.returncode == 0:
+            return str(candidate)
+    raise RuntimeError(
+        "No Python environment with docling, selenium, and pypdf is available "
+        "for MicroGen generation stages. Install the pipeline dependencies or "
+        "set MICROGEN_PIPELINE_PYTHON."
+    )
+
+
 def tts_python_executable() -> str:
     """Return a Python executable that can import google.genai for Gemini TTS."""
     override = os.getenv("MICROGEN_TTS_PYTHON", "").strip()
@@ -479,10 +514,12 @@ def execute(s: Settings) -> Path:
                     env,
                 )
             else:
+                stage_python = pipeline_python_executable()
+                print(f"[microgen] pipeline Python: {stage_python}")
                 for script in SCRIPTS[stage]:
                     if not (folder / script).is_file():
                         raise FileNotFoundError(f"Missing reference entrypoint: {script}")
-                    run_cmd([sys.executable, script], folder, log_file, env)
+                    run_cmd([stage_python, script], folder, log_file, env)
             if not check_valid(stage, folder):
                 raise RuntimeError(f"Validation failed at {stage}; see {log_file}")
             state["completed"][stage] = {"at_utc": utc(), "model": model_stamp}
