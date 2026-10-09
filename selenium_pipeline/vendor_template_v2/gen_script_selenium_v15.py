@@ -563,6 +563,14 @@ def find_symbolic_math_warnings(script_path: Path) -> list[str]:
     return warnings
 
 
+def find_tts_risk_warnings(script_path: Path) -> list[str]:
+    try:
+        from script_tts_risk import blocking_warning_messages
+        return blocking_warning_messages(script_path)
+    except Exception as exc:
+        return [f"TTS-risk validator failed: {type(exc).__name__}: {exc}"]
+
+
 def collect_all_warnings(script_path: Path, slides_pdf_path: Path, exact_titles: list[str]) -> list[str]:
     page_texts = extract_page_texts(slides_pdf_path)
     return (
@@ -574,6 +582,7 @@ def collect_all_warnings(script_path: Path, slides_pdf_path: Path, exact_titles:
         + find_page_counter_artifact_warnings(script_path)
         + find_symbolic_math_warnings(script_path)
         + find_citation_artifact_warnings(script_path)
+        + find_tts_risk_warnings(script_path)
     )
 
 

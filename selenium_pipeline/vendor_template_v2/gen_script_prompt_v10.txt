@@ -88,6 +88,20 @@ Plain-text and math verbalization rules
 - For example, write "vector E" as "the electric field."
 - When a slide contains a mathematical relationship, explain it in words only, as natural speech for text-to-speech narration.
 
+TTS-safe wording rules
+
+The narration will be sent directly to a text-to-speech engine. Write the narration exactly as it should be spoken aloud.
+
+- Avoid abbreviations ending in a period when they could be expanded or pronounced unpredictably. Spell out the intended spoken words instead. For example, do not write an isolated abbreviation such as "c." when you mean a variable, a word, or a phrase.
+- Do not leave a one-letter variable or label unexplained in running narration. Write its spoken role explicitly, for example "the variable y", "the y-axis", "charge A", "point B", or "the x component", depending on the slide.
+- Do not rely on capitalization alone to distinguish an article from a variable. The ordinary article "a" should be written normally; a genuine letter label should be identified by context.
+- Avoid punctuation-based shorthand, slash notation, acronyms, initials, or compact symbols whose spoken interpretation is not unambiguous from ordinary English.
+- When an acronym or initialism is necessary, rewrite it in the intended spoken form unless the pronunciation is unquestionably standard and clear.
+- Write numbers, signs, exponents, units, and scientific notation in a form that has one clear spoken interpretation.
+- Do not assume the TTS engine will infer the intended pronunciation of a single letter, abbreviation, symbol, or punctuation mark.
+- Before returning the script, mentally read every sentence aloud and rewrite any token that could plausibly be pronounced in more than one way.
+- Slide 1 remains exempt from rewriting because its title must match the slide exactly.
+
 Narration requirements for Slides 2 onward
 
 - Explain only the concept shown on that slide.
@@ -112,5 +126,8 @@ Final self-check before responding
 - No forbidden framing or invented course code appears anywhere.
 - No LaTeX, TeX, dollar-delimited math, backslash commands, subscripts, superscripts, or symbolic equation strings appear anywhere in the narration.
 - Every mathematical statement has been rewritten as plain spoken English.
+- No ambiguous dotted abbreviation remains in the narration.
+- No unexplained one-letter variable or label remains in running narration; its role is explicit in the spoken wording.
+- Numbers, signs, exponents, units, acronyms, and scientific notation have one clear intended pronunciation.
 - No citation markers, grounding markers, or bracketed source artefacts appear anywhere in the response body.
 - The only allowed square brackets in the entire output are the timing brackets in slide headers.

@@ -87,6 +87,23 @@ class TTSTests(unittest.TestCase):
             self.assertFalse((folder / "slide2.wav").exists())
             self.assertFalse((folder / ".tts.lock").exists())
 
+    def test_direct_tts_blocks_ambiguous_script(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = Path(tmp)
+            (folder / "script.txt").write_text(
+                "**Slide 1 [3 sec]:\nSafe title**\n\n"
+                "**Slide 2 [10 sec]:\nThe value c. is then compared with Y.**",
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(RuntimeError, "TTS-ambiguous"):
+                synthesize_folder(
+                    folder,
+                    "gemini",
+                    "gemini-3.8-flash-lite-tts",
+                    "Kore",
+                )
+            self.assertFalse((folder / ".tts.lock").exists())
+
     def test_no_secret_blocks_api(self):
         with tempfile.TemporaryDirectory() as tmp:
             folder = self.make_folder(tmp)

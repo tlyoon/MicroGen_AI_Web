@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 from selenium_pipeline.speech import normalize_scientific_speech
 from selenium_pipeline.tts_fidelity import (
+    _risk_checks_text,
     diff_spans,
     evaluate_slide,
     normalize_for_comparison,
@@ -97,6 +98,43 @@ class TTSFidelityTests(unittest.TestCase):
             self.assertEqual(result["status"], "pass")
             self.assertEqual(result["fidelity_percent"], 100.0)
             self.assertAlmostEqual(result["duration_seconds"], 2.0, places=3)
+
+    def test_risk_hints_call_out_historical_failure_modes(self):
+        hints = _risk_checks_text("The value c. is shown beside Y.")
+        self.assertIn("c.", hints)
+        self.assertIn("Y", hints)
+
+    def test_critical_token_issue_forces_review_even_with_perfect_transcript(self):
+        with tempfile.TemporaryDirectory() as td:
+            wav_path = Path(td) / "slide1.wav"
+            make_wav(wav_path)
+            payload = {
+                "transcript": "the y value is positive",
+                "pronunciation_issues": [],
+                "critical_token_issues": [
+                    {
+                        "script_text": "Y",
+                        "heard_as": "wee",
+                        "category": "variable",
+                        "severity": "major",
+                        "note": "Variable name was audibly wrong.",
+                    }
+                ],
+                "audio_defects": [],
+            }
+            with patch(
+                "selenium_pipeline.tts_fidelity.inspect_audio",
+                return_value=payload,
+            ):
+                result = evaluate_slide(
+                    1,
+                    "the y value is positive",
+                    wav_path,
+                    threshold=99.0,
+                )
+            self.assertEqual(result["fidelity_percent"], 100.0)
+            self.assertEqual(result["status"], "review")
+            self.assertEqual(len(result["critical_token_issues"]), 1)
 
     def test_major_pronunciation_issue_forces_review(self):
         with tempfile.TemporaryDirectory() as td:
