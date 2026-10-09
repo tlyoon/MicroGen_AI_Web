@@ -56,16 +56,81 @@ GROUND TRUTH SCRIPT:
 """
 
 
+def _integer_words(value: int) -> str:
+    small = (
+        "zero", "one", "two", "three", "four", "five", "six", "seven", "eight",
+        "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen",
+        "sixteen", "seventeen", "eighteen", "nineteen",
+    )
+    tens = ("", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety")
+    if value < 20:
+        return small[value]
+    if value < 100:
+        return tens[value // 10] + ((" " + small[value % 10]) if value % 10 else "")
+    if value < 1000:
+        return small[value // 100] + " hundred" + (
+            (" " + _integer_words(value % 100)) if value % 100 else ""
+        )
+    if value < 1_000_000:
+        return _integer_words(value // 1000) + " thousand" + (
+            (" " + _integer_words(value % 1000)) if value % 1000 else ""
+        )
+    return str(value)
+
+
+def _ordinal_words(value: int) -> str:
+    irregular = {
+        1: "first", 2: "second", 3: "third", 4: "fourth", 5: "fifth",
+        6: "sixth", 7: "seventh", 8: "eighth", 9: "ninth", 10: "tenth",
+        11: "eleventh", 12: "twelfth", 13: "thirteenth", 14: "fourteenth",
+        15: "fifteenth", 16: "sixteenth", 17: "seventeenth", 18: "eighteenth",
+        19: "nineteenth",
+    }
+    if value in irregular:
+        return irregular[value]
+    if value < 100:
+        tens_value = (value // 10) * 10
+        if value % 10 == 0:
+            base = _integer_words(tens_value)
+            return base[:-1] + "ieth" if base.endswith("y") else base + "th"
+        return _integer_words(tens_value) + " " + _ordinal_words(value % 10)
+    base = _integer_words(value)
+    return base + "th" if base != str(value) else str(value)
+
+
 def normalize_for_comparison(text: str) -> str:
     text = unicodedata.normalize("NFKC", str(text)).lower()
     text = (
-        text.replace("’", "'")
-        .replace("‘", "'")
-        .replace("–", "-")
-        .replace("—", "-")
+        text.replace("?", "'")
+        .replace("?", "'")
+        .replace("?", "-")
+        .replace("?", "-")
     )
+    # Apostrophes and quotation marks are not audible.  Treat e.g. Coulombs and
+    # Coulomb's, or quoted 'A' and A, as the same spoken token.
+    text = text.replace("'", "")
+    text = re.sub(r"(?<=\d),(?=\d)", "", text)
+
+    digit_words = {
+        "0": "zero", "1": "one", "2": "two", "3": "three", "4": "four",
+        "5": "five", "6": "six", "7": "seven", "8": "eight", "9": "nine",
+    }
+
+    def decimal_repl(match: re.Match[str]) -> str:
+        whole = _integer_words(int(match.group(1)))
+        fraction = " ".join(digit_words[d] for d in match.group(2))
+        return f"{whole} point {fraction}"
+
+    text = re.sub(r"\b(\d+)\.(\d+)\b", decimal_repl, text)
+
+    def number_repl(match: re.Match[str]) -> str:
+        value = int(match.group(1))
+        suffix = match.group(2)
+        return _ordinal_words(value) if suffix else _integer_words(value)
+
+    text = re.sub(r"\b(\d+)(st|nd|rd|th)?\b", number_repl, text)
     text = re.sub(r"[-_/]", " ", text)
-    text = re.sub(r"[^\w'\s]", " ", text, flags=re.UNICODE)
+    text = re.sub(r"[^\w\s]", " ", text, flags=re.UNICODE)
     return re.sub(r"\s+", " ", text).strip()
 
 
@@ -273,6 +338,28 @@ def evaluate_slide(
     }
 
 
+def _rescore_result(result: dict[str, Any], threshold: float) -> dict[str, Any]:
+    result = dict(result)
+    script = str(result.get("ground_truth", ""))
+    transcript = str(result.get("transcript", ""))
+    stats = word_error_stats(script, transcript)
+    pronunciation = result.get("pronunciation_issues") or []
+    defects = result.get("audio_defects") or []
+    major_pronunciation = any(
+        isinstance(item, dict)
+        and str(item.get("severity", "")).lower() == "major"
+        for item in pronunciation
+    )
+    result.update(stats)
+    result["differences"] = diff_spans(script, transcript)
+    result["status"] = (
+        "review"
+        if stats["fidelity_percent"] < threshold or major_pronunciation or defects
+        else "pass"
+    )
+    return result
+
+
 def _cache_key(wav_path: Path, script: str, model: str, threshold: float) -> str:
     digest = hashlib.sha256()
     digest.update(b"microgen-tts-qa-v1\0")
@@ -307,7 +394,7 @@ def _evaluate_cached(
         except (OSError, json.JSONDecodeError):
             cached = {}
         if cached.get("_cache_key") == key and isinstance(cached.get("result"), dict):
-            result = cached["result"]
+            result = _rescore_result(cached["result"], threshold)
             print(f"[tts-qa] reusing cached slide{number} result", flush=True)
             return result
 
@@ -357,7 +444,7 @@ def build_report(
 ) -> dict[str, Any]:
     items = _ground_truth_items(folder)
     if workers is None:
-        workers = max(1, int(os.environ.get("MICROGEN_TTS_QA_WORKERS", "3")))
+        workers = max(1, int(os.environ.get("MICROGEN_TTS_QA_WORKERS", "1")))
     workers = max(1, min(int(workers), len(items) or 1))
 
     results: list[dict[str, Any]] = []
@@ -457,7 +544,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--workers",
         type=int,
-        default=max(1, int(os.environ.get("MICROGEN_TTS_QA_WORKERS", "3"))),
+        default=max(1, int(os.environ.get("MICROGEN_TTS_QA_WORKERS", "1"))),
     )
     parser.add_argument(
         "--strict",

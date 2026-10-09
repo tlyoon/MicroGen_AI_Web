@@ -40,6 +40,17 @@ class TTSFidelityTests(unittest.TestCase):
         )
         self.assertEqual(stats["fidelity_percent"], 100.0)
 
+    def test_inaudible_apostrophes_and_quotes_do_not_reduce_fidelity(self):
+        stats = word_error_stats("Coulombs Law on 'A'", "Coulomb's Law on A")
+        self.assertEqual(stats["fidelity_percent"], 100.0)
+
+    def test_digit_and_spoken_number_forms_are_equivalent(self):
+        stats = word_error_stats(
+            "parts in ten to the sixteenth power",
+            "parts in 10 to the 16th power",
+        )
+        self.assertEqual(stats["fidelity_percent"], 100.0)
+
     def test_word_omission_reduces_fidelity(self):
         stats = word_error_stats("one two three four", "one two four")
         self.assertEqual(stats["deletions"], 1)
