@@ -138,6 +138,20 @@ MAP_PATTERN = re.compile(
     re.VERBOSE,
 )
 
+GEMINI_FAILURE_MARKERS = (
+    "i encountered an error doing what you asked",
+    "something went wrong",
+    "an error occurred",
+    "please try again",
+    "could you try again",
+)
+
+
+def _looks_like_gemini_failure_text(text: str) -> bool:
+    normalized = re.sub(r"\s+", " ", (text or "")).strip().lower()
+    return bool(normalized) and any(marker in normalized for marker in GEMINI_FAILURE_MARKERS)
+
+
 def parse_mapping_lines(text: str) -> List[Tuple[str, str, str]]:
     """
     Parse mapping lines like:
@@ -1510,37 +1524,62 @@ def map_and_rename_single_step(
         "The left-hand filename may be any attachment name, and will be ignored by the script.\n"
     )
 
-    t_step = _ts_now()
-    raw = _send_prompt_and_capture_mapping_text(client, prompt, wait_cap=wait_cap)
-    log_timing(f"page {page_png.stem} prompt-to-response pipeline", t_step)
-    txt = clean_model_text(raw)
-    log("[DEBUG] model_txt_first_400=" + repr((txt or "")[:400]))
+    response_attempts = max(1, int(os.getenv("GEMINI_OUTPUT_ATTEMPTS", "3")))
+    parsed: List[Tuple[str, str, str]] = []
+    txt = ""
 
-    parsed = parse_mapping_lines(txt or "")
-    log(f"[PARSE] {page_png.name}: parsed {len(parsed)} raw mapping line(s).")
-
-    # Retry once if Gemini answered in prose instead of mapping lines
-    if not parsed:
-        retry_prompt = (
-            "Your previous reply did not follow the required format.\n"
-            "Reply again using ONLY mapping lines, one line per crop, in the SAME ORDER as the crop list.\n"
-            "No explanation, no bullets, no summary.\n"
-            'Required format example:\n'
-            'crop_1.png : "Figure 22.4" : Figure 22.4.png\n'
+    for response_attempt in range(1, response_attempts + 1):
+        t_step = _ts_now()
+        raw = _send_prompt_and_capture_mapping_text(client, prompt, wait_cap=wait_cap)
+        log_timing(
+            f"page {page_png.stem} prompt-to-response pipeline",
+            t_step,
+            f"attempt={response_attempt}/{response_attempts}",
         )
-        raw_retry = _send_prompt_and_capture_mapping_text(client, retry_prompt, wait_cap=wait_cap)
-        txt_retry = clean_model_text(raw_retry)
-        log("[DEBUG] retry_model_txt_first_400=" + repr((txt_retry or "")[:400]))
-        parsed = parse_mapping_lines(txt_retry or "")
-        if parsed:
-            txt = txt_retry
-            log(f"[PARSE] {page_png.name}: parsed {len(parsed)} raw mapping line(s) after retry.")
+        txt = clean_model_text(raw)
+        log(
+            f"[DEBUG] model_txt_first_400 attempt {response_attempt}/{response_attempts}="
+            + repr((txt or "")[:400])
+        )
+
+        parsed = parse_mapping_lines(txt or "")
+        explicit_error = _looks_like_gemini_failure_text(txt)
+        exact_count = len(parsed) == len(fig_files)
+        log(
+            f"[PARSE] {page_png.name}: parsed {len(parsed)} mapping line(s); "
+            f"expected {len(fig_files)}; explicit_error={explicit_error}."
+        )
+
+        if exact_count and not explicit_error:
+            break
+
+        if response_attempt < response_attempts:
+            reason = (
+                "Gemini returned an explicit error response"
+                if explicit_error
+                else f"response format/count invalid ({len(parsed)} parsed, {len(fig_files)} expected)"
+            )
+            log(
+                f"[RETRY] {page_png.name}: {reason}; resubmitting the SAME request "
+                f"(attempt {response_attempt + 1}/{response_attempts}).",
+                "WARN",
+            )
+            try:
+                stop_generation_if_present(client)
+            except Exception:
+                pass
+            setattr(client, "_map_prompt_cache", None)
+            time.sleep(0.6)
 
     mapping_txt = page_png.with_name(page_png.stem + "_mapping.txt")
 
-    if not parsed:
+    if len(parsed) != len(fig_files) or _looks_like_gemini_failure_text(txt):
         mapping_txt.write_text((txt or "").strip() + "\n", encoding="utf-8")
-        log(f"[WARN] No valid mapping lines parsed. Check {mapping_txt.name} formatting.", "WARN")
+        log(
+            f"[WARN] Gemini failed to return the required {len(fig_files)} mapping line(s) "
+            f"after {response_attempts} attempt(s). Check {mapping_txt.name}.",
+            "WARN",
+        )
         return mapping_txt, []
 
     # Keep only as many mappings as local crops available
@@ -1687,7 +1726,7 @@ def run_mapping(
             try:
                 _mapping_txt = None
                 new_pngs = []
-                page_attempts = max(1, int(os.getenv("GEMINI_PAGE_ATTEMPTS", "2")))
+                page_attempts = max(1, int(os.getenv("GEMINI_PAGE_ATTEMPTS", "3")))
                 for page_attempt in range(1, page_attempts + 1):
                     try:
                         if page_attempt > 1:
