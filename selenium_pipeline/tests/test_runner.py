@@ -6,7 +6,7 @@ from unittest.mock import patch
 from selenium_pipeline.runner import (
     Settings, blocks, job_source, check_valid, execute, archive_existing_outputs,
     DEFAULT_CAPTION_MODEL, CAPTION_BENCHMARK_MODEL, DEFAULT_SLIDE_MODEL,
-    DEFAULT_NARRATION_MODEL, DEFAULT_BROWSER_UI_MODE, MODEL_PHASE,
+    DEFAULT_NARRATION_MODEL, DEFAULT_BROWSER_UI_MODE, MODEL_PHASE, STAGES,
 )
 
 
@@ -18,6 +18,7 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(DEFAULT_SLIDE_MODEL, "gemini-3.8-flash")
         self.assertEqual(DEFAULT_NARRATION_MODEL, "gemini-3.8-flash")
         self.assertEqual(CAPTION_BENCHMARK_MODEL, "gemini-3.8-flash")
+        self.assertEqual(STAGES[-3:], ("tts", "tts_qa", "video"))
 
     def test_parse_reference_script(self):
         example = "**Slide 1 [10 sec]:\nTitle**\n\n**Slide 2 [40 sec]:\nPhysics explanation.**"
@@ -74,7 +75,18 @@ class PipelineTests(unittest.TestCase):
             self.assertFalse(check_valid("slides", folder))
             self.assertFalse(check_valid("narration", folder))
             self.assertFalse(check_valid("tts", folder))
+            self.assertFalse(check_valid("tts_qa", folder))
             self.assertFalse(check_valid("video", folder))
+
+    def test_tts_qa_validation_requires_zero_blocking_failures(self):
+        with tempfile.TemporaryDirectory() as td:
+            folder = Path(td)
+            report = folder / "tts_fidelity_report.json"
+            (folder / "tts_fidelity_report.md").write_text("report", encoding="utf-8")
+            report.write_text('{"summary":{"blocking_failures":0}}', encoding="utf-8")
+            self.assertTrue(check_valid("tts_qa", folder))
+            report.write_text('{"summary":{"blocking_failures":1}}', encoding="utf-8")
+            self.assertFalse(check_valid("tts_qa", folder))
 
 
 if __name__ == "__main__":

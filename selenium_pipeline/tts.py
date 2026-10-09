@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import base64
 import io
+import json
 import math
 import re
 import wave
@@ -409,6 +410,25 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
     for wav in candidate.glob("slide*.wav"):
         wav.replace(folder / wav.name)
     candidate.rmdir()
+
+    manifest = {
+        "version": 1,
+        "provider": provider,
+        "model": model,
+        "voice": voice,
+        "slides": [
+            {
+                "slide": number,
+                "source_text": narration,
+                "tts_text": narration,
+            }
+            for number, narration in items
+        ],
+    }
+    (folder / "tts_input_manifest.json").write_text(
+        json.dumps(manifest, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
     print(f"[tts] completed {len(items)} WAV files via {provider}", flush=True)
 
 
