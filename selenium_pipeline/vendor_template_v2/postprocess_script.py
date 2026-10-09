@@ -9,6 +9,7 @@
 
 ##### This script cleans up script.txt so that the tts can works correctly #####
 
+import os
 import re
 import shutil 
 #import contractions
@@ -49,7 +50,31 @@ def remove_unwanted_square_bracket_items(text):
 
     return "\n".join(cleaned_lines)
 
+def conservative_cleanup(text):
+    """Non-semantic cleanup used by the default MicroGen narration path.
+
+    Pronunciation-specific rewrites are intentionally excluded. Ambiguous text
+    must remain visible so script_qa can reject or flag it, and TTS QA can
+    verify the actual spoken audio.
+    """
+    text = text.replace("â", "'")
+    text = re.sub(r"[’‘ʻʼʽ]", "'", text)
+    text = text.replace("“", '"').replace("”", '"')
+    text = text.replace("–", "-").replace("—", "-")
+    text = text.replace("`", "'")
+    text = text.replace("''", "'")
+    text = re.sub(r"[ \\t]+", " ", text)
+    text = re.sub(r" *\\n *", "\\n", text)
+    return text.strip()
+
+
 def normalize_scientific_text(text):
+    legacy = os.environ.get("MICROGEN_LEGACY_TTS_NORMALIZATION", "0").strip().lower()
+    if legacy not in {"1", "true", "yes", "on"}:
+        return conservative_cleanup(text)
+
+    # Legacy Google-Cloud-era pronunciation normalization is retained only
+    # as an explicit compatibility mode. It is disabled by default.
     # 1. Expand English contractions
     #text = contractions.fix(text)
 
@@ -282,19 +307,10 @@ backup_file = 'script_pre_tts_backup.txt'  # 'orig_script.txt'
 # Backup original
 shutil.copyfile(input_file, backup_file)
 
-# Read input
-import chardet
-
-with open('script.txt', 'rb') as f:
-    raw_data = f.read()
-    result = chardet.detect(raw_data)
-    encoding = result['encoding']
-
-with open('script.txt', 'r', encoding=encoding) as f:
+# Read input. MicroGen writes narration as UTF-8; avoid a runtime
+# dependency on encoding-detection packages.
+with open('script.txt', 'r', encoding='utf-8-sig', errors='replace') as f:
     content = f.read()
-    
-#with open(input_file, 'r', encoding='utf-8') as f:
-#    content = f.read()
 
 # Remove unwanted citation-like square bracket items, but preserve slide timing
 content = remove_unwanted_square_bracket_items(content)
