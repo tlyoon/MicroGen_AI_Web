@@ -42,15 +42,20 @@ Requirements:
 5. Pay special attention to scientific notation, units, variable names, single
    letters, letter names, acronyms, abbreviations, signs, exponents, and proper
    names.
-6. Historical TTS failure modes must be checked explicitly:
-   - a token such as "c." being expanded to an unintended word such as "circa";
-   - a variable or label such as "Y" being pronounced as an unrelated word or
+6. Historical Google Cloud TTS failure modes are examples of what to
+   inspect, not assumptions about the present Gemini Flash Lite TTS engine.
+   Listen empirically and report what this WAV actually does. In particular,
+   check whether:
+   - a token such as "c." is expanded to an unintended word such as "circa";
+   - a variable or label such as "Y" is pronounced as an unrelated word or
      sound instead of the intended letter/variable;
-   - article "a" being read as the letter name "ay", or a genuine letter A being
-     read as the article;
-   - abbreviations or initials being expanded unexpectedly;
-   - a mathematical sign, unit, exponent, or variable being given the wrong
-     spoken value even when the rest of the sentence is correct.
+   - article "a" is read as the letter name "ay", or a genuine letter A is read
+     as the article;
+   - abbreviations or initials are expanded unexpectedly;
+   - a mathematical sign, unit, exponent, or variable is given the wrong spoken
+     value even when the rest of the sentence is correct.
+   Do not flag any of these merely because the token appears in the script; flag
+   them only when the audio itself is wrong, ambiguous, or defective.
 7. For every item in EXTRA PRONUNCIATION RISKS, listen specifically to that
    span and report the actual spoken rendering. If it is ambiguous or wrong,
    add a critical_token_issue even if the ordinary transcript otherwise matches.

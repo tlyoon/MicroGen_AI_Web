@@ -7,7 +7,7 @@ from selenium_pipeline.vendor_template_v2.script_tts_risk import (
 
 
 class ScriptTTSRiskTests(unittest.TestCase):
-    def test_single_letter_period_is_blocking(self):
+    def test_single_letter_period_is_warning_for_acoustic_qa(self):
         findings = collect_tts_risks(
             "The constant c. determines the value.",
             slide=2,
@@ -16,10 +16,11 @@ class ScriptTTSRiskTests(unittest.TestCase):
             any(
                 item["kind"] == "dotted_single_letter"
                 and item["text"] == "c."
-                and item["severity"] == "blocking"
+                and item["severity"] == "warning"
                 for item in findings
             )
         )
+        self.assertFalse(any(item["severity"] == "blocking" for item in findings))
 
     def test_isolated_y_is_warning_for_acoustic_qa(self):
         findings = collect_tts_risks("The force points along Y", slide=4)

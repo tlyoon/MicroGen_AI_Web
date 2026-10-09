@@ -43,9 +43,11 @@ def _sentence_start(text: str, pos: int) -> bool:
 
 def collect_tts_risks(text: str, *, slide: int | None = None) -> list[dict[str, Any]]:
     findings: list[dict[str, Any]] = []
-    # Most isolated scientific symbols are not automatically wrong; they are
-    # pronunciation risks that the acoustic QA must verify. Only constructs
-    # with a strong history of ambiguous TTS expansion are blocking here.
+    # Historical Google Cloud TTS trouble tokens are evidence for what the
+    # acoustic QA should inspect, not proof that Gemini Flash Lite TTS will
+    # mispronounce them. Therefore pronunciation-risk constructs are warnings.
+    # Reserve blocking for wording whose intended meaning is intrinsically
+    # ambiguous even before synthesis.
     default_severity = "warning"
     blocking_severity = "warning" if slide == 1 else "blocking"
 
@@ -68,8 +70,8 @@ def collect_tts_risks(text: str, *, slide: int | None = None) -> list[dict[str, 
             "dotted_abbreviation",
             match.group(0),
             match.start(),
-            "Dotted abbreviation may be expanded or pronounced unpredictably by TTS; spell out the intended spoken words.",
-            severity=blocking_severity,
+            "Dotted abbreviation is a historical TTS pronunciation risk; verify its actual Flash Lite rendering acoustically.",
+            severity="warning",
         )
 
     for match in SINGLE_DOTTED_LETTER.finditer(text):
@@ -77,17 +79,15 @@ def collect_tts_risks(text: str, *, slide: int | None = None) -> list[dict[str, 
             continue
         covered.append(match.span())
         token = match.group(1)
-        # A period after a physics variable is usually just sentence
-        # punctuation (for example, "radius r.").  Historical TTS behavior
-        # makes c. unusually dangerous because it may be expanded as "circa",
-        # so keep c. blocking; route other dotted letters to acoustic QA.
-        severity = blocking_severity if token.lower() == "c" else "warning"
+        # A period after a physics variable is often sentence punctuation.
+        # Older Google Cloud TTS sometimes expanded forms such as c. in
+        # undesirable ways, but Flash Lite must be judged empirically.
         add(
             "dotted_single_letter",
             match.group(0),
             match.start(),
-            "Single letter followed by a period must be checked acoustically; c. is blocking because TTS engines have historically expanded it as an unintended abbreviation.",
-            severity=severity,
+            "Single letter followed by a period is a historical TTS pronunciation risk and must be checked acoustically with the current Flash Lite output.",
+            severity="warning",
         )
 
     explicit_role_re = re.compile(
@@ -145,8 +145,8 @@ def collect_tts_risks(text: str, *, slide: int | None = None) -> list[dict[str, 
             "symbolic_notation",
             match.group(0),
             match.start(),
-            "Symbolic notation can be pronounced unpredictably; narration should contain the intended spoken words.",
-            severity=blocking_severity,
+            "Symbolic notation is a pronunciation risk; verify the actual Flash Lite rendering acoustically.",
+            severity="warning",
         )
 
     for match in ALL_CAPS.finditer(text):

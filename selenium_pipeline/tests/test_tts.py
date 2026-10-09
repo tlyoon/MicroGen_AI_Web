@@ -92,7 +92,7 @@ class TTSTests(unittest.TestCase):
             folder = Path(tmp)
             (folder / "script.txt").write_text(
                 "**Slide 1 [3 sec]:\nSafe title**\n\n"
-                "**Slide 2 [10 sec]:\nThe value c. is then compared with Y.**",
+                "**Slide 2 [10 sec]:\nWe use A torsion balance here.**",
                 encoding="utf-8",
             )
             with self.assertRaisesRegex(RuntimeError, "TTS-ambiguous"):
