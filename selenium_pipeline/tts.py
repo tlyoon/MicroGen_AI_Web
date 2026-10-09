@@ -9,6 +9,9 @@ import argparse
 import base64
 import os
 import shutil
+import subprocess
+import sys
+import tempfile
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -103,6 +106,75 @@ def _gemini_say(client, text: str, model: str, voice: str) -> bytes:
     return _wav_bytes(response)
 
 
+def _gemini_failover_request(text: str, number: int, model: str, voice: str) -> bytes:
+    from gemini_keys import call_with_client_failover, create_gemini_client
+    return call_with_client_failover(
+        create_gemini_client,
+        lambda client: _gemini_say(client, text, model, voice),
+        label=f"Gemini TTS slide{number}",
+    )
+
+
+def _gemini_say_with_watchdog(text: str, number: int, model: str, voice: str) -> bytes:
+    timeout_seconds = max(10.0, float(os.environ.get("MICROGEN_TTS_HARD_TIMEOUT_SECONDS", "90")))
+    attempts = max(1, int(os.environ.get("MICROGEN_TTS_REQUEST_ATTEMPTS", "3")))
+    last_error: BaseException | None = None
+
+    for attempt in range(1, attempts + 1):
+        with tempfile.TemporaryDirectory(prefix=f"microgen_tts_slide{number}_") as tmp:
+            output = Path(tmp) / "result.wav"
+            command = [
+                sys.executable,
+                "-m",
+                "selenium_pipeline.tts_worker",
+                "--output",
+                str(output),
+                "--model",
+                model,
+                "--voice",
+                voice,
+                "--number",
+                str(number),
+            ]
+            try:
+                completed = subprocess.run(
+                    command,
+                    input=text,
+                    text=True,
+                    capture_output=True,
+                    timeout=timeout_seconds,
+                    env=os.environ.copy(),
+                )
+            except subprocess.TimeoutExpired:
+                last_error = TimeoutError(
+                    f"Gemini TTS slide{number} exceeded hard timeout of "
+                    f"{timeout_seconds:.0f}s on attempt {attempt}/{attempts}"
+                )
+                if attempt < attempts:
+                    print(f"[tts] {last_error}; retrying", flush=True)
+                    continue
+                raise last_error
+
+            if completed.returncode == 0 and output.is_file():
+                payload = output.read_bytes()
+                if payload:
+                    return payload
+
+            detail = (completed.stderr or completed.stdout or "").strip()
+            last_error = RuntimeError(
+                f"Gemini TTS slide{number} worker failed on attempt {attempt}/{attempts}"
+                + (f": {detail}" if detail else "")
+            )
+            if attempt < attempts:
+                print(f"[tts] {last_error}; retrying", flush=True)
+                continue
+            raise last_error
+
+    if last_error is not None:
+        raise last_error
+    raise RuntimeError(f"Gemini TTS slide{number} failed without a result")
+
+
 def _chirp_say(client, text: str, voice: str) -> bytes:
     from google.cloud import texttospeech
     # Default to a genuine Chirp 3 HD voice, configurable by name.
@@ -134,7 +206,11 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
                 "No Gemini API key is loaded. Configure GEMINI_API_KEY_1 and optionally "
                 "GEMINI_API_KEY_2 in the standard Microvid .env file."
             )
+        use_watchdog = getattr(create_gemini_client, "__module__", "") == "gemini_keys"
+
         def say(narration: str, number: int) -> bytes:
+            if use_watchdog:
+                return _gemini_say_with_watchdog(narration, number, model, voice)
             return call_with_client_failover(
                 create_gemini_client,
                 lambda client: _gemini_say(client, narration, model, voice),
