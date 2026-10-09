@@ -605,6 +605,120 @@ def raw_response_has_real_narration(text: str, expected_slide_count: int) -> boo
     return nonempty_narration_blocks >= max(2, expected_slide_count // 3)
 
 
+def gemini_connection_interrupted(driver) -> bool:
+    """Return True when Gemini shows its transient interrupted-connection banner."""
+    try:
+        body = (driver.find_element("tag name", "body").text or "").lower()
+    except Exception:
+        return False
+    return (
+        "connection interrupted" in body
+        or "waiting for the complete answer" in body
+    )
+
+
+def latest_model_response_text(driver) -> str:
+    """Return the latest visible Gemini model-response text, if any."""
+    try:
+        nodes = [e for e in driver.find_elements("css selector", "model-response") if e.is_displayed()]
+    except Exception:
+        return ""
+    if not nodes:
+        return ""
+    try:
+        return (nodes[-1].get_attribute("innerText") or nodes[-1].text or "").strip()
+    except Exception:
+        return ""
+
+
+def wait_for_fresh_complete_narration_dom(
+    driver,
+    baseline_text: str,
+    expected_slide_count: int,
+    baseline_url: str = "",
+    timeout: float = 45.0,
+    poll: float = 0.35,
+) -> str:
+    """Prefer a fresh completed DOM response before slower Copy-icon capture."""
+    baseline = (baseline_text or "").strip()
+    started = time.time()
+    last = ""
+    stable_rounds = 0
+
+    while time.time() - started < timeout:
+        current = latest_model_response_text(driver)
+        try:
+            state = driver.execute_script(
+                """
+                const vis=e=>!!(e&&(e.offsetWidth||e.offsetHeight||e.getClientRects().length));
+                const generating=[...document.querySelectorAll('button')].some(
+                  b=>vis(b)&&((b.getAttribute('aria-label')||'').toLowerCase().includes('stop'))
+                );
+                const body=(document.body && document.body.innerText || '').toLowerCase();
+                const interrupted=body.includes('connection interrupted') ||
+                                  body.includes('waiting for the complete answer');
+                return [generating, interrupted];
+                """
+            ) or [False, False]
+            generating = bool(state[0])
+            interrupted = bool(state[1])
+        except Exception:
+            generating = False
+            interrupted = False
+
+        try:
+            current_url = driver.current_url or ""
+        except Exception:
+            current_url = ""
+        routed_fresh = (
+            bool(baseline_url)
+            and current_url != baseline_url
+            and re.match(r"^https://gemini\.google\.com/app/[A-Za-z0-9_-]+", current_url) is not None
+        )
+        fresh = (current != baseline) or routed_fresh
+
+        copy_visible = False
+        try:
+            copy_visible = bool(driver.execute_script(
+                """
+                const vis=e=>!!(e&&(e.offsetWidth||e.offsetHeight||e.getClientRects().length));
+                return [...document.querySelectorAll('button')].some(
+                  b=>vis(b)&&((b.getAttribute('aria-label')||'').toLowerCase()==='copy')
+                );
+                """
+            ))
+        except Exception:
+            pass
+
+        if current and fresh and raw_response_has_real_narration(current, expected_slide_count):
+            if current == last:
+                stable_rounds += 1
+            else:
+                last = current
+                stable_rounds = 0
+
+            # Completion is defined by the response content itself, not by
+            # Gemini's transient Stop/Copy controls. In the current UI those
+            # controls can lag or remain inconsistent after slide 11 is already
+            # fully rendered. A fresh, structurally valid narration that is
+            # byte-for-byte stable across consecutive polls is authoritative.
+            if stable_rounds >= 2:
+                log(
+                    f"Accepted fresh complete narration from stable model-response DOM "
+                    f"after {time.time() - started:.1f}s ({len(current)} chars; "
+                    f"stable_rounds={stable_rounds}).",
+                    "OK",
+                )
+                return current
+        else:
+            last = current
+            stable_rounds = 0
+
+        time.sleep(poll)
+
+    return ""
+
+
 CITATION_ARTIFACT_RE = re.compile(
     r"""
     \[
@@ -750,21 +864,50 @@ def request_script_once(client, gemsel_module, instruction: str, expected_slide_
     client.open_clean_gemini_chat()
     client.upload_files([SLIDES_PDF, SOURCE_PDF, RENDERED_PROMPT_FILE])
 
+    baseline_response = latest_model_response_text(client.driver)
+    try:
+        baseline_url = client.driver.current_url or ""
+    except Exception:
+        baseline_url = ""
+
     if not client.type_prompt_text(instruction, retries=3):
         raise RuntimeError("Could not type into Gemini prompt field after retries.")
-    if not client.click_send_with_fallbacks(retries=3):
-        raise RuntimeError("Could not send the prompt after retries.")
+    log("[SEND-VERIFY] narration prompt typed; invoking durable Gemini submit.", "INFO")
+    sent = bool(client.click_send_with_fallbacks(retries=3))
+    log(f"[SEND-VERIFY] click_send_with_fallbacks returned {sent}.", "INFO")
+    if not sent:
+        raise RuntimeError("Could not durably submit the Gemini narration prompt after retries.")
 
-    log(f"Waiting for model response to stabilize (COPY-icon capture, max_wait={WAIT_CAP}) ...", "INFO")
-
-    response = gemsel_module.capture_gemini_response_like_manual_copy(
+    response = wait_for_fresh_complete_narration_dom(
         client.driver,
-        wait_cap=WAIT_CAP,
-        prefer_latex_doc=False,
-        retries=10,
-        min_chars=MIN_RESPONSE_CHARS,
-        accept_fn=lambda txt: raw_response_has_real_narration(txt, expected_slide_count),
+        baseline_text=baseline_response,
+        expected_slide_count=expected_slide_count,
+        baseline_url=baseline_url,
+        timeout=float(WAIT_CAP),
     )
+
+    if not response and gemini_connection_interrupted(client.driver):
+        log(
+            "Gemini reported 'Connection interrupted' before a complete narration was available; "
+            "aborting this attempt so the outer regeneration loop can retry immediately.",
+            "WARN",
+        )
+        return None
+
+    if not response:
+        log(
+            f"Direct DOM narration capture exhausted the wait window; falling back to COPY-icon capture "
+            f"(max_wait={WAIT_CAP}) ...",
+            "INFO",
+        )
+        response = gemsel_module.capture_gemini_response_like_manual_copy(
+            client.driver,
+            wait_cap=WAIT_CAP,
+            prefer_latex_doc=False,
+            retries=10,
+            min_chars=MIN_RESPONSE_CHARS,
+            accept_fn=lambda txt: raw_response_has_real_narration(txt, expected_slide_count),
+        )
 
     if response and response.strip():
         save_raw_gemini_response(response)

@@ -208,6 +208,7 @@ def _wait_until_generation_finishes(driver, timeout: float = 180.0, poll: float 
     last_text = ""
     stable = 0
     stable_needed = 3
+    blank_since = None
 
     stop_xpaths = [
         "//button[contains(@aria-label,'Stop')]",
@@ -258,6 +259,46 @@ def _wait_until_generation_finishes(driver, timeout: float = 180.0, poll: float 
                         break
         except Exception:
             pass
+
+        # Fail fast if a previously submitted conversation has vanished
+        # back to a blank composer state. This prevents narration from burning
+        # the full response timeout after a transient/aborted submission.
+        blank_conversation = False
+        try:
+            state = driver.execute_script(
+                """
+                const vis=e=>!!(e&&(e.offsetWidth||e.offsetHeight||e.getClientRects().length));
+                const userSelectors=['user-query','[data-message-author-role="user"]','[class*="user-query"]'];
+                const users=new Set();
+                for(const s of userSelectors) for(const e of document.querySelectorAll(s))
+                  if(vis(e)) users.add(e);
+                const models=[...document.querySelectorAll('model-response')].filter(vis).length;
+                const editor=[...document.querySelectorAll(
+                  'div.ql-editor[contenteditable="true"],[contenteditable="true"][role="textbox"],textarea'
+                )].find(vis);
+                const text=editor?((editor.value||editor.innerText||editor.textContent||'').trim()):'';
+                return [users.size, models, text];
+                """
+            ) or [0, 0, ""]
+            blank_conversation = (
+                (not stop_present) and (not cur) and int(state[0]) == 0
+                and int(state[1]) == 0 and not str(state[2] or "").strip()
+            )
+        except Exception:
+            blank_conversation = False
+
+        if blank_conversation:
+            if blank_since is None:
+                blank_since = time.time()
+            elif time.time() - blank_since >= 3.0:
+                log(
+                    "Gemini conversation returned to a blank state after submission; "
+                    "aborting response wait early.",
+                    "WARN",
+                )
+                return
+        else:
+            blank_since = None
 
         # Stability heuristic
         if cur and cur == last_text:
@@ -726,6 +767,32 @@ def capture_gemini_response_like_manual_copy(
 
     _wait_until_generation_finishes(driver, timeout=float(wait_cap), poll=0.5)
 
+    if strict_mode:
+        try:
+            state = driver.execute_script(
+                """
+                const vis=e=>!!(e&&(e.offsetWidth||e.offsetHeight||e.getClientRects().length));
+                const userSelectors=['user-query','[data-message-author-role="user"]','[class*="user-query"]'];
+                const users=new Set();
+                for(const s of userSelectors) for(const e of document.querySelectorAll(s))
+                  if(vis(e)) users.add(e);
+                const models=[...document.querySelectorAll('model-response')].filter(vis).length;
+                const stop=[...document.querySelectorAll('button')].some(
+                  b=>vis(b)&&((b.getAttribute('aria-label')||'').toLowerCase().includes('stop'))
+                );
+                const editor=[...document.querySelectorAll(
+                  'div.ql-editor[contenteditable="true"],[contenteditable="true"][role="textbox"],textarea'
+                )].find(vis);
+                const text=editor?((editor.value||editor.innerText||editor.textContent||'').trim()):'';
+                return [users.size, models, stop, text];
+                """
+            ) or [0, 0, False, ""]
+            if int(state[0]) == 0 and int(state[1]) == 0 and not bool(state[2]) and not str(state[3] or "").strip():
+                log("No active Gemini conversation remains after submission; skipping long capture fallback.", "WARN")
+                return ""
+        except Exception:
+            pass
+
     best_effort_clip = ""
     for _ in range(max(1, retries)):
         clip = _copy_via_toolbar_copy_button(driver) or ""
@@ -937,6 +1004,23 @@ class GeminiSeleniumClient:
         self.driver = webdriver.Chrome(options=opts)
         log("Selenium attached successfully.")
 
+        # A persistent debug browser can contain Google auth/helper tabs. ChromeDriver
+        # does not guarantee which target is current on attach, so explicitly select
+        # the real Gemini tab before login/composer detection.
+        gemini_handle = None
+        for handle in list(self.driver.window_handles):
+            try:
+                self.driver.switch_to.window(handle)
+                if (self.driver.current_url or "").startswith("https://gemini.google.com/"):
+                    gemini_handle = handle
+                    break
+            except Exception:
+                continue
+        if gemini_handle is None:
+            self.driver.get(cfg.gemini_url)
+        else:
+            self.driver.switch_to.window(gemini_handle)
+
         # Smart login detection (kept from v7)
         log("Checking login status... (If browser is at Login screen, please sign in now)")
         t0 = time.time()
@@ -1018,7 +1102,136 @@ class GeminiSeleniumClient:
     def open_clean_gemini_chat(self) -> None:
         self.ensure_driver_is_alive()
         assert self.driver is not None
-        self.driver.get(self.cfg.gemini_url)
+        # Development default is Flash; production returns to Pro after the
+        # complete point-to-point package is stable. An explicit UI override
+        # always wins, otherwise MICROGEN_MODEL_PHASE controls the target.
+        phase = os.getenv("MICROGEN_MODEL_PHASE", "development").strip().lower()
+        target_mode = os.getenv("MICROGEN_GEMINI_UI_MODE", "").strip().lower()
+        if not target_mode:
+            target_mode = "pro" if phase in {"production", "prod", "release"} else "flash"
+        if target_mode not in {"flash", "pro"}:
+            raise RuntimeError(f"Unsupported MICROGEN_GEMINI_UI_MODE={target_mode!r}")
+        target_prefix = "3.8 Flash" if target_mode == "flash" else "3.1 Pro"
+
+        # Reuse an authenticated Gemini tab identified by its real mode picker.
+        # Then actively select the configured target inside that same tab.
+        selected = False
+        selected_mode = ""
+        picker = None
+        select_deadline = time.time() + 12.0
+        while time.time() < select_deadline and not selected:
+            for handle in list(self.driver.window_handles):
+                try:
+                    self.driver.switch_to.window(handle)
+                    if not self.driver.current_url.startswith("https://gemini.google.com/"):
+                        continue
+                    pickers = self.driver.find_elements(By.CSS_SELECTOR, 'button[aria-label^="Open mode picker"]')
+                    for candidate in pickers:
+                        if candidate.is_displayed():
+                            picker = candidate
+                            selected = True
+                            selected_mode = candidate.get_attribute("aria-label") or ""
+                            break
+                    if selected:
+                        break
+                except Exception:
+                    continue
+            if not selected:
+                time.sleep(0.25)
+        if not selected or picker is None:
+            raise RuntimeError(
+                "Authenticated Gemini tab with a mode picker was not found after 12s; "
+                "refusing to use an unknown fallback tab."
+            )
+
+        def _mode_matches(label: str) -> bool:
+            label_l = (label or "").lower()
+            return "currently" in label_l and target_mode in label_l
+
+        if not _mode_matches(selected_mode):
+            try:
+                picker.click()
+            except Exception:
+                self.driver.execute_script("arguments[0].click();", picker)
+
+            target = None
+            mode_deadline = time.time() + 8.0
+            while time.time() < mode_deadline and target is None:
+                for selector in ('[role="menuitem"]', 'gem-menu-item[role="menuitem"]'):
+                    try:
+                        items = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                    except Exception:
+                        items = []
+                    for item in items:
+                        try:
+                            if item.is_displayed() and (item.text or "").strip().startswith(target_prefix):
+                                target = item
+                                break
+                        except Exception:
+                            continue
+                    if target is not None:
+                        break
+                if target is None:
+                    time.sleep(0.20)
+            if target is None:
+                raise RuntimeError(f"Gemini {target_prefix} option was not available.")
+            try:
+                target.click()
+            except Exception:
+                self.driver.execute_script("arguments[0].click();", target)
+
+            confirm_deadline = time.time() + 8.0
+            while time.time() < confirm_deadline:
+                try:
+                    found = self.driver.find_elements(By.CSS_SELECTOR, 'button[aria-label^="Open mode picker"]')
+                    for candidate in found:
+                        if not candidate.is_displayed():
+                            continue
+                        selected_mode = candidate.get_attribute("aria-label") or ""
+                        if _mode_matches(selected_mode):
+                            picker = candidate
+                            break
+                    if _mode_matches(selected_mode):
+                        break
+                except Exception:
+                    pass
+                time.sleep(0.20)
+            if not _mode_matches(selected_mode):
+                raise RuntimeError(
+                    f"Gemini {target_prefix} selection was not confirmed; UI reports {selected_mode!r}."
+                )
+
+        log(f"Selected Gemini tab via mode picker: {selected_mode} (phase={phase})")
+
+        # Start a genuinely fresh conversation through Gemini's own New chat
+        # control. Re-navigating to /app can reuse Angular conversation state
+        # across pages even though the URL looks clean.
+        started_fresh = False
+        try:
+            links = self.driver.find_elements(By.CSS_SELECTOR, 'a[aria-label="New chat"], [data-test-id="side-nav-sparkle-button"]')
+            for link in reversed(links):
+                if link.is_displayed():
+                    try:
+                        link.click()
+                    except Exception:
+                        self.driver.execute_script(
+                            """
+                            const e=arguments[0];
+                            for (const t of ['pointerdown','mousedown','pointerup','mouseup','click']) {
+                              const ev=t.startsWith('pointer')
+                                ? new PointerEvent(t,{bubbles:true,cancelable:true,pointerType:'mouse',isPrimary:true})
+                                : new MouseEvent(t,{bubbles:true,cancelable:true,view:window});
+                              e.dispatchEvent(ev);
+                            }
+                            """,
+                            link,
+                        )
+                    started_fresh = True
+                    break
+        except Exception:
+            started_fresh = False
+        if not started_fresh:
+            self.driver.get(self.cfg.gemini_url)
 
         t0 = time.time()
         while time.time() - t0 < PROMPT_READY_WAIT:
@@ -1030,6 +1243,55 @@ class GeminiSeleniumClient:
             except Exception:
                 pass
             time.sleep(0.4)
+        # Current Gemini sometimes finishes rendering the composer a moment
+        # before Upload & tools becomes interactive. Probe the toggle and wait
+        # briefly for its Angular handler to become live before returning.
+        try:
+            toggles = self.driver.find_elements(By.CSS_SELECTOR, 'button[aria-label="Upload & tools"]')
+            if toggles:
+                toggle = toggles[-1]
+                deadline = time.time() + 4.0
+                while time.time() < deadline:
+                    if (toggle.get_attribute("aria-expanded") or "").lower() == "true":
+                        break
+                    self.driver.execute_script(
+                        """
+                        const e=arguments[0];
+                        for (const t of ['pointerdown','mousedown','pointerup','mouseup','click']) {
+                          const ev=t.startsWith('pointer')
+                            ? new PointerEvent(t,{bubbles:true,cancelable:true,pointerType:'mouse',isPrimary:true})
+                            : new MouseEvent(t,{bubbles:true,cancelable:true,view:window});
+                          e.dispatchEvent(ev);
+                        }
+                        """,
+                        toggle,
+                    )
+                    time.sleep(0.18)
+        except Exception:
+            pass
+
+        # Prove the new-chat composer is empty. Navigation to /app can preserve
+        # draft text in Gemini; stale drafts must never be concatenated with a
+        # new MicroGen mapping prompt.
+        ed = self._get_prompt_editable()
+        try:
+            ed.click()
+            ed.send_keys(Keys.CONTROL, "a")
+            ed.send_keys(Keys.BACKSPACE)
+            time.sleep(0.12)
+        except Exception:
+            pass
+        if (ed.text or "").strip():
+            try:
+                self.driver.execute_script(
+                    "arguments[0].innerHTML='<p><br></p>'; arguments[0].dispatchEvent(new InputEvent('input',{bubbles:true,inputType:'deleteContentBackward'}));",
+                    ed,
+                )
+                time.sleep(0.12)
+            except Exception:
+                pass
+        if (ed.text or "").strip():
+            raise RuntimeError("Gemini composer could not be cleared; refusing to continue with stale draft text.")
         log("Opened Gemini")
 
     def _get_prompt_editable(self):
@@ -1050,70 +1312,285 @@ class GeminiSeleniumClient:
         return self.driver.find_element(By.TAG_NAME, "body")
 
     def type_prompt_text(self, text: str, retries: int = 3) -> bool:
+        """Enter Gemini prompt text through Chrome's input pipeline and verify it."""
         assert self.driver is not None
+
+        def _norm(value: str) -> str:
+            return " ".join((value or "").split())
+
+        expected = _norm(text)
         for attempt in range(retries):
             try:
                 ed = self._get_prompt_editable()
+                if ed is None:
+                    raise RuntimeError("Gemini prompt editor not found")
+                ed.click()
+
+                # Clear any stale draft through the editor command so Quill's
+                # internal model stays synchronized with the DOM.
                 try:
-                    ed.click()
+                    self.driver.execute_script(
+                        """
+                        const e=arguments[0]; e.focus();
+                        const r=document.createRange(); r.selectNodeContents(e);
+                        const s=window.getSelection(); s.removeAllRanges(); s.addRange(r);
+                        document.execCommand('delete', false, null);
+                        """,
+                        ed,
+                    )
+                    time.sleep(0.05)
                 except Exception:
                     pass
-                try:
-                    if pyperclip:
-                        pyperclip.copy(text)
-                        ed.send_keys(Keys.CONTROL, 'v')
-                    else:
-                        ed.send_keys(text)
-                except Exception:
-                    ed.send_keys(text)
-                time.sleep(0.2)
-                return True
+
+                # WebDriver send_keys/paste is silently ignored by the current
+                # Gemini Quill editor on Dell-115. CDP Input.insertText is live-
+                # verified and updates the editor's internal state.
+                self.driver.execute_cdp_cmd("Input.insertText", {"text": text})
+                time.sleep(0.18)
+
+                actual = self.driver.execute_script(
+                    "const e=arguments[0]; return (e.value||e.innerText||e.textContent||'').trim();",
+                    ed,
+                ) or ""
+                actual_norm = _norm(actual)
+                if expected and (actual_norm == expected or expected in actual_norm):
+                    return True
+
+                log(
+                    f"Prompt verification failed after CDP input (attempt {attempt+1}); "
+                    f"expected chars={len(expected)}, actual chars={len(actual_norm)}",
+                    "WARN",
+                )
             except StaleElementReferenceException:
                 log("Prompt textbox went stale; retrying...", "WARN")
-                time.sleep(0.3)
             except Exception as e:
                 log(f"Typing prompt failed (attempt {attempt+1}): {e}", "WARN")
-                time.sleep(0.3)
+            time.sleep(0.25)
         return False
 
     def click_send_with_fallbacks(self, retries: int = 3) -> bool:
+        """Submit only when Gemini shows positive evidence of a new user turn."""
         assert self.driver is not None
+
+        def _snapshot_submission_state() -> tuple[int, int, bool, str]:
+            try:
+                values = self.driver.execute_script(
+                    """
+                    const vis=e=>!!(e&&(e.offsetWidth||e.offsetHeight||e.getClientRects().length));
+                    const userSelectors=['user-query','[data-message-author-role="user"]','[class*="user-query"]'];
+                    const users=new Set();
+                    for(const s of userSelectors) for(const e of document.querySelectorAll(s))
+                      if(vis(e)) users.add(e);
+                    const models=[...document.querySelectorAll('model-response')].filter(vis).length;
+                    const stop=[...document.querySelectorAll('button')].some(
+                      b=>vis(b)&&((b.getAttribute('aria-label')||'').toLowerCase().includes('stop'))
+                    );
+                    const editor=[...document.querySelectorAll(
+                      'div.ql-editor[contenteditable="true"],[contenteditable="true"][role="textbox"],textarea'
+                    )].find(vis);
+                    const text=editor?((editor.value||editor.innerText||editor.textContent||'').trim()):'';
+                    return [users.size, models, stop, text];
+                    """
+                ) or [0, 0, False, ""]
+                return int(values[0]), int(values[1]), bool(values[2]), str(values[3] or "")
+            except Exception:
+                return 0, 0, False, ""
+
+        before_users, before_models, before_stop, before_text = _snapshot_submission_state()
+        before_url = self.driver.current_url
+        log(
+            f"[SEND-VERIFY] baseline users={before_users} models={before_models} "
+            f"stop={before_stop} composer_len={len(before_text.strip())} url={before_url}",
+            "INFO",
+        )
+
+        def _registered() -> str:
+            try:
+                values = self.driver.execute_script(
+                    """
+                    const beforeUsers=Number(arguments[0]||0);
+                    const beforeModels=Number(arguments[1]||0);
+                    const beforeStop=Boolean(arguments[2]);
+                    const beforeText=String(arguments[3]||'').trim();
+                    const beforeUrl=String(arguments[4]||'');
+                    const vis=e=>!!(e&&(e.offsetWidth||e.offsetHeight||e.getClientRects().length));
+                    const userSelectors=['user-query','[data-message-author-role="user"]','[class*="user-query"]'];
+                    const userSet=new Set();
+                    for(const s of userSelectors) for(const e of document.querySelectorAll(s))
+                      if(vis(e)) userSet.add(e);
+                    const users=userSet.size;
+                    const models=[...document.querySelectorAll('model-response')].filter(vis).length;
+                    const stop=[...document.querySelectorAll('button')].some(
+                      b=>vis(b)&&((b.getAttribute('aria-label')||'').toLowerCase().includes('stop'))
+                    );
+                    const editor=[...document.querySelectorAll(
+                      'div.ql-editor[contenteditable="true"],[contenteditable="true"][role="textbox"],textarea'
+                    )].find(vis);
+                    const currentText=editor?((editor.value||editor.innerText||editor.textContent||'').trim()):'';
+                    const clearLimit=Math.max(8, Math.floor(beforeText.length*0.15));
+                    const composerCleared=beforeText.length===0 || currentText.length<=clearLimit;
+                    if(!composerCleared) return '';
+                    const nowUrl=String(location.href||'');
+                    const baseApp=/^https:\/\/gemini\.google\.com\/app\/?(?:[?#].*)?$/i.test(beforeUrl);
+                    const routed=/^https:\/\/gemini\.google\.com\/app\/[A-Za-z0-9_-]+/i.test(nowUrl);
+                    if(baseApp && routed && nowUrl!==beforeUrl) return 'new-conversation-route+composer-cleared';
+                    if(users>beforeUsers) return 'new-user-turn+composer-cleared';
+                    if(models>beforeModels) return 'new-model-response+composer-cleared';
+                    if(!beforeStop && stop) return 'new-stop-state+composer-cleared';
+                    return '';
+                    """,
+                    before_users,
+                    before_models,
+                    before_stop,
+                    before_text,
+                    before_url,
+                )
+                return str(values or "")
+            except Exception:
+                return ""
+
+        def _wait_registered(timeout: float = 4.5, stable_for: float = 0.40) -> bool:
+            deadline = time.time() + timeout
+            positive_since = None
+            last_reason = ""
+            while time.time() < deadline:
+                reason = _registered()
+                if reason:
+                    # A newly materialized user turn or model response, together
+                    # with the cleared composer enforced by _registered(), is
+                    # authoritative submission evidence. Gemini can replace that
+                    # DOM node quickly during route/render transitions, so do not
+                    # require it to remain continuously visible for seconds.
+                    if (
+                        reason.startswith("new-user-turn")
+                        or reason.startswith("new-model-response")
+                        or reason.startswith("new-conversation-route")
+                    ):
+                        log(f"Gemini submission registered via {reason}.", "INFO")
+                        return True
+
+                    # A new Stop control is weaker evidence because upload/file
+                    # processing can also expose Stop. Require it to persist
+                    # briefly while the composer remains cleared.
+                    last_reason = reason
+                    if positive_since is None:
+                        positive_since = time.time()
+                    elif time.time() - positive_since >= stable_for:
+                        log(f"Gemini submission registered via {last_reason}.", "INFO")
+                        return True
+                else:
+                    positive_since = None
+                    last_reason = ""
+                time.sleep(0.05)
+            return False
+
         selectors = [
             '//button[@aria-label="Send message"]',
             '//button[contains(@aria-label,"Send")]',
+            '//button[contains(@aria-label,"Submit")]',
             '//button[contains(@aria-label,"Ask")]',
+            '//button[normalize-space(.)="Submit"]',
             '//button[.//span[contains(normalize-space(.),"Send")]]',
+            '//button[.//span[contains(normalize-space(.),"Submit")]]',
             '//button[.//span[contains(normalize-space(.),"Ask")]]',
         ]
+
         for attempt in range(retries):
             try:
+                btn = None
                 for sel in selectors:
                     btns = self.driver.find_elements(By.XPATH, sel)
-                    if btns:
+                    visible = []
+                    for candidate in btns:
                         try:
-                            WebDriverWait(self.driver, DEFAULT_TIMEOUT).until(EC.element_to_be_clickable(btns[-1]))
+                            if candidate.is_displayed() and candidate.is_enabled():
+                                visible.append(candidate)
                         except Exception:
                             pass
-                        btns[-1].click()
-                        time.sleep(0.25)
+                    if visible:
+                        btn = visible[-1]
+                        break
+
+                if btn is not None:
+                    try:
+                        btn.click()
+                    except Exception:
+                        self.driver.execute_script("arguments[0].click();", btn)
+                    if _wait_registered(4.5):
                         return True
+                    log(
+                        f"Send control produced no new Gemini turn on attempt {attempt+1}; trying CDP Enter.",
+                        "WARN",
+                    )
+
                 ed = self._get_prompt_editable()
-                ed.send_keys(Keys.CONTROL, Keys.ENTER)
-                time.sleep(0.25)
-                return True
+                if ed is None:
+                    raise RuntimeError("Gemini prompt editor unavailable for submit")
+                ed.click()
+                self.driver.execute_cdp_cmd("Input.dispatchKeyEvent", {
+                    "type": "keyDown", "key": "Enter", "code": "Enter",
+                    "windowsVirtualKeyCode": 13
+                })
+                self.driver.execute_cdp_cmd("Input.dispatchKeyEvent", {
+                    "type": "keyUp", "key": "Enter", "code": "Enter",
+                    "windowsVirtualKeyCode": 13
+                })
+                if _wait_registered(4.5):
+                    return True
+
+                log(
+                    f"CDP Enter produced no new Gemini turn on attempt {attempt+1}.",
+                    "WARN",
+                )
             except StaleElementReferenceException:
                 log("Send target went stale; retrying.", "WARN")
-                time.sleep(0.3)
             except Exception as e:
                 log(f"Send click failed (attempt {attempt+1}): {e}", "WARN")
-                time.sleep(0.3)
-        try:
-            ed = self._get_prompt_editable()
-            ed.send_keys(Keys.RETURN)
             time.sleep(0.25)
-            return True
-        except Exception:
-            return False
+
+        # Final trusted-input fallback. The figure mapper has proven on Dell-115
+        # that Gemini sometimes ignores WebDriver/CDP activation but accepts a
+        # real Windows Enter keystroke. Mark and focus the exact controlled
+        # Chrome window before sending Enter, then require durable DOM evidence.
+        marker = f"MICROGEN_AUTOMATION_TARGET_{os.getpid()}"
+        old_title = ""
+        try:
+            from pywinauto import Desktop
+            from pywinauto.keyboard import send_keys as native_send_keys
+
+            ed = self._get_prompt_editable()
+            if ed is None:
+                raise RuntimeError("Gemini prompt editor unavailable for native submit")
+
+            old_title = self.driver.title or "Google Gemini"
+            self.driver.execute_script("document.title=arguments[0]", marker)
+            time.sleep(0.25)
+
+            wins = [w for w in Desktop(backend="uia").windows() if marker in w.window_text()]
+            if len(wins) != 1:
+                raise RuntimeError(f"Expected one marked Gemini Chrome window; found {len(wins)}")
+
+            wins[0].set_focus()
+            self.driver.execute_script("arguments[0].focus()", ed)
+            time.sleep(0.10)
+            native_send_keys("{ENTER}", pause=0.05)
+
+            if _wait_registered(6.0, stable_for=2.50):
+                log("[SEND-VERIFY] native Windows Enter achieved durable submission.", "INFO")
+                return True
+
+            log("[SEND-VERIFY] native Windows Enter did not achieve durable submission.", "WARN")
+        except Exception as e:
+            log(f"[SEND-VERIFY] native Windows Enter fallback failed: {e}", "WARN")
+        finally:
+            if old_title:
+                try:
+                    self.driver.execute_script("document.title=arguments[0]", old_title)
+                except Exception:
+                    pass
+
+        log("[SEND-VERIFY] all send attempts ended without durable registration.", "WARN")
+        return False
 
     # ---------- Upload helpers (DOM-first; dialog-free) ----------
     def _find_file_input_deep_js_current_frame(self):
@@ -1167,7 +1644,14 @@ class GeminiSeleniumClient:
                             self.driver.execute_script("arguments[0].scrollIntoView({block:'center'});", els[-1])
                         except Exception:
                             pass
-                        els[-1].click()
+                        target = els[-1]
+                        try:
+                            target.click()
+                            time.sleep(0.12)
+                            if (target.get_attribute("aria-expanded") or "").lower() == "false":
+                                self.driver.execute_script("arguments[0].click();", target)
+                        except Exception:
+                            self.driver.execute_script("arguments[0].click();", target)
                         time.sleep(backoff)
                         backoff = min(backoff * 1.6 + 0.1, 1.2)
                         break
@@ -1250,16 +1734,115 @@ class GeminiSeleniumClient:
 
     def upload_files(self, paths: List[Path], max_retries: int = 3) -> None:
         assert self.driver is not None
-        log(f"Uploading {len(paths)} file(s): " + ", ".join([Path(p).name for p in paths]))
-        joined = "\n".join(str(Path(p).resolve()) for p in paths)
+        paths = [Path(p).resolve() for p in paths]
+        log(f"Uploading {len(paths)} file(s): " + ", ".join(p.name for p in paths))
+        joined = "\n".join(str(p) for p in paths)
+        all_images = all(p.suffix.lower() in {".png", ".jpg", ".jpeg", ".gif", ".webp"} for p in paths)
 
         for attempt in range(1, max_retries + 1):
             try:
-                got = self._ensure_file_input_any_frame_rescans()
-                if not got:
-                    raise RuntimeError("No <input type=file> found in document or iframes.")
+                self._switch_to_default()
+                # Current Gemini exposes separate document and image file inputs.
+                # For image batches, select the image/* input explicitly instead
+                # of accepting the first (document-only) input in DOM order.
+                el = None
+                if all_images:
+                    image_inputs = self.driver.find_elements(By.CSS_SELECTOR, 'input[type="file"][accept*="image"]')
+                    if not image_inputs:
+                        # Gemini 2026 UI creates the image input only while the
+                        # Upload & tools menu is expanded. Avoid blind clicking:
+                        # clicking an already-open toggle closes it.
+                        buttons = self.driver.find_elements(By.CSS_SELECTOR, 'button[aria-label="Upload & tools"]')
+                        if buttons:
+                            toggle = buttons[-1]
+                            deadline = time.time() + 3.0
+                            while time.time() < deadline:
+                                image_inputs = self.driver.find_elements(By.CSS_SELECTOR, 'input[type="file"][accept*="image"]')
+                                if image_inputs:
+                                    break
+                                if (toggle.get_attribute("aria-expanded") or "").lower() != "true":
+                                    try:
+                                        toggle.click()
+                                    except Exception:
+                                        pass
+                                    time.sleep(0.08)
+                                    if (toggle.get_attribute("aria-expanded") or "").lower() != "true":
+                                        # Gemini's Angular menu can ignore WebDriver's
+                                        # synthetic .click(); dispatch the complete
+                                        # pointer/mouse activation sequence instead.
+                                        self.driver.execute_script(
+                                            """
+                                            const e=arguments[0];
+                                            for (const t of ['pointerdown','mousedown','pointerup','mouseup','click']) {
+                                              const ev=t.startsWith('pointer')
+                                                ? new PointerEvent(t,{bubbles:true,cancelable:true,pointerType:'mouse',isPrimary:true})
+                                                : new MouseEvent(t,{bubbles:true,cancelable:true,view:window});
+                                              e.dispatchEvent(ev);
+                                            }
+                                            """,
+                                            toggle,
+                                        )
+                                time.sleep(0.15)
+                    if image_inputs:
+                        el = image_inputs[-1]
 
-                el, frame_idx = got
+                # For documents/mixed batches, Gemini creates a generic
+                # document/code input when Upload & tools is expanded. Target it
+                # directly instead of repeatedly toggling the menu through the
+                # legacy generic rescanner.
+                if el is None and not all_images:
+                    doc_inputs = []
+                    try:
+                        for candidate in self.driver.find_elements(By.CSS_SELECTOR, 'input[type="file"]'):
+                            accept = (candidate.get_attribute("accept") or "").lower()
+                            if accept and "image/*" not in accept:
+                                doc_inputs.append(candidate)
+                    except Exception:
+                        doc_inputs = []
+
+                    if not doc_inputs:
+                        toggles = self.driver.find_elements(By.CSS_SELECTOR, 'button[aria-label="Upload & tools"]')
+                        if toggles:
+                            toggle = toggles[-1]
+                            if (toggle.get_attribute("aria-expanded") or "").lower() != "true":
+                                try:
+                                    toggle.click()
+                                except Exception:
+                                    pass
+                                time.sleep(0.12)
+                                if (toggle.get_attribute("aria-expanded") or "").lower() != "true":
+                                    self.driver.execute_script(
+                                        """
+                                        const e=arguments[0];
+                                        for (const t of ['pointerdown','mousedown','pointerup','mouseup','click']) {
+                                          const ev=t.startsWith('pointer')
+                                            ? new PointerEvent(t,{bubbles:true,cancelable:true,pointerType:'mouse',isPrimary:true})
+                                            : new MouseEvent(t,{bubbles:true,cancelable:true,view:window});
+                                          e.dispatchEvent(ev);
+                                        }
+                                        """,
+                                        toggle,
+                                    )
+                            deadline = time.time() + 2.5
+                            while time.time() < deadline and not doc_inputs:
+                                time.sleep(0.10)
+                                try:
+                                    for candidate in self.driver.find_elements(By.CSS_SELECTOR, 'input[type="file"]'):
+                                        accept = (candidate.get_attribute("accept") or "").lower()
+                                        if accept and "image/*" not in accept:
+                                            doc_inputs.append(candidate)
+                                except Exception:
+                                    pass
+                    if doc_inputs:
+                        el = doc_inputs[-1]
+
+                frame_idx = None
+                if el is None:
+                    got = self._ensure_file_input_any_frame_rescans()
+                    if not got:
+                        raise RuntimeError("No compatible <input type=file> found in document or iframes.")
+                    el, frame_idx = got
+
                 if frame_idx is not None:
                     try:
                         self.driver.switch_to.frame(self.driver.find_elements(By.TAG_NAME, "iframe")[frame_idx])
@@ -1267,21 +1850,21 @@ class GeminiSeleniumClient:
                         pass
 
                 try:
+                    # The current image input advertises multiple=true and accepts
+                    # a newline-separated WebDriver file list. Sending the whole
+                    # batch atomically is important: sequential send_keys calls
+                    # can replace/discard earlier image selections.
                     el.send_keys(joined)
                 except Exception:
                     dismiss_native_file_dialogs(timeout=2.0)
-                    time.sleep(0.2)
-                    try:
-                        self.driver.execute_script(
-                            "arguments[0].style.display='block'; arguments[0].removeAttribute('hidden');", el
-                        )
-                    except Exception:
-                        pass
-                    el.send_keys(joined)
+                    raise
 
                 self._switch_to_default()
+                # Gemini attachment chips do not consistently expose filenames
+                # as page text. The caller performs the authoritative attachment
+                # count/progress/send-ready verification before submitting.
                 time.sleep(0.8)
-                dismiss_native_file_dialogs(timeout=1.0)
+                dismiss_native_file_dialogs(timeout=0.3)
                 return
 
             except Exception as e:
@@ -1291,7 +1874,7 @@ class GeminiSeleniumClient:
                 except Exception:
                     self.start(ensure_gemini_on_launch=True)
 
-        raise RuntimeError("Could not initialize file upload path after retries.")
+        raise RuntimeError("Could not upload files to Gemini after retries.")
 
     # ---------- Prompt / response ----------
     def send_prompt_and_copy_response(self, instruction_text: str, wait_cap: int) -> str:

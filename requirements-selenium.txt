@@ -4,6 +4,7 @@ selenium>=4.18
 google-genai>=1.0
 google-cloud-texttospeech>=2.0
 pypdf>=4.0
+pdf2image>=1.17
 Pillow>=10.0
 pyperclip>=1.8
 pywinauto>=0.6.8; sys_platform == "win32"

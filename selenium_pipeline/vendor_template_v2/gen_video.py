@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*
 
 # MicroGen_AI Educational Automation Package
-# © 2025 Dr. Yoon Tiem Leong, School of Physics, Universiti Sains Malaysia.
+# ï¿½ 2025 Dr. Yoon Tiem Leong, School of Physics, Universiti Sains Malaysia.
 # This file is part of the MicroGen_AI package.
 # Licensed under the MIT License (see LICENSE file in the project root).
 # You may not use this file except in compliance with the License.
@@ -138,7 +138,11 @@ def build_video(output_filename: str = "slides.mp4"):
     try:
         final_clip = mp.concatenate_videoclips(image_clips, method="compose")
         final_audio = mp.concatenate_audioclips(audio_clips)
-        final_clip = final_clip.set_audio(final_audio)
+        # Carry FPS on the clip itself as well as passing it to write_videofile.
+        # MoviePy 1.0.3 can lose the fps keyword through its decorator wrapper
+        # when a mismatched external decorator package is imported on Windows.
+        # A clip-level FPS keeps ffmpeg_writer from receiving fps=None.
+        final_clip = final_clip.set_audio(final_audio).set_fps(24)
 
         # Safer defaults for Spyder/Windows + progress logger
         final_clip.write_videofile(

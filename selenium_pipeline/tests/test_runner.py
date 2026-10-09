@@ -3,12 +3,20 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from selenium_pipeline.runner import (Settings, blocks, job_source, check_valid, execute, archive_existing_outputs, DEFAULT_CAPTION_MODEL, CAPTION_BENCHMARK_MODEL)
+from selenium_pipeline.runner import (
+    Settings, blocks, job_source, check_valid, execute, archive_existing_outputs,
+    DEFAULT_CAPTION_MODEL, CAPTION_BENCHMARK_MODEL, DEFAULT_SLIDE_MODEL,
+    DEFAULT_NARRATION_MODEL, DEFAULT_BROWSER_UI_MODE, MODEL_PHASE,
+)
 
 
 class PipelineTests(unittest.TestCase):
-    def test_caption_model_policy(self):
-        self.assertEqual(DEFAULT_CAPTION_MODEL, "gemini-3.1-pro-preview")
+    def test_development_model_policy(self):
+        self.assertEqual(MODEL_PHASE, "development")
+        self.assertEqual(DEFAULT_BROWSER_UI_MODE, "flash")
+        self.assertEqual(DEFAULT_CAPTION_MODEL, "gemini-3.8-flash")
+        self.assertEqual(DEFAULT_SLIDE_MODEL, "gemini-3.8-flash")
+        self.assertEqual(DEFAULT_NARRATION_MODEL, "gemini-3.8-flash")
         self.assertEqual(CAPTION_BENCHMARK_MODEL, "gemini-3.8-flash")
 
     def test_parse_reference_script(self):
@@ -35,7 +43,7 @@ class PipelineTests(unittest.TestCase):
             self.assertEqual(folder, workspace / "22" / "22.1")
             self.assertFalse(folder.exists())
 
-    def test_pro_verification_required_before_work(self):
+    def test_configured_model_verification_required_before_work(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td) / "root"
             folder = root / "22" / "22.1"
@@ -43,8 +51,8 @@ class PipelineTests(unittest.TestCase):
             (folder / "source.pdf").write_bytes(b"%PDF stub")
             dest = Path(td) / "working"
             with patch("selenium_pipeline.launch_gemini.launch", return_value=(9222, Path("profile"))):
-                with patch("selenium_pipeline.gemini_model.ensure_pro", side_effect=RuntimeError("Pro not confirmed")):
-                    with self.assertRaisesRegex(RuntimeError, "Pro not confirmed"):
+                with patch("selenium_pipeline.gemini_model.ensure_mode", side_effect=RuntimeError("Configured mode not confirmed")):
+                    with self.assertRaisesRegex(RuntimeError, "Configured mode not confirmed"):
                         execute(Settings(root, dest, "22.1"))
             self.assertFalse(dest.exists())
 

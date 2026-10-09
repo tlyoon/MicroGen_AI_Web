@@ -22,7 +22,13 @@ The original files are not edited. We run a *copy* of the reference scripts in a
 4. **TTS:** Gemini API model `gemini-3.8-flash-lite-tts` by default. Select `gemini-3.8-flash-tts` for higher quality or `chirp3` for Google Cloud Chirp 3 HD. Output `slideN.wav`.
 5. **Video:** `slice_pdf.py`, `gen_video.py`, output `slides.mp4`.
 
-Gemini **3.1 Pro** is the default **browser** model for caption abstraction, slide generation and narration. For caption abstraction specifically, **Gemini 3.8 Flash** is retained as the benchmark/alternative model; it is not the production default until a representative Serway A/B quality test shows equivalent scientific fidelity and interpretation. The Gemini web UI does not expose an API-stable model ID; **this runner cannot force or independently verify the selected UI model**. Before any Selenium stage, the operator must select Pro in the Gemini browser and pass `--confirm-pro` as a human attestation. The checkpoint records a *requested* model rather than a false claim of machine verification.
+### Temporary development model policy
+
+While the package is being debugged point-to-point, **Gemini 3.8 Flash is the default for every LLM-heavy browser stage**: figure/caption mapping, slide generation, and narration. The runner also records `gemini-3.8-flash` for those development-stage model stamps. TTS remains on the Flash family via `gemini-3.8-flash-lite-tts` by default.
+
+This is intentionally temporary. After the complete implementation passes end-to-end with smooth, repeatable output, switch the package to production mode with `MICROGEN_MODEL_PHASE=production`. Production mode restores **Gemini 3.1 Pro** for the browser/LLM stages. The expectation is that Pro must then reproduce the same stable point-to-point behavior proven under Flash before the package is considered finished.
+
+The normal default is currently `MICROGEN_MODEL_PHASE=development`. An explicit `MICROGEN_GEMINI_UI_MODE=flash|pro` or `MICROGEN_LLM_MODEL=<model>` can override the corresponding selection for diagnostics, but should not be needed for ordinary development runs. The runner now verifies/selects the requested Gemini UI mode automatically in the authenticated persistent browser session.
 
 No Selenium browser quota bypass, account login bypass, proxy evasions, or unrestricted automated scraping is implemented. Use this only when authorized under Google's terms and your institutional account's policies. Selenium web requests may still be rate-limited.
 
@@ -57,7 +63,7 @@ The same option can be supplied directly to a production job as `--alternate-gem
 
 Chrome 136+ intentionally does not honor remote-debugging switches against Chrome's ordinary default data directory. Therefore MicroGen uses its own persistent non-default Chrome data directories rather than trying to attach remote debugging to Dell-115's personal Chrome `Default` directory. This preserves the desired no-prompt behavior after the one-time dedicated-profile authentication while respecting Chrome's security model.
 
-Select the requested Gemini Pro model in the browser before proceeding. Do not store Google credentials in the repository or bypass authentication screens.
+During development, the runner automatically selects Gemini Flash in the authenticated browser session. After the package is fully validated, production mode restores Pro. Do not store Google credentials in the repository or bypass authentication screens.
 
 The default output location is local to Dell-115:
 

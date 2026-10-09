@@ -1,11 +1,12 @@
-import os
+import sys
 import tempfile
+import types
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from selenium_pipeline.tts import synthesize_folder
+from selenium_pipeline.tts import _tts_workspace_lock, synthesize_folder
 
 WAV = b"RIFF" + b"X" * 80
 
@@ -28,6 +29,19 @@ class FakeModels:
         return response(WAV)
 
 
+def fake_gemini_keys_module(models=None, keys=None):
+    module = types.ModuleType("gemini_keys")
+    module.get_gemini_api_keys = lambda: list(["TEST_NOT_REAL"] if keys is None else keys)
+    module.create_gemini_client = lambda api_key: SimpleNamespace(models=models)
+
+    def call_with_client_failover(client_factory, operation, **_kwargs):
+        client = client_factory("TEST_NOT_REAL")
+        return operation(client)
+
+    module.call_with_client_failover = call_with_client_failover
+    return module
+
+
 class TTSTests(unittest.TestCase):
     def make_folder(self, root):
         folder = Path(root)
@@ -41,12 +55,13 @@ class TTSTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             folder = self.make_folder(tmp)
             models = FakeModels()
-            with patch.dict(os.environ, {"GEMINI_API_KEY": "TEST_NOT_REAL"}):
-                with patch("google.genai.Client", return_value=SimpleNamespace(models=models)):
-                    synthesize_folder(folder, "gemini", "gemini-3.8-flash-lite-tts", "Kore")
+            fake = fake_gemini_keys_module(models=models)
+            with patch.dict(sys.modules, {"gemini_keys": fake}):
+                synthesize_folder(folder, "gemini", "gemini-3.8-flash-lite-tts", "Kore")
             self.assertEqual((folder / "slide1.wav").read_bytes(), WAV)
             self.assertEqual((folder / "slide2.wav").read_bytes(), WAV)
             self.assertFalse((folder / ".tts_candidate").exists())
+            self.assertFalse((folder / ".tts.lock").exists())
             self.assertEqual(models.requests[0]["model"], "gemini-3.8-flash-lite-tts")
 
     def test_failure_does_not_destroy_previous_audio(self):
@@ -54,19 +69,39 @@ class TTSTests(unittest.TestCase):
             folder = self.make_folder(tmp)
             (folder / "slide1.wav").write_bytes(b"RIFF" + b"A" * 60)
             models = FakeModels(fail_at=2)
-            with patch.dict(os.environ, {"GEMINI_API_KEY": "TEST_NOT_REAL"}):
-                with patch("google.genai.Client", return_value=SimpleNamespace(models=models)):
-                    with self.assertRaisesRegex(RuntimeError, "temporary API error"):
-                        synthesize_folder(folder, "gemini", "gemini-3.8-flash-tts", "Kore")
+            fake = fake_gemini_keys_module(models=models)
+            with patch.dict(sys.modules, {"gemini_keys": fake}):
+                with self.assertRaisesRegex(RuntimeError, "temporary API error"):
+                    synthesize_folder(folder, "gemini", "gemini-3.8-flash-tts", "Kore")
             self.assertEqual((folder / "slide1.wav").read_bytes(), b"RIFF" + b"A" * 60)
             self.assertFalse((folder / "slide2.wav").exists())
+            self.assertFalse((folder / ".tts.lock").exists())
 
     def test_no_secret_blocks_api(self):
         with tempfile.TemporaryDirectory() as tmp:
             folder = self.make_folder(tmp)
-            with patch.dict(os.environ, {"GEMINI_API_KEY": "", "GOOGLE_API_KEY": ""}):
+            fake = fake_gemini_keys_module(models=FakeModels(), keys=[])
+            with patch.dict(sys.modules, {"gemini_keys": fake}):
                 with self.assertRaises(EnvironmentError):
                     synthesize_folder(folder, "gemini", "gemini-3.8-flash-lite-tts", "Kore")
+            self.assertFalse((folder / ".tts.lock").exists())
+
+    def test_second_live_writer_is_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = Path(tmp)
+            with _tts_workspace_lock(folder):
+                with self.assertRaisesRegex(RuntimeError, "already active"):
+                    with _tts_workspace_lock(folder):
+                        pass
+            self.assertFalse((folder / ".tts.lock").exists())
+
+    def test_stale_lock_is_recovered(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = Path(tmp)
+            (folder / ".tts.lock").write_text("999999999\n", encoding="utf-8")
+            with _tts_workspace_lock(folder):
+                self.assertTrue((folder / ".tts.lock").exists())
+            self.assertFalse((folder / ".tts.lock").exists())
 
 
 if __name__ == "__main__":

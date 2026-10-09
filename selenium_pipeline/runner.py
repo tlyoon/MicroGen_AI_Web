@@ -15,6 +15,12 @@ import subprocess
 import sys
 import time
 from dataclasses import dataclass
+
+# Legacy template_v2 scripts emit Unicode status symbols.  Windows may start
+# this parent process on cp1252 even when child processes are explicitly UTF-8.
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        _stream.reconfigure(encoding="utf-8", errors="replace")
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -22,11 +28,37 @@ ROOT = Path(__file__).resolve().parent
 VENDOR = ROOT / "vendor_template_v2"
 REPO = ROOT.parent
 DEFAULT_TTS = "gemini-3.8-flash-lite-tts"
-DEFAULT_CAPTION_MODEL = "gemini-3.1-pro-preview"
+
+# Temporary development policy: keep every LLM-heavy generation stage on Flash
+# until the full point-to-point package is stable. Production is restored by
+# setting MICROGEN_MODEL_PHASE=production, at which point browser/LLM stages
+# return to Pro without changing stage code.
+MODEL_PHASE = os.getenv("MICROGEN_MODEL_PHASE", "development").strip().lower()
+if MODEL_PHASE in {"development", "dev", "debug", "testing", "test"}:
+    MODEL_PHASE = "development"
+elif MODEL_PHASE in {"production", "prod", "release"}:
+    MODEL_PHASE = "production"
+else:
+    raise ValueError("MICROGEN_MODEL_PHASE must be 'development' or 'production'")
+
+DEVELOPMENT_LLM_MODEL = "gemini-3.8-flash"
+PRODUCTION_LLM_MODEL = "gemini-3.1-pro-preview"
+ACTIVE_LLM_MODEL = os.getenv(
+    "MICROGEN_LLM_MODEL",
+    DEVELOPMENT_LLM_MODEL if MODEL_PHASE == "development" else PRODUCTION_LLM_MODEL,
+)
+DEFAULT_CAPTION_MODEL = ACTIVE_LLM_MODEL
 CAPTION_BENCHMARK_MODEL = "gemini-3.8-flash"
-DEFAULT_SLIDE_MODEL = "gemini-3.1-pro-preview"
-DEFAULT_NARRATION_MODEL = "gemini-3.1-pro-preview"
-DEFAULT_PRO = DEFAULT_SLIDE_MODEL
+DEFAULT_SLIDE_MODEL = ACTIVE_LLM_MODEL
+DEFAULT_NARRATION_MODEL = ACTIVE_LLM_MODEL
+DEFAULT_PRO = PRODUCTION_LLM_MODEL
+DEFAULT_BROWSER_UI_MODE = os.getenv(
+    "MICROGEN_GEMINI_UI_MODE",
+    "flash" if MODEL_PHASE == "development" else "pro",
+).strip().lower()
+if DEFAULT_BROWSER_UI_MODE not in {"flash", "pro"}:
+    raise ValueError("MICROGEN_GEMINI_UI_MODE must be 'flash' or 'pro'")
+
 STAGES = ("figures", "slides", "narration", "tts", "video")
 CHROME_STAGES = {"figures", "slides", "narration"}
 SCRIPTS = {
@@ -38,6 +70,69 @@ SCRIPTS = {
 RESOURCE_FILES = ("beamerthemeGelugor.sty", "usmlg.jpg", "usmemb.jpg", "logotype.jpg")
 OUTPUTS = {"slides": ("slides.tex", "slides.pdf"), "narration": ("script.txt",),
            "video": ("slides.mp4",)}
+
+
+def load_microvid_env() -> Path | None:
+    """Load non-committed Microvid secrets into this process without overriding explicit env vars."""
+    candidates: list[Path] = []
+    config_dir = os.getenv("MICROVID_CONFIG_DIR", "").strip()
+    if config_dir:
+        candidates.append(Path(config_dir) / ".env")
+    localappdata = os.getenv("LOCALAPPDATA", "").strip()
+    if localappdata:
+        candidates.append(Path(localappdata) / "Microvid" / ".env")
+
+    seen: set[Path] = set()
+    for path in candidates:
+        path = path.expanduser()
+        if path in seen or not path.is_file():
+            continue
+        seen.add(path)
+        loaded = 0
+        for raw in path.read_text(encoding="utf-8-sig").splitlines():
+            line = raw.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            name, value = line.split("=", 1)
+            name = name.strip()
+            value = value.strip()
+            if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name):
+                continue
+            if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+                value = value[1:-1]
+            if name not in os.environ:
+                os.environ[name] = value
+                loaded += 1
+        print(f"[microgen] loaded {loaded} environment setting(s) from {path}")
+        return path
+    return None
+
+
+def tts_python_executable() -> str:
+    """Return a Python executable that can import google.genai for Gemini TTS."""
+    override = os.getenv("MICROGEN_TTS_PYTHON", "").strip()
+    candidates = [Path(override)] if override else []
+    if os.name == "nt":
+        candidates.append(REPO / ".venv" / "Scripts" / "python.exe")
+    else:
+        candidates.append(REPO / ".venv" / "bin" / "python")
+    candidates.append(Path(sys.executable))
+
+    for candidate in candidates:
+        if not candidate or not candidate.is_file():
+            continue
+        check = subprocess.run(
+            [str(candidate), "-c", "import google.genai"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+        if check.returncode == 0:
+            return str(candidate)
+    raise RuntimeError(
+        "No Python environment with google.genai is available for Gemini TTS. "
+        "Install requirements-selenium.txt or set MICROGEN_TTS_PYTHON."
+    )
 
 
 def utc() -> str:
@@ -219,10 +314,11 @@ def execute(s: Settings) -> Path:
     planned = STAGES[first:last + 1]
     print(f"[microgen] production host: Dell-115 | job: {s.subchapter}")
     print(f"[microgen] input: {source} | work: {folder}")
+    print(f"[microgen] model phase: {MODEL_PHASE}")
+    print(f"[microgen] browser UI model: {DEFAULT_BROWSER_UI_MODE}")
     print(f"[microgen] caption model: {DEFAULT_CAPTION_MODEL} (benchmark alternative: {CAPTION_BENCHMARK_MODEL})")
     print(f"[microgen] slide model: {DEFAULT_SLIDE_MODEL}")
     print(f"[microgen] narration model: {DEFAULT_NARRATION_MODEL}")
-    print("[microgen] browser models are operator-selected, NOT API-enforced")
     print(f"[microgen] TTS: {s.tts_provider} / {s.tts_model}")
     for stage in planned:
         print(f"[microgen] stage: {stage}")
@@ -237,8 +333,8 @@ def execute(s: Settings) -> Path:
             requested_port = 9223
         actual_port, _ = launch(s.alternate_gemini_user, requested_port)
         s.chrome_port = actual_port
-        from .gemini_model import ensure_pro
-        print(f"[microgen] verified Gemini mode: {ensure_pro(s.chrome_port)}")
+        from .gemini_model import ensure_mode
+        print(f"[microgen] verified Gemini mode: {ensure_mode(s.chrome_port, DEFAULT_BROWSER_UI_MODE)}")
     prepare(source, folder)
     stamp = folder / ".selenium_pipeline_state.json"
     state = json.loads(stamp.read_text(encoding="utf-8")) if stamp.exists() else {}
@@ -247,6 +343,8 @@ def execute(s: Settings) -> Path:
         raise RuntimeError("Checkpoint/source mismatch")
     state["source_sha256"] = signature
     state["requested_models"] = {
+        "phase": MODEL_PHASE,
+        "browser_ui": DEFAULT_BROWSER_UI_MODE,
         "caption": DEFAULT_CAPTION_MODEL,
         "caption_benchmark": CAPTION_BENCHMARK_MODEL,
         "slides": DEFAULT_SLIDE_MODEL,
@@ -260,8 +358,19 @@ def execute(s: Settings) -> Path:
         for key in STAGES[STAGES.index(s.force_from):]:
             state["completed"].pop(key, None)
     env = os.environ.copy()
-    env.update({"SAFE_CHROME": "1", "GEMINI_DEBUG_PORT": str(s.chrome_port),
-                "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1"})
+    env.update({
+        "SAFE_CHROME": "1",
+        "GEMINI_DEBUG_PORT": str(s.chrome_port),
+        "MICROGEN_MODEL_PHASE": MODEL_PHASE,
+        "MICROGEN_GEMINI_UI_MODE": DEFAULT_BROWSER_UI_MODE,
+        "MICROGEN_LLM_MODEL": ACTIVE_LLM_MODEL,
+        "PYTHONIOENCODING": "utf-8",
+        "PYTHONUTF8": "1",
+        # Prevent incompatible per-user Python packages from shadowing the
+        # validated pipeline environment (notably decorator 5.x breaking
+        # MoviePy 1.0.3's fps wrapper on Dell-115).
+        "PYTHONNOUSERSITE": "1",
+    })
     changed_upstream = False
     for stage in planned:
         # A changed stage invalidates every downstream stage, including final video.
@@ -278,13 +387,31 @@ def execute(s: Settings) -> Path:
         log_file = folder / f"microgen_{stage}.log"
         try:
             if stage in CHROME_STAGES:
-                from .gemini_model import ensure_pro
-                print(f"[microgen] {stage} Gemini mode: {ensure_pro(s.chrome_port)}")
+                from .gemini_model import ensure_mode
+                print(f"[microgen] {stage} Gemini mode: {ensure_mode(s.chrome_port, DEFAULT_BROWSER_UI_MODE)}")
             if stage != "tts":
                 archive_existing_outputs(stage, folder)
             if stage == "tts":
-                from .tts import synthesize_folder
-                synthesize_folder(folder, s.tts_provider, s.tts_model, s.tts_voice)
+                tts_python = tts_python_executable()
+                print(f"[microgen] TTS Python: {tts_python}")
+                run_cmd(
+                    [
+                        tts_python,
+                        "-m",
+                        "selenium_pipeline.tts",
+                        "--folder",
+                        str(folder),
+                        "--provider",
+                        s.tts_provider,
+                        "--model",
+                        s.tts_model,
+                        "--voice",
+                        s.tts_voice,
+                    ],
+                    REPO,
+                    log_file,
+                    env,
+                )
             else:
                 for script in SCRIPTS[stage]:
                     if not (folder / script).is_file():
@@ -318,7 +445,8 @@ def doctor() -> None:
     for command in ("pdflatex", "ffmpeg"):
         print(f"[doctor] {command}: {shutil.which(command) or 'missing'}")
     print(f"[doctor] vendored template: {'available' if VENDOR.exists() else 'missing'}")
-    print("[doctor] Gemini Pro must be selected manually in the authorized browser session.")
+    print(f"[doctor] model phase: {MODEL_PHASE}")
+    print(f"[doctor] required Gemini browser mode: {DEFAULT_BROWSER_UI_MODE}")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -336,10 +464,11 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--from-stage", choices=STAGES, default="figures")
     p.add_argument("--through-stage", choices=STAGES, default="video")
     p.add_argument("--force-from", choices=STAGES)
-    p.add_argument("--confirm-pro", action="store_true", help="I checked Gemini Pro in Chrome; not an automated verification")
+    p.add_argument("--confirm-pro", action="store_true", help="Deprecated compatibility flag; browser model selection is now automatic")
     p.add_argument("--dry-run", action="store_true", help="Print plan; do not write files or call Gemini")
     p.add_argument("--doctor", action="store_true", help="Inspect local dependencies")
     args = p.parse_args(argv)
+    load_microvid_env()
     if args.doctor:
         doctor()
         return 0

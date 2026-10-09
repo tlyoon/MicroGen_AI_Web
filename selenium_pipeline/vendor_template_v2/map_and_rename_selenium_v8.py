@@ -46,6 +46,11 @@ def log_timing(stage: str, started_at: float, detail: str = "", level: str = "IN
         msg += f" | {detail}"
     log(msg, level)
 
+
+class GeminiGenerationStalled(RuntimeError):
+    """Gemini accepted the prompt but remained generating without a response node."""
+    pass
+
 # ==========================================================
 # Selenium/Gemini communication layer (reusable)
 #   - implemented in ./selenium.py (local file)
@@ -312,36 +317,41 @@ def clear_composer(client) -> None:
         ed = _fast_find_prompt_editable(client)
     except Exception:
         return
+    if ed is None:
+        return
 
+    # Gemini currently uses a Quill editor. Select its contents and invoke the
+    # browser editing command so Quill receives a real editor deletion and keeps
+    # its internal model synchronized with the DOM.
     try:
         client.driver.execute_script(
             """
-            const el = arguments[0];
-            if (!el) return;
-            el.focus();
-
-            const clearOne = (node) => {
-                if (!node) return;
-                try { if ('value' in node) node.value = ''; } catch (e) {}
-                try { node.innerHTML = ''; } catch (e) {}
-                try { node.textContent = ''; } catch (e) {}
-                try { node.innerText = ''; } catch (e) {}
-                try { node.dispatchEvent(new Event('input', {bubbles: true})); } catch (e) {}
-                try { node.dispatchEvent(new Event('change', {bubbles: true})); } catch (e) {}
-            };
-
-            clearOne(el);
-            try {
-                el.querySelectorAll('[contenteditable="true"], div[role="textbox"], textarea, p, span')
-                  .forEach(clearOne);
-            } catch (e) {}
+            const e=arguments[0];
+            e.focus();
+            const r=document.createRange();
+            r.selectNodeContents(e);
+            const s=window.getSelection();
+            s.removeAllRanges();
+            s.addRange(r);
+            document.execCommand('delete', false, null);
             """,
+            ed,
+        )
+        time.sleep(0.08)
+        if not get_composer_text(client).strip():
+            return
+    except Exception:
+        pass
+
+    # Last-resort cleanup for an already-corrupt/stale draft.
+    try:
+        client.driver.execute_script(
+            "arguments[0].innerHTML='<p><br></p>'; arguments[0].dispatchEvent(new InputEvent('input',{bubbles:true,inputType:'deleteContentBackward'}));",
             ed,
         )
     except Exception:
         pass
-
-    time.sleep(0.02)
+    time.sleep(0.05)
 
 
 def _page_text_lower(driver) -> str:
@@ -373,6 +383,7 @@ def _attachment_probe(driver) -> tuple[int, list[str]]:
     filename chips when available.
     """
     strict_selectors = [
+        "gem-media-attachment",
         "[aria-label*='Remove file']",
         "[aria-label*='Remove attachment']",
         "[aria-label^='Remove '][role='button']",
@@ -426,6 +437,17 @@ def _attachment_probe(driver) -> tuple[int, list[str]]:
         count = _count_visible_matches(driver, strict_selectors)
         names = []
 
+    # Gemini's current image attachment UI can expose only the status text
+    # "Image uploaded" rather than filename/remove chips. Treat each visible
+    # status as a confirmed attachment signal.
+    try:
+        body = (driver.find_element("tag name", "body").text or "")
+        uploaded = body.lower().count("image uploaded")
+        if uploaded > count:
+            count = uploaded
+    except Exception:
+        pass
+
     return count, names
 
 
@@ -440,7 +462,13 @@ def get_visible_attachment_names(driver) -> list[str]:
 
 
 def get_latest_response_text(driver) -> str:
+    # Prefer the concrete current Gemini response containers. Broad class
+    # selectors are retained only as fallbacks because they can match thinking
+    # chrome or unrelated UI and hide the actual completed answer.
     selectors = [
+        "model-response message-content",
+        "model-response .model-response-text",
+        "model-response",
         "message-content",
         "div[role='article']",
         "div[class*='response']",
@@ -466,20 +494,66 @@ def get_latest_response_text(driver) -> str:
 def wait_for_mapping_response_ready(client, baseline_text: str = "", timeout: float = 120.0, poll: float = 0.30) -> str:
     """
     End the response wait as soon as the latest response contains parseable
-    mapping lines and stays stable briefly. This is faster than waiting for the
-    whole page to become idle and then doing repeated clipboard attempts.
+    mapping lines. Also fail fast when Gemini is visibly generating but never
+    creates a model-response node, which is the observed Pro stall mode.
     """
     if client.driver is None:
         return ""
 
-    baseline_norm = clean_model_text(baseline_text or "")
     last = ""
     stable = 0
     t0 = time.time()
+    stall_started = None
+    stall_limit = float(os.getenv("GEMINI_MAPPING_STALL_SECONDS", "25"))
 
     while time.time() - t0 < timeout:
         cur = clean_model_text(get_latest_response_text(client.driver))
-        if cur and cur != baseline_norm:
+
+        generating = False
+        try:
+            for sel in [
+                "//button[contains(@aria-label,'Stop')]",
+                "//button[contains(@title,'Stop')]",
+                "//button[.//span[contains(normalize-space(.),'Stop')]]",
+            ]:
+                btns = client.driver.find_elements("xpath", sel)
+                for b in btns[-3:]:
+                    try:
+                        if b.is_displayed() and b.is_enabled():
+                            generating = True
+                            break
+                    except Exception:
+                        pass
+                if generating:
+                    break
+        except Exception:
+            generating = False
+
+        try:
+            model_count = len([
+                e for e in client.driver.find_elements("css selector", "model-response")
+                if e.is_displayed()
+            ])
+        except Exception:
+            model_count = 0
+
+        if generating and model_count == 0:
+            if stall_started is None:
+                stall_started = time.time()
+            elif time.time() - stall_started >= stall_limit:
+                elapsed = time.time() - stall_started
+                log(
+                    f"Gemini generation stall detected: Stop response persisted {elapsed:.1f}s "
+                    f"with zero model-response nodes.",
+                    "WARN",
+                )
+                raise GeminiGenerationStalled(
+                    f"Gemini generation stalled for {elapsed:.1f}s with no model-response node."
+                )
+        else:
+            stall_started = None
+
+        if cur:
             parsed = parse_mapping_lines(cur)
             if parsed:
                 if cur == last:
@@ -487,28 +561,6 @@ def wait_for_mapping_response_ready(client, baseline_text: str = "", timeout: fl
                 else:
                     last = cur
                     stable = 0
-                stop_visible = stop_generation_if_present.__name__  # keep reference live for linters only
-                # Do not click Stop here. We only inspect whether a stop button is visible.
-                generating = False
-                try:
-                    for sel in [
-                        "//button[contains(@aria-label,'Stop')]",
-                        "//button[contains(@title,'Stop')]",
-                        "//button[.//span[contains(normalize-space(.),'Stop')]]",
-                    ]:
-                        btns = client.driver.find_elements("xpath", sel)
-                        for b in btns[-3:]:
-                            try:
-                                if b.is_displayed() and b.is_enabled():
-                                    generating = True
-                                    break
-                            except Exception:
-                                pass
-                        if generating:
-                            break
-                except Exception:
-                    generating = False
-
                 if stable >= 1 and not generating:
                     log(
                         f"Mapping response confirmed early after {time.time() - t0:.1f}s "
@@ -551,14 +603,11 @@ def wait_for_upload_to_settle(
     expected_names = [str(x).strip().lower() for x in (expected_names or []) if str(x).strip()]
 
     busy_selectors = [
-        "[role='progressbar']",
-        "mat-progress-bar",
         ".upload-progress",
         "[aria-label*='Uploading']",
         "[aria-label*='uploading']",
-        "[aria-label*='Processing']",
-        "[aria-label*='processing']",
-        "[class*='progress']",
+        "[aria-label*='Processing upload']",
+        "[aria-label*='processing upload']",
         "[class*='uploading']",
     ]
 
@@ -592,10 +641,21 @@ def wait_for_upload_to_settle(
         attachment_ready = (min_new_attachments > 0) and (new_attachments >= min_new_attachments)
         send_ready = get_safe_send_button(client) is not None
 
-        files_ready = names_ready or attachment_ready or (attachment_count > baseline_attachment_count)
+        # Current Gemini can collapse a multi-image batch into one visible
+        # "Image uploaded" status instead of one chip per file. upload_files()
+        # has already fail-closed unless Gemini visibly acknowledged the batch,
+        # so a visible acknowledgement is sufficient here.
+        upload_ack = "image uploaded" in page_txt and "file upload error" not in page_txt
+        # The 2026 Gemini composer can hide filenames/remove controls after a
+        # successful image batch and expose only the accessible status
+        # "Image uploaded". Treat that acknowledgement as authoritative.
+        files_ready = names_ready or attachment_ready or (attachment_count > baseline_attachment_count) or upload_ack
 
-        signature = (busy_count, busy_text, attachment_count, names_seen, send_ready, composer_ready)
-        stable_now = (busy_count == 0) and (not busy_text) and composer_ready and files_ready and send_ready
+        signature = (busy_count, busy_text, attachment_count, names_seen, upload_ack, send_ready, composer_ready)
+        # "Image uploaded" itself contains the substring "upload", but it is a
+        # completed-state acknowledgement, not a busy indicator. Ignore generic
+        # busy_text once this positive acknowledgement is present.
+        stable_now = (busy_count == 0) and (not busy_text or upload_ack) and composer_ready and files_ready and send_ready
         last_detail = (
             f"names_seen={names_seen}/{len(expected_names) if expected_names else 0}, "
             f"attachment_count={attachment_count}, baseline_attachment_count={baseline_attachment_count}, "
@@ -705,7 +765,8 @@ def get_composer_text(client) -> str:
         return ""
 
 
-def inject_prompt_text(client, text: str, verify_timeout: float = 0.35, poll: float = 0.02) -> bool:
+def inject_prompt_text(client, text: str, verify_timeout: float = 1.2, poll: float = 0.04) -> bool:
+    """Paste into the actual visible contenteditable so Gemini records trusted editor input."""
     t_inject = _ts_now()
     if client.driver is None:
         log_timing("prompt inject skipped", t_inject, "driver unavailable", level="WARN")
@@ -713,72 +774,17 @@ def inject_prompt_text(client, text: str, verify_timeout: float = 0.35, poll: fl
 
     try:
         ed = _fast_find_prompt_editable(client)
-    except Exception:
-        return False
-
-    try:
-        ok = client.driver.execute_script(
-            """
-            const root = arguments[0];
-            const txt  = arguments[1];
-            if (!root) return false;
-
-            const targets = [root];
-            try {
-                root.querySelectorAll('[contenteditable="true"], div[role="textbox"], textarea')
-                    .forEach(x => targets.push(x));
-            } catch (e) {}
-
-            const uniq = [];
-            const seen = new Set();
-            for (const t of targets) {
-                if (t && !seen.has(t)) {
-                    seen.add(t);
-                    uniq.push(t);
-                }
-            }
-
-            const fill = (el) => {
-                try { el.focus(); } catch (e) {}
-
-                try {
-                    if ('value' in el) {
-                        el.value = txt;
-                        el.dispatchEvent(new Event('input', {bubbles: true}));
-                        el.dispatchEvent(new Event('change', {bubbles: true}));
-                        return true;
-                    }
-                } catch (e) {}
-
-                try { el.innerHTML = ''; } catch (e) {}
-                try { el.textContent = txt; } catch (e) {}
-                try {
-                    el.dispatchEvent(new InputEvent('input', {
-                        bubbles: true,
-                        inputType: 'insertText',
-                        data: txt
-                    }));
-                } catch (e) {
-                    try { el.dispatchEvent(new Event('input', {bubbles: true})); } catch (ee) {}
-                }
-                try { el.dispatchEvent(new Event('change', {bubbles: true})); } catch (e) {}
-                return true;
-            };
-
-            for (const el of uniq) {
-                if (fill(el)) return true;
-            }
-            return false;
-            """,
-            ed,
-            text,
-        )
-
-        if not ok:
-            log_timing("prompt inject js", t_inject, "js fill returned false", level="WARN")
+        if ed is None:
+            log_timing("prompt inject trusted", t_inject, "editable not found", level="WARN")
             return False
 
-        log_timing("prompt inject js", t_inject, "js fill completed")
+        ed.click()
+        # WebDriver send_keys() is silently ignored by Gemini's Quill editor on
+        # this Chrome build. CDP Input.insertText goes through Chrome's input
+        # pipeline and has been live-verified to update the Quill document.
+        client.driver.execute_cdp_cmd("Input.insertText", {"text": text})
+
+        log_timing("prompt inject trusted", t_inject, "CDP Input.insertText dispatched")
         t0 = _ts_now()
         while _ts_now() - t0 < verify_timeout:
             if prompt_verified_in_composer(client, text):
@@ -906,14 +912,11 @@ def wait_until_send_actionable(
 
                 let busyCount = 0;
                 const busySelectors = [
-                    "[role='progressbar']",
-                    "mat-progress-bar",
                     ".upload-progress",
                     "[aria-label*='Uploading']",
                     "[aria-label*='uploading']",
-                    "[aria-label*='Processing']",
-                    "[aria-label*='processing']",
-                    "[class*='progress']",
+                    "[aria-label*='Processing upload']",
+                    "[aria-label*='processing upload']",
                     "[class*='uploading']",
                 ];
                 for (const sel of busySelectors) {
@@ -1026,90 +1029,215 @@ def wait_until_send_actionable(
     log_timing("send actionable wait timeout", t0, detail, level="WARN")
     return False
 
-def click_safe_send_button(client) -> bool:
+def click_safe_send_button(client, before_model_count: int = 0, before_user_count: int = 0) -> bool:
     t_click = _ts_now()
     btn = get_safe_send_button(client)
     if btn is None:
-        log_timing("send click skipped", t_click, "no safe send button", level="WARN")
-        return False
+        # Do not press Enter for image-bearing mapping requests. Gemini can
+        # clear the composer and make that look submitted without actually
+        # starting multimodal generation. Wait briefly for the real Send
+        # control to materialize after attachment processing.
+        deadline = time.time() + 5.0
+        while time.time() < deadline and btn is None:
+            time.sleep(0.10)
+            btn = get_safe_send_button(client)
+        if btn is None:
+            # The readiness probe can see current Gemini's icon-only submit
+            # control even when legacy XPath selectors cannot. Resolve that
+            # exact enabled button with DOM semantics and return it to Selenium.
+            try:
+                btn = client.driver.execute_script(
+                    """
+                    const visible = e => !!(e && (e.offsetWidth || e.offsetHeight || e.getClientRects().length));
+                    const buttons = [...document.querySelectorAll('button')].filter(visible);
+                    const scored = buttons.filter(b => {
+                      const s=((b.getAttribute('aria-label')||'')+' '+(b.getAttribute('data-tooltip')||'')+' '+(b.title||'')+' '+(b.textContent||'')).toLowerCase();
+                      const disabled=b.disabled || b.getAttribute('aria-disabled')==='true';
+                      return !disabled && (s.includes('send') || s.includes('submit'));
+                    });
+                    return scored.length ? scored[scored.length-1] : null;
+                    """
+                )
+            except Exception:
+                btn = None
+        if btn is None:
+            log_timing("send click skipped", t_click, "real Gemini Send control unavailable; Enter fallback disabled", level="WARN")
+            return False
 
     try:
         client.driver.execute_script("arguments[0].scrollIntoView({block:'center'});", btn)
     except Exception:
         pass
 
-    try:
-        btn.click()
-        time.sleep(0.05)
-        log_timing("send click", t_click, "native click")
-        return True
-    except Exception:
+    def _has_send_effect() -> bool:
         try:
-            client.driver.execute_script("arguments[0].click();", btn)
-            time.sleep(0.05)
-            log_timing("send click", t_click, "js click fallback")
-            return True
-        except Exception as e:
-            log_timing("send click failed", t_click, repr(e), level="WARN")
+            return bool(client.driver.execute_script(
+                """
+                const beforeModels=Number(arguments[0]||0);
+                const beforeUsers=Number(arguments[1]||0);
+                const vis=e=>!!(e&&(e.offsetWidth||e.offsetHeight||e.getClientRects().length));
+                const stop=[...document.querySelectorAll('button')].some(
+                    b=>vis(b)&&((b.getAttribute('aria-label')||'').toLowerCase().includes('stop'))
+                );
+                const users=[...document.querySelectorAll('user-query')].filter(vis).length;
+                const models=[...document.querySelectorAll('model-response')].filter(vis).length;
+                return stop || users>beforeUsers || models>beforeModels;
+                """,
+                int(before_model_count),
+                int(before_user_count),
+            ))
+        except Exception:
             return False
 
+    try:
+        btn.click()
+        time.sleep(0.20)
+        if _has_send_effect():
+            log_timing("send click", t_click, "native click with confirmed UI effect")
+            return True
+        log_timing("send click semantic miss", t_click, "native click returned but Gemini state did not change", level="WARN")
+    except Exception as e:
+        log(f"[SEND-DIAG] native click raised {e!r}", "WARN")
 
-def _send_registered(client, before_text: str = "") -> bool:
-    """
-    Accept any of these as proof that Gemini accepted the prompt:
-      - composer is empty
-      - stop button appears
-      - send button disappears / is disabled
-      - composer text changed substantially from the pre-send snapshot
-    """
+    try:
+        # With a Quill prompt entered through CDP, first try Chrome's keyboard
+        # pipeline. Some Gemini builds still discard CDP key events, so a final
+        # native-Windows fallback follows below.
+        ed = _fast_find_prompt_editable(client)
+        if ed is None:
+            raise RuntimeError("Gemini prompt editor unavailable for Enter submit")
+        ed.click()
+        client.driver.execute_cdp_cmd("Input.dispatchKeyEvent", {
+            "type": "keyDown", "key": "Enter", "code": "Enter", "windowsVirtualKeyCode": 13
+        })
+        client.driver.execute_cdp_cmd("Input.dispatchKeyEvent", {
+            "type": "keyUp", "key": "Enter", "code": "Enter", "windowsVirtualKeyCode": 13
+        })
+        time.sleep(0.35)
+        if _has_send_effect():
+            log_timing("send click", t_click, "CDP Enter with confirmed UI effect")
+            return True
+        log_timing("send click semantic miss", t_click, "CDP Enter produced no Gemini state change", level="WARN")
+    except Exception as e:
+        log(f"[SEND-DIAG] CDP Enter raised {e!r}", "WARN")
+
+    # Final trusted-input fallback: uniquely mark the Selenium-controlled tab,
+    # focus that exact Chrome window via Windows UI Automation, and send one
+    # native Enter keystroke. This avoids accidentally targeting another Gemini
+    # window while still verifying the resulting DOM state.
+    marker = f"MICROGEN_AUTOMATION_TARGET_{os.getpid()}"
+    old_title = ""
+    try:
+        from pywinauto import Desktop
+        from pywinauto.keyboard import send_keys as native_send_keys
+
+        old_title = client.driver.title or "Google Gemini"
+        client.driver.execute_script("document.title=arguments[0]", marker)
+        time.sleep(0.25)
+
+        wins = [w for w in Desktop(backend="uia").windows() if marker in w.window_text()]
+        if len(wins) != 1:
+            raise RuntimeError(f"Expected exactly one marked Gemini Chrome window; found {len(wins)}")
+
+        wins[0].set_focus()
+        client.driver.execute_script("arguments[0].focus()", ed)
+        time.sleep(0.08)
+        native_send_keys("{ENTER}", pause=0.05)
+        time.sleep(0.55)
+
+        if _has_send_effect():
+            log_timing("send click", t_click, "native Windows Enter with confirmed UI effect")
+            return True
+        log_timing("send click failed", t_click, "native Windows Enter produced no Gemini state change", level="WARN")
+        return False
+    except Exception as e:
+        log_timing("send click failed", t_click, f"native Windows Enter failed: {e!r}", level="WARN")
+        return False
+    finally:
+        if old_title:
+            try:
+                client.driver.execute_script("document.title=arguments[0]", old_title)
+            except Exception:
+                pass
+
+
+def _send_registered(client, before_text: str = "", before_model_count: int = 0, before_user_count: int = 0) -> bool:
+    """Require positive Gemini DOM evidence that the request actually started."""
     if client.driver is None:
         return False
 
     try:
-        stop_selectors = [
+        # A visible Stop control is direct evidence that Gemini is generating.
+        for sel in [
             "//button[contains(@aria-label,'Stop')]",
             "//button[contains(@title,'Stop')]",
             "//button[.//span[contains(normalize-space(.),'Stop')]]",
-        ]
-        for sel in stop_selectors:
-            btns = client.driver.find_elements("xpath", sel)
-            for b in btns[-3:]:
+        ]:
+            for b in client.driver.find_elements("xpath", sel)[-3:]:
                 try:
                     if b.is_displayed() and b.is_enabled():
                         return True
                 except Exception:
                     pass
-    except Exception:
-        pass
 
-    cur = " ".join(get_composer_text(client).split())
-    before = " ".join((before_text or "").split())
+        # A newly-created model response is also positive evidence.
+        models = [e for e in client.driver.find_elements("css selector", "model-response") if e.is_displayed()]
+        if len(models) > before_model_count:
+            return True
 
-    if not cur:
-        return True
-
-    if before and cur != before and len(cur) < max(20, len(before) // 3):
-        return True
-
-    try:
-        btn = get_safe_send_button(client)
-        if btn is None:
+        # A real Gemini user turn is represented by a top-level <user-query>.
+        # Do not count nested classes containing "user-query": those transient
+        # components caused false submission positives during development.
+        users = client.driver.execute_script(
+            """
+            const vis=e=>!!(e&&(e.offsetWidth||e.offsetHeight||e.getClientRects().length));
+            return [...document.querySelectorAll('user-query')].filter(vis).length;
+            """
+        ) or 0
+        if int(users) > int(before_user_count):
             return True
     except Exception:
         pass
 
+    # Composer disappearance alone is deliberately NOT proof of submission.
     return False
 
 
-def wait_for_prompt_to_leave_composer(client, before_text: str = "", timeout: float = 1.2, poll: float = 0.04) -> bool:
+def wait_for_prompt_to_leave_composer(client, before_text: str = "", timeout: float = 1.2, poll: float = 0.04, before_model_count: int = 0, before_user_count: int = 0) -> bool:
     t0 = _ts_now()
 
     while _ts_now() - t0 < timeout:
-        if _send_registered(client, before_text=before_text):
-            log_timing("prompt left composer", t0, "submission registered")
+        if _send_registered(client, before_text=before_text, before_model_count=before_model_count, before_user_count=before_user_count):
+            log_timing("prompt left composer", t0, "positive submission evidence")
             return True
         time.sleep(poll)
 
+    try:
+        snap = client.driver.execute_script(
+            """
+            const vis=e=>!!(e&&(e.offsetWidth||e.offsetHeight||e.getClientRects().length));
+            const buttons=[...document.querySelectorAll('button')].filter(vis).map(b=>({
+              aria:b.getAttribute('aria-label')||'',
+              title:b.title||'',
+              text:(b.textContent||'').trim()
+            })).filter(x=>x.aria||x.title||x.text);
+            const sels=['user-query','[data-message-author-role="user"]','[class*="user-query"]'];
+            const users=new Set();
+            for(const s of sels) for(const e of document.querySelectorAll(s)) if(vis(e)) users.add(e);
+            const models=[...document.querySelectorAll('model-response')].filter(vis);
+            const ed=[...document.querySelectorAll('[contenteditable="true"][role="textbox"],div[role="textbox"][contenteditable="true"],textarea')].find(vis);
+            return {
+              url:location.href,
+              user_count:users.size,
+              model_count:models.length,
+              composer:ed?((ed.value||ed.innerText||ed.textContent||'').trim().slice(0,240)):'',
+              buttons:buttons.slice(-12)
+            };
+            """
+        ) or {}
+        log(f"[SEND-DIAG] timeout snapshot={snap!r}", "WARN")
+    except Exception as e:
+        log(f"[SEND-DIAG] timeout snapshot failed: {e!r}", "WARN")
     log_timing("prompt left composer timeout", t0, "submission not confirmed", level="WARN")
     return False
 
@@ -1176,8 +1304,24 @@ def _send_prompt_and_capture_mapping_text(client, instruction_text: str, wait_ca
             log_timing(f"attempt {attempt+1} total", t_attempt, "send never became actionable", level="WARN")
             continue
 
+        # Snapshot conversation-node counts before clicking Send so a cleared
+        # composer cannot masquerade as a successful submission.
+        try:
+            before_model_count = len([e for e in client.driver.find_elements("css selector", "model-response") if e.is_displayed()])
+            before_user_count = int(client.driver.execute_script(
+                """const vis=e=>!!(e&&(e.offsetWidth||e.offsetHeight||e.getClientRects().length));
+                return [...document.querySelectorAll('user-query')].filter(vis).length;"""
+            ) or 0)
+        except Exception:
+            before_model_count = 0
+            before_user_count = 0
+
         t_step = _ts_now()
-        clicked = click_safe_send_button(client)
+        clicked = click_safe_send_button(
+            client,
+            before_model_count=before_model_count,
+            before_user_count=before_user_count,
+        )
         log_timing(f"attempt {attempt+1} click send", t_step, f"clicked={clicked}", level=("INFO" if clicked else "WARN"))
         if not clicked:
             time.sleep(0.08)
@@ -1185,7 +1329,7 @@ def _send_prompt_and_capture_mapping_text(client, instruction_text: str, wait_ca
             continue
 
         t_step = _ts_now()
-        registered = wait_for_prompt_to_leave_composer(client, before_text=composer_before_send, timeout=1.8, poll=0.05)
+        registered = wait_for_prompt_to_leave_composer(client, before_text=composer_before_send, timeout=3.0, poll=0.05, before_model_count=before_model_count, before_user_count=before_user_count)
         log_timing(f"attempt {attempt+1} register send", t_step, f"registered={registered}", level=("INFO" if registered else "WARN"))
         if registered:
             send_ok = True
@@ -1201,13 +1345,22 @@ def _send_prompt_and_capture_mapping_text(client, instruction_text: str, wait_ca
         raise RuntimeError("Prompt could not be reliably submitted to Gemini.")
 
     t_step = _ts_now()
-    early = wait_for_mapping_response_ready(client, baseline_text=baseline_response, timeout=float(wait_cap), poll=0.30)
-    log_timing("early mapping wait", t_step, f"hit={bool(early)}")
+    # Mapping responses are tiny. Watch the live response DOM directly and do
+    # not depend on Gemini's changing generation-finished/thinking indicators.
+    direct_wait = min(float(wait_cap), 90.0)
+    early = wait_for_mapping_response_ready(client, baseline_text=baseline_response, timeout=direct_wait, poll=0.20)
+    log_timing("direct mapping DOM wait", t_step, f"hit={bool(early)}; timeout={direct_wait:.0f}s")
     if early:
-        log_timing("prompt send pipeline total", t_total, "returned from early DOM mapping confirmation")
+        log_timing("prompt send pipeline total", t_total, "returned from direct DOM mapping confirmation")
         return early
 
-    log(f"Waiting for Gemini response to finish (strict mapping capture, max_wait={wait_cap}) ...")
+    latest_diag = clean_model_text(get_latest_response_text(client.driver))
+    log(f"[DIAG] Direct mapping watcher timed out; latest response={repr(latest_diag[-1200:])}", "WARN")
+    if latest_diag and parse_mapping_lines(latest_diag):
+        log_timing("prompt send pipeline total", t_total, "returned from timeout-edge DOM mapping")
+        return latest_diag
+
+    log(f"Waiting for Gemini response to finish (fallback capture, max_wait={wait_cap}) ...")
 
     t_step = _ts_now()
     gemsel._wait_until_generation_finishes(client.driver, timeout=float(wait_cap), poll=0.35)
@@ -1305,25 +1458,42 @@ def map_and_rename_single_step(
 
     baseline_attachment_count = 0
     if client.driver is not None:
+        # Aborted/failed Gemini sends can leave attachment tiles in the composer
+        # even after opening a clean chat. Remove them before establishing the
+        # baseline for this page.
+        for _ in range(12):
+            stale = client.driver.find_elements("css selector", 'button[aria-label="close attachment"]')
+            stale = [b for b in stale if b.is_displayed()]
+            if not stale:
+                break
+            try:
+                client.driver.execute_script("arguments[0].click();", stale[-1])
+            except Exception:
+                try:
+                    stale[-1].click()
+                except Exception:
+                    break
+            time.sleep(0.12)
         baseline_attachment_count = get_visible_attachment_count(client.driver)
+        if baseline_attachment_count:
+            raise RuntimeError(f"Could not clear {baseline_attachment_count} stale Gemini attachment(s).")
 
     t_step = _ts_now()
     client.upload_files(to_upload)
     log_timing(f"page {page_png.stem} upload_files call", t_step, f"files={len(to_upload)}")
 
+    # upload_files() is the authoritative fail-closed upload check. Current
+    # Gemini collapses image chips and can remove the accessible acknowledgement
+    # before the legacy settle probe observes it, so a second independent gate
+    # can contradict a confirmed upload. Keep only a short stabilization delay.
     t_step = _ts_now()
-    upload_settled = wait_for_upload_to_settle(
-        client,
-        expected_names=[p.name for p in to_upload],
-        timeout=4.0,
-        quiet_window=0.20,
-        poll=0.08,
-        baseline_attachment_count=baseline_attachment_count,
-        min_new_attachments=len(to_upload),
-)
-    log_timing(f"page {page_png.stem} upload settle stage", t_step, f"settled={upload_settled}", level=("INFO" if upload_settled else "WARN"))
-    if not upload_settled:
-        log("Upload settle wait timed out; continuing with guarded prompt send.", "WARN")
+    time.sleep(0.6)
+    page_txt_now = _page_text_lower(client.driver) if client.driver is not None else ""
+    if "file upload error" in page_txt_now:
+        raise RuntimeError(
+            f"Gemini reported a file upload error for {page_png.name}; refusing to submit text."
+        )
+    log_timing(f"page {page_png.stem} post-upload stabilization", t_step, "upload_files confirmed")
 
     crop_manifest = "\n".join(f"{i+1}. {p.name}" for i, p in enumerate(fig_files))
 
@@ -1515,9 +1685,40 @@ def run_mapping(
                 log(f"Missing crops dir {crops_dir_i} -- skipping.", "WARN"); continue
 
             try:
-                _mapping_txt, new_pngs = map_and_rename_single_step(
-                    client, page_png, crops_dir_i, wait_cap=wait_cap, upload_only_crops=upload_only_crops
-                )
+                _mapping_txt = None
+                new_pngs = []
+                page_attempts = max(1, int(os.getenv("GEMINI_PAGE_ATTEMPTS", "2")))
+                for page_attempt in range(1, page_attempts + 1):
+                    try:
+                        if page_attempt > 1:
+                            log(
+                                f"[RETRY] Re-running page {idx} in a fresh Gemini chat "
+                                f"(attempt {page_attempt}/{page_attempts}).",
+                                "WARN",
+                            )
+                        _mapping_txt, new_pngs = map_and_rename_single_step(
+                            client, page_png, crops_dir_i,
+                            wait_cap=wait_cap,
+                            upload_only_crops=upload_only_crops,
+                        )
+                        break
+                    except GeminiGenerationStalled as e:
+                        log(
+                            f"[STALL] Page {idx} attempt {page_attempt}/{page_attempts}: {e}",
+                            "WARN",
+                        )
+                        try:
+                            stopped = stop_generation_if_present(client)
+                            log(
+                                f"[STALL] Stop response requested before reset: stopped={stopped}",
+                                "WARN",
+                            )
+                        except Exception:
+                            pass
+                        setattr(client, "_map_prompt_cache", None)
+                        time.sleep(0.6)
+                        if page_attempt >= page_attempts:
+                            raise
 
                 if copy_to_root:
                     root = Path(".").resolve()
@@ -1586,7 +1787,8 @@ try:
 
     # ----- LAST TASK -----
     import merge_lettered_figs_v3
-    merge_lettered_figs_v3.main()
+    # Do not let the merge helper reparse this mapper's --start/--end/etc.
+    merge_lettered_figs_v3.main([])
 
 finally:
     # Nothing to do here: run_mapping() already shuts down the automation Chrome.

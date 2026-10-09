@@ -116,12 +116,12 @@ def merge_horizontally(images: List[Image.Image]) -> Image.Image:
         x += im.size[0]
     return canvas
 
-def main():
+def main(argv=None):
     ap = argparse.ArgumentParser(description="Merge letter-suffixed PNG figure variants horizontally.")
     ap.add_argument("--dir", default=".", help="Directory to scan (default: current directory)")
     ap.add_argument("--remove", type=int, default=0, choices=[0, 1],
                     help="If 1, remove the component lettered files after merging (default: 0)")
-    args = ap.parse_args()
+    args = ap.parse_args(argv)
     
     root = Path(args.dir).resolve()
     if not root.exists() or not root.is_dir():
@@ -165,7 +165,7 @@ def main():
         for im in ims:
             im.close()
     
-        print(f"[OK]  Merged {len(ordered_files)} file(s) → {output_path.name}")
+        print(f"[OK]  Merged {len(ordered_files)} file(s) -> {output_path.name}")
     
         if args.remove == 1:
             for p in ordered_files:
