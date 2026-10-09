@@ -1,6 +1,8 @@
 import sys
 import tempfile
 import os
+import io
+import wave
 import subprocess
 import types
 import unittest
@@ -8,7 +10,10 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from selenium_pipeline.tts import _tts_workspace_lock, _gemini_say_with_watchdog, synthesize_folder
+from selenium_pipeline.tts import (
+    _gemini_say_with_watchdog, _merge_wav_payloads, _split_tts_text,
+    _tts_timeout_seconds, _tts_workspace_lock, synthesize_folder,
+)
 
 WAV = b"RIFF" + b"X" * 80
 
@@ -97,6 +102,48 @@ class TTSTests(unittest.TestCase):
                         pass
             self.assertFalse((folder / ".tts.lock").exists())
 
+
+
+    def test_adaptive_timeout_scales_with_narration_length(self):
+        with patch.dict(os.environ, {}, clear=False):
+            for key in (
+                "MICROGEN_TTS_HARD_TIMEOUT_SECONDS",
+                "MICROGEN_TTS_TIMEOUT_BASE_SECONDS",
+                "MICROGEN_TTS_TIMEOUT_PER_100_CHARS_SECONDS",
+                "MICROGEN_TTS_TIMEOUT_MAX_SECONDS",
+            ):
+                os.environ.pop(key, None)
+            self.assertEqual(_tts_timeout_seconds("x" * 900), 225.0)
+            self.assertEqual(_tts_timeout_seconds("x" * 100), 105.0)
+
+    def test_explicit_timeout_override_is_preserved(self):
+        with patch.dict(os.environ, {"MICROGEN_TTS_HARD_TIMEOUT_SECONDS": "240"}):
+            self.assertEqual(_tts_timeout_seconds("x" * 900), 240.0)
+
+    def test_sentence_aware_chunking(self):
+        text = (
+            "First sentence is short. "
+            "Second sentence is somewhat longer but should remain intact. "
+            "Third sentence finishes the narration."
+        )
+        chunks = _split_tts_text(text, max_chars=70)
+        self.assertGreater(len(chunks), 1)
+        self.assertEqual(" ".join(chunks), text)
+
+    def test_merge_wav_payloads_concatenates_pcm_frames(self):
+        def make_wav(frames):
+            out = io.BytesIO()
+            with wave.open(out, "wb") as wav:
+                wav.setnchannels(1)
+                wav.setsampwidth(2)
+                wav.setframerate(24000)
+                wav.writeframes(frames)
+            return out.getvalue()
+
+        merged = _merge_wav_payloads([make_wav(b"\x01\x00" * 4), make_wav(b"\x02\x00" * 3)])
+        with wave.open(io.BytesIO(merged), "rb") as wav:
+            self.assertEqual(wav.getnframes(), 7)
+            self.assertEqual(wav.getframerate(), 24000)
 
     def test_watchdog_retries_and_times_out(self):
         timeout = subprocess.TimeoutExpired(cmd=["python"], timeout=10)
