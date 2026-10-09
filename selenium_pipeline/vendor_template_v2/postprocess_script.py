@@ -63,8 +63,8 @@ def conservative_cleanup(text):
     text = text.replace("–", "-").replace("—", "-")
     text = text.replace("`", "'")
     text = text.replace("''", "'")
-    text = re.sub(r"[ \\t]+", " ", text)
-    text = re.sub(r" *\\n *", "\\n", text)
+    text = re.sub(r"[ \t]+", " ", text)
+    text = re.sub(r" *\n *", "\n", text)
     return text.strip()
 
 

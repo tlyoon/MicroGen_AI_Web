@@ -32,6 +32,18 @@ class ScriptTTSRiskTests(unittest.TestCase):
         )
         self.assertFalse(any(item["severity"] == "blocking" for item in findings))
 
+    def test_sentence_ending_r_is_warning_not_blocking(self):
+        findings = collect_tts_risks("The radial distance is r.", slide=4)
+        self.assertTrue(
+            any(
+                item["kind"] == "dotted_single_letter"
+                and item["text"] == "r."
+                and item["severity"] == "warning"
+                for item in findings
+            )
+        )
+        self.assertFalse(any(item["severity"] == "blocking" for item in findings))
+
     def test_explicit_y_axis_is_not_blocking(self):
         findings = collect_tts_risks("The force points along the y-axis.", slide=4)
         self.assertFalse(any(item["severity"] == "blocking" for item in findings))

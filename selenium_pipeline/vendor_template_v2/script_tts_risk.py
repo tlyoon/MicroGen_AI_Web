@@ -76,12 +76,18 @@ def collect_tts_risks(text: str, *, slide: int | None = None) -> list[dict[str, 
         if any(a <= match.start() < b for a, b in covered):
             continue
         covered.append(match.span())
+        token = match.group(1)
+        # A period after a physics variable is usually just sentence
+        # punctuation (for example, "radius r.").  Historical TTS behavior
+        # makes c. unusually dangerous because it may be expanded as "circa",
+        # so keep c. blocking; route other dotted letters to acoustic QA.
+        severity = blocking_severity if token.lower() == "c" else "warning"
         add(
             "dotted_single_letter",
             match.group(0),
             match.start(),
-            "A single letter followed by a period may be interpreted as an abbreviation (for example, c. can be expanded unexpectedly).",
-            severity=blocking_severity,
+            "Single letter followed by a period must be checked acoustically; c. is blocking because TTS engines have historically expanded it as an unintended abbreviation.",
+            severity=severity,
         )
 
     explicit_role_re = re.compile(

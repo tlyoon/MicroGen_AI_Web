@@ -19,6 +19,7 @@ class PostprocessScriptTests(unittest.TestCase):
             "**Slide 1 [5 sec]:\nSafe title**\n\n"
             "**Slide 2 [20 sec]:\n"
             "We choose a Gaussian surface of radius r and area A. "
+            "This test text contains multiple t letters. "
             "The ambiguous token c. must remain visible.**\n"
         )
         with tempfile.TemporaryDirectory() as td:
@@ -39,6 +40,7 @@ class PostprocessScriptTests(unittest.TestCase):
             self.assertIn("a Gaussian surface", output)
             self.assertIn("radius r", output)
             self.assertIn("area A.", output)
+            self.assertIn("This test text contains multiple t letters.", output)
             self.assertIn("c.", output)
             self.assertNotIn("We choose A Gaussian surface", output)
 
