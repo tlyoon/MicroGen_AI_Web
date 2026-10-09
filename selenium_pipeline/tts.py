@@ -329,6 +329,24 @@ def _chirp_say(client, text: str, voice: str) -> bytes:
 def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: str) -> None:
     text = (folder / "script.txt").read_text(encoding="utf-8")
     items = blocks(text)
+
+    # Never silently normalize or rewrite risky narration here.  The script
+    # generator is expected to produce speech-ready text; this is a final
+    # non-destructive guard for direct TTS invocations that bypass script_qa.
+    from .vendor_template_v2.script_tts_risk import analyze_script_text
+    risk_report = analyze_script_text(text)
+    blocking_risks = [
+        item for item in risk_report["findings"] if item["severity"] == "blocking"
+    ]
+    if blocking_risks:
+        preview = "; ".join(
+            f"slide {item.get('slide')}: {item['kind']} {item['text']!r}"
+            for item in blocking_risks[:6]
+        )
+        raise RuntimeError(
+            "Narration contains TTS-ambiguous text. Regenerate or revise the "
+            f"narration before synthesis. Findings: {preview}"
+        )
     if provider == "gemini":
         if model not in ("gemini-3.8-flash-lite-tts", "gemini-3.8-flash-tts"):
             raise ValueError("Unapproved TTS model; select Gemini 3.8 Flash-Lite or Flash TTS")

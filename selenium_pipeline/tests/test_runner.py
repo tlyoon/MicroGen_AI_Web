@@ -20,6 +20,10 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(CAPTION_BENCHMARK_MODEL, "gemini-3.8-flash")
         self.assertEqual(STAGES[-3:], ("tts", "tts_qa", "video"))
 
+    def test_script_qa_runs_between_narration_and_tts(self):
+        self.assertLess(STAGES.index("narration"), STAGES.index("script_qa"))
+        self.assertLess(STAGES.index("script_qa"), STAGES.index("tts"))
+
     def test_parse_reference_script(self):
         example = "**Slide 1 [10 sec]:\nTitle**\n\n**Slide 2 [40 sec]:\nPhysics explanation.**"
         self.assertEqual(blocks(example), [(1, "Title"), (2, "Physics explanation.")])

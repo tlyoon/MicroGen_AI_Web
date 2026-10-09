@@ -31,25 +31,45 @@ Listen to the attached WAV and compare it with the GROUND TRUTH SCRIPT below.
 
 Requirements:
 1. Put the words actually spoken in "transcript". Do not silently repair,
-   paraphrase, or improve the audio.
-2. Ignore only punctuation, capitalization, and harmless pause differences.
+   paraphrase, normalize, or improve the audio.
+2. Ignore only punctuation, capitalization, harmless pause differences, and
+   genuinely inaudible typography. Do not ignore a pronunciation difference.
 3. Treat omitted words, added words, repeated words, changed numbers, changed
    scientific terms, changed signs or directions, and changed mathematical
    meaning as fidelity errors.
-4. Pay special attention to scientific notation, units, variable names, letter
-   names, negative or positive signs, exponents, and proper names.
-5. If a standalone capital A is audibly spoken as the letter name "ay" when it
-   should function as the article "a", flag a pronunciation issue.
-6. Do not infer missing speech from the script. Judge what is audibly present.
-7. Return JSON only with this shape:
+4. Independently verify pronunciation. A transcript that looks textually correct
+   does NOT prove the audio is correct.
+5. Pay special attention to scientific notation, units, variable names, single
+   letters, letter names, acronyms, abbreviations, signs, exponents, and proper
+   names.
+6. Historical TTS failure modes must be checked explicitly:
+   - a token such as "c." being expanded to an unintended word such as "circa";
+   - a variable or label such as "Y" being pronounced as an unrelated word or
+     sound instead of the intended letter/variable;
+   - article "a" being read as the letter name "ay", or a genuine letter A being
+     read as the article;
+   - abbreviations or initials being expanded unexpectedly;
+   - a mathematical sign, unit, exponent, or variable being given the wrong
+     spoken value even when the rest of the sentence is correct.
+7. For every item in EXTRA PRONUNCIATION RISKS, listen specifically to that
+   span and report the actual spoken rendering. If it is ambiguous or wrong,
+   add a critical_token_issue even if the ordinary transcript otherwise matches.
+8. Do not infer missing speech from the script. Judge what is audibly present.
+9. Return JSON only with this shape:
 {
   "transcript": "verbatim words actually heard",
   "pronunciation_issues": [
     {"script_text": "...", "heard_as": "...", "severity": "minor|major", "note": "..."}
   ],
+  "critical_token_issues": [
+    {"script_text": "...", "heard_as": "...", "category": "letter|abbreviation|variable|unit|number|sign|exponent|name|other", "severity": "major", "note": "..."}
+  ],
   "audio_defects": ["clipping, truncation, unexpected silence, repetition, or other defect"],
   "notes": "brief optional QA note"
 }
+
+EXTRA PRONUNCIATION RISKS:
+<<<{risk_checks}>>>
 
 GROUND TRUTH SCRIPT:
 <<<{script}>>>
@@ -247,6 +267,18 @@ def _parse_json_payload(text: str) -> dict[str, Any]:
     return value
 
 
+def _risk_checks_text(script: str) -> str:
+    from .vendor_template_v2.script_tts_risk import risk_hints_for_audio
+
+    findings = risk_hints_for_audio(script)
+    if not findings:
+        return "No pre-identified ambiguous tokens. Still perform the full pronunciation checks."
+    return "\n".join(
+        f"- {item['kind']}: {item['text']!r} — {item['message']}"
+        for item in findings
+    )
+
+
 def inspect_audio(
     wav_path: Path,
     script: str,
@@ -258,7 +290,7 @@ def inspect_audio(
     from gemini_keys import call_with_client_failover
 
     audio = wav_path.read_bytes()
-    prompt = QA_PROMPT.replace("{script}", script)
+    prompt = QA_PROMPT.replace("{script}", script).replace("{risk_checks}", _risk_checks_text(script))
     timeout_ms = max(
         120_000,
         int(os.environ.get("MICROGEN_TTS_QA_REQUEST_TIMEOUT_MS", "360000")),
@@ -307,6 +339,7 @@ def evaluate_slide(
 
     stats = word_error_stats(script, transcript)
     pronunciation = payload.get("pronunciation_issues") or []
+    critical = payload.get("critical_token_issues") or []
     defects = payload.get("audio_defects") or []
     major_pronunciation = any(
         isinstance(item, dict)
@@ -314,7 +347,7 @@ def evaluate_slide(
         for item in pronunciation
     )
     status = "pass"
-    if stats["fidelity_percent"] < threshold or major_pronunciation or defects:
+    if stats["fidelity_percent"] < threshold or major_pronunciation or critical or defects:
         status = "review"
 
     duration = wav_duration_seconds(wav_path)
@@ -333,6 +366,7 @@ def evaluate_slide(
         "status": status,
         "differences": diff_spans(script, transcript),
         "pronunciation_issues": pronunciation,
+        "critical_token_issues": critical,
         "audio_defects": defects,
         "notes": payload.get("notes", ""),
     }
@@ -344,6 +378,7 @@ def _rescore_result(result: dict[str, Any], threshold: float) -> dict[str, Any]:
     transcript = str(result.get("transcript", ""))
     stats = word_error_stats(script, transcript)
     pronunciation = result.get("pronunciation_issues") or []
+    critical = result.get("critical_token_issues") or []
     defects = result.get("audio_defects") or []
     major_pronunciation = any(
         isinstance(item, dict)
@@ -354,7 +389,7 @@ def _rescore_result(result: dict[str, Any], threshold: float) -> dict[str, Any]:
     result["differences"] = diff_spans(script, transcript)
     result["status"] = (
         "review"
-        if stats["fidelity_percent"] < threshold or major_pronunciation or defects
+        if stats["fidelity_percent"] < threshold or major_pronunciation or critical or defects
         else "pass"
     )
     return result

@@ -59,7 +59,7 @@ DEFAULT_BROWSER_UI_MODE = os.getenv(
 if DEFAULT_BROWSER_UI_MODE not in {"flash", "pro"}:
     raise ValueError("MICROGEN_GEMINI_UI_MODE must be 'flash' or 'pro'")
 
-STAGES = ("figures", "slides", "narration", "tts", "tts_qa", "video")
+STAGES = ("figures", "slides", "narration", "script_qa", "tts", "tts_qa", "video")
 CHROME_STAGES = {"figures", "slides", "narration"}
 SCRIPTS = {
     "figures": ("crop_figs_v3.py", "map_and_rename_selenium_v8.py", "merge_lettered_figs_v3.py"),
@@ -71,6 +71,7 @@ RESOURCE_FILES = ("beamerthemeGelugor.sty", "usmlg.jpg", "usmemb.jpg", "logotype
 OUTPUTS = {
     "slides": ("slides.tex", "slides.pdf"),
     "narration": ("script.txt",),
+    "script_qa": ("script_risk_report.json", "script_risk_report.md"),
     "tts_qa": ("tts_fidelity_report.json", "tts_fidelity_report.md"),
     "video": ("slides.mp4",),
 }
@@ -184,6 +185,9 @@ def valid(stage: str, folder: Path) -> bool:
         return slide_pages(folder) > 0
     if stage == "narration":
         return len(blocks((folder / "script.txt").read_text(encoding="utf-8"))) == slide_pages(folder)
+    if stage == "script_qa":
+        report = json.loads((folder / "script_risk_report.json").read_text(encoding="utf-8"))
+        return int(report.get("summary", {}).get("blocking", 1)) == 0
     if stage == "tts":
         count = len(blocks((folder / "script.txt").read_text(encoding="utf-8")))
         return all((folder / f"slide{i}.wav").is_file() and
@@ -272,6 +276,7 @@ def archive_existing_outputs(stage: str, folder: Path) -> None:
     names = {
         "slides": ("slides.tex", "slides.pdf"),
         "narration": ("script.txt",),
+        "script_qa": ("script_risk_report.json", "script_risk_report.md"),
         "tts_qa": ("tts_fidelity_report.json", "tts_fidelity_report.md"),
         "video": ("slides.mp4",),
     }.get(stage, ())
@@ -393,7 +398,9 @@ def execute(s: Settings) -> Path:
         # A changed stage invalidates every downstream stage, including final video.
         browser_model = {"figures": DEFAULT_CAPTION_MODEL, "slides": DEFAULT_SLIDE_MODEL,
                          "narration": DEFAULT_NARRATION_MODEL}.get(stage, "deterministic-local")
-        if stage == "tts":
+        if stage == "script_qa":
+            model_stamp = "script-risk-v1"
+        elif stage == "tts":
             model_stamp = f"{s.tts_provider}:{s.tts_model}:{s.tts_voice}"
         elif stage == "tts_qa":
             model_stamp = f"{s.tts_qa_model}:threshold={s.tts_qa_threshold:.3f}:v1"
@@ -413,7 +420,24 @@ def execute(s: Settings) -> Path:
                 print(f"[microgen] {stage} Gemini mode: {ensure_mode(s.chrome_port, DEFAULT_BROWSER_UI_MODE)}")
             if stage != "tts":
                 archive_existing_outputs(stage, folder)
-            if stage == "tts":
+            if stage == "script_qa":
+                run_cmd(
+                    [
+                        sys.executable,
+                        "script_tts_risk.py",
+                        "--script",
+                        "script.txt",
+                        "--json",
+                        "script_risk_report.json",
+                        "--markdown",
+                        "script_risk_report.md",
+                        "--strict",
+                    ],
+                    folder,
+                    log_file,
+                    env,
+                )
+            elif stage == "tts":
                 tts_python = tts_python_executable()
                 print(f"[microgen] TTS Python: {tts_python}")
                 run_cmd(
