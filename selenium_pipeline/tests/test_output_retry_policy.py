@@ -42,6 +42,10 @@ class GeminiOutputRetryPolicyTests(unittest.TestCase):
         source = MAPPER.read_text(encoding="utf-8")
         self.assertIn('GEMINI_PAGE_ATTEMPTS", "3"', source)
 
+    def test_mapping_stall_window_does_not_preempt_normal_slow_response(self):
+        source = MAPPER.read_text(encoding="utf-8")
+        self.assertIn('GEMINI_MAPPING_STALL_SECONDS", "90"', source)
+
     def test_narration_defaults_to_three_total_attempts(self):
         source = NARRATION.read_text(encoding="utf-8")
         self.assertIn('RETRY_COUNT = int(os.environ.get("RETRY_COUNT", "2"))', source)
