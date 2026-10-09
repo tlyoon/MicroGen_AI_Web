@@ -51,15 +51,19 @@ def _check_deps():
         sys.exit(1)
 
 # ---------- Progress logger (prints % complete) ----------
-from proglog import ProgressBarLogger
-class SimpleLogger(ProgressBarLogger):
-    def bars_callback(self, bar, attr, value, old_value=None):
-        # 't' is the main time/progress bar MoviePy uses
-        if bar == 't':
-            total = self.bars[bar].get('total') or 0
-            if total:
-                pct = (value / total) * 100
-                print(f"\rVideo creation: {pct:5.1f}% done", end="", flush=True)
+def _progress_logger():
+    # Import only after _check_deps() has produced a clear dependency error.
+    from proglog import ProgressBarLogger
+
+    class SimpleLogger(ProgressBarLogger):
+        def bars_callback(self, bar, attr, value, old_value=None):
+            if bar == 't':
+                total = self.bars[bar].get('total') or 0
+                if total:
+                    pct = (value / total) * 100
+                    print(f"\rVideo creation: {pct:5.1f}% done", end="", flush=True)
+
+    return SimpleLogger()
 
 def build_video(output_filename: str = "slides.mp4"):
     import numpy as np
@@ -153,7 +157,7 @@ def build_video(output_filename: str = "slides.mp4"):
             threads=1,            # stability in IDEs
             preset="medium",
             verbose=True,
-            logger=SimpleLogger() # <-- percent progress here
+            logger=_progress_logger() # <-- percent progress here
         )
         print("\nVideo writing complete.")
         print(f"Video created successfully: {videofile}")

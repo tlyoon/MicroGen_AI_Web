@@ -1,10 +1,13 @@
 import tempfile
 import unittest
+import os
+import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
 from selenium_pipeline.runner import (
     Settings, blocks, job_source, check_valid, execute, archive_existing_outputs,
+    video_python_executable,
     DEFAULT_CAPTION_MODEL, CAPTION_BENCHMARK_MODEL, DEFAULT_SLIDE_MODEL,
     DEFAULT_NARRATION_MODEL, DEFAULT_BROWSER_UI_MODE, MODEL_PHASE,
 )
@@ -67,6 +70,19 @@ class PipelineTests(unittest.TestCase):
             archived = list((folder / ".history").rglob("slides.tex"))
             self.assertEqual(len(archived), 1)
             self.assertEqual(archived[0].read_text(encoding="utf-8"), "prior LaTeX")
+
+
+    def test_video_python_prefers_explicit_valid_override(self):
+        fake = Path("C:/fake/video/python.exe")
+        with patch.dict(os.environ, {"MICROGEN_VIDEO_PYTHON": str(fake)}, clear=False):
+            with patch.object(Path, "is_file", return_value=True):
+                with patch("selenium_pipeline.runner.subprocess.run") as run:
+                    run.return_value.returncode = 0
+                    self.assertEqual(video_python_executable(), str(fake))
+                    command = run.call_args.args[0]
+                    self.assertIn("moviepy.editor", command[-1])
+                    self.assertIn("proglog", command[-1])
+
 
     def test_missing_artifacts_fail_validation(self):
         with tempfile.TemporaryDirectory() as td:

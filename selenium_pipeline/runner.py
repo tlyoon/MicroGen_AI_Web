@@ -135,6 +135,47 @@ def tts_python_executable() -> str:
     )
 
 
+def video_python_executable() -> str:
+    """Return a Python executable with the validated local video dependencies."""
+    override = os.getenv("MICROGEN_VIDEO_PYTHON", "").strip()
+    tts_override = os.getenv("MICROGEN_TTS_PYTHON", "").strip()
+    candidates: list[Path] = []
+    for value in (override, tts_override):
+        if value:
+            candidates.append(Path(value))
+    if os.name == "nt":
+        candidates.append(REPO / ".venv" / "Scripts" / "python.exe")
+    else:
+        candidates.append(REPO / ".venv" / "bin" / "python")
+    candidates.append(Path(sys.executable))
+
+    seen: set[str] = set()
+    for candidate in candidates:
+        key = str(candidate)
+        if key in seen:
+            continue
+        seen.add(key)
+        if not candidate.is_file():
+            continue
+        check = subprocess.run(
+            [
+                str(candidate),
+                "-c",
+                "import numpy, pdf2image, proglog, moviepy.editor",
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+        if check.returncode == 0:
+            return str(candidate)
+    raise RuntimeError(
+        "No Python environment with MicroGen video dependencies is available. "
+        "Install requirements-selenium.txt in the MicroGen environment or set "
+        "MICROGEN_VIDEO_PYTHON."
+    )
+
+
 def utc() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -413,10 +454,14 @@ def execute(s: Settings) -> Path:
                     env,
                 )
             else:
+                stage_python = sys.executable
+                if stage == "video":
+                    stage_python = video_python_executable()
+                    print(f"[microgen] Video Python: {stage_python}")
                 for script in SCRIPTS[stage]:
                     if not (folder / script).is_file():
                         raise FileNotFoundError(f"Missing reference entrypoint: {script}")
-                    run_cmd([sys.executable, script], folder, log_file, env)
+                    run_cmd([stage_python, script], folder, log_file, env)
             if not check_valid(stage, folder):
                 raise RuntimeError(f"Validation failed at {stage}; see {log_file}")
             state["completed"][stage] = {"at_utc": utc(), "model": model_stamp}

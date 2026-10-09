@@ -9,3 +9,10 @@ Pillow>=10.0
 pyperclip>=1.8
 pywinauto>=0.6.8; sys_platform == "win32"
 contractions>=0.1
+# Local video assembly runtime
+moviepy==1.0.3
+proglog==0.1.10
+decorator==4.4.2
+imageio>=2.31
+imageio-ffmpeg>=0.4.9
+numpy>=1.26
