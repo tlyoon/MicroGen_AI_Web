@@ -13,6 +13,10 @@ import hashlib
 import json
 import os
 import re
+import signal
+import subprocess
+import sys
+import tempfile
 import unicodedata
 import wave
 from pathlib import Path
@@ -284,7 +288,7 @@ def _risk_checks_text(script: str) -> str:
     )
 
 
-def inspect_audio(
+def _inspect_audio_direct(
     wav_path: Path,
     script: str,
     *,
@@ -327,6 +331,136 @@ def inspect_audio(
         max_retries=2,
     )
     return _parse_json_payload(_response_text(response))
+
+
+def _qa_hard_timeout_seconds(wav_path: Path) -> int:
+    explicit = os.environ.get("MICROGEN_TTS_QA_HARD_TIMEOUT_SECONDS", "").strip()
+    if explicit:
+        return max(30, int(float(explicit)))
+    duration = wav_duration_seconds(wav_path)
+    base = float(os.environ.get("MICROGEN_TTS_QA_TIMEOUT_BASE_SECONDS", "120"))
+    per_audio_second = float(os.environ.get("MICROGEN_TTS_QA_TIMEOUT_PER_AUDIO_SECOND", "2"))
+    maximum = float(os.environ.get("MICROGEN_TTS_QA_TIMEOUT_MAX_SECONDS", "420"))
+    return max(30, int(min(maximum, base + duration * per_audio_second)))
+
+
+def _terminate_process_tree(process: subprocess.Popen[str]) -> None:
+    if process.poll() is not None:
+        return
+    if os.name == "nt":
+        subprocess.run(
+            ["taskkill", "/PID", str(process.pid), "/T", "/F"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+        return
+    try:
+        os.killpg(process.pid, signal.SIGKILL)
+    except (ProcessLookupError, PermissionError):
+        try:
+            process.kill()
+        except ProcessLookupError:
+            pass
+
+
+def inspect_audio(
+    wav_path: Path,
+    script: str,
+    *,
+    model: str = DEFAULT_MODEL,
+) -> dict[str, Any]:
+    attempts = max(1, int(os.environ.get("MICROGEN_TTS_QA_HARD_ATTEMPTS", "2")))
+    timeout_seconds = _qa_hard_timeout_seconds(wav_path)
+    last_error: Exception | None = None
+
+    for attempt in range(1, attempts + 1):
+        with tempfile.TemporaryDirectory(prefix="microgen_tts_qa_") as td:
+            output_path = Path(td) / "result.json"
+            request_path = Path(td) / "request.json"
+            request_path.write_text(
+                json.dumps(
+                    {
+                        "wav_path": str(wav_path),
+                        "script": script,
+                        "model": model,
+                        "output_path": str(output_path),
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+            command = [
+                sys.executable,
+                "-m",
+                "selenium_pipeline.tts_fidelity_worker",
+                "--request",
+                str(request_path),
+            ]
+            creationflags = (
+                subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
+            )
+            process = subprocess.Popen(
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                env=os.environ.copy(),
+                start_new_session=(os.name != "nt"),
+                creationflags=creationflags,
+            )
+            try:
+                output, _ = process.communicate(timeout=timeout_seconds)
+            except subprocess.TimeoutExpired:
+                _terminate_process_tree(process)
+                try:
+                    output, _ = process.communicate(timeout=5)
+                except Exception:
+                    output = ""
+                last_error = TimeoutError(
+                    f"TTS QA {wav_path.name} exceeded hard timeout of "
+                    f"{timeout_seconds}s on attempt {attempt}/{attempts}"
+                )
+                print(
+                    f"[tts-qa] {last_error}; retrying"
+                    if attempt < attempts
+                    else f"[tts-qa] {last_error}",
+                    flush=True,
+                )
+                continue
+
+            if process.returncode != 0:
+                message = (output or "").strip()
+                last_error = RuntimeError(
+                    f"TTS QA worker failed for {wav_path.name} on attempt "
+                    f"{attempt}/{attempts}: {message[-1200:]}"
+                )
+                print(f"[tts-qa] {last_error}; retrying" if attempt < attempts else f"[tts-qa] {last_error}", flush=True)
+                continue
+
+            if not output_path.is_file():
+                last_error = RuntimeError(
+                    f"TTS QA worker produced no result for {wav_path.name}"
+                )
+                continue
+
+            try:
+                payload = json.loads(output_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError) as exc:
+                last_error = RuntimeError(
+                    f"TTS QA worker returned invalid JSON for {wav_path.name}: {exc}"
+                )
+                continue
+
+            if isinstance(payload, dict):
+                return payload
+            last_error = RuntimeError(
+                f"TTS QA worker returned a non-object result for {wav_path.name}"
+            )
+
+    if last_error is not None:
+        raise last_error
+    raise RuntimeError(f"TTS QA failed for {wav_path.name} without a result")
 
 
 def evaluate_slide(

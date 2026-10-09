@@ -1,15 +1,18 @@
 import io
+import subprocess
 import tempfile
 import unittest
 import wave
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from selenium_pipeline.speech import normalize_scientific_speech
 from selenium_pipeline.tts_fidelity import (
+    _qa_hard_timeout_seconds,
     _risk_checks_text,
     diff_spans,
     evaluate_slide,
+    inspect_audio,
     normalize_for_comparison,
     wav_duration_seconds,
     word_error_stats,
@@ -135,6 +138,46 @@ class TTSFidelityTests(unittest.TestCase):
             self.assertEqual(result["fidelity_percent"], 100.0)
             self.assertEqual(result["status"], "review")
             self.assertEqual(len(result["critical_token_issues"]), 1)
+
+    def test_qa_hard_timeout_scales_with_audio_duration(self):
+        with tempfile.TemporaryDirectory() as td:
+            short = Path(td) / "short.wav"
+            long = Path(td) / "long.wav"
+            make_wav(short, 1.0)
+            make_wav(long, 60.0)
+            with patch.dict("os.environ", {}, clear=False):
+                self.assertGreater(
+                    _qa_hard_timeout_seconds(long),
+                    _qa_hard_timeout_seconds(short),
+                )
+
+    def test_inspect_audio_kills_and_retries_hung_worker(self):
+        with tempfile.TemporaryDirectory() as td:
+            wav_path = Path(td) / "slide1.wav"
+            make_wav(wav_path)
+            workers = []
+            for pid in (101, 102):
+                worker = MagicMock()
+                worker.pid = pid
+                worker.returncode = None
+                worker.communicate.side_effect = [
+                    subprocess.TimeoutExpired(cmd="worker", timeout=1),
+                    ("", None),
+                ]
+                workers.append(worker)
+            with patch(
+                "selenium_pipeline.tts_fidelity._qa_hard_timeout_seconds",
+                return_value=1,
+            ), patch(
+                "selenium_pipeline.tts_fidelity.subprocess.Popen",
+                side_effect=workers,
+            ) as popen, patch(
+                "selenium_pipeline.tts_fidelity._terminate_process_tree",
+            ) as terminate:
+                with self.assertRaises(TimeoutError):
+                    inspect_audio(wav_path, "safe narration")
+            self.assertEqual(popen.call_count, 2)
+            self.assertEqual(terminate.call_count, 2)
 
     def test_major_pronunciation_issue_forces_review(self):
         with tempfile.TemporaryDirectory() as td:
