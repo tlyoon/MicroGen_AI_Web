@@ -3,10 +3,14 @@
 ## Reusable multi-PC lecture generation prompt
 
 To request automatic generation of **all source.pdf subchapters** using available,
-compatible PCs, use [the multi-PC lecture generation prompt](prompts/AUTO_MULTI_PC_LECTURE_GENERATION_PROMPT_v1.md).
-It specifies source discovery, chapter-level non-overlapping assignments, strict
-stage dependencies, stall recovery, deferred retries, verified publication and
-cross-PC monitoring. It does **not** itself launch any generation or push code.
+compatible PCs, use [the universal multi-computer generation prompt (v2)](prompts/AUTO_MULTI_PC_LECTURE_GENERATION_PROMPT_v2.md).
+It dynamically discovers authorized computers, resolves the PDF source root on
+each device, checks actual runtime compatibility, distributes non-overlapping
+work, recovers from stalls, and verifies outputs beside their source PDFs.
+The [earlier v1 prompt](prompts/AUTO_MULTI_PC_LECTURE_GENERATION_PROMPT_v1.md)
+is retained for reference. The prompt is OS-agnostic, but the current
+experimental worker may require portability improvements for new PC types.
+These instructions do **not** launch generation or authorize a GitHub push.
 
 ## New Dell-115 Selenium integration candidate
 
