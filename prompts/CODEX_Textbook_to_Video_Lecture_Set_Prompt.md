@@ -14,7 +14,7 @@ The workflow uses the **MicroGen_AI** code package. For each selected subtopic i
 6. per-slide PDF/audio generation,
 7. MP4 assembly,
 8. integrity verification, and
-9. storage cleanup after successful completion.
+9. checkpoint-safe preservation of all final slide, audio and video assets.
 
 The final user-facing outputs remain inside the same subtopic directory as the corresponding `source.pdf`.
 
@@ -27,7 +27,7 @@ Before running this prompt, define at least `SOURCE_ROOT_DIRECTORY`. All other p
 ```text
 SOURCE_ROOT_DIRECTORY = "{{REQUIRED: absolute path to the textbook/project root directory}}"
 
-CODE_PACKAGE_URL = "{{default: https://github.com/tlyoon/MicroGen_AI.git}}"
+CODE_PACKAGE_URL = "{{default: https://github.com/tlyoon/MicroGen_AI_Web.git}}"
 CODE_PACKAGE_REF = "{{default: main}}"
 
 CODE_PACKAGE_FALLBACK_URL = "{{default: https://drive.google.com/open?id=1brjd9r0ttscg4MboQA63jbLempvvsBTM&usp=drive_fs}}"
@@ -45,7 +45,7 @@ WORK_ROOT_DIRECTORY = "{{default: AUTO}}"
 
 ## Meaning of the placeholders
 
-### `SOURCE_ROOT_DIRECTORY` — required
+The MicroGen code root is the local clone's directory (determined automatically from the package). It is distinct from `SOURCE_ROOT_DIRECTORY`, which points only to the PDF tree. A Google Drive browser URL or folder ID is not required; use a Windows/local mounted directory path. You may set `MICROGEN_SOURCE_ROOT` once per PC instead of repeating a command-line path.\n\n### `SOURCE_ROOT_DIRECTORY` — required
 
 Absolute local path to the root directory containing textbook/course folders and subtopic folders.
 
@@ -83,7 +83,7 @@ Only process valid subtopic directories that contain a readable `source.pdf`.
 Primary location of the MicroGen_AI package. The default is:
 
 ```text
-https://github.com/tlyoon/MicroGen_AI.git
+https://github.com/tlyoon/MicroGen_AI_Web.git
 ```
 
 Use the `main` branch unless `CODE_PACKAGE_REF` is explicitly changed.
@@ -232,7 +232,7 @@ The package will serialize the Gemini-heavy stages across the participating PCs 
 
 ### `WORK_ROOT_DIRECTORY`
 
-Default `AUTO` means create an isolated temporary/work directory outside the textbook source tree, for example:
+Default `AUTO` means use a hidden `.microgen_batch_work` subfolder of each source subchapter (or an optional explicitly provided scratch root). For example:
 
 ```text
 <user cache or temp>/MicroGen_AI_runs/
@@ -496,55 +496,33 @@ If these checks fail, do not publish a success state and do not perform final cl
 
 Only after the staging build passes all integrity checks:
 
-1. Copy/replace the verified final generated outputs into the original subtopic folder containing `source.pdf`.
-2. Never replace `source.pdf`.
-3. Preserve unrelated existing files.
-4. The retained output set should include, when produced by the active package:
+1. Copy/replace all validated teaching media in the original subtopic directory containing `source.pdf`.
+2. Never replace `source.pdf` or unrelated question banks, notes or teaching files.
+3. Keep the Git clone (MicroGen code root) completely separate from the textbook `SOURCE_ROOT_DIRECTORY`; determine the clone path automatically.
+4. Retain **all** generated teaching outputs, including:
 
 ```text
 slides.pdf
 slides.tex
 script.txt
 script_tts.json
+slide1.pdf ... slideN.pdf
+slide1.wav ... slideN.wav
 slides.mp4
-Figure*.png / FIGURE*.png and other final mapped figure assets
-relevant run logs or metadata
+Figure*.png / FIGURE*.png
+QA reports, logs, checkpoint and per-subchapter status report
 ```
 
-5. Do not publish package source code into every subtopic directory unless the user explicitly requests it.
+5. Publish complete, verified media using atomic replacement and keep staged failures for diagnosis.
+6. Keep temporary copied Python scripts, crop caches and working assets in a hidden per-subchapter work directory. Never publish credentials or code snapshots as teaching media.
 
-Use safe replacement semantics: prepare and verify new outputs first, then replace older generated outputs. A failed new run must not destroy a previously valid slide/video set.
+**Do not delete numbered WAV or individual slide PDF files after the MP4 is created.** They are required outputs and useful for independent playback, diagnostics and repeatability.
 
 ---
 
-# I. Storage cleanup — mandatory after successful publication
+# I. Workspace maintenance — non-destructive by default
 
-After all required final files for a subtopic have been published and re-verified in the **original subtopic directory**, remove the following storage-heavy intermediates from that subtopic directory:
-
-```text
-crops/
-pages/
-slide1.pdf, slide2.pdf, ... slideN.pdf
-slide1.wav, slide2.wav, ... slideN.wav
-```
-
-Use numeric matching for the numbered slide files. Do **not** accidentally match or delete:
-
-```text
-slides.pdf
-slides.mp4
-```
-
-For example, `slide*.pdf` is unsafe because it can also match `slides.pdf` in some shells. Match only filenames equivalent to:
-
-```regex
-^slide\d+\.pdf$
-^slide\d+\.wav$
-```
-
-Cleanup is allowed only after the final `slides.pdf`, narration, and `slides.mp4` have passed integrity checks.
-
-The isolated staging workspace may then be deleted unless it is needed to diagnose a failure.
+Preserve per-slide PDFs, WAVs, source figures, slide deck, narration, video, and stage checkpoints in the subchapter directory. The hidden workspace may be cleaned only by an explicit user-requested maintenance operation, never by a routine successful generation. A failed new run must not destroy a previously validated output set.
 
 ---
 
@@ -554,7 +532,7 @@ The isolated staging workspace may then be deleted unless it is needed to diagno
 2. Maintain an explicit status table internally for each subtopic:
 
 ```text
-pending -> figures -> slides -> narration -> tts -> video -> verified -> published -> cleaned
+pending -> figures -> slides -> narration -> tts -> video -> verified -> published
 ```
 
 3. Do not restart a successfully completed subtopic unnecessarily.
@@ -581,7 +559,7 @@ When all selected subtopics have been attempted, provide a concise report contai
 - video duration and file size where available,
 - any automatic repairs performed,
 - any dependency installations performed,
-- confirmation that `crops/`, `pages/`, numbered `slideN.pdf`, and numbered `slideN.wav` were removed from successfully completed source subdirectories,
+- confirmation that numbered `slideN.pdf` and `slideN.wav` files were retained in every successfully completed source subdirectory,
 - unresolved failures requiring user intervention.
 
 Do not claim that the run is complete until the selected target set has been checked against this report.
@@ -599,7 +577,7 @@ SOURCE_ROOT_DIRECTORY = "G:\My Drive\My_Textbook_Project"
 and may leave:
 
 ```text
-CODE_PACKAGE_URL = "https://github.com/tlyoon/MicroGen_AI.git"
+CODE_PACKAGE_URL = "https://github.com/tlyoon/MicroGen_AI_Web.git"
 CODE_PACKAGE_REF = "main"
 LLM_MODEL = "V7_DEFAULT"
 TARGET_SUBDIRECTORIES = "AUTO_FIRST_PARENT_ALL"
@@ -610,4 +588,4 @@ WORK_ROOT_DIRECTORY = "AUTO"
 
 Then submit this entire Markdown file to Codex and instruct it to **execute the workflow**, not merely summarize the prompt.
 
-Expected behavior with a source hierarchy beginning with `1/` is to process every valid `source.pdf` under `1.1/`, `1.2/`, ..., through the last valid subtopic in that first parent folder, generate the complete slide+narration+video set for each, publish the final assets in each respective subtopic directory, and remove the specified temporary storage-heavy intermediates after successful verification.
+Expected behavior with a source hierarchy beginning with `1/` is to process every valid `source.pdf` under `1.1/`, `1.2/`, ..., through the last valid subtopic in that first parent folder, generate the complete slide+narration+video set for each, publish the final assets in each respective subtopic directory, and retain verified individual slide PDFs, WAVs, and checkpoints in the source subchapter directories.
