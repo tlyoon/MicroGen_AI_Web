@@ -458,7 +458,9 @@ def execute(s: Settings) -> Path:
             if stage in CHROME_STAGES:
                 from .gemini_model import ensure_mode
                 print(f"[microgen] {stage} Gemini mode: {ensure_mode(s.chrome_port, DEFAULT_BROWSER_UI_MODE)}")
-            if stage != "tts":
+            if stage not in {"tts", "video"}:
+                # Video assembly archives the prior MP4 only after its new
+                # candidate passes stream and duration validation.
                 archive_existing_outputs(stage, folder)
             if stage == "script_qa":
                 run_cmd(
