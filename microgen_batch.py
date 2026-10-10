@@ -452,7 +452,8 @@ def write_report(path: Path, report: list[dict]) -> None:
 def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(description="Resumable MicroGen_AI batch production")
     ap.add_argument("--source-root", type=Path,
-                    help="Separate local PDF tree (or configure MICROGEN_SOURCE_ROOT)")
+                    help=r"Separate local PDF tree (e.g. G:\My Drive\Serway\Serway_8_14; "
+                   r"illustration only), or configure MICROGEN_SOURCE_ROOT")
     ap.add_argument("--work-root", type=Path,
                     help="Optional scratch folder, default <subchapter>/.microgen_batch_work")
     ap.add_argument("--targets", required=True, help="Comma-separated subchapters, e.g. 1.1,1.2,2.3")

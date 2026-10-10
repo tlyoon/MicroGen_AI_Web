@@ -91,42 +91,59 @@ During development, the runner automatically selects Gemini Flash in the authent
 
 ### Two-root layout and output location
 
-`MICROGEN_ROOT` is the local GitHub clone of the MicroGen code. It is detected
-automatically from the Python package location and is **never used by default
-as the textbook root**. `SOURCE_ROOT` is a **different local directory**
-containing the textbook tree, for example
-`D:\Physics_Textbook\22\22.3\source.pdf`.
+`MICROGEN_ROOT` is the GitHub code checkout and is detected automatically;
+`SOURCE_ROOT` is a **separate**, readable/writable directory containing
+`<chapter>\<subchapter>\source.pdf`. Example on Dell-115:
 
-Set `SOURCE_ROOT` with `--source-root` or the per-PC
-`MICROGEN_SOURCE_ROOT` environment variable. With neither provided, MicroGen
-fails early with an explanatory error instead of reading PDFs from the code
-repository. A browser link to Google Drive is **not required**.
-
-```powershell
-cd C:\Projects\MicroGen_AI_Web
-$env:MICROGEN_SOURCE_ROOT = "D:\Physics_Textbook"
-.\.venv\Scripts\python.exe -m selenium_pipeline --subchapter 22.3 --dry-run
-.\.venv\Scripts\python.exe -m selenium_pipeline --subchapter 22.3
+```text
+MicroGen code: G:\My Drive\Projects\MicroGen_AI_Web
+SOURCE_ROOT:   G:\My Drive\Serway\Serway_8_14
+Source PDF:    G:\My Drive\Serway\Serway_8_14\8\8.1\source.pdf
 ```
 
-Alternatively, pass `--source-root "D:\Physics_Textbook"` each run.
-For a persistent per-user Windows setting (effective in **new** terminals):
+**This example is for illustration only, not a hard-coded default.**
+Each user must configure their own `MICROGEN_SOURCE_ROOT` to point at the
+folder containing **their** PDF source directory tree, or pass
+`--source-root` every run. Without either setting, MicroGen stops rather
+than using the code checkout as the source folder.
 
 ```powershell
-[Environment]::SetEnvironmentVariable("MICROGEN_SOURCE_ROOT", "D:\Physics_Textbook", "User")
+cd "G:\My Drive\Projects\MicroGen_AI_Web"
+
+# Illustrative example only; replace paths on your computer:
+$env:MICROGEN_SOURCE_ROOT = "G:\My Drive\Serway\Serway_8_14"
+.\.venv\Scripts\python.exe -m selenium_pipeline --subchapter 8.1 --dry-run
+
+# Or explicitly select the source root for one run:
+.\.venv\Scripts\python.exe -m selenium_pipeline --source-root "G:\My Drive\Serway\Serway_8_14" --subchapter 8.1 --dry-run
+
+# Optional permanent Windows user setting (applies to new terminals):
+[Environment]::SetEnvironmentVariable("MICROGEN_SOURCE_ROOT", "G:\My Drive\Serway\Serway_8_14", "User")
 ```
 
-No Google Drive ID or link is used by MicroGen: a synced Drive folder works
-using its local Windows path, provided the user has read/write access.
+A per-PC setting in `%LOCALAPPDATA%\Microvid\.env` is another supported
+method; see [`.env.example`](../.env.example). An explicit `--source-root`
+overrides the environment variable. Google Drive **browser links and IDs**
+are not used as filesystem paths; use the local/mounted Drive folder.
 
-The pipeline writes its validated `slides.tex`, `slides.pdf`,
-`script.txt`, `slide1.wav`…`slideN.wav`, individual slide PDFs,
-`slides.mp4`, generated figures, QA reports and diagnostic logs **directly
-beside the original** `source.pdf`. Temporary processing files and copied
-`template_v2` scripts are isolated in that subchapter's hidden
-`.microgen_work` directory; they never overwrite the original PDF. Passing
-`--work-root "D:\MicroGen_Scratch"` changes where the **working** files live
-without affecting where final teaching media are published.
+**Recommended for multiple computers:** Keep **both** the MicroGen code
+repository and PDF source tree in Google Drive-synchronized directories.
+This makes all original PDFs and generated teaching materials accessible
+to Dell-115, Yoga6, HP and other PCs. Run **different subchapters** on
+different machines for **pseudo-parallel generation**; never run the same
+subchapter concurrently. Give every worker read/write permission to the
+source root and its nested chapter/subchapter folders, allow Drive time
+to synchronize, and set `MICROGEN_GEMINI_LANE_DIR` to the **same shared
+Google Drive lane** for cooperating workers. Gemini-heavy calls then
+serialize while other independent processing can overlap. Auth and
+secrets stay in local `%LOCALAPPDATA%\Microvid`, **not** in Google Drive.
+The source root and code checkout must remain separate directories.
+
+All generated slides, narration, per-slide WAV/PDF files, MP4 videos,
+figures and QA reports are published **beside the relevant `source.pdf`**.
+Temporary files and copied Selenium scripts remain isolated within the
+subchapter's `.microgen_work` directory. Passing `--work-root` only changes
+staging; it never changes the published output destination.
 
 For an existing Dell-115 run created with the former workspace, supply
 `--work-root "$env:USERPROFILE\Documents\MicroGen_AI_Web_Workspace"` to reuse
@@ -137,7 +154,12 @@ Credentials default to `%LOCALAPPDATA%\Microvid\.env` and
 Ensure Windows, Chrome, Python 3.11/3.12, the required pip packages, MiKTeX
 (`pdflatex`), FFmpeg, and an authorized Gemini session are available.
 
-### Read-only dry-run for Serway 22.1
+### Historical reference dry-run for Serway 22.1 (older OneDrive source tree)
+
+The following Serway 22-27 examples refer to the **earlier reference test dataset**;
+they are not the configured source root for Dell-115. For the current shared
+Serway 8-14 example, use `--source-root "G:\My Drive\Serway\Serway_8_14"`
+and `--subchapter 8.1` as shown above.
 
 ```powershell
 .\.venv\Scripts\python.exe -m selenium_pipeline --source-root "C:\Users\tlyoon\OneDrive - Universiti Sains Malaysia\MicroGen_AI\llm_selenium\Serway_22_27" --subchapter 22.1 --dry-run

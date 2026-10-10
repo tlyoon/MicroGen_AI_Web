@@ -603,7 +603,8 @@ def doctor() -> None:
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="MicroGen Selenium pipeline for Dell-115")
     p.add_argument("--source-root", type=Path,
-                   help="PDF tree root (required unless MICROGEN_SOURCE_ROOT is configured)")
+                   help=r"PDF tree root (e.g. G:\My Drive\Serway\Serway_8_14; "
+                   r"illustration only; required unless MICROGEN_SOURCE_ROOT is set)")
     p.add_argument("--work-root", type=Path,
                    help="Optional isolated staging root; by default stage under each source directory/.microgen_work")
     p.add_argument("--subchapter", help="One or comma-separated subchapters, e.g. 22.1,22.2")
