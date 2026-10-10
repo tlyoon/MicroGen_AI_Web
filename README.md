@@ -1,5 +1,13 @@
 # MicroGen_AI
 
+## Reusable multi-PC lecture generation prompt
+
+To request automatic generation of **all source.pdf subchapters** using available,
+compatible PCs, use [the multi-PC lecture generation prompt](prompts/AUTO_MULTI_PC_LECTURE_GENERATION_PROMPT_v1.md).
+It specifies source discovery, chapter-level non-overlapping assignments, strict
+stage dependencies, stall recovery, deferred retries, verified publication and
+cross-PC monitoring. It does **not** itself launch any generation or push code.
+
 ## New Dell-115 Selenium integration candidate
 
 A standalone Selenium-first pipeline has been added in [`selenium_pipeline/`](selenium_pipeline/README.md). It uses the **working Dell-115 `template_v2` source scripts** rather than inherited Selenium code from this repository. The package targets Gemini 3.1 Pro for caption/figure abstraction, slide generation, and narration through the authorized browser UI, plus Gemini 3.8 Flash-Lite API TTS (with Flash TTS and Chirp 3 HD options). It includes per-stage checkpoints, limited-time subprocess execution, and a Windows production guide. Run `python -m selenium_pipeline --doctor` or see the linked guide. This is an **integration candidate** until a fresh end-to-end run is validated; the existing API workflow below remains available.
