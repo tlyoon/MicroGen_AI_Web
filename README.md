@@ -8,6 +8,28 @@ MicroGen_AI is an AI-assisted educational media generation toolkit developed for
 
 The main workflow converts a `source.pdf` into extracted textbook figures, LaTeX Beamer slides, slide-by-slide narration, Google Cloud text-to-speech audio, per-slide PDF/WAV assets, and a final narrated MP4 video.
 
+## Stable FFmpeg video generation (Dell-115)
+
+The Selenium runner now uses `slice_pdf.py` and the maintained
+`selenium_pipeline/video_ffmpeg.py` assembler instead of the legacy
+MoviePy `gen_video.py`. The new renderer prevents the observed
+`must be real number, not NoneType` failure during video encoding.
+It verifies complete `slideN.pdf`/`slideN.wav` pairs, encodes at
+24 fps with H.264/AAC, checks the new MP4's audio/video streams and
+duration, then publishes it atomically while archiving the previous video.
+
+On Dell-115, a video-only run of 25.4 from 11 existing slide pairs
+successfully produced a 488.93-second MP4. Run the renderer against any
+completed subchapter without regenerating its LLM slides or narration:
+
+```powershell
+.\.venv\Scripts\python.exe -m selenium_pipeline.video_ffmpeg --folder "D:\Physics_Textbook\25\25.4"
+```
+
+Use a local PDF source folder in place of the example. See
+[the Selenium guide](selenium_pipeline/README.md) for managed video-stage
+commands, environment requirements, and output validation.
+
 ## Design goals
 
 MicroGen_AI is built around two complementary priorities:
