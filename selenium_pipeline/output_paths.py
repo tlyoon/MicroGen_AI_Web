@@ -33,8 +33,9 @@ def resolve_source_root(value: str | Path | None, *, code_root: Path) -> Path:
     if "://" in choice:
         raise ValueError("SOURCE_ROOT must be a local/mounted directory, not a URL")
     source_root = Path(choice).expanduser().resolve()
-    if source_root == code_root.resolve():
-        raise ValueError("SOURCE_ROOT must differ from the MicroGen Git repository root")
+    repo_root = code_root.resolve()
+    if source_root == repo_root or source_root.is_relative_to(repo_root) or repo_root.is_relative_to(source_root):
+        raise ValueError("SOURCE_ROOT and the MicroGen code root must be separate, non-nested directories")
     if not source_root.is_dir():
         raise NotADirectoryError(f"SOURCE_ROOT is unavailable: {source_root}")
     return source_root
