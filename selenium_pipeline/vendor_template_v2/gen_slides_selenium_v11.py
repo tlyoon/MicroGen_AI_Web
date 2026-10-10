@@ -43,6 +43,55 @@ except ImportError:
 import fix_latex_selenium_v4
 
 # ------------------------------------------------------------
+# Citation / grounding artifact guard
+# ------------------------------------------------------------
+# Gemini may use source grounding internally, but source-tracking metadata must
+# never leak into student-facing slides. Only unmistakable metadata forms are
+# removed automatically; ambiguous bracketed physics notation is never touched.
+SAFE_CITATION_ARTIFACT_RE = re.compile(
+    r"\[\s*(?:cite|citation|source)\s*:\s*[^\]\r\n]{1,160}\]",
+    flags=re.IGNORECASE,
+)
+CITATION_ARTIFACT_PATTERNS = (
+    SAFE_CITATION_ARTIFACT_RE,
+    re.compile(r"\[\s*(?:cite|citation|source)\s+[^\]\r\n]{1,160}\]", re.IGNORECASE),
+    re.compile(r"【\s*\d+(?:\s*[,;\-–]\s*\d+)*\s*】"),
+    re.compile(r"\bturn\d+(?:search|news|fetch|view)\d+\b", re.IGNORECASE),
+    re.compile(r"\\cite[a-zA-Z]*\s*(?:\[[^\]]*\]\s*)?\{[^}]+\}"),
+)
+
+
+def strip_unmistakable_citation_artifacts(text: str) -> tuple[str, List[str]]:
+    removed = [m.group(0) for m in SAFE_CITATION_ARTIFACT_RE.finditer(text)]
+    cleaned = SAFE_CITATION_ARTIFACT_RE.sub("", text)
+    return cleaned, removed
+
+
+def find_citation_artifacts(text: str) -> List[str]:
+    found: List[str] = []
+    for pattern in CITATION_ARTIFACT_PATTERNS:
+        for match in pattern.finditer(text or ""):
+            token = match.group(0).strip()
+            if token and token not in found:
+                found.append(token)
+    return found
+
+
+def pdf_text(path: Path) -> str:
+    if PdfReader is None or not path.is_file():
+        return ""
+    try:
+        reader = PdfReader(str(path))
+        return "\n".join((page.extract_text() or "") for page in reader.pages)
+    except Exception:
+        return ""
+
+
+def pdf_citation_artifacts(path: Path) -> List[str]:
+    return find_citation_artifacts(pdf_text(path))
+
+
+# ------------------------------------------------------------
 # Early exit if slides already exist
 # ------------------------------------------------------------
 slides_tex = Path("slides.tex")
@@ -53,8 +102,20 @@ def log(msg: str, level: str = "INFO") -> None:
     print(f"[{ts}] [{level}] {msg}", flush=True)
 
 if slides_tex.exists() and slides_pdf.exists():
-    log("slides.tex and slides.pdf already exist. Skipping Gemini submission.", "INFO")
-    sys.exit(0)
+    existing_artifacts = find_citation_artifacts(
+        slides_tex.read_text(encoding="utf-8", errors="replace")
+    )
+    existing_artifacts += pdf_citation_artifacts(slides_pdf)
+    if existing_artifacts:
+        log(
+            "Existing slide deck contains citation/source-tracking artifacts; "
+            "regenerating instead of reusing it: "
+            + ", ".join(existing_artifacts[:4]),
+            "WARN",
+        )
+    else:
+        log("slides.tex and slides.pdf already exist and pass citation guard. Skipping Gemini submission.", "INFO")
+        sys.exit(0)
     
 # ------------------------------------------------------------
 # Pre-check compile
@@ -208,11 +269,18 @@ def sanitize_gemini_latex_response(text: str) -> str:
     2. remove leading non-LaTeX UI labels/chatter
     3. trim anything after \end{document}
     4. normalize common Unicode glyphs that break pdflatex
+    5. remove only unmistakable source-tracking artifacts such as [cite: 3]
     """
     text = strip_code_fences(text)
     text = strip_leading_nonlatex(text)
     text = strip_trailing_nonlatex(text)
     text = normalize_unicode_to_latex(text)
+    text, removed = strip_unmistakable_citation_artifacts(text)
+    if removed:
+        log(
+            f"Removed {len(removed)} unmistakable citation/source artifact(s) from Gemini output.",
+            "WARN",
+        )
     return text.strip()
 
 
@@ -662,10 +730,16 @@ def _strip_latex_comments(tex: str) -> str:
     return "\n".join(lines)
 
 
-def compile_candidate_and_count_pages(tex_text: str, target_dir: Path) -> tuple[bool, Optional[int], str]:
+def compile_candidate_and_count_pages(
+    tex_text: str,
+    target_dir: Path,
+) -> tuple[bool, Optional[int], str, str]:
     """
     Compile a temporary probe file and return:
-      (compile_ok, pdf_page_count, compile_log)
+      (compile_ok, pdf_page_count, compile_log, extracted_pdf_text)
+
+    Extracted PDF text is inspected by the sanity gate so source-tracking
+    artifacts cannot hide behind otherwise valid LaTeX.
     """
     stem = "_slides_sanity_probe"
     probe = target_dir / f"{stem}.tex"
@@ -688,17 +762,22 @@ def compile_candidate_and_count_pages(tex_text: str, target_dir: Path) -> tuple[
         ok = proc.returncode == 0
 
         page_count = None
+        rendered_text = ""
         if ok and pdf.exists() and PdfReader is not None:
             try:
                 reader = PdfReader(str(pdf))
                 page_count = len(reader.pages)
+                rendered_text = "\n".join(
+                    (page.extract_text() or "") for page in reader.pages
+                )
             except Exception:
                 page_count = None
+                rendered_text = ""
 
-        return ok, page_count, compile_log
+        return ok, page_count, compile_log, rendered_text
 
     except Exception as e:
-        return False, None, f"[compile exception] {e}"
+        return False, None, f"[compile exception] {e}", ""
 
     finally:
         for ext in [
@@ -877,9 +956,21 @@ def beamer_stack_sanity_check(
         reasons.append(f"payload too short for a Beamer lecture stack: {len(raw)} characters")
 
     # ------------------------------------------------------------
-    # Compile and inspect produced PDF page count
+    # Citation/source-tracking artifact gate
     # ------------------------------------------------------------
-    compile_ok, page_count, compile_log = compile_candidate_and_count_pages(raw, target_dir)
+    tex_artifacts = find_citation_artifacts(raw)
+    if tex_artifacts:
+        reasons.append(
+            "citation/source-tracking artifact(s) remain in LaTeX: "
+            + ", ".join(tex_artifacts[:4])
+        )
+
+    # ------------------------------------------------------------
+    # Compile and inspect produced PDF page count and rendered text
+    # ------------------------------------------------------------
+    compile_ok, page_count, compile_log, rendered_text = compile_candidate_and_count_pages(
+        raw, target_dir
+    )
 
     if not compile_ok:
         reasons.append("pdflatex failed during sanity probe")
@@ -892,6 +983,14 @@ def beamer_stack_sanity_check(
         if page_count > max_slides + 3:
             reasons.append(
                 f"compiled PDF has too many pages: {page_count}, expected about {min_slides}-{max_slides}"
+            )
+
+    if compile_ok and rendered_text:
+        pdf_artifacts = find_citation_artifacts(rendered_text)
+        if pdf_artifacts:
+            reasons.append(
+                "citation/source-tracking artifact(s) visible in compiled PDF: "
+                + ", ".join(pdf_artifacts[:4])
             )
 
     return len(reasons) == 0, reasons
@@ -996,6 +1095,8 @@ def generate_slides_tex(
             "Prefer two-column layout when a nontrivial figure must coexist with several bullets. "
             "If readability is still poor, split the content into a dedicated figure-focused slide rather than oversizing the figure. "
             "Your output must be a single LaTeX Beamer .tex document that compiles with pdflatex. "
+            "Use source grounding internally but NEVER expose citation markers, reference tags, source IDs, provenance markers, or grounding annotations in the slide text. "
+            "Forbidden examples include [cite: 1], [cite: 1, 2], [citation: 3], [source: 4], 【1】, turn0search1, and LaTeX \\cite{...}. "
             "TRANSPORT OVERRIDE FOR THIS RUN: Ignore any earlier instruction that forbids code fences. "
             "Return the ENTIRE LaTeX document inside EXACTLY ONE fenced code block that begins with ```latex and ends with ```. "
             "Do not place any text before or after that fenced block. "
@@ -1014,6 +1115,15 @@ def generate_slides_tex(
         
         raw_attempt_path = out_tex.with_name(f"slides_attempt_{attempt}_raw.txt")
         raw_attempt_path.write_text(response_text or "", encoding="utf-8", newline="\n")
+
+        raw_citation_artifacts = find_citation_artifacts(response_text or "")
+        if raw_citation_artifacts:
+            log(
+                f"Attempt {attempt}: raw Gemini output contains citation/source-tracking "
+                f"artifact(s); deterministic cleanup will remove only unmistakable tags: "
+                + ", ".join(raw_citation_artifacts[:4]),
+                "WARN",
+            )
         
         if not response_text.strip():
             log(f"Attempt {attempt}: no response text recovered from Gemini transport.", "WARN")
@@ -1221,8 +1331,27 @@ def main() -> int:
     else:
         log("slides.tex failed to compile. Running fix_latex_selenium_v4.", "WARN")
         fix_latex_selenium_v4.fix_latex(str(out_tex))
-
         cleanup_latex_artifacts(stem="slides")
+
+    # Final release gate: inspect both the accepted LaTeX and the rendered PDF.
+    # Compilation success alone is insufficient if source-tracking metadata is
+    # visible to students.
+    final_tex_artifacts = find_citation_artifacts(
+        out_tex.read_text(encoding="utf-8", errors="replace")
+    )
+    final_pdf_artifacts = pdf_citation_artifacts(current_dir / "slides.pdf")
+    final_artifacts = final_tex_artifacts + [
+        item for item in final_pdf_artifacts if item not in final_tex_artifacts
+    ]
+    if final_artifacts:
+        log(
+            "Final slide deck rejected: citation/source-tracking artifact(s) remain: "
+            + ", ".join(final_artifacts[:6]),
+            "ERROR",
+        )
+        return 1
+
+    log("Final slide deck passed citation/source-tracking artifact gate.", "OK")
     return 0
 
 

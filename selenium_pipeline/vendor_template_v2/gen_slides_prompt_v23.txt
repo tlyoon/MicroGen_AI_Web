@@ -117,6 +117,10 @@ CRITICAL LATEX OUTPUT SAFETY (MUST OBEY)
 - Do NOT output code fences such as ``` or ```latex.
 - Do NOT output any explanatory text before or after the LaTeX document.
 - Do NOT output placeholders such as "Here is the LaTeX code:".
+- Use source grounding internally, but NEVER expose source-tracking metadata in student-facing slides.
+- Do NOT output citation markers, reference tags, source IDs, provenance markers, or grounding annotations.
+- Forbidden examples include: [cite: 1], [cite: 1, 2], [citation: 3], [source: 4], 【1】, turn0search1, and LaTeX \cite{...}.
+- If the source system internally supplies citation metadata, omit it completely from the final LaTeX.
 - The first non-space characters of the output must be:
   \documentclass
 - The final line must be:

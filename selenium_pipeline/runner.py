@@ -29,10 +29,10 @@ VENDOR = ROOT / "vendor_template_v2"
 REPO = ROOT.parent
 DEFAULT_TTS = "gemini-3.8-flash-lite-tts"
 
-# Temporary development policy: keep every LLM-heavy generation stage on Flash
-# until the full point-to-point package is stable. Production is restored by
-# setting MICROGEN_MODEL_PHASE=production, at which point browser/LLM stages
-# return to Pro without changing stage code.
+# Default model policy: every text-generation stage uses Gemini 3.8 Flash.
+# Pro remains available only through an explicit override, primarily for
+# controlled A/B benchmarks. Changing MICROGEN_MODEL_PHASE alone never changes
+# the selected model.
 MODEL_PHASE = os.getenv("MICROGEN_MODEL_PHASE", "development").strip().lower()
 if MODEL_PHASE in {"development", "dev", "debug", "testing", "test"}:
     MODEL_PHASE = "development"
@@ -41,21 +41,15 @@ elif MODEL_PHASE in {"production", "prod", "release"}:
 else:
     raise ValueError("MICROGEN_MODEL_PHASE must be 'development' or 'production'")
 
-DEVELOPMENT_LLM_MODEL = "gemini-3.8-flash"
+DEFAULT_LLM_MODEL = "gemini-3.8-flash"
 PRODUCTION_LLM_MODEL = "gemini-3.1-pro-preview"
-ACTIVE_LLM_MODEL = os.getenv(
-    "MICROGEN_LLM_MODEL",
-    DEVELOPMENT_LLM_MODEL if MODEL_PHASE == "development" else PRODUCTION_LLM_MODEL,
-)
+ACTIVE_LLM_MODEL = os.getenv("MICROGEN_LLM_MODEL", DEFAULT_LLM_MODEL).strip()
 DEFAULT_CAPTION_MODEL = ACTIVE_LLM_MODEL
-CAPTION_BENCHMARK_MODEL = "gemini-3.8-flash"
+CAPTION_BENCHMARK_MODEL = DEFAULT_LLM_MODEL
 DEFAULT_SLIDE_MODEL = ACTIVE_LLM_MODEL
 DEFAULT_NARRATION_MODEL = ACTIVE_LLM_MODEL
 DEFAULT_PRO = PRODUCTION_LLM_MODEL
-DEFAULT_BROWSER_UI_MODE = os.getenv(
-    "MICROGEN_GEMINI_UI_MODE",
-    "flash" if MODEL_PHASE == "development" else "pro",
-).strip().lower()
+DEFAULT_BROWSER_UI_MODE = os.getenv("MICROGEN_GEMINI_UI_MODE", "flash").strip().lower()
 if DEFAULT_BROWSER_UI_MODE not in {"flash", "pro"}:
     raise ValueError("MICROGEN_GEMINI_UI_MODE must be 'flash' or 'pro'")
 

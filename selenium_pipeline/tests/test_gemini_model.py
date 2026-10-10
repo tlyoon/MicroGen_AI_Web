@@ -34,7 +34,11 @@ class ModelSelectorTests(unittest.TestCase):
         self.assertEqual(configured_ui_mode(), "flash")
 
     @patch.dict("os.environ", {"MICROGEN_MODEL_PHASE": "production"}, clear=True)
-    def test_production_defaults_to_pro(self):
+    def test_production_phase_still_defaults_to_flash(self):
+        self.assertEqual(configured_ui_mode(), "flash")
+
+    @patch.dict("os.environ", {"MICROGEN_GEMINI_UI_MODE": "pro"}, clear=True)
+    def test_explicit_override_can_select_pro(self):
         self.assertEqual(configured_ui_mode(), "pro")
 
     @patch("selenium.webdriver.Chrome")
