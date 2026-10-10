@@ -21,6 +21,9 @@ from pathlib import Path
 from typing import Callable
 
 from gemini_lane import circuit_is_open
+from selenium_pipeline.output_paths import (resolve_source_root, verify_source_tree)
+
+MICROGEN_ROOT = Path(__file__).resolve().parent
 
 STAGES = [
     "figure_extraction",
@@ -98,9 +101,10 @@ def save_checkpoint(path: Path, data: dict) -> None:
 
 def copy_repo_into_stage(repo: Path, stage: Path) -> None:
     """Refresh code/assets without deleting generated outputs."""
-    blocked_dirs = {".git", ".venv", "__pycache__", ".pytest_cache", "tests"}
+    blocked_dirs = {".git", ".github", ".venv", "__pycache__", ".pytest_cache", "tests", "credentials"}
     for item in repo.iterdir():
-        if item.name in blocked_dirs:
+        name = item.name.lower()
+        if item.name in blocked_dirs or name.startswith(".env") or name == "google_cloud_credentials.json" or "service-account" in name:
             continue
         dest = stage / item.name
         if item.is_file():
@@ -115,15 +119,18 @@ def copy_repo_into_stage(repo: Path, stage: Path) -> None:
 def prepare_stage(
     repo: Path,
     source_root: Path,
-    work_root: Path,
+    work_root: Path | None,
     subchapter: str,
     source_wait: float,
     commit: str,
 ) -> tuple[Path, dict, Path]:
     src = source_for(source_root, subchapter)
     wait_for_path(src, source_wait, label="source.pdf")
+    verify_source_tree(source_root, src)
     sig = source_signature(src)
-    stage = work_root / subchapter
+    # MicroGen code and PDFs have separate roots. A hidden per-subchapter work
+    # directory keeps scripts and interrupted stages away from published media.
+    stage = (work_root / subchapter) if work_root else (src.parent / ".microgen_batch_work")
     checkpoint_path = stage / ".microgen_checkpoint.json"
 
     if stage.exists():
@@ -294,30 +301,34 @@ def atomic_publish_file(src: Path, dest: Path) -> None:
 
 
 def publish(stage: Path, dest: Path) -> None:
+    """Publish every validated teaching artifact in the source.pdf directory.
+
+    Source PDFs and credentials are not touched; temporary working scripts,
+    page caches and crops remain isolated in the hidden workspace.
+    """
     required = ("slides.pdf", "script.txt", "slides.mp4")
     for name in required:
         if not nonempty(stage / name):
             raise RuntimeError(f"required output missing/empty: {name}")
-    for name in ("slides.pdf", "slides.tex", "script.txt", "script_tts.json", "slides.mp4"):
-        src = stage / name
-        if src.is_file():
-            atomic_publish_file(src, dest / name)
+    names = {
+        "slides.pdf", "slides.tex", "script.txt", "script_tts.json",
+        "slides.mp4", ".microgen_checkpoint.json", "microgen_batch.log",
+    }
     for pattern in ("Figure*.png", "FIGURE*.png"):
-        for src in stage.glob(pattern):
-            atomic_publish_file(src, dest / src.name)
+        names.update(p.name for p in stage.glob(pattern) if p.is_file())
+    for suffix in ("pdf", "wav"):
+        names.update(p.name for p in numbered_files(stage, suffix))
+    for name in sorted(names):
+        src = stage / name
+        if nonempty(src) and not src.is_symlink():
+            atomic_publish_file(src, dest / name)
     if not stage_valid(stage, "published", dest):
         raise RuntimeError("published output verification failed")
-
-
-def cleanup_intermediates(stage: Path) -> None:
-    for dirname in ("pages", "crops"):
-        shutil.rmtree(stage / dirname, ignore_errors=True)
     for suffix in ("pdf", "wav"):
-        for path in numbered_files(stage, suffix):
-            try:
-                path.unlink()
-            except OSError:
-                pass
+        if len(numbered_files(dest, suffix)) < len(numbered_files(stage, suffix)):
+            raise RuntimeError(f"published slide {suffix} count mismatch")
+
+
 
 
 def preflight(main_py: str, docling_py: str) -> None:
@@ -356,10 +367,12 @@ def process_one(args, subchapter: str, report: list[dict]) -> None:
         args.commit,
     )
     dest = destination_for(args.source_root, subchapter)
-    log_path = args.work_root / f"{subchapter}.log"
+    log_path = stage / "microgen_batch.log"
 
     if cp.get("completed", {}).get("published") and stage_valid(stage, "published", dest):
-        print(f"[{subchapter}] already published and verified; skipping", flush=True)
+        # Republish any missing auxiliary files without rerunning Gemini.
+        publish(stage, dest)
+        print(f"[{subchapter}] already published and verified; refreshed output files", flush=True)
         report.append({"subchapter": subchapter, "status": "success", "resumed": True})
         return
 
@@ -410,7 +423,8 @@ def process_one(args, subchapter: str, report: list[dict]) -> None:
             save_checkpoint(checkpoint_path, cp)
             raise
 
-    cleanup_intermediates(stage)
+    # Keep validated intermediates within the hidden workspace for reliable
+    # resume and for re-publication if Google Drive sync removes a file.
     sc = slide_count(stage)
     report.append(
         {
@@ -433,9 +447,10 @@ def write_report(path: Path, report: list[dict]) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(description="Resumable MicroGen_AI batch production")
-    ap.add_argument("--repo", type=Path, default=Path(__file__).resolve().parent)
-    ap.add_argument("--source-root", type=Path, required=True)
-    ap.add_argument("--work-root", type=Path, required=True)
+    ap.add_argument("--source-root", type=Path,
+                    help="Separate local PDF tree (or configure MICROGEN_SOURCE_ROOT)")
+    ap.add_argument("--work-root", type=Path,
+                    help="Optional scratch folder, default <subchapter>/.microgen_batch_work")
     ap.add_argument("--targets", required=True, help="Comma-separated subchapters, e.g. 1.1,1.2,2.3")
     ap.add_argument("--main-py", default=sys.executable)
     ap.add_argument("--docling-py", default=sys.executable)
@@ -452,17 +467,21 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main() -> int:
     args = build_parser().parse_args()
-    args.repo = args.repo.resolve()
-    args.source_root = args.source_root.resolve()
-    args.work_root = args.work_root.resolve()
-    args.work_root.mkdir(parents=True, exist_ok=True)
+    args.repo = MICROGEN_ROOT
+    try:
+        args.source_root = resolve_source_root(args.source_root, code_root=args.repo)
+    except (ValueError, NotADirectoryError) as exc:
+        raise SystemExit(str(exc)) from exc
+    if args.work_root is not None:
+        args.work_root = args.work_root.expanduser().resolve()
+        args.work_root.mkdir(parents=True, exist_ok=True)
     targets = split_targets(args.targets)
     if not targets:
         raise SystemExit("No targets supplied.")
     preflight(args.main_py, args.docling_py)
     report: list[dict] = []
-    report_path = args.work_root / "batch_report.json"
-    print(f"[batch] targets={targets}", flush=True)
+    print(f"[batch] MICROGEN_ROOT={args.repo}", flush=True)
+    print(f"[batch] SOURCE_ROOT={args.source_root} | targets={targets}", flush=True)
     for subchapter in targets:
         try:
             process_one(args, subchapter, report)
@@ -476,11 +495,15 @@ def main() -> int:
                     "error": str(exc),
                 }
             )
-            write_report(report_path, report)
             if args.fail_fast:
+                report_path = destination_for(args.source_root, subchapter) / "microgen_batch_report.json"
+                write_report(report_path, [report[-1]])
                 return 1
-        write_report(report_path, report)
-    print(f"[batch] report={report_path}", flush=True)
+        # Publish each job's report beside its own source.pdf, not the code repo
+        # nor a global source-tree directory.
+        report_path = destination_for(args.source_root, subchapter) / "microgen_batch_report.json"
+        write_report(report_path, [report[-1]])
+    print("[batch] per-subchapter reports written beside source.pdf", flush=True)
     return 0 if all(x.get("status") == "success" for x in report) else 2
 
 
