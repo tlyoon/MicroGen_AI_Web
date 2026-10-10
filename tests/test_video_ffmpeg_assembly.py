@@ -7,6 +7,7 @@ import wave
 from pathlib import Path
 
 from selenium_pipeline import runner
+from selenium_pipeline.runner import hydrate_video_only_inputs
 from selenium_pipeline.video_ffmpeg import check_inputs, assemble
 
 
@@ -45,6 +46,30 @@ class VideoAssemblyTests(unittest.TestCase):
         self.pair(3)
         with self.assertRaises(ValueError):
             check_inputs(self.root)
+
+    def test_hydrate_video_only_from_published_subchapter(self):
+        deck = self.root / "slides.pdf"
+        deck.write_bytes(b"%PDF deck")
+        source = self.root / "source.pdf"
+        source.write_bytes(b"%PDF source")
+        self.pair(1)
+        workspace = self.root / ".microgen_work"
+        workspace.mkdir()
+        (workspace / "slides.pdf").write_bytes(b"workspace already validated")
+        hydrate_video_only_inputs(source, workspace)
+        self.assertEqual((workspace / "slides.pdf").read_bytes(), b"workspace already validated")
+        self.assertTrue((workspace / "slide1.wav").is_file())
+        self.assertFalse((workspace / "slide1.pdf").exists())
+        self.assertFalse((workspace / "source.pdf").exists())
+
+    def test_hydrate_video_only_requires_existing_slides(self):
+        self.pair(1)
+        source = self.root / "source.pdf"
+        source.write_bytes(b"source")
+        workspace = self.root / ".microgen_work"
+        workspace.mkdir()
+        with self.assertRaises(FileNotFoundError):
+            hydrate_video_only_inputs(source, workspace)
 
     def test_old_moviepy_script_no_longer_invoked(self):
         self.assertEqual(runner.SCRIPTS["video"], ("slice_pdf.py",))
