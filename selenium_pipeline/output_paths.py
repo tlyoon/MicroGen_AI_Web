@@ -30,6 +30,8 @@ def resolve_source_root(value: str | Path | None, *, code_root: Path) -> Path:
         raise ValueError(
             "SOURCE_ROOT is required: pass --source-root <LOCAL_PDF_TREE> "
             f"or set {SOURCE_ROOT_ENV} to a local directory. "
+            r"Illustrative SOURCE_ROOT only: G:\My Drive\Serway\Serway_8_14 "
+            r"(containing 8\8.1\source.pdf); replace with your own PDF tree. "
             "The cloned MicroGen repository is only the code root."
         )
     if "://" in choice:
