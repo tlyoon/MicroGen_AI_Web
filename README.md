@@ -264,7 +264,7 @@ python microgen_batch.py \
   --commit main
 ```
 
-The runner performs a startup environment check, validates outputs at every stage, pauses rather than fails when the shared Gemini billing circuit is open, publishes final `slides.pdf`, `script.txt`, and `slides.mp4` atomically, and removes storage-heavy numbered slide/audio intermediates only after successful publication.
+The runner performs a startup environment check, validates outputs at every stage, pauses rather than fails when the shared Gemini billing circuit is open, publishes final `slides.pdf`, `script.txt`, and `slides.mp4` atomically, and retains numbered slide PDFs and narration WAV files in each source subchapter after successful publication.
 
 ## Credentials
 
@@ -306,23 +306,21 @@ For Google Cloud TTS, `GOOGLE_APPLICATION_CREDENTIALS` takes precedence when exp
 
 **Never commit real API keys or Google Cloud service-account JSON files.**
 
-## Quick start
+## Quick start — recommended Selenium runner
 
-Clone the repository and place a source PDF in the project directory:
-
-```powershell
-git clone https://github.com/tlyoon/MicroGen_AI.git
-cd MicroGen_AI
-Copy-Item C:\path\to\your\source.pdf .\source.pdf
-```
-
-Then run:
+Clone the **MicroGen_AI_Web code repository** into one local folder, separate from the textbook PDF tree:
 
 ```powershell
-python run_gen_slides_videos.py
+git clone https://github.com/tlyoon/MicroGen_AI_Web.git
+cd MicroGen_AI_Web
+$env:MICROGEN_SOURCE_ROOT = "D:\\Physics_Textbook"   # Local PDF tree on this computer
+.\\.venv\\Scripts\\python.exe -m selenium_pipeline --subchapter 22.3 --dry-run
+.\\.venv\\Scripts\\python.exe -m selenium_pipeline --subchapter 22.3
 ```
 
-The package writes the generated outputs into the current working directory.
+Follow the [Selenium setup instructions](selenium_pipeline/README.md) first to create the virtual environment, install dependencies, and configure the browser. Use `microgen_batch.py` for the separate API-based batch workflow. Both supported orchestration entry points publish verified media beside their input `source.pdf`.
+
+**Legacy low-level scripts:** `run_gen_slides_videos.py` and `run_gen_slides.py` still operate on their current working directory. They are internal/legacy components, not the recommended two-root entry points. Run them only within an isolated subchapter staging workspace if debugging.
 
 ## Codex batch-generation prompt
 
@@ -338,9 +336,9 @@ This prompt is designed to be submitted directly to Codex. Normally the user onl
 - selects all valid `source.pdf` subtopics under the first top-level source folder,
 - runs figure abstraction, slides, narration, TTS, and MP4 generation,
 - publishes verified outputs back into each source subtopic directory, and
-- removes `pages/`, `crops/`, numbered `slideN.pdf`, and numbered `slideN.wav` intermediates after successful verification to reduce storage use.
+- retains verified `slideN.pdf`, `slideN.wav`, `slides.mp4` and checkpoint files in each subchapter; working caches stay isolated.
 
-The prompt also accepts explicit subtopic ranges, an alternate code-package URL/ref, and a common LLM override. The historical Drive template is retained in the prompt as a fallback location, while GitHub `main` is the default authoritative package source.
+The prompt also accepts explicit subtopic ranges, an alternate code-package URL/ref, and a common LLM override. A local folder path identifies the textbook source tree; no Google Drive browser link is necessary. GitHub `main` is the default authoritative package source.
 
 ### Runtime LLM override
 
