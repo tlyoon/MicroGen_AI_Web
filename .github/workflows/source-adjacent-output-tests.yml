@@ -5,11 +5,13 @@ on:
     paths:
       - 'selenium_pipeline/output_paths.py'
       - 'selenium_pipeline/runner.py'
+      - 'selenium_pipeline/video_ffmpeg.py'
+      - 'tests/test_video_ffmpeg_assembly.py'
       - 'microgen_batch.py'
       - 'tests/test_source_adjacent_publication.py'
       - '.github/workflows/source-adjacent-output-tests.yml'
   push:
-    branches: [feature/source-adjacent-output-defaults]
+    branches: [feature/source-adjacent-output-defaults, fix/dell115-video-ffmpeg-assembly]
 
 jobs:
   unittest:
@@ -21,5 +23,7 @@ jobs:
           python-version: '3.12'
       - name: Verify source root and output publication
         run: python -m unittest discover -s tests -p 'test_source_adjacent_publication.py' -v
-      - name: Syntax-check patched runner
-        run: python -m py_compile selenium_pipeline/runner.py selenium_pipeline/output_paths.py microgen_batch.py
+      - name: FFmpeg assembly regression tests
+        run: python -m unittest discover -s tests -p 'test_video_ffmpeg_assembly.py' -v
+      - name: Syntax-check video assembler and runners
+        run: python -m py_compile selenium_pipeline/runner.py selenium_pipeline/output_paths.py selenium_pipeline/video_ffmpeg.py microgen_batch.py
