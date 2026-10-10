@@ -12,6 +12,34 @@ import shutil
 import tempfile
 from pathlib import Path
 
+SOURCE_ROOT_ENV = "MICROGEN_SOURCE_ROOT"
+
+
+def resolve_source_root(value: str | Path | None, *, code_root: Path) -> Path:
+    """Resolve separately configured textbook tree; never default to Git clone.
+
+    Explicit --source-root wins; otherwise a per-PC environment setting applies.
+    Browser URLs (including Drive links) are not local filesystem paths.
+    """
+    choice = str(value).strip() if value is not None else ""
+    if not choice:
+        choice = os.environ.get(SOURCE_ROOT_ENV, "").strip()
+    if not choice:
+        raise ValueError(
+            "SOURCE_ROOT is required: pass --source-root <LOCAL_PDF_TREE> "
+            f"or set {SOURCE_ROOT_ENV} to a local directory. "
+            "The cloned MicroGen repository is only the code root."
+        )
+    if "://" in choice:
+        raise ValueError("SOURCE_ROOT must be a local/mounted directory, not a URL")
+    source_root = Path(choice).expanduser().resolve()
+    if source_root == code_root.resolve():
+        raise ValueError("SOURCE_ROOT must differ from the MicroGen Git repository root")
+    if not source_root.is_dir():
+        raise NotADirectoryError(f"SOURCE_ROOT is unavailable: {source_root}")
+    return source_root
+
+
 OUTPUT_NAMES = {
     "figures": (),
     "slides": ("slides.tex", "slides.pdf"),
