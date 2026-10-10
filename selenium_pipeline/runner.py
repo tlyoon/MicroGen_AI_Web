@@ -61,7 +61,7 @@ SCRIPTS = {
     "figures": ("crop_figs_v3.py", "map_and_rename_selenium_v8.py", "merge_lettered_figs_v3.py"),
     "slides": ("gen_slides_selenium_v11.py",),
     "narration": ("gen_script_selenium_v15.py",),
-    "video": ("slice_pdf.py", "gen_video.py"),
+    "video": ("slice_pdf.py",),  # FFmpeg assembler invoked separately below
 }
 RESOURCE_FILES = ("beamerthemeGelugor.sty", "usmlg.jpg", "usmemb.jpg", "logotype.jpg")
 OUTPUTS = {
@@ -458,7 +458,9 @@ def execute(s: Settings) -> Path:
             if stage in CHROME_STAGES:
                 from .gemini_model import ensure_mode
                 print(f"[microgen] {stage} Gemini mode: {ensure_mode(s.chrome_port, DEFAULT_BROWSER_UI_MODE)}")
-            if stage != "tts":
+            if stage not in {"tts", "video"}:
+                # Video assembly archives the prior MP4 only after its new
+                # candidate passes stream and duration validation.
                 archive_existing_outputs(stage, folder)
             if stage == "script_qa":
                 run_cmd(
@@ -525,6 +527,14 @@ def execute(s: Settings) -> Path:
                     if not (folder / script).is_file():
                         raise FileNotFoundError(f"Missing reference entrypoint: {script}")
                     run_cmd([stage_python, script], folder, log_file, env)
+                if stage == "video":
+                    # Use the maintained FFmpeg assembler, NOT the old MoviePy
+                    # gen_video.py (which can pass fps=None through decorator
+                    # wrappers and fail after long audio generation).
+                    run_cmd([
+                        stage_python, str(REPO / "selenium_pipeline" / "video_ffmpeg.py"),
+                        "--folder", str(folder),
+                    ], folder, log_file, env)
             if not check_valid(stage, folder):
                 raise RuntimeError(f"Validation failed at {stage}; see {log_file}")
             state["completed"][stage] = {"at_utc": utc(), "model": model_stamp}
