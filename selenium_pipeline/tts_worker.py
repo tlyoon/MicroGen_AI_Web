@@ -10,13 +10,20 @@ from .tts import _gemini_failover_request
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Isolated Gemini TTS slide worker")
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--provider", choices=("gemini", "chirp3"), default="gemini")
     parser.add_argument("--model", required=True)
     parser.add_argument("--voice", required=True)
     parser.add_argument("--number", type=int, required=True)
     args = parser.parse_args(argv)
 
     text = sys.stdin.read()
-    payload = _gemini_failover_request(text, args.number, args.model, args.voice)
+    if args.provider == "gemini":
+        payload = _gemini_failover_request(text, args.number, args.model, args.voice)
+    else:
+        from google.cloud import texttospeech
+        from .tts import _chirp_say
+        client = texttospeech.TextToSpeechClient()
+        payload = _chirp_say(client, text, args.voice)
     args.output.write_bytes(payload)
     return 0
 

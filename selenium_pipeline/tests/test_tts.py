@@ -12,8 +12,9 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from selenium_pipeline.tts import (
-    _gemini_say_with_watchdog, _merge_wav_payloads, _split_tts_text,
-    _tts_timeout_seconds, _tts_workspace_lock, synthesize_folder,
+    _fallback_specs, _gemini_say_with_watchdog, _merge_wav_payloads,
+    _split_tts_text, _tts_timeout_seconds, _tts_workspace_lock,
+    synthesize_folder,
 )
 
 WAV = b"RIFF" + b"X" * 80
@@ -82,7 +83,10 @@ class TTSTests(unittest.TestCase):
             fake = fake_gemini_keys_module(models=models)
             with patch.dict(sys.modules, {"gemini_keys": fake}), patch.dict(
                 os.environ,
-                {"MICROGEN_TTS_QUEUE_ROUNDS": "1"},
+                {
+                    "MICROGEN_TTS_QUEUE_ROUNDS": "1",
+                    "MICROGEN_TTS_ENABLE_PROVIDER_FALLBACK": "0",
+                },
             ):
                 with self.assertRaisesRegex(RuntimeError, "temporary API error"):
                     synthesize_folder(folder, "gemini", "gemini-3.8-flash-tts", "Kore")
@@ -132,15 +136,96 @@ class TTSTests(unittest.TestCase):
                     "MICROGEN_TTS_QUEUE_ROUNDS": "2",
                     "MICROGEN_TTS_QUEUE_DELAY_SECONDS": "0",
                     "MICROGEN_TTS_QUEUE_CIRCUIT_BREAKER_FAILURES": "2",
+                    "MICROGEN_TTS_ENABLE_PROVIDER_FALLBACK": "0",
                 },
             ):
-                with self.assertRaisesRegex(RuntimeError, "queue exhausted"):
+                with self.assertRaisesRegex(RuntimeError, r"queue.*exhausted"):
                     synthesize_folder(folder, "gemini", "gemini-3.8-flash-lite-tts", "Kore")
             # Round 1 stops after two consecutive failures instead of wasting
             # a third request; the final round exhausts all three.
             self.assertEqual(models.requests, 5)
             self.assertTrue((folder / ".tts_candidate").is_dir())
             self.assertFalse((folder / ".tts.lock").exists())
+
+    def test_same_voice_fallback_is_used_only_after_primary_exhaustion(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = Path(tmp)
+            (folder / "script.txt").write_text(
+                "**Slide 1 [3 sec]:\nFallback title**\n\n"
+                "**Slide 2 [3 sec]:\nReference two**\n\n"
+                "**Slide 3 [3 sec]:\nReference three**",
+                encoding="utf-8",
+            )
+            candidate = folder / ".tts_candidate"
+            candidate.mkdir()
+            (candidate / "slide2.wav").write_bytes(WAV)
+            (candidate / "slide3.wav").write_bytes(WAV)
+
+            class AlwaysFailModels:
+                def generate_content(self, **_kwargs):
+                    raise RuntimeError("503 high demand")
+
+            fake = fake_gemini_keys_module(models=AlwaysFailModels())
+            voice_ok = {
+                "same_voice": True,
+                "similarity_percent": 99.0,
+                "material_differences": [],
+                "accepted": True,
+            }
+            with patch.dict(sys.modules, {"gemini_keys": fake}), patch.dict(
+                os.environ,
+                {
+                    "MICROGEN_TTS_QUEUE_ROUNDS": "1",
+                    "MICROGEN_TTS_QUEUE_DELAY_SECONDS": "0",
+                },
+            ), patch(
+                "selenium_pipeline.tts._fallback_payload",
+                return_value=WAV,
+            ) as fallback, patch(
+                "selenium_pipeline.tts_voice_consistency.compare_voice",
+                return_value=voice_ok,
+            ) as compare:
+                synthesize_folder(
+                    folder,
+                    "gemini",
+                    "gemini-3.8-flash-lite-tts",
+                    "Kore",
+                )
+
+            fallback.assert_called_once()
+            compare.assert_called_once()
+            self.assertTrue((folder / "slide1.wav").is_file())
+            manifest = json.loads(
+                (folder / "tts_input_manifest.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(manifest["version"], 2)
+            slide1 = manifest["slides"][0]
+            self.assertTrue(slide1["fallback_used"])
+            self.assertEqual(slide1["model"], "gemini-3.8-flash-tts")
+            self.assertEqual(slide1["voice"], "Kore")
+            self.assertEqual(slide1["voice_consistency"]["similarity_percent"], 99.0)
+
+    def test_fallback_order_preserves_same_named_voice(self):
+        specs = _fallback_specs(
+            "gemini",
+            "gemini-3.8-flash-lite-tts",
+            "Kore",
+        )
+        self.assertEqual(
+            specs,
+            [
+                {
+                    "provider": "gemini",
+                    "model": "gemini-3.8-flash-tts",
+                    "voice": "Kore",
+                },
+                {
+                    "provider": "chirp3",
+                    "model": "chirp3-hd",
+                    "voice": "en-US-Chirp3-HD-Kore",
+                },
+            ],
+        )
 
     def test_direct_tts_blocks_ambiguous_script(self):
         with tempfile.TemporaryDirectory() as tmp:

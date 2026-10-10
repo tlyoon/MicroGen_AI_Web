@@ -359,6 +359,120 @@ def _tts_queue_delay_seconds(round_number: int) -> float:
     return min(maximum, base * (2 ** max(0, round_number - 1)))
 
 
+def _named_voice(voice: str) -> str:
+    return voice.split("-")[-1] if "Chirp3-HD-" in voice else voice
+
+
+def _fallback_specs(provider: str, model: str, voice: str) -> list[dict[str, str]]:
+    """Return same-named-voice fallbacks in preferred quality/compatibility order."""
+    named = _named_voice(voice)
+    cloud_voice = f"en-US-Chirp3-HD-{named}"
+    if provider == "gemini":
+        other = (
+            "gemini-3.8-flash-tts"
+            if model == "gemini-3.8-flash-lite-tts"
+            else "gemini-3.8-flash-lite-tts"
+        )
+        return [
+            {"provider": "gemini", "model": other, "voice": named},
+            {"provider": "chirp3", "model": "chirp3-hd", "voice": cloud_voice},
+        ]
+    if provider == "chirp3":
+        return [
+            {"provider": "gemini", "model": "gemini-3.8-flash-tts", "voice": named},
+            {"provider": "gemini", "model": "gemini-3.8-flash-lite-tts", "voice": named},
+        ]
+    return []
+
+
+def _chirp_say_with_watchdog(
+    text: str,
+    number: int,
+    voice: str,
+    *,
+    timeout_seconds: float | None = None,
+) -> bytes:
+    timeout_seconds = timeout_seconds or max(
+        60.0,
+        float(os.environ.get("MICROGEN_CHIRP_TTS_HARD_TIMEOUT_SECONDS", "180")),
+    )
+    with tempfile.TemporaryDirectory(prefix=f"microgen_chirp_slide{number}_") as tmp:
+        output = Path(tmp) / "result.wav"
+        command = [
+            sys.executable,
+            "-m",
+            "selenium_pipeline.tts_worker",
+            "--provider",
+            "chirp3",
+            "--output",
+            str(output),
+            "--model",
+            "chirp3-hd",
+            "--voice",
+            voice,
+            "--number",
+            str(number),
+        ]
+        creationflags = subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
+        proc = subprocess.Popen(
+            command,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            env=os.environ.copy(),
+            start_new_session=(os.name != "nt"),
+            creationflags=creationflags,
+        )
+        try:
+            worker_output, _ = proc.communicate(input=text, timeout=timeout_seconds)
+        except subprocess.TimeoutExpired:
+            if os.name == "nt":
+                subprocess.run(
+                    ["taskkill", "/PID", str(proc.pid), "/T", "/F"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    check=False,
+                )
+            else:
+                try:
+                    os.killpg(proc.pid, 9)
+                except Exception:
+                    proc.kill()
+            raise TimeoutError(
+                f"Chirp3 TTS slide{number} exceeded hard timeout of "
+                f"{timeout_seconds:.0f}s"
+            )
+        if proc.returncode != 0 or not output.is_file():
+            raise RuntimeError(
+                f"Chirp3 TTS slide{number} failed: {(worker_output or '')[-1200:]}"
+            )
+        payload = output.read_bytes()
+        if not payload.startswith((b"RIFF", b"RF64")):
+            raise RuntimeError(f"Chirp3 TTS slide{number} did not return WAV")
+        return payload
+
+
+def _fallback_payload(
+    narration: str,
+    number: int,
+    spec: dict[str, str],
+) -> bytes:
+    if spec["provider"] == "gemini":
+        return _gemini_say_with_watchdog(
+            narration,
+            number,
+            spec["model"],
+            spec["voice"],
+            allow_chunking=True,
+            request_label=f"slide{number} fallback {spec['model']}",
+            attempts_override=1,
+        )
+    if spec["provider"] == "chirp3":
+        return _chirp_say_with_watchdog(narration, number, spec["voice"])
+    raise ValueError(f"Unsupported fallback provider: {spec['provider']}")
+
+
 def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: str) -> None:
     text = (folder / "script.txt").read_text(encoding="utf-8")
     items = blocks(text)
@@ -414,7 +528,7 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
     elif provider == "chirp3":
         from google.cloud import texttospeech
         client = texttospeech.TextToSpeechClient()  # Use ADC / GOOGLE_APPLICATION_CREDENTIALS
-        chirp_voice = voice if "Chirp3-HD" in voice else "en-US-Chirp3-HD-Aoede"
+        chirp_voice = voice if "Chirp3-HD" in voice else f"en-US-Chirp3-HD-{_named_voice(voice)}"
         say = lambda narration, number, final_round=False: _chirp_say(client, narration, chirp_voice)
     else:
         raise ValueError(f"Unknown TTS provider: {provider}")
@@ -434,6 +548,8 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
     queue_rounds = max(1, int(os.environ.get("MICROGEN_TTS_QUEUE_ROUNDS", "3")))
     pending = [(number, narration) for number, narration in items]
     last_failures: dict[int, BaseException] = {}
+    primary_spec = {"provider": provider, "model": model, "voice": voice}
+    slide_provenance: dict[int, dict[str, object]] = {}
 
     # Do not hammer one slide repeatedly during a transient provider outage.
     # Each slide gets one request per round. Transient failures move to the end
@@ -461,6 +577,10 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
                 except Exception:
                     magic = b""
                 if magic in (b"RIFF", b"RF64"):
+                    slide_provenance.setdefault(
+                        number,
+                        {**primary_spec, "fallback_used": False},
+                    )
                     print(f"[tts] reusing {dest.name} ({dest.stat().st_size} bytes)", flush=True)
                     continue
                 dest.unlink(missing_ok=True)
@@ -481,6 +601,7 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
                     raise RuntimeError(f"slide{number}: audio is empty")
                 partial.replace(dest)
                 last_failures.pop(number, None)
+                slide_provenance[number] = {**primary_spec, "fallback_used": False}
                 consecutive_transient_failures = 0
                 print(f"[tts] prepared {dest.name} ({len(payload)} bytes)", flush=True)
             except Exception as exc:
@@ -530,18 +651,116 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
                 time.sleep(delay)
 
     unresolved = []
+    narration_by_slide = dict(items)
     for number, _narration in items:
         dest = candidate / f"slide{number}.wav"
         if not (dest.is_file() and dest.stat().st_size > 44):
             exc = last_failures.get(number, RuntimeError("no completed WAV"))
             unresolved.append((number, exc))
+
+    # Provider/model fallback is attempted only after the primary queue is
+    # exhausted.  A fallback WAV is accepted only if strict perceptual
+    # continuity says it sounds like the same narrator as multiple primary
+    # reference slides.
+    if unresolved and os.environ.get("MICROGEN_TTS_ENABLE_PROVIDER_FALLBACK", "1") != "0":
+        from .tts_voice_consistency import compare_voice
+
+        reference_paths = [
+            candidate / f"slide{n}.wav"
+            for n, _ in items
+            if (
+                slide_provenance.get(n, {}).get("fallback_used") is False
+                and (candidate / f"slide{n}.wav").is_file()
+            )
+        ][:3]
+        if len(reference_paths) >= 2:
+            still_unresolved: list[tuple[int, BaseException]] = []
+            for number, primary_error in unresolved:
+                narration = narration_by_slide[number]
+                accepted = False
+                fallback_errors: list[str] = []
+                for spec in _fallback_specs(provider, model, voice):
+                    print(
+                        f"[tts] slide{number}: trying same-voice fallback "
+                        f"{spec['provider']} / {spec['model']} / {spec['voice']}",
+                        flush=True,
+                    )
+                    trial = candidate / f".slide{number}.fallback_trial.wav"
+                    try:
+                        payload = _fallback_payload(narration, number, spec)
+                        trial.write_bytes(payload)
+                        voice_result = compare_voice(
+                            trial,
+                            reference_paths,
+                            model=os.environ.get(
+                                "MICROGEN_TTS_VOICE_QA_MODEL",
+                                "gemini-3.8-flash",
+                            ),
+                        )
+                        print(
+                            f"[tts] slide{number}: fallback voice similarity "
+                            f"{float(voice_result.get('similarity_percent', 0)):.1f}% "
+                            f"accepted={voice_result.get('accepted')}",
+                            flush=True,
+                        )
+                        if not voice_result.get("accepted"):
+                            fallback_errors.append(
+                                f"{spec['provider']}:{spec['model']} voice continuity rejected "
+                                f"({voice_result.get('similarity_percent', 0)}%)"
+                            )
+                            continue
+                        dest = candidate / f"slide{number}.wav"
+                        trial.replace(dest)
+                        slide_provenance[number] = {
+                            **spec,
+                            "fallback_used": True,
+                            "primary_provider": provider,
+                            "primary_model": model,
+                            "primary_voice": voice,
+                            "voice_consistency": voice_result,
+                        }
+                        last_failures.pop(number, None)
+                        accepted = True
+                        print(
+                            f"[tts] slide{number}: accepted same-voice fallback "
+                            f"{spec['provider']} / {spec['model']}",
+                            flush=True,
+                        )
+                        break
+                    except Exception as exc:
+                        fallback_errors.append(
+                            f"{spec['provider']}:{spec['model']} "
+                            f"{type(exc).__name__}: {exc}"
+                        )
+                    finally:
+                        trial.unlink(missing_ok=True)
+
+                if not accepted:
+                    combined = RuntimeError(
+                        f"primary failed ({primary_error}); fallbacks failed/rejected: "
+                        + " | ".join(fallback_errors)
+                    )
+                    still_unresolved.append((number, combined))
+            unresolved = still_unresolved
+        else:
+            unresolved = [
+                (
+                    number,
+                    RuntimeError(
+                        f"{exc}; provider fallback requires at least two successful "
+                        "primary-voice reference WAVs"
+                    ),
+                )
+                for number, exc in unresolved
+            ]
+
     if unresolved:
         details = "; ".join(
             f"slide{number}: {type(exc).__name__}: {exc}"
             for number, exc in unresolved
         )
         raise RuntimeError(
-            f"TTS queue exhausted with {len(unresolved)} unresolved slide(s): {details}"
+            f"TTS queue/fallback exhausted with {len(unresolved)} unresolved slide(s): {details}"
         )
     # All responses have been validated; publish after the complete batch.
     stale = [p for p in folder.glob("slide*.wav") if p.name not in expected_names]
@@ -556,15 +775,21 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
     candidate.rmdir()
 
     manifest = {
-        "version": 1,
-        "provider": provider,
-        "model": model,
-        "voice": voice,
+        "version": 2,
+        "primary": {
+            "provider": provider,
+            "model": model,
+            "voice": voice,
+        },
         "slides": [
             {
                 "slide": number,
                 "source_text": narration,
                 "tts_text": narration,
+                **slide_provenance.get(
+                    number,
+                    {**primary_spec, "fallback_used": False},
+                ),
             }
             for number, narration in items
         ],
