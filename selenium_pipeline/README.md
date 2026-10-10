@@ -65,11 +65,52 @@ Chrome 136+ intentionally does not honor remote-debugging switches against Chrom
 
 During development, the runner automatically selects Gemini Flash in the authenticated browser session. After the package is fully validated, production mode restores Pro. Do not store Google credentials in the repository or bypass authentication screens.
 
-The default output location is local to Dell-115:
+### Source-root and output location
 
-`%USERPROFILE%\Documents\MicroGen_AI_Web_Workspace\<chapter>\<subchapter>`
+The directory into which this repository is cloned is the **default source root**.
+For a clone at `C:\Projects\xxx`, the expected PDF structure is:
 
-You can override this using `--work-root`. The input folder need not be copied to the production repo.
+```text
+C:\Projects\xxx\22\22.3\source.pdf
+```
+
+Run from the clone without specifying `--source-root`:
+
+```powershell
+.\.venv\Scripts\python.exe -m selenium_pipeline --subchapter 22.3 --dry-run
+.\.venv\Scripts\python.exe -m selenium_pipeline --subchapter 22.3
+```
+
+Final validated artifacts are published **directly beside the original PDF**:
+`slides.tex`, `slides.pdf`, `script.txt`, `slide1.wav` …
+`slideN.wav`, individual slide PDFs, `slides.mp4`, extracted figure files,
+QA reports and per-stage diagnostic logs.
+
+To isolate the template_v2 processing scripts, the working folder defaults to
+a hidden `.microgen_work` subfolder of each source subchapter. Neither the
+original `source.pdf` nor the vendored reference scripts are overwritten.
+An explicit `--work-root "D:\MicroGen_Scratch"` changes the staging location
+but **never** the location where validated outputs are published.
+
+For source PDFs in a Google Drive for desktop mount:
+
+```powershell
+.\.venv\Scripts\python.exe -m selenium_pipeline --source-root "G:\My Drive\<YOUR_SOURCE_TREE>" --subchapter 22.3
+```
+
+Document the Google Drive root link separately with the placeholder
+`https://drive.google.com/open?id=<YOUR_ROOT_FOLDER_ID>`.
+A browser URL cannot be passed as a Windows directory path without resolving
+it to a mounted or synced local folder. Users must have read/write permission
+to the root and processed subchapter directories. The package tests this with
+a temporary write/delete probe before paid generation stages; `--dry-run`
+does not write or launch Chrome.
+
+Credentials remain outside the Git clone in `%LOCALAPPDATA%\Microvid` by
+default, or in `MICROVID_CONFIG_DIR` when explicitly supplied. The other
+installation requirements are Windows, Chrome, Python 3.11/3.12, the
+`requirements-selenium.txt` packages, MiKTeX (`pdflatex`), FFmpeg, and an
+already authorized Gemini browser session.
 
 ### Read-only dry-run for Serway 22.1
 
@@ -103,7 +144,7 @@ The Gemini web subscription covers web-side interaction; **Gemini Flash-Lite TTS
 
 For Google Cloud, configure `GOOGLE_APPLICATION_CREDENTIALS` to point to a local credential file outside Git, or use application default credentials. The default API TTS voice is **Kore** for Gemini; fallback Chirp 3 uses **Aoede**.
 
-State is stored in `.selenium_pipeline_state.json` per subchapter. Completed stages are reused only when validation succeeds; stages can be rerun with `--force-from narration`, etc. Avoid rerunning the original work directory: the runner prohibits writing in the textbook source or reference script directory. Existing `main` API-based workflows are unchanged.
+Checkpoint state is stored in `.selenium_pipeline_state.json` in the isolated workspace and copied beside `source.pdf` on successful stages. Completed stages are reused only when validation succeeds; stages can be rerun with `--force-from narration`, etc. Avoid rerunning the original work directory: the runner prohibits writing in the textbook source or reference script directory. Existing `main` API-based workflows are unchanged.
 
 ## Acceptance checklist
 
