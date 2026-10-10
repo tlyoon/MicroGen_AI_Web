@@ -67,51 +67,51 @@ During development, the runner automatically selects Gemini Flash in the authent
 
 ### Two-root layout and output location
 
-\`MICROGEN_ROOT\` is the local GitHub clone of the MicroGen code. It is detected
+`MICROGEN_ROOT` is the local GitHub clone of the MicroGen code. It is detected
 automatically from the Python package location and is **never used by default
-as the textbook root**. \`SOURCE_ROOT\` is a **different local directory**
+as the textbook root**. `SOURCE_ROOT` is a **different local directory**
 containing the textbook tree, for example
-\`D:\Physics_Textbook\22\22.3\source.pdf\`.
+`D:\Physics_Textbook\22\22.3\source.pdf`.
 
-Set \`SOURCE_ROOT\` with \`--source-root\` or the per-PC
-\`MICROGEN_SOURCE_ROOT\` environment variable. With neither provided, MicroGen
+Set `SOURCE_ROOT` with `--source-root` or the per-PC
+`MICROGEN_SOURCE_ROOT` environment variable. With neither provided, MicroGen
 fails early with an explanatory error instead of reading PDFs from the code
 repository. A browser link to Google Drive is **not required**.
 
-\`\`\`powershell
+```powershell
 cd C:\Projects\MicroGen_AI_Web
 $env:MICROGEN_SOURCE_ROOT = "D:\Physics_Textbook"
 .\.venv\Scripts\python.exe -m selenium_pipeline --subchapter 22.3 --dry-run
 .\.venv\Scripts\python.exe -m selenium_pipeline --subchapter 22.3
-\`\`\`
+```
 
-Alternatively, pass \`--source-root "D:\Physics_Textbook"\` each run.
+Alternatively, pass `--source-root "D:\Physics_Textbook"` each run.
 For a persistent per-user Windows setting (effective in **new** terminals):
 
-\`\`\`powershell
+```powershell
 [Environment]::SetEnvironmentVariable("MICROGEN_SOURCE_ROOT", "D:\Physics_Textbook", "User")
-\`\`\`
+```
 
 No Google Drive ID or link is used by MicroGen: a synced Drive folder works
 using its local Windows path, provided the user has read/write access.
 
-The pipeline writes its validated \`slides.tex\`, \`slides.pdf\`,
-\`script.txt\`, \`slide1.wav\`…\`slideN.wav\`, individual slide PDFs,
-\`slides.mp4\`, generated figures, QA reports and diagnostic logs **directly
-beside the original** \`source.pdf\`. Temporary processing files and copied
-\`template_v2\` scripts are isolated in that subchapter's hidden
-\`.microgen_work\` directory; they never overwrite the original PDF. Passing
-\`--work-root "D:\MicroGen_Scratch"\` changes where the **working** files live
+The pipeline writes its validated `slides.tex`, `slides.pdf`,
+`script.txt`, `slide1.wav`…`slideN.wav`, individual slide PDFs,
+`slides.mp4`, generated figures, QA reports and diagnostic logs **directly
+beside the original** `source.pdf`. Temporary processing files and copied
+`template_v2` scripts are isolated in that subchapter's hidden
+`.microgen_work` directory; they never overwrite the original PDF. Passing
+`--work-root "D:\MicroGen_Scratch"` changes where the **working** files live
 without affecting where final teaching media are published.
 
 For an existing Dell-115 run created with the former workspace, supply
-\`--work-root "$env:USERPROFILE\Documents\MicroGen_AI_Web_Workspace"\` to reuse
+`--work-root "$env:USERPROFILE\Documents\MicroGen_AI_Web_Workspace"` to reuse
 its checkpoints and generated WAVs instead of restarting the stages.
 
-Credentials default to \`%LOCALAPPDATA%\Microvid\.env\` and
-\`%LOCALAPPDATA%\Microvid\google_cloud_credentials.json\`, not either root.
+Credentials default to `%LOCALAPPDATA%\Microvid\.env` and
+`%LOCALAPPDATA%\Microvid\google_cloud_credentials.json`, not either root.
 Ensure Windows, Chrome, Python 3.11/3.12, the required pip packages, MiKTeX
-(\`pdflatex\`), FFmpeg, and an authorized Gemini session are available.
+(`pdflatex`), FFmpeg, and an authorized Gemini session are available.
 
 ### Read-only dry-run for Serway 22.1
 
