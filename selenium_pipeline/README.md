@@ -20,7 +20,31 @@ The original files are not edited. We run a *copy* of the reference scripts in a
 2. **Slides:** `gen_slides_selenium_v11.py` and `gen_slides_prompt_v23.txt`, output `slides.tex` and `slides.pdf`.
 3. **Narration:** `gen_script_selenium_v15.py`, output `script.txt`.
 4. **TTS:** Gemini API model `gemini-3.8-flash-lite-tts` by default. Select `gemini-3.8-flash-tts` for higher quality or `chirp3` for Google Cloud Chirp 3 HD. Output `slideN.wav`.
-5. **Video:** `slice_pdf.py`, `gen_video.py`, output `slides.mp4`.
+5. **Video:** `slice_pdf.py` plus the maintained `selenium_pipeline/video_ffmpeg.py` encoder, output `slides.mp4`. This replaces the legacy MoviePy encoder (affected by `fps=None`/`NoneType` failures on Dell-115). The new renderer checks numbered PDF/WAV pairing, encodes each slide with H.264/AAC, concatenates with FFmpeg, validates both streams and duration, and only then atomically publishes `slides.mp4`. The previous MP4 is archived in `.history/video_<timestamp>/`.
+
+### Video-only regeneration (does not call Gemini)
+
+When a subchapter already has matching `slide1.pdf` … `slideN.pdf` and
+`slide1.wav` … `slideN.wav`, it can be assembled independently:
+
+```powershell
+# Run in the MicroGen code repository after installing requirements-selenium.txt
+.\.venv\Scripts\python.exe -m selenium_pipeline.video_ffmpeg --folder "D:\Physics_Textbook\25\25.4"
+
+# Or run the managed pipeline from its video stage (slices slides.pdf first)
+.\.venv\Scripts\python.exe -m selenium_pipeline --source-root "D:\Physics_Textbook" --subchapter 25.4 --from-stage video --force-from video
+```
+
+The first command never changes the original PDF, WAVs or slide deck. If the
+pairs are incomplete, it fails before replacing any existing MP4. It requires
+PyMuPDF (`fitz`) and `imageio-ffmpeg` or an external FFmpeg executable.
+Configure `MICROVID_FFMPEG` only when a custom FFmpeg is necessary.
+
+**Dell-115 verification, 10 October 2026:** Reference subchapter 25.4 had
+11 complete PDF/WAV pairs. Direct FFmpeg-only regeneration finished
+successfully, producing a 488.93-second, approximately 10.2 MB MP4 containing
+audio and video. The previous MP4 was archived. This validates the video-only
+stage, not a full LLM-to-video end-to-end production run.
 
 ### Temporary development model policy
 
@@ -145,7 +169,7 @@ The Gemini web subscription covers web-side interaction; **Gemini Flash-Lite TTS
 
 For Google Cloud, configure `GOOGLE_APPLICATION_CREDENTIALS` to point to a local credential file outside Git, or use application default credentials. The default API TTS voice is **Kore** for Gemini; fallback Chirp 3 uses **Aoede**.
 
-Checkpoint state stays in `.selenium_pipeline_state.json` in the hidden staging workspace, with a copy published beside `source.pdf` after successful stages. Completed stages are reused only when validation succeeds; stages can be rerun with `--force-from narration`, etc. Avoid rerunning the original work directory: the runner prohibits writing in the textbook source or reference script directory. Existing `main` API-based workflows are unchanged.
+Checkpoint state stays in `.selenium_pipeline_state.json` in the hidden staging workspace, with a copy published beside `source.pdf` after successful stages. Completed stages are reused only when validation succeeds; stages can be rerun with `--force-from narration`, etc. Avoid rerunning the original work directory: the runner prohibits writing in the textbook source or reference script directory. The legacy API-based batch workflow uses a separate video implementation.
 
 ## Acceptance checklist
 
