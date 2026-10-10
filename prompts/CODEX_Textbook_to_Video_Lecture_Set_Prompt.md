@@ -45,7 +45,9 @@ WORK_ROOT_DIRECTORY = "{{default: AUTO}}"
 
 ## Meaning of the placeholders
 
-The MicroGen code root is the local clone's directory (determined automatically from the package). It is distinct from `SOURCE_ROOT_DIRECTORY`, which points only to the PDF tree. A Google Drive browser URL or folder ID is not required; use a Windows/local mounted directory path. You may set `MICROGEN_SOURCE_ROOT` once per PC instead of repeating a command-line path.\n\n### `SOURCE_ROOT_DIRECTORY` — required
+The MicroGen code root is the local clone's directory (determined automatically from the package). It is distinct from `SOURCE_ROOT_DIRECTORY`, which points only to the PDF tree. A Google Drive browser URL or folder ID is not required; use a Windows/local mounted directory path. You may set `MICROGEN_SOURCE_ROOT` once per PC instead of repeating a command-line path.
+
+### `SOURCE_ROOT_DIRECTORY` — required
 
 Absolute local path to the root directory containing textbook/course folders and subtopic folders.
 
@@ -252,7 +254,7 @@ You are the execution agent. Carry out the workflow to completion. Do not merely
 2. Never expose, print, commit, upload, or echo API keys or credential-file contents.
 3. Never alter unrelated files already present in a subtopic directory, including question banks, XML files, HTML files, notes, or other teaching materials.
 4. Do not publish textbook PDFs or extracted textbook content to GitHub.
-5. Perform destructive cleanup only **after** final outputs for that subtopic have passed integrity checks.
+5. Never delete numbered slide PDFs, WAVs or checkpoints as part of routine cleanup.
 6. Use an isolated per-subtopic staging/work directory. Only publish verified outputs back into the corresponding source subtopic directory.
 7. If one subtopic fails, record the failure and continue with other selected subtopics when it is safe to do so. Do not delete failed work needed for diagnosis.
 8. Never report success for a subtopic until `slides.pdf`, `script.txt`, and `slides.mp4` have been validated.
@@ -488,7 +490,7 @@ Also verify:
 5. The final MP4 contains both video and audio streams.
 6. Any figure files actually referenced by the final deck exist.
 
-If these checks fail, do not publish a success state and do not perform final cleanup for that subtopic.
+If these checks fail, do not publish a success state or delete the staging files needed for diagnosis.
 
 ---
 
