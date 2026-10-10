@@ -276,7 +276,7 @@ def hydrate_video_only_inputs(source: Path, workspace: Path) -> None:
             raise FileNotFoundError("Video-only restart requires slides.pdf in workspace or beside source.pdf")
         shutil.copy2(original, deck)
     wavs = [p for p in origin.iterdir()
-            if p.is_file() and re.fullmatch(r"slide[1-9][0-9]*\\.wav", p.name, flags=re.I)]
+            if p.is_file() and re.fullmatch(r"slide[1-9][0-9]*[.]wav", p.name, flags=re.I)]
     for wav in wavs:
         dest = workspace / wav.name
         if not dest.is_file():
