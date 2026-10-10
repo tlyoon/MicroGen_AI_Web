@@ -144,6 +144,17 @@ class SourceAdjacentPublicationTests(unittest.TestCase):
         self.assertTrue((self.source_dir / "slides.mp4").exists())
         self.assertFalse((self.source_dir / "slide1.tmp.wav").exists())
 
+    def test_video_publish_archives_old_verified_mp4(self):
+        (self.source_dir / "slides.mp4").write_bytes(b"older")
+        (self.work / "slides.mp4").write_bytes(b"newer")
+        publish_stage_outputs(self.work, self.source, "video")
+        self.assertEqual((self.source_dir / "slides.mp4").read_bytes(), b"newer")
+        history = list((self.source_dir / ".history").rglob("slides.mp4"))
+        self.assertEqual(len(history), 1)
+        self.assertEqual(history[0].read_bytes(), b"older")
+        publish_stage_outputs(self.work, self.source, "video")
+        self.assertEqual(len(list((self.source_dir / ".history").rglob("slides.mp4"))), 1)
+
     def test_failed_stage_diagnostics_do_not_overwrite_good_media(self):
         (self.source_dir / "slides.pdf").write_bytes(b"good")
         (self.work / "slides.pdf").write_bytes(b"bad")
