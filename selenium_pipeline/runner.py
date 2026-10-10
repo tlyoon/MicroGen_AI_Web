@@ -45,13 +45,13 @@ else:
     raise ValueError("MICROGEN_MODEL_PHASE must be 'development' or 'production'")
 
 DEFAULT_LLM_MODEL = "gemini-3.8-flash"
-PRODUCTION_LLM_MODEL = "gemini-3.1-pro-preview"
+PRODUCTION_LLM_MODEL = DEFAULT_LLM_MODEL  # Production also defaults to Flash.
 ACTIVE_LLM_MODEL = os.getenv("MICROGEN_LLM_MODEL", DEFAULT_LLM_MODEL).strip()
 DEFAULT_CAPTION_MODEL = ACTIVE_LLM_MODEL
 CAPTION_BENCHMARK_MODEL = DEFAULT_LLM_MODEL
 DEFAULT_SLIDE_MODEL = ACTIVE_LLM_MODEL
 DEFAULT_NARRATION_MODEL = ACTIVE_LLM_MODEL
-DEFAULT_PRO = PRODUCTION_LLM_MODEL
+DEFAULT_PRO = "gemini-3.1-pro-preview"  # Explicit benchmark only, never default.
 DEFAULT_BROWSER_UI_MODE = os.getenv("MICROGEN_GEMINI_UI_MODE", "flash").strip().lower()
 if DEFAULT_BROWSER_UI_MODE not in {"flash", "pro"}:
     raise ValueError("MICROGEN_GEMINI_UI_MODE must be 'flash' or 'pro'")
@@ -209,7 +209,23 @@ def slide_pages(folder: Path) -> int:
 
 def valid(stage: str, folder: Path) -> bool:
     if stage == "figures":
-        return (folder / "crops").is_dir() and any(folder.glob("Figure*.png"))
+        # A valid source PDF may have no extractable figures. Require the
+        # completed page/crop extraction folders; demand published figures
+        # only when at least one actual crop exists. Successful subprocess
+        # exits are checked separately before this stage is marked complete.
+        crops, pages = folder / "crops", folder / "pages"
+        if not (crops.is_dir() and pages.is_dir() and any(pages.iterdir())):
+            return False
+        # The legacy crop extractor always places a full-page page_N.png
+        # in crops/page_N/. That file is not an extracted textbook figure.
+        # Demand a mapped Figure*.png only for *additional* image crops.
+        extracted = any(
+            p.is_file() and p.suffix.lower() in {".png", ".jpg", ".jpeg"}
+            and not (re.fullmatch(r"page_[0-9]+", p.parent.name, re.I)
+                     and p.stem.lower() == p.parent.name.lower())
+            for p in crops.rglob("*")
+        )
+        return not extracted or any(folder.glob("Figure*.png"))
     if stage in OUTPUTS and not all((folder / name).is_file() and
                                     (folder / name).stat().st_size > 0 for name in OUTPUTS[stage]):
         return False
