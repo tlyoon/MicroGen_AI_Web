@@ -261,6 +261,30 @@ def prepare(source: Path, folder: Path, *, refresh_code: bool = True) -> None:
                 shutil.copy2(file, folder / name)
 
 
+def hydrate_video_only_inputs(source: Path, workspace: Path) -> None:
+    """Copy already published slides/WAVs for an explicit video-only restart.
+
+    Never overwrite the workspace's existing validated intermediate artifacts.
+    Only import exact per-slide WAV files and the full slide PDF; do not copy
+    original credentials, Python scripts, or unrelated teaching files.
+    """
+    origin = source.parent
+    deck = workspace / "slides.pdf"
+    if not deck.is_file():
+        original = origin / "slides.pdf"
+        if not original.is_file() or original.stat().st_size == 0:
+            raise FileNotFoundError("Video-only restart requires slides.pdf in workspace or beside source.pdf")
+        shutil.copy2(original, deck)
+    wavs = [p for p in origin.iterdir()
+            if p.is_file() and re.fullmatch(r"slide[1-9][0-9]*\\.wav", p.name, flags=re.I)]
+    for wav in wavs:
+        dest = workspace / wav.name
+        if not dest.is_file():
+            shutil.copy2(wav, dest)
+    if not any(workspace.glob("slide*.wav")):
+        raise FileNotFoundError("Video-only restart requires published slideN.wav files")
+
+
 def run_cmd(command: list[str], cwd: Path, log_path: Path, env: dict[str, str],
             timeout_s: int = 3600) -> None:
     """Stream progress without allowing a silent Selenium child to hang forever."""
@@ -395,6 +419,8 @@ def execute(s: Settings) -> Path:
         from .gemini_model import ensure_mode
         print(f"[microgen] verified Gemini mode: {ensure_mode(s.chrome_port, DEFAULT_BROWSER_UI_MODE)}")
     prepare(source, folder)
+    if s.from_stage == "video":
+        hydrate_video_only_inputs(source, folder)
     stamp = folder / ".selenium_pipeline_state.json"
     state = json.loads(stamp.read_text(encoding="utf-8")) if stamp.exists() else {}
     signature = digest(source)
