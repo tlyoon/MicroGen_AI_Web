@@ -24,6 +24,8 @@ for _stream in (sys.stdout, sys.stderr):
 from datetime import datetime, timezone
 from pathlib import Path
 
+from .output_paths import publish_stage_outputs, resolve_source_root, verify_source_tree
+
 ROOT = Path(__file__).resolve().parent
 VENDOR = ROOT / "vendor_template_v2"
 REPO = ROOT.parent
@@ -329,7 +331,7 @@ def job_source(root: Path, key: str) -> Path:
 @dataclass
 class Settings:
     source_root: Path
-    work_root: Path
+    work_root: Path | None
     subchapter: str
     tts_provider: str = "gemini"
     tts_model: str = DEFAULT_TTS
@@ -345,6 +347,11 @@ class Settings:
     through_stage: str = "video"
 
     def directory(self) -> Path:
+        # Default staging stays inside this source subchapter, never inside
+        # the template reference tree. Only validated artifacts are published
+        # directly beside source.pdf, not vendor scripts or credentials.
+        if self.work_root is None:
+            return self.source().parent / ".microgen_work"
         return self.work_root / self.subchapter.split(".")[0] / self.subchapter
 
     def source(self) -> Path:
@@ -359,7 +366,7 @@ def execute(s: Settings) -> Path:
     if first > last:
         raise ValueError("--from-stage must precede --through-stage")
     planned = STAGES[first:last + 1]
-    print(f"[microgen] production host: Dell-115 | job: {s.subchapter}")
+    print(f"[microgen] code root: {REPO} | job: {s.subchapter}")
     print(f"[microgen] input: {source} | work: {folder}")
     print(f"[microgen] model phase: {MODEL_PHASE}")
     print(f"[microgen] browser UI model: {DEFAULT_BROWSER_UI_MODE}")
@@ -373,6 +380,9 @@ def execute(s: Settings) -> Path:
         print(f"[microgen] stage: {stage}")
     if s.dry_run:
         return folder
+    # Check the independently configured PDF root and this subchapter before
+    # launching Chrome or consuming paid model/API calls.
+    verify_source_tree(s.source_root, source)
     if any(x in CHROME_STAGES for x in planned):
         from .launch_gemini import launch
         requested_port = s.chrome_port
@@ -438,7 +448,8 @@ def execute(s: Settings) -> Path:
         if changed_upstream:
             state["completed"].pop(stage, None)
         if state["completed"].get(stage, {}).get("model") == model_stamp and check_valid(stage, folder):
-            print(f"[microgen] reuse validated {stage}")
+            published = publish_stage_outputs(folder, source, stage)
+            print(f"[microgen] reuse validated {stage}; published {len(published)} artifact(s) beside source.pdf")
             continue
         state["completed"].pop(stage, None)
         changed_upstream = True
@@ -518,8 +529,15 @@ def execute(s: Settings) -> Path:
                 raise RuntimeError(f"Validation failed at {stage}; see {log_file}")
             state["completed"][stage] = {"at_utc": utc(), "model": model_stamp}
             stamp.write_text(json.dumps(state, indent=2), encoding="utf-8")
-            print(f"[microgen] {stage} OK")
+            published = publish_stage_outputs(folder, source, stage)
+            print(f"[microgen] {stage} OK; published {len(published)} artifact(s) beside source.pdf")
         except Exception:
+            # Save failure diagnostics beside the original PDF without replacing
+            # a previously validated deck/audio/video with unverified outputs.
+            try:
+                publish_stage_outputs(folder, source, stage, diagnostics_only=True)
+            except OSError as diagnostic_error:
+                print(f"[microgen] could not publish diagnostics: {diagnostic_error}")
             state["failed_stage"] = stage
             state["failed_at_utc"] = utc()
             stamp.write_text(json.dumps(state, indent=2), encoding="utf-8")
@@ -548,8 +566,10 @@ def doctor() -> None:
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="MicroGen Selenium pipeline for Dell-115")
-    p.add_argument("--source-root", type=Path)
-    p.add_argument("--work-root", type=Path, default=Path.home() / "Documents" / "MicroGen_AI_Web_Workspace")
+    p.add_argument("--source-root", type=Path,
+                   help="PDF tree root (required unless MICROGEN_SOURCE_ROOT is configured)")
+    p.add_argument("--work-root", type=Path,
+                   help="Optional isolated staging root; by default stage under each source directory/.microgen_work")
     p.add_argument("--subchapter", help="One or comma-separated subchapters, e.g. 22.1,22.2")
     p.add_argument("--chapter", help="Process all subchapters with source.pdf in chapter, sequentially")
     p.add_argument("--tts-provider", choices=("gemini", "chirp3"), default="gemini")
@@ -571,8 +591,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.doctor:
         doctor()
         return 0
-    if not args.source_root or (not args.subchapter and not args.chapter):
-        p.error("--source-root and --subchapter or --chapter are required unless --doctor")
+    if not args.subchapter and not args.chapter:
+        p.error("--subchapter or --chapter is required unless --doctor")
+    try:
+        args.source_root = resolve_source_root(args.source_root, code_root=REPO)
+    except (ValueError, NotADirectoryError) as exc:
+        p.error(str(exc))
     if args.subchapter and args.chapter:
         p.error("Choose --subchapter or --chapter, not both")
     if args.chapter:

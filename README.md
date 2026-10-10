@@ -17,6 +17,71 @@ MicroGen_AI is built around two complementary priorities:
 
 The result is intended to behave like a reproducible educational production pipeline rather than a generic slide-generation prompt.
 
+## Directory architecture: separate code and teaching-material roots
+
+MicroGen uses **two independent local folders**, never a Google Drive URL:
+
+- **`MICROGEN_ROOT` (automatic)** — the local clone of
+  [tlyoon/MicroGen_AI_Web](https://github.com/tlyoon/MicroGen_AI_Web).
+  The package locates its code by `__file__`; no configuration is required.
+- **`SOURCE_ROOT` (user-defined)** — a separate folder containing a chapter /
+  subchapter / `source.pdf` tree. Provide it with `--source-root`, or set
+  `MICROGEN_SOURCE_ROOT` once on each PC. This is a **local filesystem path**;
+  Google Drive is optional and does not require its browser URL.
+
+Example:
+
+```text
+C:\Projects\MicroGen_AI_Web\         # Git clone: MicroGen code only
+D:\Physics_Textbook\                # Separate SOURCE_ROOT
+  22\
+    22.3\
+      source.pdf
+      slides.tex
+      slides.pdf
+      script.txt
+      slide1.wav  slide2.wav ...
+      slide1.pdf  slide2.pdf ...
+      slides.mp4
+      Figure*.png
+      .microgen_work\               # Hidden Selenium staging and checkpoints
+```
+
+From inside the cloned repository on Windows:
+
+```powershell
+# Choose the source PDF tree for the current shell
+$env:MICROGEN_SOURCE_ROOT = "D:\Physics_Textbook"
+.\.venv\Scripts\python.exe -m selenium_pipeline --subchapter 22.3 --dry-run
+.\.venv\Scripts\python.exe -m selenium_pipeline --subchapter 22.3
+
+# Or specify the same source root directly, without a setting
+.\.venv\Scripts\python.exe -m selenium_pipeline --source-root "D:\Physics_Textbook" --subchapter 22.3
+```
+
+The package checks write access to `SOURCE_ROOT` and the selected subchapter
+before launching paid generation stages. The original `source.pdf` is never
+overwritten. All **published** generated teaching media (slides, narration, WAVs,
+individual slide PDFs, figures, MP4, QA reports and logs) are written beside
+the corresponding `source.pdf`; copied scripts and temporary assets stay in
+the hidden work folder. An optional `--work-root` changes only the internal
+staging location, **not** the output destination.
+
+The API batch runner has the same two-root convention:
+
+```powershell
+python microgen_batch.py --source-root "D:\Physics_Textbook" --targets "22.3,22.4"
+```
+
+The batch runner uses a separate `.microgen_batch_work` staging folder for
+each subchapter and writes its individual report beside the PDF. It preserves
+numbered WAVs and individual slide PDFs as well as `slides.mp4`.
+
+Secrets remain outside both roots in `%LOCALAPPDATA%\Microvid` (or the optional
+`MICROVID_CONFIG_DIR`). During development the Selenium browser stages use
+Gemini Flash; this change does not switch them to Pro. See
+[selenium_pipeline/README.md](selenium_pipeline/README.md) for setup details.
+
 ## Current active pipeline
 
 ```text
@@ -193,14 +258,13 @@ Example:
 ```powershell
 python microgen_batch.py \
   --source-root "G:\My Drive\Textbook_Project" \
-  --work-root "$env:LOCALAPPDATA\MicroGen_AI_runs\batch_01" \
   --targets "1.1,1.2,1.3" \
   --main-py "C:\path\to\python.exe" \
   --docling-py "C:\path\to\docling_env\python.exe" \
   --commit main
 ```
 
-The runner performs a startup environment check, validates outputs at every stage, pauses rather than fails when the shared Gemini billing circuit is open, publishes final `slides.pdf`, `script.txt`, and `slides.mp4` atomically, and removes storage-heavy numbered slide/audio intermediates only after successful publication.
+The runner performs a startup environment check, validates outputs at every stage, pauses rather than fails when the shared Gemini billing circuit is open, publishes final `slides.pdf`, `script.txt`, and `slides.mp4` atomically, and retains numbered slide PDFs and narration WAV files in each source subchapter after successful publication.
 
 ## Credentials
 
@@ -242,23 +306,21 @@ For Google Cloud TTS, `GOOGLE_APPLICATION_CREDENTIALS` takes precedence when exp
 
 **Never commit real API keys or Google Cloud service-account JSON files.**
 
-## Quick start
+## Quick start — recommended Selenium runner
 
-Clone the repository and place a source PDF in the project directory:
-
-```powershell
-git clone https://github.com/tlyoon/MicroGen_AI.git
-cd MicroGen_AI
-Copy-Item C:\path\to\your\source.pdf .\source.pdf
-```
-
-Then run:
+Clone the **MicroGen_AI_Web code repository** into one local folder, separate from the textbook PDF tree:
 
 ```powershell
-python run_gen_slides_videos.py
+git clone https://github.com/tlyoon/MicroGen_AI_Web.git
+cd MicroGen_AI_Web
+$env:MICROGEN_SOURCE_ROOT = "D:\\Physics_Textbook"   # Local PDF tree on this computer
+.\\.venv\\Scripts\\python.exe -m selenium_pipeline --subchapter 22.3 --dry-run
+.\\.venv\\Scripts\\python.exe -m selenium_pipeline --subchapter 22.3
 ```
 
-The package writes the generated outputs into the current working directory.
+Follow the [Selenium setup instructions](selenium_pipeline/README.md) first to create the virtual environment, install dependencies, and configure the browser. Use `microgen_batch.py` for the separate API-based batch workflow. Both supported orchestration entry points publish verified media beside their input `source.pdf`.
+
+**Legacy low-level scripts:** `run_gen_slides_videos.py` and `run_gen_slides.py` still operate on their current working directory. They are internal/legacy components, not the recommended two-root entry points. Run them only within an isolated subchapter staging workspace if debugging.
 
 ## Codex batch-generation prompt
 
@@ -274,9 +336,9 @@ This prompt is designed to be submitted directly to Codex. Normally the user onl
 - selects all valid `source.pdf` subtopics under the first top-level source folder,
 - runs figure abstraction, slides, narration, TTS, and MP4 generation,
 - publishes verified outputs back into each source subtopic directory, and
-- removes `pages/`, `crops/`, numbered `slideN.pdf`, and numbered `slideN.wav` intermediates after successful verification to reduce storage use.
+- retains verified `slideN.pdf`, `slideN.wav`, `slides.mp4` and checkpoint files in each subchapter; working caches stay isolated.
 
-The prompt also accepts explicit subtopic ranges, an alternate code-package URL/ref, and a common LLM override. The historical Drive template is retained in the prompt as a fallback location, while GitHub `main` is the default authoritative package source.
+The prompt also accepts explicit subtopic ranges, an alternate code-package URL/ref, and a common LLM override. A local folder path identifies the textbook source tree; no Google Drive browser link is necessary. GitHub `main` is the default authoritative package source.
 
 ### Runtime LLM override
 

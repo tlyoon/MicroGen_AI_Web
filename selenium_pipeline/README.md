@@ -65,11 +65,53 @@ Chrome 136+ intentionally does not honor remote-debugging switches against Chrom
 
 During development, the runner automatically selects Gemini Flash in the authenticated browser session. After the package is fully validated, production mode restores Pro. Do not store Google credentials in the repository or bypass authentication screens.
 
-The default output location is local to Dell-115:
+### Two-root layout and output location
 
-`%USERPROFILE%\Documents\MicroGen_AI_Web_Workspace\<chapter>\<subchapter>`
+`MICROGEN_ROOT` is the local GitHub clone of the MicroGen code. It is detected
+automatically from the Python package location and is **never used by default
+as the textbook root**. `SOURCE_ROOT` is a **different local directory**
+containing the textbook tree, for example
+`D:\Physics_Textbook\22\22.3\source.pdf`.
 
-You can override this using `--work-root`. The input folder need not be copied to the production repo.
+Set `SOURCE_ROOT` with `--source-root` or the per-PC
+`MICROGEN_SOURCE_ROOT` environment variable. With neither provided, MicroGen
+fails early with an explanatory error instead of reading PDFs from the code
+repository. A browser link to Google Drive is **not required**.
+
+```powershell
+cd C:\Projects\MicroGen_AI_Web
+$env:MICROGEN_SOURCE_ROOT = "D:\Physics_Textbook"
+.\.venv\Scripts\python.exe -m selenium_pipeline --subchapter 22.3 --dry-run
+.\.venv\Scripts\python.exe -m selenium_pipeline --subchapter 22.3
+```
+
+Alternatively, pass `--source-root "D:\Physics_Textbook"` each run.
+For a persistent per-user Windows setting (effective in **new** terminals):
+
+```powershell
+[Environment]::SetEnvironmentVariable("MICROGEN_SOURCE_ROOT", "D:\Physics_Textbook", "User")
+```
+
+No Google Drive ID or link is used by MicroGen: a synced Drive folder works
+using its local Windows path, provided the user has read/write access.
+
+The pipeline writes its validated `slides.tex`, `slides.pdf`,
+`script.txt`, `slide1.wav`…`slideN.wav`, individual slide PDFs,
+`slides.mp4`, generated figures, QA reports and diagnostic logs **directly
+beside the original** `source.pdf`. Temporary processing files and copied
+`template_v2` scripts are isolated in that subchapter's hidden
+`.microgen_work` directory; they never overwrite the original PDF. Passing
+`--work-root "D:\MicroGen_Scratch"` changes where the **working** files live
+without affecting where final teaching media are published.
+
+For an existing Dell-115 run created with the former workspace, supply
+`--work-root "$env:USERPROFILE\Documents\MicroGen_AI_Web_Workspace"` to reuse
+its checkpoints and generated WAVs instead of restarting the stages.
+
+Credentials default to `%LOCALAPPDATA%\Microvid\.env` and
+`%LOCALAPPDATA%\Microvid\google_cloud_credentials.json`, not either root.
+Ensure Windows, Chrome, Python 3.11/3.12, the required pip packages, MiKTeX
+(`pdflatex`), FFmpeg, and an authorized Gemini session are available.
 
 ### Read-only dry-run for Serway 22.1
 
@@ -103,7 +145,7 @@ The Gemini web subscription covers web-side interaction; **Gemini Flash-Lite TTS
 
 For Google Cloud, configure `GOOGLE_APPLICATION_CREDENTIALS` to point to a local credential file outside Git, or use application default credentials. The default API TTS voice is **Kore** for Gemini; fallback Chirp 3 uses **Aoede**.
 
-State is stored in `.selenium_pipeline_state.json` per subchapter. Completed stages are reused only when validation succeeds; stages can be rerun with `--force-from narration`, etc. Avoid rerunning the original work directory: the runner prohibits writing in the textbook source or reference script directory. Existing `main` API-based workflows are unchanged.
+Checkpoint state stays in `.selenium_pipeline_state.json` in the hidden staging workspace, with a copy published beside `source.pdf` after successful stages. Completed stages are reused only when validation succeeds; stages can be rerun with `--force-from narration`, etc. Avoid rerunning the original work directory: the runner prohibits writing in the textbook source or reference script directory. Existing `main` API-based workflows are unchanged.
 
 ## Acceptance checklist
 

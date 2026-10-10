@@ -1,0 +1,25 @@
+name: Source-adjacent publication tests
+
+on:
+  pull_request:
+    paths:
+      - 'selenium_pipeline/output_paths.py'
+      - 'selenium_pipeline/runner.py'
+      - 'microgen_batch.py'
+      - 'tests/test_source_adjacent_publication.py'
+      - '.github/workflows/source-adjacent-output-tests.yml'
+  push:
+    branches: [feature/source-adjacent-output-defaults]
+
+jobs:
+  unittest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify source root and output publication
+        run: python -m unittest discover -s tests -p 'test_source_adjacent_publication.py' -v
+      - name: Syntax-check patched runner
+        run: python -m py_compile selenium_pipeline/runner.py selenium_pipeline/output_paths.py microgen_batch.py

@@ -43,7 +43,17 @@ cleaned_slides.tex
 defective_slides.tex
 
 # Selenium pipeline checkpoints, archived outputs and temporary audio
+.microgen_work/
+.microgen_batch_work/
+.microgen_batch_work.stale.*/
+microgen_batch_report.json
+.microgen_write_probe_*
 .selenium_pipeline_state.json
+script_risk_report.json
+script_risk_report.md
+tts_fidelity_report.json
+tts_fidelity_report.md
+*.microgen.tmp
 .tts_candidate/
 .history/
 MicroGen_AI_Web_Workspace/
