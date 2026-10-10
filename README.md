@@ -41,68 +41,97 @@ The result is intended to behave like a reproducible educational production pipe
 
 ## Directory architecture: separate code and teaching-material roots
 
-MicroGen uses **two independent local folders**, never a Google Drive URL:
+MicroGen requires two **separate filesystem folders**:
 
-- **`MICROGEN_ROOT` (automatic)** — the local clone of
-  [tlyoon/MicroGen_AI_Web](https://github.com/tlyoon/MicroGen_AI_Web).
-  The package locates its code by `__file__`; no configuration is required.
-- **`SOURCE_ROOT` (user-defined)** — a separate folder containing a chapter /
-  subchapter / `source.pdf` tree. Provide it with `--source-root`, or set
-  `MICROGEN_SOURCE_ROOT` once on each PC. This is a **local filesystem path**;
-  Google Drive is optional and does not require its browser URL.
+- **Code root (`MICROGEN_ROOT`, automatic):** the checked-out
+  [MicroGen_AI_Web](https://github.com/tlyoon/MicroGen_AI_Web) repository.
+  MicroGen detects it from its Python files; users do not set this path.
+- **PDF source root (`SOURCE_ROOT`, user-defined):** the folder containing
+  chapter/subchapter directories with `source.pdf`. Supply
+  `--source-root` or set `MICROGEN_SOURCE_ROOT` per PC. There is **no
+  hard-coded source root**, and MicroGen will stop if neither is supplied.
 
-Example:
+**Illustrative Google Drive folder layout (replace the paths for your setup):**
 
 ```text
-C:\Projects\MicroGen_AI_Web\         # Git clone: MicroGen code only
-D:\Physics_Textbook\                # Separate SOURCE_ROOT
-  22\
-    22.3\
-      source.pdf
-      slides.tex
+G:\My Drive\Projects\MicroGen_AI_Web\    # Example: code repository
+G:\My Drive\Serway\Serway_8_14\       # Example: SOURCE_ROOT
+  8\
+    8.1\
+      source.pdf                        # Original textbook PDF
+      slides.tex                        # Outputs saved beside source.pdf
       slides.pdf
       script.txt
       slide1.wav  slide2.wav ...
       slide1.pdf  slide2.pdf ...
       slides.mp4
       Figure*.png
-      .microgen_work\               # Hidden Selenium staging and checkpoints
+      .microgen_work\                   # Per-subchapter staging
 ```
 
-From inside the cloned repository on Windows:
+**The source-root path above is for illustration only.** Each user must set
+`MICROGEN_SOURCE_ROOT` to **their actual folder containing the textbook PDF
+sources** (`<chapter>\<subchapter>\source.pdf`), or use `--source-root`.
+For example, Dell-115 has `G:\My Drive\Serway\Serway_8_14`, which
+contains `8\8.1\source.pdf`. Do not assume the same path exists on
+another PC.
+
+From the code checkout (example commands; adjust paths as needed):
 
 ```powershell
-# Choose the source PDF tree for the current shell
-$env:MICROGEN_SOURCE_ROOT = "D:\Physics_Textbook"
-.\.venv\Scripts\python.exe -m selenium_pipeline --subchapter 22.3 --dry-run
-.\.venv\Scripts\python.exe -m selenium_pipeline --subchapter 22.3
+cd "G:\My Drive\Projects\MicroGen_AI_Web"
 
-# Or specify the same source root directly, without a setting
-.\.venv\Scripts\python.exe -m selenium_pipeline --source-root "D:\Physics_Textbook" --subchapter 22.3
+# Current terminal only; replace this illustrative path on your machine:
+$env:MICROGEN_SOURCE_ROOT = "G:\My Drive\Serway\Serway_8_14"
+.\.venv\Scripts\python.exe -m selenium_pipeline --subchapter 8.1 --dry-run
+
+# Equivalent explicit argument (takes precedence over environment setting):
+.\.venv\Scripts\python.exe -m selenium_pipeline --source-root "G:\My Drive\Serway\Serway_8_14" --subchapter 8.1 --dry-run
+
+# Optional: save the per-user setting for new Windows terminals:
+[Environment]::SetEnvironmentVariable("MICROGEN_SOURCE_ROOT", "G:\My Drive\Serway\Serway_8_14", "User")
 ```
 
-The package checks write access to `SOURCE_ROOT` and the selected subchapter
-before launching paid generation stages. The original `source.pdf` is never
-overwritten. All **published** generated teaching media (slides, narration, WAVs,
-individual slide PDFs, figures, MP4, QA reports and logs) are written beside
-the corresponding `source.pdf`; copied scripts and temporary assets stay in
-the hidden work folder. An optional `--work-root` changes only the internal
-staging location, **not** the output destination.
+Alternatively, put `MICROGEN_SOURCE_ROOT=G:\My Drive\Serway\Serway_8_14`
+(illustrative only) in the per-PC, non-committed
+`%LOCALAPPDATA%\Microvid\.env` file, as shown in [`.env.example`](.env.example).
+Use the **mounted local directory**, not a `https://drive.google.com/...`
+link. The code and source roots must not be the same or nested.
 
-The API batch runner has the same two-root convention:
+**Recommended for multi-PC generation:** Keep **both** the MicroGen code
+checkout and the PDF source root in **Google Drive-synchronized folders**
+on each participating PC. Doing so makes code updates, PDF sources and
+published lecture materials available to Dell-115, Yoga6, HP and other
+workers. Different PCs can generate **different subchapters in a
+pseudo-parallel manner**. Set the **same** `MICROGEN_GEMINI_LANE_DIR`
+shared Drive directory on all participating machines so Gemini-heavy
+requests are serialized while independent extraction, LaTeX, TTS and
+video jobs proceed concurrently. See *Multi-PC Gemini coordination*.
+Do **not** run concurrent jobs against the same subchapter, or against
+the same browser profile. Each computer must mount Google Drive,
+have read/write access to the source tree and its subdirectories, and
+allow time for files to synchronize. Credentials and browser profiles
+remain **local to each PC** in `%LOCALAPPDATA%`, not inside either shared
+Google Drive folder.
+
+Before generating, MicroGen checks write permission to `SOURCE_ROOT`
+and the selected subchapter. The original `source.pdf` is never overwritten.
+All published slides, scripts, figure assets, numbered WAVs, per-slide
+PDFs, MP4s, quality reports and logs appear **beside each `source.pdf`**.
+Hidden `.microgen_work` directories contain temporary processing files;
+an optional `--work-root` changes staging location, **not** output location.
+
+The API batch runner obeys the same two-root and publication rules:
 
 ```powershell
-python microgen_batch.py --source-root "D:\Physics_Textbook" --targets "22.3,22.4"
+python microgen_batch.py --source-root "G:\My Drive\Serway\Serway_8_14" --targets "8.1,8.2"
 ```
 
-The batch runner uses a separate `.microgen_batch_work` staging folder for
-each subchapter and writes its individual report beside the PDF. It preserves
-numbered WAVs and individual slide PDFs as well as `slides.mp4`.
-
-Secrets remain outside both roots in `%LOCALAPPDATA%\Microvid` (or the optional
-`MICROVID_CONFIG_DIR`). During development the Selenium browser stages use
-Gemini Flash; this change does not switch them to Pro. See
-[selenium_pipeline/README.md](selenium_pipeline/README.md) for setup details.
+Again, that path is **illustrative only**. The batch runner keeps its own
+`.microgen_batch_work` staging folder per subchapter and publishes
+its report and verified media alongside the PDF. During ongoing
+development the Gemini browser stages remain in Flash mode;
+this documentation change does **not** switch them to Pro.
 
 ## Current active pipeline
 
@@ -335,7 +364,7 @@ Clone the **MicroGen_AI_Web code repository** into one local folder, separate fr
 ```powershell
 git clone https://github.com/tlyoon/MicroGen_AI_Web.git
 cd MicroGen_AI_Web
-$env:MICROGEN_SOURCE_ROOT = "D:\\Physics_Textbook"   # Local PDF tree on this computer
+$env:MICROGEN_SOURCE_ROOT = "G:\My Drive\Serway\Serway_8_14"   # ILLUSTRATIVE: replace with your source tree
 .\\.venv\\Scripts\\python.exe -m selenium_pipeline --subchapter 22.3 --dry-run
 .\\.venv\\Scripts\\python.exe -m selenium_pipeline --subchapter 22.3
 ```
