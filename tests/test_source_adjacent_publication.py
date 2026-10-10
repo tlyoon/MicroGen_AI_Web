@@ -1,11 +1,14 @@
 """Source-root and output-publication regression tests (no Gemini required)."""
 from __future__ import annotations
 
+import os
 import tempfile
 import unittest
 from pathlib import Path
 
 from selenium_pipeline.runner import REPO, Settings, main
+from selenium_pipeline.output_paths import resolve_source_root
+from microgen_batch import build_parser, prepare_stage, publish, numbered_files
 from unittest.mock import patch
 
 from selenium_pipeline.output_paths import (
@@ -34,13 +37,62 @@ class SourceAdjacentPublicationTests(unittest.TestCase):
         custom = Settings(source_root=self.root, work_root=self.root / "scratch", subchapter="22.3")
         self.assertEqual(custom.directory(), self.root / "scratch" / "22" / "22.3")
 
-    def test_cli_without_source_root_defaults_to_clone_root(self):
-        with patch("selenium_pipeline.runner.execute") as mocked:
-            self.assertEqual(main(["--subchapter", "22.3", "--dry-run"]), 0)
-            setting = mocked.call_args.args[0]
-            self.assertEqual(setting.source_root, REPO.resolve())
-            self.assertIsNone(setting.work_root)
-            self.assertTrue(setting.dry_run)
+    def test_cli_uses_separate_explicit_source_root(self):
+        with patch.dict(os.environ, {"MICROGEN_SOURCE_ROOT": ""}):
+            with patch("selenium_pipeline.runner.execute") as mocked:
+                self.assertEqual(main(["--source-root", str(self.root), "--subchapter", "22.3", "--dry-run"]), 0)
+                setting = mocked.call_args.args[0]
+                self.assertEqual(setting.source_root, self.root.resolve())
+                self.assertIsNone(setting.work_root)
+                self.assertTrue(setting.dry_run)
+
+    def test_cli_accepts_env_source_root(self):
+        with patch.dict(os.environ, {"MICROGEN_SOURCE_ROOT": str(self.root)}):
+            with patch("selenium_pipeline.runner.execute") as mocked:
+                self.assertEqual(main(["--subchapter", "22.3", "--dry-run"]), 0)
+                self.assertEqual(mocked.call_args.args[0].source_root, self.root.resolve())
+
+    def test_missing_source_root_fails_instead_of_using_repo(self):
+        with patch.dict(os.environ, {"MICROGEN_SOURCE_ROOT": ""}):
+            with self.assertRaises(SystemExit) as raised:
+                main(["--subchapter", "22.3", "--dry-run"])
+            self.assertEqual(raised.exception.code, 2)
+
+    def test_source_root_is_distinct_from_code_root(self):
+        with self.assertRaises(ValueError):
+            resolve_source_root(REPO, code_root=REPO)
+        with self.assertRaises(ValueError):
+            resolve_source_root("https://drive.google.com/example", code_root=REPO)
+
+    def test_batch_parser_supports_independent_roots_without_work_root(self):
+        args = build_parser().parse_args(["--source-root", str(self.root), "--targets", "22.3"])
+        self.assertEqual(args.source_root, self.root)
+        self.assertIsNone(args.work_root)
+
+    def test_batch_stages_in_hidden_source_subfolder(self):
+        separate_code_root = REPO
+        stage, checkpoint, cp_path = prepare_stage(
+            separate_code_root, self.root, None, "22.3", 0, "test"
+        )
+        self.assertEqual(stage, self.source_dir / ".microgen_batch_work")
+        self.assertTrue(cp_path.exists())
+        self.assertTrue((stage / "source.pdf").exists())
+
+    def test_batch_publishes_audio_and_individual_slide_pdfs(self):
+        (self.work / "slides.pdf").write_bytes(b"PDF")
+        (self.work / "slides.tex").write_text("latex", encoding="utf-8")
+        (self.work / "script.txt").write_text("narration", encoding="utf-8")
+        (self.work / "slide1.wav").write_bytes(b"RIFF" + b"x" * 40)
+        (self.work / "slide1.pdf").write_bytes(b"%PDF")
+        (self.work / "slides.mp4").write_bytes(b"video")
+        (self.work / "microgen_batch.log").write_text("log", encoding="utf-8")
+        publish(self.work, self.source_dir)
+        self.assertTrue((self.source_dir / "slide1.wav").exists())
+        self.assertTrue((self.source_dir / "slide1.pdf").exists())
+        self.assertTrue((self.source_dir / "slides.mp4").exists())
+        self.assertTrue((self.source_dir / "microgen_batch.log").exists())
+        self.assertEqual(len(numbered_files(self.source_dir, "wav")), 1)
+        self.assertEqual(self.source.read_bytes(), b"%PDF-1.7\\nsource")
 
     def test_root_and_subchapter_are_writable(self):
         verify_source_tree(self.root, self.source)
