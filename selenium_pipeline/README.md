@@ -22,6 +22,36 @@ The original files are not edited. We run a *copy* of the reference scripts in a
 4. **TTS:** Gemini API model `gemini-3.8-flash-lite-tts` by default. Select `gemini-3.8-flash-tts` for higher quality or `chirp3` for Google Cloud Chirp 3 HD. Output `slideN.wav`.
 5. **Video:** `slice_pdf.py` plus the maintained `selenium_pipeline/video_ffmpeg.py` encoder, output `slides.mp4`. This replaces the legacy MoviePy encoder (affected by `fps=None`/`NoneType` failures on Dell-115). The new renderer checks numbered PDF/WAV pairing, encodes each slide with H.264/AAC, concatenates with FFmpeg, validates both streams and duration, and only then atomically publishes `slides.mp4`. The previous MP4 is archived in `.history/video_<timestamp>/`.
 
+### Automatic cleanup after complete publication
+
+When all stages finish successfully and a subchapter has its final
+`slides.tex`, `slides.pdf`, `script.txt`, and `slides.mp4` published
+beside `source.pdf`, MicroGen automatically removes the generated
+intermediate files and its managed workspace. It retains the original
+`source.pdf`, all editable `*.tex`, every figure and logo needed to
+compile them (`*.png`, `*.jpg`, `*.jpeg`, `*.sty`, and other referenced
+assets), final slides, narration script, MP4 video, useful QA reports,
+unrelated original files, and a small `.microgen_completion.json` receipt.
+
+Transient per-slide WAV/PDF files, temporary TTS data, LaTeX
+compilation auxiliaries, stage logs, extracted page caches and
+unneeded crops, previous automatic history backups, and
+`.microgen_work` staging are removed only **after** successful final
+publication. LaTeX-referenced nested graphic folders are preserved,
+and any missing referenced image blocks deletion rather than losing
+the ability to recompile the slides. The receipt allows completed
+lectures to skip costly regeneration on later ordinary runs.
+Failed and partially processed jobs retain their workspace and
+checkpoints for resumption.
+
+This intentionally trades video-only rebuild convenience for
+uncluttered completed source folders: an already-cleaned lecture
+will need its per-slide WAV and PDF intermediates regenerated before
+another video-only assembly. A deliberate full rebuild can start with
+`--force-from figures`; it is not an automatic rerun. This cleanup
+does **not** retroactively delete previously generated materials
+unless you subsequently run their final stage successfully.
+
 ### Video-only regeneration (does not call Gemini)
 
 When a subchapter already has matching `slide1.pdf` … `slideN.pdf` and
@@ -139,8 +169,10 @@ serialize while other independent processing can overlap. Auth and
 secrets stay in local `%LOCALAPPDATA%\Microvid`, **not** in Google Drive.
 The source root and code checkout must remain separate directories.
 
-All generated slides, narration, per-slide WAV/PDF files, MP4 videos,
-figures and QA reports are published **beside the relevant `source.pdf`**.
+Generated stages publish their slide files and audio beside
+`source.pdf`. After **all** stages complete successfully, per-slide
+WAV/PDF intermediates are removed while final slides, LaTeX sources,
+recompilation images, narration script, MP4, and QA reports remain.
 Temporary files and copied Selenium scripts remain isolated within the
 subchapter's `.microgen_work` directory. Passing `--work-root` only changes
 staging; it never changes the published output destination.
@@ -191,7 +223,7 @@ The Gemini web subscription covers web-side interaction; **Gemini Flash-Lite TTS
 
 For Google Cloud, configure `GOOGLE_APPLICATION_CREDENTIALS` to point to a local credential file outside Git, or use application default credentials. The default API TTS voice is **Kore** for Gemini; fallback Chirp 3 uses **Aoede**.
 
-Checkpoint state stays in `.selenium_pipeline_state.json` in the hidden staging workspace, with a copy published beside `source.pdf` after successful stages. Completed stages are reused only when validation succeeds; stages can be rerun with `--force-from narration`, etc. Avoid rerunning the original work directory: the runner prohibits writing in the textbook source or reference script directory. The legacy API-based batch workflow uses a separate video implementation.
+While generation is incomplete, checkpoint state stays in `.selenium_pipeline_state.json` in the hidden staging workspace, with a copy beside `source.pdf` after successful stages. Completed stages are reused only when validation succeeds. After successful final publication, that transient checkpoint is replaced by a compact `.microgen_completion.json` receipt and staging is removed. Rebuilding an already-cleaned lecture requires regenerating any discarded intermediates; a full refresh can use `--force-from figures`. Avoid rerunning the original work directory: the runner prohibits writing in the textbook source or reference script directory. The legacy API-based batch workflow uses a separate video implementation.
 
 ## Acceptance checklist
 
