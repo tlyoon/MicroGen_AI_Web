@@ -442,13 +442,18 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
         if not pending:
             break
         next_pending: list[tuple[int, str]] = []
+        consecutive_transient_failures = 0
+        circuit_breaker_failures = max(
+            1,
+            int(os.environ.get("MICROGEN_TTS_QUEUE_CIRCUIT_BREAKER_FAILURES", "2")),
+        )
         print(
             f"[tts] queue round {round_number}/{queue_rounds}: "
             f"{len(pending)} slide(s) pending",
             flush=True,
         )
 
-        for number, narration in pending:
+        for index, (number, narration) in enumerate(pending):
             dest = candidate / f"slide{number}.wav"
             if dest.is_file() and dest.stat().st_size > 44:
                 try:
@@ -476,16 +481,31 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
                     raise RuntimeError(f"slide{number}: audio is empty")
                 partial.replace(dest)
                 last_failures.pop(number, None)
+                consecutive_transient_failures = 0
                 print(f"[tts] prepared {dest.name} ({len(payload)} bytes)", flush=True)
             except Exception as exc:
                 last_failures[number] = exc
                 if _is_transient_tts_failure(exc) and round_number < queue_rounds:
+                    consecutive_transient_failures += 1
                     next_pending.append((number, narration))
                     print(
                         f"[tts] slide{number} transient failure: "
                         f"{type(exc).__name__}: {exc}; deferred to a later queue round",
                         flush=True,
                     )
+                    if (
+                        consecutive_transient_failures >= circuit_breaker_failures
+                        and index + 1 < len(pending)
+                    ):
+                        remaining = pending[index + 1 :]
+                        next_pending.extend(remaining)
+                        print(
+                            f"[tts] circuit breaker opened after "
+                            f"{consecutive_transient_failures} consecutive transient "
+                            f"failure(s); deferring {len(remaining)} untried slide(s)",
+                            flush=True,
+                        )
+                        break
                     continue
                 print(
                     f"[tts] slide{number} final failure: "

@@ -109,21 +109,36 @@ class TTSTests(unittest.TestCase):
 
     def test_queue_exhaustion_preserves_successful_candidates(self):
         class AlwaysFailModels:
+            def __init__(self):
+                self.requests = 0
+
             def generate_content(self, **_kwargs):
+                self.requests += 1
                 raise RuntimeError("503 high demand")
 
         with tempfile.TemporaryDirectory() as tmp:
-            folder = self.make_folder(tmp)
-            fake = fake_gemini_keys_module(models=AlwaysFailModels())
+            folder = Path(tmp)
+            (folder / "script.txt").write_text(
+                "**Slide 1 [3 sec]:\nOne**\n\n"
+                "**Slide 2 [3 sec]:\nTwo**\n\n"
+                "**Slide 3 [3 sec]:\nThree**",
+                encoding="utf-8",
+            )
+            models = AlwaysFailModels()
+            fake = fake_gemini_keys_module(models=models)
             with patch.dict(sys.modules, {"gemini_keys": fake}), patch.dict(
                 os.environ,
                 {
                     "MICROGEN_TTS_QUEUE_ROUNDS": "2",
                     "MICROGEN_TTS_QUEUE_DELAY_SECONDS": "0",
+                    "MICROGEN_TTS_QUEUE_CIRCUIT_BREAKER_FAILURES": "2",
                 },
             ):
                 with self.assertRaisesRegex(RuntimeError, "queue exhausted"):
                     synthesize_folder(folder, "gemini", "gemini-3.8-flash-lite-tts", "Kore")
+            # Round 1 stops after two consecutive failures instead of wasting
+            # a third request; the final round exhausts all three.
+            self.assertEqual(models.requests, 5)
             self.assertTrue((folder / ".tts_candidate").is_dir())
             self.assertFalse((folder / ".tts.lock").exists())
 
