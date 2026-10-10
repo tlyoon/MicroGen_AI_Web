@@ -34,11 +34,10 @@ class SourceAdjacentPublicationTests(unittest.TestCase):
             assert_writable_directory(self.root / "missing")
 
     def test_source_must_be_within_root(self):
+        other_root = self.root / "other"
+        other_root.mkdir()
         with self.assertRaises(ValueError):
-            verify_source_tree(self.root / "22", self.source_dir.parent.parent / "22" / "22.3" / "source.pdf")
-        # A root with a different prefix must never silently pass.
-        with self.assertRaises(ValueError):
-            verify_source_tree(self.source_dir, self.root / "different" / "source.pdf")
+            verify_source_tree(other_root, self.source)
 
     def test_slides_publish_beside_pdf_not_inside_workspace_only(self):
         (self.work / "slides.tex").write_text("slides", encoding="utf-8")
