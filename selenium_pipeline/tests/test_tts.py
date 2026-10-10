@@ -86,6 +86,7 @@ class TTSTests(unittest.TestCase):
                 {
                     "MICROGEN_TTS_QUEUE_ROUNDS": "1",
                     "MICROGEN_TTS_ENABLE_PROVIDER_FALLBACK": "0",
+                    "MICROGEN_TTS_ENABLE_BATCH_FALLBACK": "0",
                 },
             ):
                 with self.assertRaisesRegex(RuntimeError, "temporary API error"):
@@ -137,6 +138,7 @@ class TTSTests(unittest.TestCase):
                     "MICROGEN_TTS_QUEUE_DELAY_SECONDS": "0",
                     "MICROGEN_TTS_QUEUE_CIRCUIT_BREAKER_FAILURES": "2",
                     "MICROGEN_TTS_ENABLE_PROVIDER_FALLBACK": "0",
+                    "MICROGEN_TTS_ENABLE_BATCH_FALLBACK": "0",
                 },
             ):
                 with self.assertRaisesRegex(RuntimeError, r"queue.*exhausted"):
@@ -226,6 +228,77 @@ class TTSTests(unittest.TestCase):
                 },
             ],
         )
+
+    def test_voice_mismatch_triggers_whole_batch_fallback(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = Path(tmp)
+            (folder / "script.txt").write_text(
+                "**Slide 1 [3 sec]:\nFallback title**\n\n"
+                "**Slide 2 [3 sec]:\nReference two**\n\n"
+                "**Slide 3 [3 sec]:\nReference three**",
+                encoding="utf-8",
+            )
+            candidate = folder / ".tts_candidate"
+            candidate.mkdir()
+            (candidate / "slide2.wav").write_bytes(WAV)
+            (candidate / "slide3.wav").write_bytes(WAV)
+
+            class AlwaysFailModels:
+                def generate_content(self, **_kwargs):
+                    raise RuntimeError("503 high demand")
+
+            fake = fake_gemini_keys_module(models=AlwaysFailModels())
+            voice_reject = {
+                "same_voice": False,
+                "similarity_percent": 76.0,
+                "material_differences": ["timbre"],
+                "accepted": False,
+            }
+
+            def fake_batch(target_folder, items, spec):
+                target = target_folder / ".tts_candidate"
+                for number, _ in items:
+                    (target / f"slide{number}.wav").write_bytes(WAV)
+                return {
+                    number: {
+                        **spec,
+                        "fallback_used": True,
+                        "batch_fallback": True,
+                    }
+                    for number, _ in items
+                }
+
+            with patch.dict(sys.modules, {"gemini_keys": fake}), patch.dict(
+                os.environ,
+                {
+                    "MICROGEN_TTS_QUEUE_ROUNDS": "1",
+                    "MICROGEN_TTS_QUEUE_DELAY_SECONDS": "0",
+                },
+            ), patch(
+                "selenium_pipeline.tts._fallback_payload",
+                return_value=WAV,
+            ), patch(
+                "selenium_pipeline.tts_voice_consistency.compare_voice",
+                return_value=voice_reject,
+            ), patch(
+                "selenium_pipeline.tts._whole_batch_fallback",
+                side_effect=fake_batch,
+            ) as batch:
+                synthesize_folder(
+                    folder,
+                    "gemini",
+                    "gemini-3.8-flash-lite-tts",
+                    "Kore",
+                )
+
+            batch.assert_called_once()
+            manifest = json.loads(
+                (folder / "tts_input_manifest.json").read_text(encoding="utf-8")
+            )
+            self.assertTrue(all(x["batch_fallback"] for x in manifest["slides"]))
+            self.assertTrue(
+                all(x["model"] == "gemini-3.8-flash-tts" for x in manifest["slides"])
+            )
 
     def test_direct_tts_blocks_ambiguous_script(self):
         with tempfile.TemporaryDirectory() as tmp:

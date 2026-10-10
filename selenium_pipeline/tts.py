@@ -473,6 +473,107 @@ def _fallback_payload(
     raise ValueError(f"Unsupported fallback provider: {spec['provider']}")
 
 
+def _whole_batch_fallback(
+    folder: Path,
+    items: list[tuple[int, str]],
+    spec: dict[str, str],
+) -> dict[int, dict[str, object]]:
+    """Regenerate every slide with one fallback engine to guarantee continuity."""
+    timeout = max(
+        300,
+        int(float(os.environ.get("MICROGEN_TTS_BATCH_FALLBACK_TIMEOUT_SECONDS", "3600"))),
+    )
+    with tempfile.TemporaryDirectory(
+        prefix="microgen_tts_batch_fallback_",
+        dir=str(folder),
+    ) as td:
+        batch = Path(td)
+        (batch / "script.txt").write_text(
+            (folder / "script.txt").read_text(encoding="utf-8"),
+            encoding="utf-8",
+        )
+        env = os.environ.copy()
+        env["MICROGEN_TTS_ENABLE_PROVIDER_FALLBACK"] = "0"
+        env["MICROGEN_TTS_ENABLE_BATCH_FALLBACK"] = "0"
+        env["MICROGEN_TTS_QUEUE_ROUNDS"] = os.environ.get(
+            "MICROGEN_TTS_BATCH_QUEUE_ROUNDS",
+            "3",
+        )
+        command = [
+            sys.executable,
+            "-m",
+            "selenium_pipeline.tts",
+            "--folder",
+            str(batch),
+            "--provider",
+            spec["provider"],
+            "--model",
+            spec["model"],
+            "--voice",
+            spec["voice"],
+        ]
+        creationflags = subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
+        proc = subprocess.Popen(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            env=env,
+            start_new_session=(os.name != "nt"),
+            creationflags=creationflags,
+        )
+        try:
+            output, _ = proc.communicate(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            if os.name == "nt":
+                subprocess.run(
+                    ["taskkill", "/PID", str(proc.pid), "/T", "/F"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    check=False,
+                )
+            else:
+                try:
+                    os.killpg(proc.pid, 9)
+                except Exception:
+                    proc.kill()
+            raise TimeoutError(
+                f"Whole-batch fallback {spec['provider']}:{spec['model']} "
+                f"exceeded {timeout}s"
+            )
+        if proc.returncode != 0:
+            raise RuntimeError(
+                f"Whole-batch fallback {spec['provider']}:{spec['model']} failed: "
+                f"{(output or '')[-1800:]}"
+            )
+
+        expected = [batch / f"slide{number}.wav" for number, _ in items]
+        missing = [p.name for p in expected if not p.is_file() or p.stat().st_size <= 44]
+        if missing:
+            raise RuntimeError(
+                f"Whole-batch fallback did not complete WAVs: {', '.join(missing)}"
+            )
+
+        candidate = folder / ".tts_candidate"
+        candidate.mkdir(exist_ok=True)
+        # Publish the fallback batch into candidate only after every fallback
+        # slide is complete, so the original primary candidates remain intact
+        # if batch fallback fails halfway.
+        for old in candidate.glob("slide*.wav"):
+            old.unlink()
+        for wav in expected:
+            shutil.copy2(wav, candidate / wav.name)
+
+    return {
+        number: {
+            **spec,
+            "fallback_used": True,
+            "batch_fallback": True,
+        }
+        for number, _ in items
+    }
+
+
 def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: str) -> None:
     text = (folder / "script.txt").read_text(encoding="utf-8")
     items = blocks(text)
@@ -749,6 +850,65 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
                     RuntimeError(
                         f"{exc}; provider fallback requires at least two successful "
                         "primary-voice reference WAVs"
+                    ),
+                )
+                for number, exc in unresolved
+            ]
+
+    if (
+        unresolved
+        and os.environ.get("MICROGEN_TTS_ENABLE_BATCH_FALLBACK", "1") != "0"
+    ):
+        batch_errors: list[str] = []
+        for spec in _fallback_specs(provider, model, voice):
+            print(
+                f"[tts] per-slide same-voice fallback was not acceptable; "
+                f"trying whole-batch fallback {spec['provider']} / "
+                f"{spec['model']} / {spec['voice']}",
+                flush=True,
+            )
+            try:
+                batch_provenance = _whole_batch_fallback(folder, items, spec)
+                for number, entry in batch_provenance.items():
+                    entry.update(
+                        {
+                            "primary_provider": provider,
+                            "primary_model": model,
+                            "primary_voice": voice,
+                            "voice_consistency": {
+                                "accepted": True,
+                                "mode": "whole_batch_single_voice",
+                                "note": (
+                                    "All slides regenerated with one fallback "
+                                    "engine/voice; no cross-provider voice mixing."
+                                ),
+                            },
+                        }
+                    )
+                slide_provenance = batch_provenance
+                unresolved = []
+                print(
+                    f"[tts] whole-batch fallback accepted: "
+                    f"{spec['provider']} / {spec['model']} / {spec['voice']}",
+                    flush=True,
+                )
+                break
+            except Exception as exc:
+                batch_errors.append(
+                    f"{spec['provider']}:{spec['model']} "
+                    f"{type(exc).__name__}: {exc}"
+                )
+                print(
+                    f"[tts] whole-batch fallback failed: {batch_errors[-1]}",
+                    flush=True,
+                )
+        if unresolved and batch_errors:
+            unresolved = [
+                (
+                    number,
+                    RuntimeError(
+                        f"{exc}; whole-batch fallbacks failed: "
+                        + " | ".join(batch_errors)
                     ),
                 )
                 for number, exc in unresolved
