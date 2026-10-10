@@ -17,6 +17,49 @@ MicroGen_AI is built around two complementary priorities:
 
 The result is intended to behave like a reproducible educational production pipeline rather than a generic slide-generation prompt.
 
+## Source-adjacent output layout (Selenium pipeline)
+
+**Default behavior:** When this GitHub repository is cloned into a directory such as
+`C:\\Projects\\xxx`, that directory automatically becomes the source root. Place a
+subchapter PDF at `C:\\Projects\\xxx\\22\\22.3\\source.pdf` and run:
+
+```powershell
+cd C:\\Projects\\xxx
+.\\.venv\\Scripts\\python.exe -m selenium_pipeline --subchapter 22.3 --dry-run
+.\\.venv\\Scripts\\python.exe -m selenium_pipeline --subchapter 22.3
+```
+
+After successful validation of each stage, MicroGen publishes its generated
+`slides.tex`, `slides.pdf`, `script.txt`, QA reports, `slide1.wav` …
+`slideN.wav`, per-slide PDFs, figures, and `slides.mp4` directly beside the
+**original** `source.pdf`. This means published slide/audio/video files do **not**
+go only into a separate Documents or temporary folder.
+
+The reference Selenium scripts still execute in an isolated
+`22\\22.3\\.microgen_work\\` workspace so they cannot overwrite the textbook
+source. Temporary calculations, copied script files, and stage archives remain
+in that hidden subfolder. To use a different scratch location, pass
+`--work-root "D:\\MicroGen_Scratch"`; **published outputs stay beside source.pdf**
+regardless of the scratch location.
+
+For source PDFs on a Windows-mounted/synced Google Drive, use
+`--source-root "G:\\My Drive\\<YOUR_SOURCE_TREE>"`. In a written setup sheet,
+record the Google Drive root folder link as
+`https://drive.google.com/open?id=<YOUR_ROOT_FOLDER_ID>` (placeholder).
+That browser URL identifies the folder, but it is **not** a filesystem path
+and cannot be passed directly to `--source-root`. The Windows user must have
+read/write access to the selected root and target subchapter folders. MicroGen
+checks this before launching paid generation stages; dry-run only previews.
+
+API keys and Google Cloud credentials remain outside Git, using
+`%LOCALAPPDATA%\\Microvid\\.env` and
+`%LOCALAPPDATA%\\Microvid\\google_cloud_credentials.json` by default.
+`MICROVID_CONFIG_DIR` is an optional override. The development browser
+model remains Gemini Flash; this directory/layout change does not activate Pro.
+
+For details and installation prerequisites see
+[selenium_pipeline/README.md](selenium_pipeline/README.md).
+
 ## Current active pipeline
 
 ```text
