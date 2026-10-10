@@ -99,8 +99,12 @@ def verify_source_tree(source_root: Path, source_pdf: Path) -> None:
 
 
 def _sha256(path: Path) -> str:
+    """Streaming SHA-256 compatible with Python 3.10 on Dell-115."""
+    digest = hashlib.sha256()
     with path.open("rb") as stream:
-        return hashlib.file_digest(stream, "sha256").hexdigest()
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _copy_atomically(src: Path, dest: Path) -> None:
