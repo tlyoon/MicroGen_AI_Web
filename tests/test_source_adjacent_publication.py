@@ -92,7 +92,7 @@ class SourceAdjacentPublicationTests(unittest.TestCase):
         self.assertTrue((self.source_dir / "slides.mp4").exists())
         self.assertTrue((self.source_dir / "microgen_batch.log").exists())
         self.assertEqual(len(numbered_files(self.source_dir, "wav")), 1)
-        self.assertEqual(self.source.read_bytes(), b"%PDF-1.7\\nsource")
+        self.assertEqual(self.source.read_bytes(), b"%PDF-1.7\nsource")
 
     def test_root_and_subchapter_are_writable(self):
         verify_source_tree(self.root, self.source)
