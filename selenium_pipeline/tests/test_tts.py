@@ -80,11 +80,51 @@ class TTSTests(unittest.TestCase):
             (folder / "slide1.wav").write_bytes(b"RIFF" + b"A" * 60)
             models = FakeModels(fail_at=2)
             fake = fake_gemini_keys_module(models=models)
-            with patch.dict(sys.modules, {"gemini_keys": fake}):
+            with patch.dict(sys.modules, {"gemini_keys": fake}), patch.dict(
+                os.environ,
+                {"MICROGEN_TTS_QUEUE_ROUNDS": "1"},
+            ):
                 with self.assertRaisesRegex(RuntimeError, "temporary API error"):
                     synthesize_folder(folder, "gemini", "gemini-3.8-flash-tts", "Kore")
             self.assertEqual((folder / "slide1.wav").read_bytes(), b"RIFF" + b"A" * 60)
             self.assertFalse((folder / "slide2.wav").exists())
+            self.assertFalse((folder / ".tts.lock").exists())
+
+    def test_transient_failure_is_deferred_while_later_slide_runs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = self.make_folder(tmp)
+            models = FakeModels(fail_at=1)
+            fake = fake_gemini_keys_module(models=models)
+            with patch.dict(sys.modules, {"gemini_keys": fake}), patch.dict(
+                os.environ,
+                {
+                    "MICROGEN_TTS_QUEUE_ROUNDS": "2",
+                    "MICROGEN_TTS_QUEUE_DELAY_SECONDS": "0",
+                },
+            ):
+                synthesize_folder(folder, "gemini", "gemini-3.8-flash-lite-tts", "Kore")
+            self.assertEqual(len(models.requests), 3)
+            self.assertTrue((folder / "slide1.wav").is_file())
+            self.assertTrue((folder / "slide2.wav").is_file())
+
+    def test_queue_exhaustion_preserves_successful_candidates(self):
+        class AlwaysFailModels:
+            def generate_content(self, **_kwargs):
+                raise RuntimeError("503 high demand")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = self.make_folder(tmp)
+            fake = fake_gemini_keys_module(models=AlwaysFailModels())
+            with patch.dict(sys.modules, {"gemini_keys": fake}), patch.dict(
+                os.environ,
+                {
+                    "MICROGEN_TTS_QUEUE_ROUNDS": "2",
+                    "MICROGEN_TTS_QUEUE_DELAY_SECONDS": "0",
+                },
+            ):
+                with self.assertRaisesRegex(RuntimeError, "queue exhausted"):
+                    synthesize_folder(folder, "gemini", "gemini-3.8-flash-lite-tts", "Kore")
+            self.assertTrue((folder / ".tts_candidate").is_dir())
             self.assertFalse((folder / ".tts.lock").exists())
 
     def test_direct_tts_blocks_ambiguous_script(self):

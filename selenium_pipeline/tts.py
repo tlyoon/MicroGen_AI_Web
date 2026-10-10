@@ -17,6 +17,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -220,9 +221,14 @@ def _gemini_say_with_watchdog(
     *,
     allow_chunking: bool = True,
     request_label: str | None = None,
+    attempts_override: int | None = None,
 ) -> bytes:
     timeout_seconds = _tts_timeout_seconds(text)
-    attempts = max(1, int(os.environ.get("MICROGEN_TTS_REQUEST_ATTEMPTS", "3")))
+    attempts = (
+        max(1, int(attempts_override))
+        if attempts_override is not None
+        else max(1, int(os.environ.get("MICROGEN_TTS_REQUEST_ATTEMPTS", "3")))
+    )
     label = request_label or f"slide{number}"
     last_error: BaseException | None = None
     timed_out_attempts = 0
@@ -326,6 +332,33 @@ def _chirp_say(client, text: str, voice: str) -> bytes:
     return response.audio_content
 
 
+def _is_transient_tts_failure(exc: BaseException) -> bool:
+    if isinstance(exc, TimeoutError):
+        return True
+    message = str(exc).lower()
+    transient_markers = (
+        "429", "500", "502", "503", "504", "unavailable", "high demand",
+        "timeout", "timed out", "temporar", "connection", "reset", "overload",
+        "resource exhausted",
+    )
+    permanent_markers = (
+        "400 invalid_argument", "401", "403", "permission denied",
+        "unauthenticated", "invalid api key", "unapproved tts model",
+    )
+    if any(marker in message for marker in permanent_markers):
+        return False
+    return any(marker in message for marker in transient_markers) or isinstance(exc, RuntimeError)
+
+
+def _tts_queue_delay_seconds(round_number: int) -> float:
+    explicit = os.environ.get("MICROGEN_TTS_QUEUE_DELAY_SECONDS", "").strip()
+    if explicit:
+        return max(0.0, float(explicit))
+    base = max(0.0, float(os.environ.get("MICROGEN_TTS_QUEUE_BASE_DELAY_SECONDS", "30")))
+    maximum = max(base, float(os.environ.get("MICROGEN_TTS_QUEUE_MAX_DELAY_SECONDS", "300")))
+    return min(maximum, base * (2 ** max(0, round_number - 1)))
+
+
 def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: str) -> None:
     text = (folder / "script.txt").read_text(encoding="utf-8")
     items = blocks(text)
@@ -362,19 +395,27 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
             )
         use_watchdog = getattr(create_gemini_client, "__module__", "") == "gemini_keys"
 
-        def say(narration: str, number: int) -> bytes:
+        def say(narration: str, number: int, *, final_round: bool = False) -> bytes:
             if use_watchdog:
-                return _gemini_say_with_watchdog(narration, number, model, voice)
+                return _gemini_say_with_watchdog(
+                    narration,
+                    number,
+                    model,
+                    voice,
+                    allow_chunking=final_round,
+                    attempts_override=1,
+                )
             return call_with_client_failover(
                 create_gemini_client,
                 lambda client: _gemini_say(client, narration, model, voice),
                 label=f"Gemini TTS slide{number}",
+                max_retries=0,
             )
     elif provider == "chirp3":
         from google.cloud import texttospeech
         client = texttospeech.TextToSpeechClient()  # Use ADC / GOOGLE_APPLICATION_CREDENTIALS
         chirp_voice = voice if "Chirp3-HD" in voice else "en-US-Chirp3-HD-Aoede"
-        say = lambda narration, number: _chirp_say(client, narration, chirp_voice)
+        say = lambda narration, number, final_round=False: _chirp_say(client, narration, chirp_voice)
     else:
         raise ValueError(f"Unknown TTS provider: {provider}")
 
@@ -390,33 +431,98 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
             if item.is_file():
                 item.unlink()
 
-    for number, narration in items:
-        dest = candidate / f"slide{number}.wav"
-        if dest.is_file() and dest.stat().st_size > 44:
-            try:
-                magic = dest.read_bytes()[:4]
-            except Exception:
-                magic = b""
-            if magic in (b"RIFF", b"RF64"):
-                print(f"[tts] reusing {dest.name} ({dest.stat().st_size} bytes)", flush=True)
-                continue
-            dest.unlink(missing_ok=True)
+    queue_rounds = max(1, int(os.environ.get("MICROGEN_TTS_QUEUE_ROUNDS", "3")))
+    pending = [(number, narration) for number, narration in items]
+    last_failures: dict[int, BaseException] = {}
 
-        print(f"[tts] requesting slide{number} ({len(narration)} chars)", flush=True)
-        try:
-            payload = say(narration, number)
-        except Exception as exc:
-            print(f"[tts] slide{number} failed: {type(exc).__name__}: {exc}", flush=True)
-            raise
-        if not payload.startswith((b"RIFF", b"RF64")):
-            raise RuntimeError(f"slide{number}: TTS did not return a WAV file")
-        partial = candidate / f"slide{number}.wav.partial"
-        partial.write_bytes(payload)
-        if partial.stat().st_size <= 44:
-            partial.unlink(missing_ok=True)
-            raise RuntimeError(f"slide{number}: audio is empty")
-        partial.replace(dest)
-        print(f"[tts] prepared {dest.name} ({len(payload)} bytes)", flush=True)
+    # Do not hammer one slide repeatedly during a transient provider outage.
+    # Each slide gets one request per round. Transient failures move to the end
+    # of the queue so later slides can make progress and successful WAVs survive.
+    for round_number in range(1, queue_rounds + 1):
+        if not pending:
+            break
+        next_pending: list[tuple[int, str]] = []
+        print(
+            f"[tts] queue round {round_number}/{queue_rounds}: "
+            f"{len(pending)} slide(s) pending",
+            flush=True,
+        )
+
+        for number, narration in pending:
+            dest = candidate / f"slide{number}.wav"
+            if dest.is_file() and dest.stat().st_size > 44:
+                try:
+                    magic = dest.read_bytes()[:4]
+                except Exception:
+                    magic = b""
+                if magic in (b"RIFF", b"RF64"):
+                    print(f"[tts] reusing {dest.name} ({dest.stat().st_size} bytes)", flush=True)
+                    continue
+                dest.unlink(missing_ok=True)
+
+            print(f"[tts] requesting slide{number} ({len(narration)} chars)", flush=True)
+            try:
+                payload = say(
+                    narration,
+                    number,
+                    final_round=(round_number == queue_rounds),
+                )
+                if not payload.startswith((b"RIFF", b"RF64")):
+                    raise RuntimeError(f"slide{number}: TTS did not return a WAV file")
+                partial = candidate / f"slide{number}.wav.partial"
+                partial.write_bytes(payload)
+                if partial.stat().st_size <= 44:
+                    partial.unlink(missing_ok=True)
+                    raise RuntimeError(f"slide{number}: audio is empty")
+                partial.replace(dest)
+                last_failures.pop(number, None)
+                print(f"[tts] prepared {dest.name} ({len(payload)} bytes)", flush=True)
+            except Exception as exc:
+                last_failures[number] = exc
+                if _is_transient_tts_failure(exc) and round_number < queue_rounds:
+                    next_pending.append((number, narration))
+                    print(
+                        f"[tts] slide{number} transient failure: "
+                        f"{type(exc).__name__}: {exc}; deferred to a later queue round",
+                        flush=True,
+                    )
+                    continue
+                print(
+                    f"[tts] slide{number} final failure: "
+                    f"{type(exc).__name__}: {exc}",
+                    flush=True,
+                )
+
+        if not next_pending:
+            pending = []
+            break
+
+        # Only transient failures are eligible for another round.
+        pending = next_pending
+        if pending and round_number < queue_rounds:
+            delay = _tts_queue_delay_seconds(round_number)
+            print(
+                f"[tts] cooling down {delay:.0f}s before retrying "
+                f"{len(pending)} deferred slide(s)",
+                flush=True,
+            )
+            if delay:
+                time.sleep(delay)
+
+    unresolved = []
+    for number, _narration in items:
+        dest = candidate / f"slide{number}.wav"
+        if not (dest.is_file() and dest.stat().st_size > 44):
+            exc = last_failures.get(number, RuntimeError("no completed WAV"))
+            unresolved.append((number, exc))
+    if unresolved:
+        details = "; ".join(
+            f"slide{number}: {type(exc).__name__}: {exc}"
+            for number, exc in unresolved
+        )
+        raise RuntimeError(
+            f"TTS queue exhausted with {len(unresolved)} unresolved slide(s): {details}"
+        )
     # All responses have been validated; publish after the complete batch.
     stale = [p for p in folder.glob("slide*.wav") if p.name not in expected_names]
     if stale:
