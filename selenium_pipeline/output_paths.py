@@ -6,10 +6,12 @@ are published into the subchapter directory containing source.pdf.
 """
 from __future__ import annotations
 
+import hashlib
 import os
 import re
 import shutil
 import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 
 SOURCE_ROOT_ENV = "MICROGEN_SOURCE_ROOT"
@@ -96,6 +98,11 @@ def verify_source_tree(source_root: Path, source_pdf: Path) -> None:
     assert_writable_directory(source.parent)
 
 
+def _sha256(path: Path) -> str:
+    with path.open("rb") as stream:
+        return hashlib.file_digest(stream, "sha256").hexdigest()
+
+
 def _copy_atomically(src: Path, dest: Path) -> None:
     """Publish each artifact using an in-directory temporary copy and rename."""
     if not src.is_file() or src.is_symlink():
@@ -140,6 +147,16 @@ def publish_stage_outputs(
         src = work_dir / name
         if src.is_file() and not src.is_symlink() and src.stat().st_size > 0:
             target = destination / name
+            if stage == "video" and name == "slides.mp4" and target.is_file():
+                # Keep a previously published lecture when a validated
+                # replacement is different. Reusing an identical MP4 does not
+                # create redundant history snapshots.
+                if _sha256(src) != _sha256(target):
+                    archive = destination / ".history" / (
+                        "video_publish_" + datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S_%f")
+                    )
+                    archive.mkdir(parents=True, exist_ok=False)
+                    shutil.copy2(target, archive / target.name)
             _copy_atomically(src, target)
             published.append(target)
     return published
