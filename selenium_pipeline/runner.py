@@ -24,7 +24,7 @@ for _stream in (sys.stdout, sys.stderr):
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .output_paths import publish_stage_outputs, verify_source_tree
+from .output_paths import publish_stage_outputs, resolve_source_root, verify_source_tree
 
 ROOT = Path(__file__).resolve().parent
 VENDOR = ROOT / "vendor_template_v2"
@@ -366,7 +366,7 @@ def execute(s: Settings) -> Path:
     if first > last:
         raise ValueError("--from-stage must precede --through-stage")
     planned = STAGES[first:last + 1]
-    print(f"[microgen] production host: Dell-115 | job: {s.subchapter}")
+    print(f"[microgen] code root: {REPO} | job: {s.subchapter}")
     print(f"[microgen] input: {source} | work: {folder}")
     print(f"[microgen] model phase: {MODEL_PHASE}")
     print(f"[microgen] browser UI model: {DEFAULT_BROWSER_UI_MODE}")
@@ -380,7 +380,7 @@ def execute(s: Settings) -> Path:
         print(f"[microgen] stage: {stage}")
     if s.dry_run:
         return folder
-    # Check both the cloned-root folder and the subchapter destination before
+    # Check the independently configured PDF root and this subchapter before
     # launching Chrome or consuming paid model/API calls.
     verify_source_tree(s.source_root, source)
     if any(x in CHROME_STAGES for x in planned):
@@ -566,8 +566,8 @@ def doctor() -> None:
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="MicroGen Selenium pipeline for Dell-115")
-    p.add_argument("--source-root", type=Path, default=REPO,
-                   help="Root containing chapter/subchapter/source.pdf (default: cloned repository root)")
+    p.add_argument("--source-root", type=Path,
+                   help="PDF tree root (required unless MICROGEN_SOURCE_ROOT is configured)")
     p.add_argument("--work-root", type=Path,
                    help="Optional isolated staging root; by default stage under each source directory/.microgen_work")
     p.add_argument("--subchapter", help="One or comma-separated subchapters, e.g. 22.1,22.2")
@@ -591,9 +591,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.doctor:
         doctor()
         return 0
-    args.source_root = args.source_root.expanduser().resolve()
     if not args.subchapter and not args.chapter:
         p.error("--subchapter or --chapter is required unless --doctor")
+    try:
+        args.source_root = resolve_source_root(args.source_root, code_root=REPO)
+    except (ValueError, NotADirectoryError) as exc:
+        p.error(str(exc))
     if args.subchapter and args.chapter:
         p.error("Choose --subchapter or --chapter, not both")
     if args.chapter:
