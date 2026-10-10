@@ -116,8 +116,10 @@ Google Drive folder.
 
 Before generating, MicroGen checks write permission to `SOURCE_ROOT`
 and the selected subchapter. The original `source.pdf` is never overwritten.
-All published slides, scripts, figure assets, numbered WAVs, per-slide
-PDFs, MP4s, quality reports and logs appear **beside each `source.pdf`**.
+Generated stages temporarily publish numbered WAVs and per-slide PDFs
+beside `source.pdf`, but successful final completion **cleans these transients**.
+The original PDF, final slide deck, editable LaTeX and figure assets,
+narration script, MP4 and useful QA records remain.
 Hidden `.microgen_work` directories contain temporary processing files;
 an optional `--work-root` changes staging location, **not** output location.
 
@@ -132,6 +134,43 @@ Again, that path is **illustrative only**. The batch runner keeps its own
 its report and verified media alongside the PDF. During ongoing
 development the Gemini browser stages remain in Flash mode;
 this documentation change does **not** switch them to Pro.
+
+## Automatic cleanup after successful lecture generation
+
+**Both the Selenium runner and the API batch runner automatically clean each
+subchapter only after its completed output is published and verified.** Partial
+runs and failed stages retain checkpoints and intermediate files for diagnosis
+and resumption. There is no cleanup during a dry run.
+
+The completed `source.pdf` directory retains:
+- The original `source.pdf`; the editable `*.tex` sources; their `*.png`,
+  `*.jpg`, `*.jpeg` and other graphic files; and locally required Beamer
+  theme/style assets (such as `*.sty`).
+- The final `slides.pdf`, `script.txt`, and `*.mp4` lecture videos.
+- Any original unrelated user files and useful quality-assurance reports.
+- A tiny `.microgen_completion.json` receipt recording the source and final
+  artifact checksums, preventing completed jobs from automatically restarting.
+
+After final verification, the code removes **known** transient files and
+folders, including numbered `slideN.wav` / `slideN.pdf`, TTS intermediate
+JSON, compilation logs/auxiliary files, intermediate image crops and page
+caches, previous automatic `.history` revisions, and the managed
+`.microgen_work` / `.microgen_batch_work` workspace. Before deleting
+staging, it ensures that images referenced by LaTeX are present beside the
+corresponding `*.tex`; nested image directories referenced by LaTeX are
+preserved. Unknown user files are never removed simply for not appearing on
+the retention list.
+
+**Trade-off:** Because numbered WAVs and single-slide PDFs are intermediate,
+a video-only regeneration requiring those files is no longer possible from
+a completely cleaned lecture directory. Generate them again as part of a
+new full run when the video needs rebuilding. Use `--force-from figures`
+for a deliberate full Selenium regeneration. Interrupted or partially
+completed runs still retain their intermediates and can resume.
+
+This feature does **not** retroactively delete files from previously produced
+lecture folders. It runs only after a subsequent successful publication, and
+does not change the temporary Gemini Flash development-mode policy.
 
 ## Current active pipeline
 
@@ -315,7 +354,7 @@ python microgen_batch.py \
   --commit main
 ```
 
-The runner performs a startup environment check, validates outputs at every stage, pauses rather than fails when the shared Gemini billing circuit is open, publishes final `slides.pdf`, `script.txt`, and `slides.mp4` atomically, and retains numbered slide PDFs and narration WAV files in each source subchapter after successful publication.
+The runner performs a startup environment check, validates outputs at every stage, pauses rather than fails when the shared Gemini billing circuit is open, publishes final `slides.pdf`, `script.txt`, and `slides.mp4` atomically, and **removes temporary numbered slide PDFs and narration WAVs after successful final publication**. The final source, LaTeX, images and MP4 are retained.
 
 ## Credentials
 
@@ -387,7 +426,7 @@ This prompt is designed to be submitted directly to Codex. Normally the user onl
 - selects all valid `source.pdf` subtopics under the first top-level source folder,
 - runs figure abstraction, slides, narration, TTS, and MP4 generation,
 - publishes verified outputs back into each source subtopic directory, and
-- retains verified `slideN.pdf`, `slideN.wav`, `slides.mp4` and checkpoint files in each subchapter; working caches stay isolated.
+- retains the final `slides.mp4`, editable LaTeX, all images required for recompilation, and a small completion receipt; removes numbered `slideN.pdf` / `slideN.wav` and temporary checkpoints only after a completed lecture is verified.
 
 The prompt also accepts explicit subtopic ranges, an alternate code-package URL/ref, and a common LLM override. A local folder path identifies the textbook source tree; no Google Drive browser link is necessary. GitHub `main` is the default authoritative package source.
 

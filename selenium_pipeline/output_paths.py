@@ -56,6 +56,9 @@ OUTPUT_NAMES = {
 }
 OUTPUT_GLOBS = {
     "figures": ("Figure*.png", "FIGURE*.png"),
+    # Compile-ready LaTeX may reference logos, additional image formats or a
+    # local Beamer theme. Publish these alongside slides.tex before cleanup.
+    "slides": ("*.png", "*.jpg", "*.jpeg", "*.sty", "*.cls", "*.bib", "*.eps", "*.svg"),
     "tts": ("slide*.wav",),
     "video": ("slide*.pdf",),
 }

@@ -25,6 +25,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .output_paths import publish_stage_outputs, resolve_source_root, verify_source_tree
+from .cleanup import cleanup_completed_lecture, completed_lecture
 
 ROOT = Path(__file__).resolve().parent
 VENDOR = ROOT / "vendor_template_v2"
@@ -404,6 +405,17 @@ def execute(s: Settings) -> Path:
         print(f"[microgen] stage: {stage}")
     if s.dry_run:
         return folder
+    # A completed lecture has already had its staging/checkpoints removed.
+    # Trust only a source-and-output-matched completion receipt: otherwise
+    # missing staging files would trigger an expensive, unnecessary rerun.
+    if (s.from_stage == "figures" and s.through_stage == "video"
+            and not s.force_from and completed_lecture(source)):
+        verify_source_tree(s.source_root, source)
+        removed = cleanup_completed_lecture(
+            source, workspace=folder if folder.exists() else None, pipeline="selenium"
+        )
+        print(f"[microgen] completed lecture already published; cleaned {len(removed)} transient item(s)")
+        return folder
     # Check the independently configured PDF root and this subchapter before
     # launching Chrome or consuming paid model/API calls.
     verify_source_tree(s.source_root, source)
@@ -581,6 +593,17 @@ def execute(s: Settings) -> Path:
     state.pop("failed_stage", None)
     state.pop("failed_at_utc", None)
     stamp.write_text(json.dumps(state, indent=2), encoding="utf-8")
+    # No pruning for an intermediate-stage run or a failed stage. On final
+    # success, retain only published lecture deliverables plus the completion
+    # receipt. Never delete inputs that may be needed by an unfinished run.
+    if s.through_stage == "video":
+        final_names = ("slides.tex", "slides.pdf", "script.txt", "slides.mp4")
+        if all((source.parent / name).is_file() and
+               (source.parent / name).stat().st_size > 0 for name in final_names):
+            removed = cleanup_completed_lecture(source, workspace=folder, pipeline="selenium")
+            print(f"[microgen] completed lecture; cleaned {len(removed)} transient item(s)")
+        else:
+            print("[microgen] cleanup deferred: required final lecture files not all published")
     return folder
 
 

@@ -22,6 +22,7 @@ from typing import Callable
 
 from gemini_lane import circuit_is_open
 from selenium_pipeline.output_paths import (resolve_source_root, verify_source_tree)
+from selenium_pipeline.cleanup import cleanup_completed_lecture, completed_lecture
 
 MICROGEN_ROOT = Path(__file__).resolve().parent
 
@@ -314,7 +315,9 @@ def publish(stage: Path, dest: Path) -> None:
         "slides.pdf", "slides.tex", "script.txt", "script_tts.json",
         "slides.mp4", ".microgen_checkpoint.json", "microgen_batch.log",
     }
-    for pattern in ("Figure*.png", "FIGURE*.png"):
+    # Keep the figures, logos and local style assets required if slides.tex
+    # is later recompiled after the temporary workspace is removed.
+    for pattern in ("*.png", "*.jpg", "*.jpeg", "*.sty", "*.cls", "*.bib", "*.eps", "*.svg"):
         names.update(p.name for p in stage.glob(pattern) if p.is_file())
     for suffix in ("pdf", "wav"):
         names.update(p.name for p in numbered_files(stage, suffix))
@@ -358,6 +361,13 @@ def preflight(main_py: str, docling_py: str) -> None:
 
 
 def process_one(args, subchapter: str, report: list[dict]) -> None:
+    src = source_for(args.source_root, subchapter)
+    if completed_lecture(src):
+        verify_source_tree(args.source_root, src)
+        cleaned = cleanup_completed_lecture(src, pipeline="batch")
+        print(f"[{subchapter}] already complete; cleaned {len(cleaned)} transient item(s)", flush=True)
+        report.append({"subchapter": subchapter, "status": "success", "resumed": True})
+        return
     stage, cp, checkpoint_path = prepare_stage(
         args.repo,
         args.source_root,
@@ -372,7 +382,8 @@ def process_one(args, subchapter: str, report: list[dict]) -> None:
     if cp.get("completed", {}).get("published") and stage_valid(stage, "published", dest):
         # Republish any missing auxiliary files without rerunning Gemini.
         publish(stage, dest)
-        print(f"[{subchapter}] already published and verified; refreshed output files", flush=True)
+        cleanup_completed_lecture(src, workspace=stage, pipeline="batch")
+        print(f"[{subchapter}] already published and verified; cleaned transient files", flush=True)
         report.append({"subchapter": subchapter, "status": "success", "resumed": True})
         return
 
@@ -427,16 +438,18 @@ def process_one(args, subchapter: str, report: list[dict]) -> None:
             save_checkpoint(checkpoint_path, cp)
             raise
 
-    # Keep validated intermediates within the hidden workspace for reliable
-    # resume and for re-publication if Google Drive sync removes a file.
+    # Final output is published; remove the intermediates and workspace only
+    # after the complete lecture files exist beside the source PDF.
     sc = slide_count(stage)
+    video_bytes = (stage / "slides.mp4").stat().st_size
+    cleanup_completed_lecture(src, workspace=stage, pipeline="batch")
     report.append(
         {
             "subchapter": subchapter,
             "status": "success",
             "slides": sc,
-            "video_bytes": (stage / "slides.mp4").stat().st_size,
-            "checkpoint": str(checkpoint_path),
+            "video_bytes": video_bytes,
+            "completion_receipt": str(dest / ".microgen_completion.json"),
         }
     )
     print(f"[{subchapter}] SUCCESS", flush=True)
