@@ -92,6 +92,11 @@ original `source.pdf` nor the vendored reference scripts are overwritten.
 An explicit `--work-root "D:\MicroGen_Scratch"` changes the staging location
 but **never** the location where validated outputs are published.
 
+**Resuming runs created before this change:** pass the former scratch location,
+`--work-root "$env:USERPROFILE\Documents\MicroGen_AI_Web_Workspace"`, so
+MicroGen reuses prior checkpoints and WAVs rather than starting a new staging
+folder. All newly validated files will still be published beside `source.pdf`.
+
 For source PDFs in a Google Drive for desktop mount:
 
 ```powershell
