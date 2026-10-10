@@ -61,6 +61,21 @@ class ScriptTTSRiskTests(unittest.TestCase):
         )
         self.assertFalse(any(item["severity"] == "blocking" for item in findings))
 
+    def test_explicit_capital_letter_a_is_warning_not_blocking(self):
+        findings = collect_tts_risks(
+            "The cap area capital A cancels from both sides.",
+            slide=16,
+        )
+        self.assertTrue(
+            any(
+                item["kind"] == "contextual_letter"
+                and item["text"] == "A"
+                and item["severity"] == "warning"
+                for item in findings
+            )
+        )
+        self.assertFalse(any(item["severity"] == "blocking" for item in findings))
+
     def test_mid_sentence_capital_a_article_is_blocking(self):
         findings = collect_tts_risks("We use A torsion balance here.", slide=3)
         self.assertTrue(
