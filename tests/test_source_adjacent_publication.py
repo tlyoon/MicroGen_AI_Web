@@ -5,6 +5,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from selenium_pipeline.runner import REPO, Settings, main
+from unittest.mock import patch
+
 from selenium_pipeline.output_paths import (
     assert_writable_directory,
     publish_stage_outputs,
@@ -23,6 +26,21 @@ class SourceAdjacentPublicationTests(unittest.TestCase):
         self.source.write_bytes(b"%PDF-1.7\nsource")
         self.work = self.source_dir / ".microgen_work"
         self.work.mkdir()
+
+    def test_default_workspace_is_inside_source_subchapter(self):
+        setting = Settings(source_root=self.root, work_root=None, subchapter="22.3")
+        self.assertEqual(setting.source(), self.source)
+        self.assertEqual(setting.directory(), self.source_dir / ".microgen_work")
+        custom = Settings(source_root=self.root, work_root=self.root / "scratch", subchapter="22.3")
+        self.assertEqual(custom.directory(), self.root / "scratch" / "22" / "22.3")
+
+    def test_cli_without_source_root_defaults_to_clone_root(self):
+        with patch("selenium_pipeline.runner.execute") as mocked:
+            self.assertEqual(main(["--subchapter", "22.3", "--dry-run"]), 0)
+            setting = mocked.call_args.args[0]
+            self.assertEqual(setting.source_root, REPO.resolve())
+            self.assertIsNone(setting.work_root)
+            self.assertTrue(setting.dry_run)
 
     def test_root_and_subchapter_are_writable(self):
         verify_source_tree(self.root, self.source)
