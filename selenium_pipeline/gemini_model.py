@@ -21,7 +21,7 @@ MODEL_SPECS = {
 
 
 def configured_ui_mode() -> str:
-    """Return the browser model required by the current package phase."""
+    """Return the explicitly requested browser model, otherwise Flash."""
     explicit = os.getenv("MICROGEN_GEMINI_UI_MODE", "").strip().lower()
     if explicit:
         if explicit not in MODEL_SPECS:
@@ -30,14 +30,9 @@ def configured_ui_mode() -> str:
             )
         return explicit
 
-    phase = os.getenv("MICROGEN_MODEL_PHASE", "development").strip().lower()
-    if phase in {"development", "dev", "debug", "testing", "test"}:
-        return "flash"
-    if phase in {"production", "prod", "release"}:
-        return "pro"
-    raise GeminiModelError(
-        "MICROGEN_MODEL_PHASE must be 'development' or 'production'."
-    )
+    # Flash is the package-wide default. MICROGEN_MODEL_PHASE is retained for
+    # diagnostics/compatibility but no longer changes the model implicitly.
+    return "flash"
 
 
 def _matches_mode(label: str, mode: str) -> bool:
@@ -158,6 +153,6 @@ def ensure_flash(port: int = 9222, timeout: float = 15) -> str:
 
 
 def ensure_pro(port: int = 9222, timeout: float = 15) -> str:
-    # Compatibility/production helper. The development pipeline does not call
-    # this directly while MICROGEN_MODEL_PHASE defaults to development.
+    # Explicit compatibility/benchmark helper. Normal pipeline execution
+    # defaults to Flash and never selects Pro merely because the phase is production.
     return ensure_mode(port=port, mode="pro", timeout=timeout)
