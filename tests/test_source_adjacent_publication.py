@@ -64,6 +64,17 @@ class SourceAdjacentPublicationTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             resolve_source_root("https://drive.google.com/example", code_root=REPO)
 
+    def test_nested_source_directory_is_rejected(self):
+        with self.assertRaises(ValueError):
+            resolve_source_root(REPO / "tests", code_root=REPO)
+        with self.assertRaises(ValueError):
+            resolve_source_root(REPO.parent, code_root=REPO)
+
+    def test_explicit_source_root_overrides_env(self):
+        with patch.dict(os.environ, {"MICROGEN_SOURCE_ROOT": str(REPO)}):
+            root = resolve_source_root(self.root, code_root=REPO)
+            self.assertEqual(root, self.root.resolve())
+
     def test_batch_parser_supports_independent_roots_without_work_root(self):
         args = build_parser().parse_args(["--source-root", str(self.root), "--targets", "22.3"])
         self.assertEqual(args.source_root, self.root)
