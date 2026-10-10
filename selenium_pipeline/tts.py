@@ -317,6 +317,32 @@ def _gemini_say_with_watchdog(
     raise RuntimeError(f"Gemini TTS {label} failed without a result")
 
 
+def _configure_cloud_adc_from_microvid() -> Path | None:
+    """Point Google Cloud clients at Microvid's standard credential file when ADC is unset."""
+    configured = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", "").strip()
+    if configured:
+        path = Path(configured)
+        return path if path.is_file() else None
+
+    roots: list[Path] = []
+    local = os.environ.get("LOCALAPPDATA", "").strip()
+    if local:
+        roots.append(Path(local))
+    roots.append(Path.home() / "AppData" / "Local")
+
+    filename = "google_cloud_" + "credentials.json"
+    for root in roots:
+        path = root / "Microvid" / filename
+        if path.is_file():
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = str(path)
+            print(
+                f"[tts] using Google Cloud credentials from Microvid config: {path}",
+                flush=True,
+            )
+            return path
+    return None
+
+
 def _chirp_say(client, text: str, voice: str) -> bytes:
     from google.cloud import texttospeech
     # Default to a genuine Chirp 3 HD voice, configurable by name.
@@ -392,6 +418,7 @@ def _chirp_say_with_watchdog(
     *,
     timeout_seconds: float | None = None,
 ) -> bytes:
+    _configure_cloud_adc_from_microvid()
     timeout_seconds = timeout_seconds or max(
         60.0,
         float(os.environ.get("MICROGEN_CHIRP_TTS_HARD_TIMEOUT_SECONDS", "180")),
@@ -627,6 +654,7 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
                 max_retries=0,
             )
     elif provider == "chirp3":
+        _configure_cloud_adc_from_microvid()
         from google.cloud import texttospeech
         client = texttospeech.TextToSpeechClient()  # Use ADC / GOOGLE_APPLICATION_CREDENTIALS
         chirp_voice = voice if "Chirp3-HD" in voice else f"en-US-Chirp3-HD-{_named_voice(voice)}"

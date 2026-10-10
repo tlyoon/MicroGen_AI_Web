@@ -4,7 +4,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from .tts import _gemini_failover_request
+from .tts import _configure_cloud_adc_from_microvid, _gemini_failover_request
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -20,6 +20,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.provider == "gemini":
         payload = _gemini_failover_request(text, args.number, args.model, args.voice)
     else:
+        _configure_cloud_adc_from_microvid()
         from google.cloud import texttospeech
         from .tts import _chirp_say
         client = texttospeech.TextToSpeechClient()

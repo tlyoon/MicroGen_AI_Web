@@ -12,9 +12,9 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from selenium_pipeline.tts import (
-    _fallback_specs, _gemini_say_with_watchdog, _merge_wav_payloads,
-    _split_tts_text, _tts_timeout_seconds, _tts_workspace_lock,
-    synthesize_folder,
+    _configure_cloud_adc_from_microvid, _fallback_specs,
+    _gemini_say_with_watchdog, _merge_wav_payloads, _split_tts_text,
+    _tts_timeout_seconds, _tts_workspace_lock, synthesize_folder,
 )
 
 WAV = b"RIFF" + b"X" * 80
@@ -206,6 +206,43 @@ class TTSTests(unittest.TestCase):
             self.assertEqual(slide1["model"], "gemini-3.8-flash-tts")
             self.assertEqual(slide1["voice"], "Kore")
             self.assertEqual(slide1["voice_consistency"]["similarity_percent"], 99.0)
+
+    def test_microvid_cloud_credentials_are_auto_discovered(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            local = Path(tmp)
+            config = local / "Microvid"
+            config.mkdir()
+            credential = config / ("google_cloud_" + "credentials.json")
+            credential.write_text("{}", encoding="utf-8")
+            with patch.dict(
+                os.environ,
+                {"LOCALAPPDATA": str(local)},
+                clear=False,
+            ):
+                os.environ.pop("GOOGLE_APPLICATION_CREDENTIALS", None)
+                found = _configure_cloud_adc_from_microvid()
+                self.assertEqual(found, credential)
+                self.assertEqual(
+                    os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"),
+                    str(credential),
+                )
+                os.environ.pop("GOOGLE_APPLICATION_CREDENTIALS", None)
+
+    def test_explicit_cloud_credentials_are_not_overridden(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            explicit = Path(tmp) / "explicit.json"
+            explicit.write_text("{}", encoding="utf-8")
+            with patch.dict(
+                os.environ,
+                {"GOOGLE_APPLICATION_CREDENTIALS": str(explicit)},
+                clear=False,
+            ):
+                found = _configure_cloud_adc_from_microvid()
+                self.assertEqual(found, explicit)
+                self.assertEqual(
+                    os.environ["GOOGLE_APPLICATION_CREDENTIALS"],
+                    str(explicit),
+                )
 
     def test_fallback_order_preserves_same_named_voice(self):
         specs = _fallback_specs(
