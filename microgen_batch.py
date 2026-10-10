@@ -413,6 +413,10 @@ def process_one(args, subchapter: str, report: list[dict]) -> None:
                 if not stage_valid(stage, stage_name, dest):
                     raise RuntimeError(f"{stage_name} completed but output validation failed")
             mark_complete(cp, checkpoint_path, stage_name)
+            if stage_name == "published":
+                # Include the committed 'published' status in the external
+                # checkpoint, not the previous pre-publication snapshot.
+                atomic_publish_file(checkpoint_path, dest / checkpoint_path.name)
         except Exception as exc:
             cp["last_error"] = {
                 "stage": stage_name,
