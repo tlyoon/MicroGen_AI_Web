@@ -1,12 +1,16 @@
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from selenium_pipeline.pedagogy_benchmark import (
     RUBRIC,
     _phrase_overlap,
     blind_mapping,
+    generate_arm,
     normalize_judgment,
     seed_shared_assets,
 )
@@ -87,6 +91,47 @@ class PedagogyBenchmarkTests(unittest.TestCase):
             self.assertTrue((target / "crops" / "x.png").is_file())
             self.assertTrue((target / "pages" / "1.png").is_file())
             self.assertFalse((target / "slides.pdf").exists())
+
+    def test_generate_arm_retries_failed_transport(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            arm_root = root / "arm"
+            target = arm_root / "26" / "26.5"
+            calls = []
+
+            def fake_run(*_args, **_kwargs):
+                calls.append(1)
+                if len(calls) == 1:
+                    return SimpleNamespace(returncode=1)
+                target.mkdir(parents=True, exist_ok=True)
+                (target / "slides.pdf").write_bytes(b"pdf")
+                (target / "slides.tex").write_text("slides", encoding="utf-8")
+                (target / "script.txt").write_text("script", encoding="utf-8")
+                (target / "script_risk_report.json").write_text("{}", encoding="utf-8")
+                return SimpleNamespace(returncode=0)
+
+            with patch.dict(
+                os.environ,
+                {
+                    "MICROGEN_BENCHMARK_ARM_ATTEMPTS": "2",
+                    "MICROGEN_BENCHMARK_ARM_RETRY_DELAY_SECONDS": "0",
+                },
+                clear=False,
+            ), patch(
+                "selenium_pipeline.pedagogy_benchmark.subprocess.run",
+                side_effect=fake_run,
+            ):
+                result = generate_arm(
+                    source_root=root / "source",
+                    arm_work_root=arm_root,
+                    subchapter="26.5",
+                    model_key="flash_3_8",
+                    log_path=root / "generation.log",
+                )
+
+            self.assertEqual(len(calls), 2)
+            self.assertEqual(result["model_key"], "flash_3_8")
+            self.assertTrue((target / "slides.pdf").is_file())
 
 
 if __name__ == "__main__":
