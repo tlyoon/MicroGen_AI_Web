@@ -104,8 +104,6 @@ def validate_video(exe: str, file: Path, min_seconds: float) -> None:
 
 def assemble(folder: Path, *, output: str = "slides.mp4", fps: int = 24,
              width: int = 1280, height: int = 720) -> Path:
-    import fitz
-
     folder = folder.expanduser().resolve()
     if not folder.is_dir():
         raise NotADirectoryError(folder)
@@ -114,6 +112,7 @@ def assemble(folder: Path, *, output: str = "slides.mp4", fps: int = 24,
     if fps < 1 or width < 64 or height < 64 or width % 2 or height % 2:
         raise ValueError("fps and even output dimensions must be positive")
     entries = check_inputs(folder)
+    import fitz  # imported only when ready to rasterize validated PDF/WAV pairs
     ffmpeg = ffmpeg_executable()
     total = sum(row[3] for row in entries)
     print(f"[video] {len(entries)} complete PDF/WAV slide pairs; "
