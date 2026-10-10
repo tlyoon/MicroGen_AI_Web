@@ -249,23 +249,56 @@ def generate_arm(
     )
     command = _generation_command(source_root, arm_work_root, subchapter)
     started = time.monotonic()
-    with log_path.open("w", encoding="utf-8") as log:
-        log.write("$ " + " ".join(command) + "\n")
-        log.flush()
-        proc = subprocess.run(
-            command,
-            cwd=str(Path(__file__).resolve().parent.parent),
-            env=env,
-            stdout=log,
-            stderr=subprocess.STDOUT,
-            text=True,
-            timeout=int(os.environ.get("MICROGEN_BENCHMARK_GENERATION_TIMEOUT_SECONDS", "7200")),
-            check=False,
+    arm_attempts = max(
+        1,
+        int(os.environ.get("MICROGEN_BENCHMARK_ARM_ATTEMPTS", "3")),
+    )
+    cooldown = max(
+        0.0,
+        float(os.environ.get("MICROGEN_BENCHMARK_ARM_RETRY_DELAY_SECONDS", "15")),
+    )
+    proc = None
+    for attempt in range(1, arm_attempts + 1):
+        mode = "w" if attempt == 1 else "a"
+        with log_path.open(mode, encoding="utf-8") as log:
+            log.write(
+                f"\n=== BENCHMARK ARM ATTEMPT {attempt}/{arm_attempts} ===\n"
+                + "$ "
+                + " ".join(command)
+                + "\n"
+            )
+            log.flush()
+            proc = subprocess.run(
+                command,
+                cwd=str(Path(__file__).resolve().parent.parent),
+                env=env,
+                stdout=log,
+                stderr=subprocess.STDOUT,
+                text=True,
+                timeout=int(
+                    os.environ.get(
+                        "MICROGEN_BENCHMARK_GENERATION_TIMEOUT_SECONDS",
+                        "7200",
+                    )
+                ),
+                check=False,
+            )
+        if proc.returncode == 0:
+            break
+        print(
+            f"[benchmark] {spec['display']} arm attempt "
+            f"{attempt}/{arm_attempts} failed with exit {proc.returncode}",
+            flush=True,
         )
+        if attempt < arm_attempts and cooldown:
+            time.sleep(cooldown)
+
     elapsed = time.monotonic() - started
-    if proc.returncode:
+    if proc is None or proc.returncode:
+        code = None if proc is None else proc.returncode
         raise RuntimeError(
-            f"{spec['display']} generation failed ({proc.returncode}); see {log_path}"
+            f"{spec['display']} generation failed after {arm_attempts} arm "
+            f"attempt(s) (last exit {code}); see {log_path}"
         )
     folder = arm_work_root / _chapter(subchapter) / subchapter
     for required in ("slides.pdf", "slides.tex", "script.txt", "script_risk_report.json"):
