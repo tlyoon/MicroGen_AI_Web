@@ -10,6 +10,7 @@ import hashlib
 import json
 import re
 import shutil
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -94,10 +95,19 @@ def _safe_remove(path: Path) -> None:
     """Never follow or delete symlinks/reparse points or an unexpected path."""
     if path.is_symlink():
         raise ValueError(f"Refusing to delete symlink: {path}")
-    if path.is_dir():
-        shutil.rmtree(path)
-    elif path.is_file():
-        path.unlink()
+    # Drive for desktop can temporarily deny access to a just-written folder.
+    # Retry only transient filesystem errors; never broaden the deletion scope.
+    for attempt in range(4):
+        try:
+            if path.is_dir():
+                shutil.rmtree(path)
+            elif path.is_file():
+                path.unlink()
+            return
+        except (PermissionError, OSError):
+            if attempt == 3:
+                raise
+            time.sleep(0.5 * (attempt + 1))
 
 
 GRAPHIC = re.compile(r"\\includegraphics(?:\s*\[[^\]]*\])?\s*\{([^{}]+)\}", re.I)
@@ -207,8 +217,8 @@ def cleanup_completed_lecture(
             raise ValueError(f"Refusing unrecognized external workspace: {workspace}")
         owned_work = workspace
 
-    # Check/copy the images referenced by LaTeX *before* deleting any staging.
-    # This matters for figures outside Figure*.png and for nested image paths.
+    # Check/copy graphics before pruning. Missing figures must never lead to
+    # destructive cleanup, but the already-published video remains successful.
     _ensure_latex_graphics(folder, owned_work)
 
     receipt = {
