@@ -1274,23 +1274,30 @@ class GeminiSeleniumClient:
         # draft text in Gemini; stale drafts must never be concatenated with a
         # new MicroGen mapping prompt.
         ed = self._get_prompt_editable()
-        try:
-            ed.click()
-            ed.send_keys(Keys.CONTROL, "a")
-            ed.send_keys(Keys.BACKSPACE)
-            time.sleep(0.12)
-        except Exception:
-            pass
-        if (ed.text or "").strip():
+        for attempt in range(3):
+            if not (ed.get_attribute("value") or ed.text or "").strip():
+                break
             try:
-                self.driver.execute_script(
-                    "arguments[0].innerHTML='<p><br></p>'; arguments[0].dispatchEvent(new InputEvent('input',{bubbles:true,inputType:'deleteContentBackward'}));",
-                    ed,
-                )
-                time.sleep(0.12)
+                ed.click()
+                ed.send_keys(Keys.CONTROL, "a")
+                ed.send_keys(Keys.BACKSPACE)
             except Exception:
                 pass
-        if (ed.text or "").strip():
+            time.sleep(0.20)
+            if (ed.get_attribute("value") or ed.text or "").strip():
+                try:
+                    self.driver.execute_script(
+                        """const e=arguments[0]; e.focus();
+                        const r=document.createRange(); r.selectNodeContents(e);
+                        const s=window.getSelection(); s.removeAllRanges(); s.addRange(r);
+                        document.execCommand('delete', false, null);""",
+                        ed,
+                    )
+                except Exception:
+                    pass
+                time.sleep(0.20)
+            ed = self._get_prompt_editable()
+        if (ed.get_attribute("value") or ed.text or "").strip():
             raise RuntimeError("Gemini composer could not be cleared; refusing to continue with stale draft text.")
         log("Opened Gemini")
 
