@@ -220,12 +220,9 @@ def _wait_until_generation_finishes(driver, timeout: float = 180.0, poll: float 
         "//button[contains(@aria-label,'Send')]",
         "//button[.//span[contains(normalize-space(.),'Send')]]",
     ]
-    response_selectors = [
-        "message-content",
-        "div[role='article']",
-        "div[class*='response']",
-        "div[class*='model']",
-    ]
+    # Only model-response identifies Gemini's answer. Generic response/model
+    # classes can include the submitted prompt and produce false completion.
+    response_selectors = ["model-response"]
 
     while time.time() - t0 < timeout:
         # 1) Check if Stop button exists (means still generating)
@@ -330,8 +327,12 @@ def _wait_until_generation_finishes(driver, timeout: float = 180.0, poll: float 
 
         time.sleep(poll)
 
-    # timeout reached: return anyway (caller will validate via copy)
-    return
+    # A timeout is not evidence that Gemini completed its response.
+    # Fail explicitly so the worker can retry without publishing partial output.
+    raise TimeoutError(
+        f"Gemini response did not complete within {timeout:.0f}s; "
+        "retain existing checkpoints and retry in a fresh conversation."
+    )
 
 
 def _try_click(driver, el) -> bool:
@@ -857,12 +858,8 @@ def adaptive_wait_and_copy_full(driver, preset="short", overrides=None):
     last = ""
     stable = 0
 
-    selectors = [
-        "message-content",
-        "div[role='article']",
-        "div[class*='response']",
-        "div[class*='model']",
-    ]
+    # Never capture the user's prompt as though it were Gemini's answer.
+    selectors = ["model-response"]
 
     while time.time() - t0 < timeout:
         text = ""
@@ -886,11 +883,18 @@ def adaptive_wait_and_copy_full(driver, preset="short", overrides=None):
                 stable = 0
 
             if stable >= stable_rounds:
-                return text
+                generating = any(
+                    b.is_displayed() and b.is_enabled()
+                    for b in driver.find_elements(By.CSS_SELECTOR, 'button[aria-label*="Stop"]')
+                )
+                if not generating:
+                    return text
 
         time.sleep(poll)
 
-    return (last or "").strip()
+    raise TimeoutError(
+        f"Gemini model-response did not stabilize and finish within {timeout}s"
+    )
 
 
 # =========================
