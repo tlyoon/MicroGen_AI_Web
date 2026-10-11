@@ -202,7 +202,13 @@ def _wait_until_generation_finishes(driver, timeout: float = 180.0, poll: float 
       - last response text stable for a few polls
     This avoids capturing mid-stream.
     """
-    t0 = time.time()
+    # The nominal timeout is an inactivity window, not a total generation cap.
+    # Gemini can legitimately stream lengthy LaTeX for many minutes.
+    import os
+    t0 = time.monotonic()
+    last_activity = t0
+    hard_cap = max(timeout, float(os.getenv("GEMINI_RESPONSE_HARD_MAX", "1800")))
+    last_report = t0
 
     # Track stability of last response
     last_text = ""
@@ -224,7 +230,7 @@ def _wait_until_generation_finishes(driver, timeout: float = 180.0, poll: float 
     # classes can include the submitted prompt and produce false completion.
     response_selectors = ["model-response"]
 
-    while time.time() - t0 < timeout:
+    while time.monotonic() - t0 < hard_cap:
         # 1) Check if Stop button exists (means still generating)
         stop_present = False
         try:
@@ -297,6 +303,21 @@ def _wait_until_generation_finishes(driver, timeout: float = 180.0, poll: float 
         else:
             blank_since = None
 
+        # A growing response is proof of activity. Reset the inactivity clock,
+        # but never exceed the absolute safety ceiling.
+        if cur and cur != last_text:
+            last_activity = time.monotonic()
+        now = time.monotonic()
+        if now - last_report >= 30:
+            log(f"Gemini wait: elapsed={now-t0:.0f}s idle={now-last_activity:.0f}s "
+                f"response_chars={len(cur)} stop={stop_present}", "INFO")
+            last_report = now
+        if now - last_activity >= timeout:
+            raise TimeoutError(
+                f"Gemini response inactive for {timeout:.0f}s after "
+                f"{now-t0:.0f}s; response_chars={len(cur)}; retry only after recovery."
+            )
+
         # Stability heuristic
         if cur and cur == last_text:
             stable += 1
@@ -330,7 +351,7 @@ def _wait_until_generation_finishes(driver, timeout: float = 180.0, poll: float 
     # A timeout is not evidence that Gemini completed its response.
     # Fail explicitly so the worker can retry without publishing partial output.
     raise TimeoutError(
-        f"Gemini response did not complete within {timeout:.0f}s; "
+        f"Gemini response exceeded hard ceiling {hard_cap:.0f}s; "
         "retain existing checkpoints and retry in a fresh conversation."
     )
 
