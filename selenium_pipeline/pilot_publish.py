@@ -1,4 +1,4 @@
-"""Safely publish reviewed pilot images and compile slides with rollback on failure."""
+﻿"""Safely publish reviewed pilot images and compile slides with rollback on failure."""
 from __future__ import annotations
 import argparse
 import json
@@ -45,6 +45,8 @@ def repair(folder: Path, approval: Path) -> dict:
             if not compiled.exists() or compiled.stat().st_size<1000:
                 raise RuntimeError("Compiled PDF missing or unexpectedly small")
             shutil.copy2(compiled,folder/"slides.pdf")
+        from .narration_repair_plan import plan_repair
+        plan_repair(folder, backup/"slides.pdf")
         report=dict(status="slides_rebuilt_downstream_stale",published=[x.name for x in published],
                     backup=str(backup),previous_missing=len([x for x in before["graphics"] if x["status"]!="present"]),
                     unresolved=0,requires=["narration_review","tts_review","mp4_rebuild"])
@@ -61,3 +63,4 @@ if __name__=="__main__":
     p.add_argument("folder",type=Path)
     args=p.parse_args()
     print(json.dumps(repair(args.folder,args.folder/".microgen_figure_candidates"/"pilot_reviewed_figures.json"),indent=2))
+
