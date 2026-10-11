@@ -1,5 +1,26 @@
 # MicroGen_AI
 
+## Reliability hardening and future campaigns
+
+Before a large multi-PC run, consult the [historical failure-and-fix audit](docs/MicroGen_Historical_Failure_and_Fix_Audit.md)
+and the [reliability operations runbook](docs/MicroGen_Reliability_Operations_Runbook.md).
+They document the lessons from the October 2026 three-PC campaigns, including
+Gemini Flash/browser recovery, missing-figure review, strict stage QA,
+preservation of audio and historical video revisions, OS-level browser locks,
+and safe restart behavior. These protections must be tested on a clean clone
+before treating a release as certified.
+
+An independent source-adjacent audit is available, without launching Gemini:
+
+```powershell
+python -m selenium_pipeline.reliability_audit --source-root "G:\My Drive\Serway\Serway_8_14" --expected 46
+```
+
+Only a matching, hash-verified completion receipt counts as a completed lecture.
+A worker with a finished checkpoint, a staging MP4 or a published PDF is not
+necessarily finished. Unresolved figures produce source-grounded review
+candidates; they are **never automatically replaced with guessed diagrams**.
+
 ## Reusable multi-PC lecture generation prompt
 
 To request automatic generation of **all source.pdf subchapters** using available,

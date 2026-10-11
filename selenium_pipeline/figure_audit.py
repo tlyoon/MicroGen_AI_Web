@@ -72,14 +72,37 @@ def enforce_graphics(folder: Path, *, repair: bool = True) -> dict:
     guesses a figure from captions or visually similar images.
     """
     from .cleanup import _ensure_latex_graphics
+    graphics_error = None
     if repair:
         staging = folder / ".microgen_work"
-        _ensure_latex_graphics(folder, staging if staging.is_dir() else None)
+        try:
+            _ensure_latex_graphics(folder, staging if staging.is_dir() else None)
+        except ValueError as exc:
+            # Still prepare a source-grounded diagnostic, but never approve
+            # the stage if cleanup's stricter path checker objected.
+            graphics_error = exc
     result = audit_one(folder)
     missing = [entry for entry in result["graphics"] if entry["status"] != "present"]
     if missing:
+        # Offer source-grounded page previews for the next repair pass. This
+        # is diagnostic staging only: a caption cannot prove image boundaries,
+        # so an unapproved crop is NEVER published into slides or videos.
+        review = folder / ".microgen_work" / "figure_review_candidates"
+        diagnostic = ""
+        if not review.exists():
+            try:
+                from .figure_recovery_candidates import stage_review
+                stage_review(folder, review)
+            except Exception as exc:
+                # The source may be corrupt/non-PDF in test fixtures; optional
+                # preview failure must not mask the original missing-figure
+                # error or let the stage pass.
+                diagnostic = f"; source-page preview unavailable ({type(exc).__name__})"
         raise ValueError("Missing or unsafe LaTeX graphics: " + ", ".join(
-            str(entry["reference"]) for entry in missing))
+            str(entry["reference"]) for entry in missing)
+            + f"; review source-PDF candidates under {review}" + diagnostic)
+    if graphics_error is not None:
+        raise graphics_error
     manifest = {"source_sha256": result["source_sha256"], "figures": []}
     for entry in result["graphics"]:
         p = folder / entry["filename"]

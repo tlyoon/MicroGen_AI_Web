@@ -239,15 +239,44 @@ def run_stage(
 
 
 def stage_recorded(source: Path, stage: str) -> bool:
+    """Verify source-bound artifacts instead of trusting stale success flags.
+
+    A checkpoint may remain after Drive loses a PDF, a narration changes, or
+    figures go missing. Defer rather than advancing to the next stage.
+    """
     if stage == "video":
         return completed_lecture(source)
-    stamp = source.parent / ".microgen_work" / ".selenium_pipeline_state.json"
+    if stage not in STAGES or not source.is_file():
+        return False
+    folder = source.parent
+    work = folder / ".microgen_work"
+    stamp = work / ".selenium_pipeline_state.json"
     if not stamp.is_file():
         return False
     try:
-        completed = json.loads(stamp.read_text(encoding="utf-8")).get("completed", {})
-        return isinstance(completed.get(stage), dict)
-    except (json.JSONDecodeError, OSError, AttributeError):
+        import hashlib
+        from .runner import check_valid, OUTPUTS
+        from .cleanup import _ensure_latex_graphics
+
+        state = json.loads(stamp.read_text(encoding="utf-8"))
+        if state.get("source_sha256") != hashlib.sha256(source.read_bytes()).hexdigest():
+            return False
+        record = state.get("completed", {}).get(stage)
+        if not isinstance(record, dict) or not record.get("model"):
+            return False
+        if not check_valid(stage, work):
+            return False
+        if stage in {"slides", "narration", "script_qa", "tts", "tts_qa"}:
+            _ensure_latex_graphics(folder, None)
+        # Publication is part of a completed stage; staging alone is insufficient.
+        if stage in OUTPUTS:
+            for name in OUTPUTS[stage]:
+                file = folder / name
+                if not file.is_file() or file.stat().st_size <= 0:
+                    return False
+        return True
+    except (OSError, ValueError, TypeError, AttributeError, ImportError,
+            json.JSONDecodeError):
         return False
 
 
