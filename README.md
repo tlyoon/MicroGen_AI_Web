@@ -14,7 +14,7 @@ These instructions do **not** launch generation or authorize a GitHub push.
 
 ## New Dell-115 Selenium integration candidate
 
-A standalone Selenium-first pipeline has been added in [`selenium_pipeline/`](selenium_pipeline/README.md). It uses the **working Dell-115 `template_v2` source scripts** rather than inherited Selenium code from this repository. The package targets Gemini 3.1 Pro for caption/figure abstraction, slide generation, and narration through the authorized browser UI, plus Gemini 3.8 Flash-Lite API TTS (with Flash TTS and Chirp 3 HD options). It includes per-stage checkpoints, limited-time subprocess execution, and a Windows production guide. Run `python -m selenium_pipeline --doctor` or see the linked guide. This is an **integration candidate** until a fresh end-to-end run is validated; the existing API workflow below remains available.
+A standalone Selenium-first pipeline has been added in [`selenium_pipeline/`](selenium_pipeline/README.md). It uses the **working Dell-115 `template_v2` source scripts** rather than inherited Selenium code from this repository. the package defaults to Gemini 3.8 Flash for caption/figure abstraction, slide generation, and narration through the authorized browser UI, plus Gemini 3.8 Flash-Lite API TTS (with Flash TTS and Chirp 3 HD options). It includes per-stage checkpoints, limited-time subprocess execution, and a Windows production guide. Run `python -m selenium_pipeline --doctor` or see the linked guide. This is an **integration candidate** until a fresh end-to-end run is validated; the existing API workflow below remains available.
 
 MicroGen_AI is an AI-assisted educational media generation toolkit developed for producing source-grounded teaching materials from a textbook or course PDF. The current package combines the strongest parts of the earlier v6/v7 workflow with the improved pedagogical and media-generation ideas developed in the newer `pri` pipeline.
 
@@ -323,15 +323,16 @@ MicroGen_AI tries key 1 first. Key/account-specific failures such as invalid cre
 
 ## Default Gemini models
 
-MicroGen_AI uses stage-specific Gemini defaults so that high-volume visual matching is cheaper while teaching-content generation remains on the more reliable Pro model:
+**Gemini Flash remains the permanent model default**, both during development and production, in view of earlier comparative lecture-quality tests:
 
 ```text
 figure mapping:   gemini-3.8-flash
-slide generation: gemini-3.1-pro-preview
-narration:        gemini-3.1-pro-preview
+slide generation: gemini-3.8-flash
+narration:        gemini-3.8-flash
+TTS:              gemini-3.8-flash-lite-tts
 ```
 
-Figure mapping defaults to `gemini-3.8-flash`. Slide generation and narration remain on `gemini-3.1-pro-preview`. Defaults can be overridden globally with `MICROGEN_LLM_MODEL` or per stage with `MICROVID_FIGURE_MODEL`, `MICROVID_SLIDE_MODEL`, and `MICROVID_NARRATION_MODEL`.
+Setting `MICROGEN_MODEL_PHASE=production` does not implicitly switch to Pro. Alternative models are available only with explicit runtime overrides (e.g. `MICROGEN_LLM_MODEL` and `MICROGEN_GEMINI_UI_MODE`) for controlled comparisons.
 
 ## Multi-PC Gemini coordination
 

@@ -76,11 +76,11 @@ successfully, producing a 488.93-second, approximately 10.2 MB MP4 containing
 audio and video. The previous MP4 was archived. This validates the video-only
 stage, not a full LLM-to-video end-to-end production run.
 
-### Temporary development model policy
+### Permanent Gemini Flash model policy
 
-While the package is being debugged point-to-point, **Gemini 3.8 Flash is the default for every LLM-heavy browser stage**: figure/caption mapping, slide generation, and narration. The runner also records `gemini-3.8-flash` for those development-stage model stamps. TTS remains on the Flash family via `gemini-3.8-flash-lite-tts` by default.
+**Gemini 3.8 Flash is the permanent default in both development and production** for figure/caption mapping, slide generation and narration. Previous user comparisons showed better lecture output quality with Flash than with Gemini 3.1 Pro. TTS remains on the Flash family via `gemini-3.8-flash-lite-tts`.
 
-This is intentionally temporary. After the complete implementation passes end-to-end with smooth, repeatable output, switch the package to production mode with `MICROGEN_MODEL_PHASE=production`. Production mode restores **Gemini 3.1 Pro** for the browser/LLM stages. The expectation is that Pro must then reproduce the same stable point-to-point behavior proven under Flash before the package is considered finished.
+`MICROGEN_MODEL_PHASE=production` only changes the diagnostic phase label; it **does not** automatically select Pro. Pro is an explicit optional comparison via `MICROGEN_LLM_MODEL` and `MICROGEN_GEMINI_UI_MODE`. Do not assume a Pro-labelled model is superior.
 
 The normal default is currently `MICROGEN_MODEL_PHASE=development`. An explicit `MICROGEN_GEMINI_UI_MODE=flash|pro` or `MICROGEN_LLM_MODEL=<model>` can override the corresponding selection for diagnostics, but should not be needed for ordinary development runs. The runner now verifies/selects the requested Gemini UI mode automatically in the authenticated persistent browser session.
 
@@ -117,7 +117,7 @@ The same option can be supplied directly to a production job as `--alternate-gem
 
 Chrome 136+ intentionally does not honor remote-debugging switches against Chrome's ordinary default data directory. Therefore MicroGen uses its own persistent non-default Chrome data directories rather than trying to attach remote debugging to Dell-115's personal Chrome `Default` directory. This preserves the desired no-prompt behavior after the one-time dedicated-profile authentication while respecting Chrome's security model.
 
-During development, the runner automatically selects Gemini Flash in the authenticated browser session. After the package is fully validated, production mode restores Pro. Do not store Google credentials in the repository or bypass authentication screens.
+Both development and production select Gemini Flash in the authenticated browser session by default. Pro is never selected implicitly. Do not store Google credentials in the repository or bypass authentication screens.
 
 ### Two-root layout and output location
 

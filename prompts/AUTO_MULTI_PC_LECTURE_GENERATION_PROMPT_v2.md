@@ -22,7 +22,7 @@ EXCLUDE_DEVICES          = []
 ASSIGNMENT_STRATEGY      = "COST_AWARE_EXCLUSIVE_OWNERSHIP"
 MAX_ACTIVE_JOBS_PER_DEVICE = 1
 GENERATE                 = "RESUME_INCOMPLETE_SKIP_VERIFIED_COMPLETE"
-MODEL_POLICY             = "USE_EXISTING_PACKAGE_DEVELOPMENT_DEFAULT"
+MODEL_POLICY             = "PERMANENT_FLASH_DEFAULT_ALL_PHASES"
 STAGE_TIMEOUT_POLICY     = "USE_VALIDATED_RUNTIME_WATCHDOG" # typical 900s idle, 3600s hard
 RETRY_POLICY             = "DEFER_FAILED_JOB; SECOND_PASS_ONCE; BOUNDED_BACKOFF"
 CONTROLLED_PILOT         = "REQUIRED_UNTIL_THIS_RUNTIME_IS_END_TO_END_VALIDATED"
@@ -34,7 +34,7 @@ REMOTE_GIT_PUSH_OR_MERGE = false
 - **SOURCE_LOCATOR** points to the **PDF teaching-material tree**, *never* the repository checkout. Expected default layout is SOURCE_ROOT/<chapter>/<subchapter>/source.pdf, but discover the package's accepted layout before acting. A browser Drive URL is an **identifier**, not a filesystem argument. Resolve it through an authorized Drive integration or a verified mounted/synced folder; do not assume that every PC has the same local path.
 - **CODE_REPOSITORY** is an example default for this package, not a shared drive location. The existing local checked-out version may be the authoritative development version; preserve its branch and uncommitted edits. Do not pull from GitHub if the user has deferred synchronization.
 - **TARGET_SELECTION** means **every** valid subchapter below the chosen root, not merely the first chapter or the first N files. To restrict scope, provide an explicit list or predicate.
-- **MODEL_POLICY** does not force a particular remote model/version; inspect the installed package. In the present development configuration Flash is used for debugging. Do not turn on Pro simply because production mode exists; switch only after user authorization and a validated production test.
+- **MODEL_POLICY** does not force a particular remote model/version; inspect the installed package. Flash is the permanent default in development and production on the current package. Do not turn on Pro unless the user explicitly requests a separate controlled benchmark.
 
 ## Execution instructions (copy from here)
 

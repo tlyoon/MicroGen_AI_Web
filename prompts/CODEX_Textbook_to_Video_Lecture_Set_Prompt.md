@@ -117,7 +117,7 @@ Current development-phase policy:
 - narration generation: `gemini-3.8-flash`,
 - TTS: Flash-family TTS as configured by the package.
 
-This is a temporary debugging policy. Keep `MICROGEN_MODEL_PHASE=development` until the entire package passes point-to-point end-to-end validation. Only after all implementation bugs are fixed should the package be switched to `MICROGEN_MODEL_PHASE=production`, which restores Gemini Pro for the browser/LLM stages. The final Pro-mode run must reproduce the same smooth behavior established under Flash.
+Gemini Flash remains the **permanent default model** in development and production because comparative lecture-quality tests favoured Flash. Setting `MICROGEN_MODEL_PHASE=production` must not implicitly switch to Pro. Pro remains an explicit optional A/B benchmark override.
 
 Treat the code package itself as authoritative if these defaults later change.
 

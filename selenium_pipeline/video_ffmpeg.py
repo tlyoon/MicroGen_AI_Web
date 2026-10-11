@@ -7,6 +7,8 @@ candidate is encoded and probed successfully.
 from __future__ import annotations
 
 import argparse
+import os
+import time
 import re
 import shutil
 import subprocess
@@ -70,15 +72,31 @@ def ffmpeg_executable() -> str:
 
 
 def run_ffmpeg(exe: str, args: list[str], *, step: str) -> str:
-    result = subprocess.run(
-        [exe, "-hide_banner", "-nostdin", "-loglevel", "error", *args],
-        capture_output=True, text=True, errors="replace", check=False,
-    )
-    if result.returncode:
-        raise RuntimeError(
-            f"FFmpeg {step} exited {result.returncode}:\n{result.stderr[-5000:]}"
-        )
-    return result.stderr + result.stdout
+    # Each encoder process has a finite deadline and emits heartbeat messages.
+    # Prevents silent hangs and gives the distributed worker observable progress.
+    timeout = int(os.getenv("MICROGEN_FFMPEG_TIMEOUT_SECONDS", "1200"))
+    command = [exe, "-hide_banner", "-nostdin", "-loglevel", "error", *args]
+    print(f"[video] FFmpeg starting {step} (deadline {timeout}s)", flush=True)
+    started = time.monotonic()
+    with tempfile.TemporaryFile(mode="w+t", encoding="utf-8") as stderr:
+        with subprocess.Popen(command, stdin=subprocess.DEVNULL,
+                              stdout=subprocess.DEVNULL, stderr=stderr,
+                              text=True) as proc:
+            while proc.poll() is None:
+                elapsed = time.monotonic() - started
+                if elapsed >= timeout:
+                    proc.kill()
+                    proc.wait()
+                    raise TimeoutError(f"FFmpeg {step} exceeded {timeout}s")
+                print(f"[video] FFmpeg {step} active {elapsed:.0f}s", flush=True)
+                time.sleep(min(20, max(1, timeout - elapsed)))
+            stderr.seek(0)
+            details = stderr.read()
+            if proc.returncode:
+                raise RuntimeError(
+                    f"FFmpeg {step} exited {proc.returncode}:\n{details[-5000:]}"
+                )
+    return details
 
 
 def validate_video(exe: str, file: Path, min_seconds: float) -> None:
@@ -118,7 +136,11 @@ def assemble(folder: Path, *, output: str = "slides.mp4", fps: int = 24,
     print(f"[video] {len(entries)} complete PDF/WAV slide pairs; "
           f"total narration {total:.1f}s; encoder={ffmpeg}", flush=True)
 
-    with tempfile.TemporaryDirectory(prefix=".microgen_video_", dir=folder) as tmp_name:
+    # Encode on local storage rather than a cloud-synchronized Drive mount.
+    # The completed candidate alone is copied to the source folder.
+    local_temp = Path(os.getenv("MICROGEN_VIDEO_TEMP_ROOT", tempfile.gettempdir()))
+    local_temp.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="microgen_video_", dir=local_temp) as tmp_name:
         tmp = Path(tmp_name)
         segments = []
         for number, pdf, wav, seconds in entries:
@@ -166,8 +188,10 @@ def assemble(folder: Path, *, output: str = "slides.mp4", fps: int = 24,
             old_copy = archival / output
             shutil.copy2(dest, old_copy)
             print(f"[video] archived previous {output} at {old_copy}", flush=True)
-        shutil.copy2(candidate, tmp / "validated.mp4")
-        (tmp / "validated.mp4").replace(dest)
+        # Stage on the destination volume before replacing; TEMP may be on C:.
+        staged = folder / ("." + output + ".pending")
+        shutil.copy2(candidate, staged)
+        staged.replace(dest)
     print(f"[video] SUCCESS: {dest}", flush=True)
     return dest
 
