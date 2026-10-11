@@ -2,7 +2,8 @@
 
 ## Reliability hardening and future campaigns
 
-Before a large multi-PC run, consult the [historical failure-and-fix audit](docs/MicroGen_Historical_Failure_and_Fix_Audit.md)
+Before a large multi-PC run, consult the [hardening acceptance report](docs/MicroGen_Hardening_Acceptance_Report_20261012.md),
+the [historical failure-and-fix audit](docs/MicroGen_Historical_Failure_and_Fix_Audit.md)
 and the [reliability operations runbook](docs/MicroGen_Reliability_Operations_Runbook.md).
 They document the lessons from the October 2026 three-PC campaigns, including
 Gemini Flash/browser recovery, missing-figure review, strict stage QA,
