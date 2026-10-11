@@ -1,4 +1,4 @@
-"""Selenium-first MicroGen pipeline using the validated template_v2 scripts.
+﻿"""Selenium-first MicroGen pipeline using the validated template_v2 scripts.
 
 The vendored scripts are invoked in isolated working folders. This module does
 not import the legacy selenium.py, which would shadow the Selenium distribution.
@@ -490,6 +490,9 @@ def execute(s: Settings) -> Path:
     for stage in planned:
         # A successful PDF compile can silently skip missing IfFileExists
         # figures. Never accept that as permission to generate narration.
+        if stage == "video":
+            from .slide_narration_sync import verify
+            verify(folder)
         if stage in {"narration", "script_qa", "tts", "tts_qa", "video"}:
             from .figure_audit import enforce_graphics
             enforce_graphics(source.parent, repair=True)
@@ -610,6 +613,9 @@ def execute(s: Settings) -> Path:
                 # Selective repair can replace WAVs after the original TTS
                 # publication. Republish the verified set before video.
                 publish_stage_outputs(folder, source, "tts")
+            if stage == "tts_qa":
+                from .slide_narration_sync import record_structural_alignment
+                record_structural_alignment(folder)
             state["completed"][stage] = {"at_utc": utc(), "model": model_stamp}
             stamp.write_text(json.dumps(state, indent=2), encoding="utf-8")
             published = publish_stage_outputs(folder, source, stage)
@@ -732,3 +738,5 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+
