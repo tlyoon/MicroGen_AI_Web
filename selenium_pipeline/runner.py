@@ -627,8 +627,14 @@ def execute(s: Settings) -> Path:
         final_names = ("slides.tex", "slides.pdf", "script.txt", "slides.mp4")
         if all((source.parent / name).is_file() and
                (source.parent / name).stat().st_size > 0 for name in final_names):
-            removed = cleanup_completed_lecture(source, workspace=folder, pipeline="selenium")
-            print(f"[microgen] completed lecture; cleaned {len(removed)} transient item(s)")
+            try:
+                removed = cleanup_completed_lecture(source, workspace=folder, pipeline="selenium")
+            except (OSError, ValueError) as cleanup_error:
+                # Video is already verified and published. Cleanup is optional
+                # housekeeping; preserve staging and report a deferred repair.
+                print(f"[microgen] CLEANUP DEFERRED (published video retained): {cleanup_error}")
+            else:
+                print(f"[microgen] completed lecture; cleaned {len(removed)} transient item(s)")
         else:
             print("[microgen] cleanup deferred: required final lecture files not all published")
     return folder
