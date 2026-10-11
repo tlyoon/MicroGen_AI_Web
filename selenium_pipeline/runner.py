@@ -488,6 +488,11 @@ def execute(s: Settings) -> Path:
     })
     changed_upstream = False
     for stage in planned:
+        # A successful PDF compile can silently skip missing IfFileExists
+        # figures. Never accept that as permission to generate narration.
+        if stage in {"narration", "script_qa", "tts", "tts_qa", "video"}:
+            from .figure_audit import enforce_graphics
+            enforce_graphics(source.parent, repair=True)
         # A changed stage invalidates every downstream stage, including final video.
         browser_model = {"figures": DEFAULT_CAPTION_MODEL, "slides": DEFAULT_SLIDE_MODEL,
                          "narration": DEFAULT_NARRATION_MODEL}.get(stage, "deterministic-local")
@@ -503,6 +508,9 @@ def execute(s: Settings) -> Path:
             state["completed"].pop(stage, None)
         if state["completed"].get(stage, {}).get("model") == model_stamp and check_valid(stage, folder):
             published = publish_stage_outputs(folder, source, stage)
+            if stage == "slides":
+                from .figure_audit import enforce_graphics
+                enforce_graphics(source.parent, repair=True)
             print(f"[microgen] reuse validated {stage}; published {len(published)} artifact(s) beside source.pdf")
             continue
         state["completed"].pop(stage, None)
@@ -605,6 +613,9 @@ def execute(s: Settings) -> Path:
             state["completed"][stage] = {"at_utc": utc(), "model": model_stamp}
             stamp.write_text(json.dumps(state, indent=2), encoding="utf-8")
             published = publish_stage_outputs(folder, source, stage)
+            if stage == "slides":
+                from .figure_audit import enforce_graphics
+                enforce_graphics(source.parent, repair=True)
             print(f"[microgen] {stage} OK; published {len(published)} artifact(s) beside source.pdf")
         except Exception:
             # Save failure diagnostics beside the original PDF without replacing
