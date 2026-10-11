@@ -1307,53 +1307,80 @@ class GeminiSeleniumClient:
         except Exception:
             pass
 
-        # Prove the new-chat composer is empty. Navigation to /app can preserve
-        # draft text in Gemini; stale drafts must never be concatenated with a
-        # new MicroGen mapping prompt.
-        ed = self._get_prompt_editable()
-        for attempt in range(3):
-            if not (ed.get_attribute("value") or ed.text or "").strip():
-                break
+        # Gemini can retain drafts between conversations. Never mistake a
+        # placeholder/wrapper for the actual editable or mutate innerHTML
+        # behind Angular/Quill's state. A failed clear must remain fatal.
+        self._clear_prompt_safely()
+        log("Opened Gemini")
+
+    @staticmethod
+    def _prompt_editable_text(editor) -> str:
+        """Read *only* user-entered text, never the wrapper's placeholder."""
+        if (editor.tag_name or "").lower() in {"textarea", "input"}:
+            return (editor.get_attribute("value") or "").strip()
+        return (editor.get_attribute("textContent") or "").strip()
+
+    def _clear_prompt_safely(self) -> None:
+        """Clear a retained Gemini draft through input events, then verify."""
+        assert self.driver is not None
+        for _ in range(4):
+            editor = self._get_prompt_editable()
+            if not self._prompt_editable_text(editor):
+                return
             try:
-                ed.click()
-                ed.send_keys(Keys.CONTROL, "a")
-                ed.send_keys(Keys.BACKSPACE)
+                editor.click()
+                editor.send_keys(Keys.CONTROL, "a")
+                editor.send_keys(Keys.BACKSPACE)
             except Exception:
                 pass
             time.sleep(0.20)
-            if (ed.get_attribute("value") or ed.text or "").strip():
-                try:
-                    self.driver.execute_script(
-                        """const e=arguments[0]; e.focus();
-                        const r=document.createRange(); r.selectNodeContents(e);
-                        const s=window.getSelection(); s.removeAllRanges(); s.addRange(r);
-                        document.execCommand('delete', false, null);""",
-                        ed,
-                    )
-                except Exception:
-                    pass
-                time.sleep(0.20)
-            ed = self._get_prompt_editable()
-        if (ed.get_attribute("value") or ed.text or "").strip():
-            raise RuntimeError("Gemini composer could not be cleared; refusing to continue with stale draft text.")
-        log("Opened Gemini")
+            editor = self._get_prompt_editable()
+            if not self._prompt_editable_text(editor):
+                return
+            try:
+                self.driver.execute_script(
+                    """const e=arguments[0]; e.focus();
+                    const r=document.createRange(); r.selectNodeContents(e);
+                    const s=window.getSelection(); s.removeAllRanges(); s.addRange(r);
+                    document.execCommand('delete', false, null);""",
+                    editor,
+                )
+            except Exception:
+                pass
+            time.sleep(0.20)
+        if self._prompt_editable_text(self._get_prompt_editable()):
+            raise RuntimeError(
+                "Gemini composer could not be cleared; refusing to continue with stale draft text."
+            )
 
     def _get_prompt_editable(self):
         assert self.driver is not None
+        # These selectors must identify an actual interactive editor. Returning
+        # an outer aria-label container or the page body can both report
+        # placeholder text as a stale draft and lead to unsafe keystrokes.
         candidates = [
             (By.CSS_SELECTOR, 'div[aria-label="Enter a prompt here"] [contenteditable="true"]'),
-            (By.CSS_SELECTOR, 'div[aria-label="Enter a prompt here"]'),
             (By.CSS_SELECTOR, '[contenteditable="true"][role="textbox"]'),
-            (By.XPATH, '//div[@role="textbox" and @contenteditable="true"]'),
-            (By.XPATH, '//textarea'),
+            (By.CSS_SELECTOR, '[contenteditable="true"]'),
+            (By.CSS_SELECTOR, 'textarea'),
         ]
-        for by, sel in candidates:
-            try:
-                el = WebDriverWait(self.driver, 4).until(EC.presence_of_element_located((by, sel)))
-                return el
-            except Exception:
-                continue
-        return self.driver.find_element(By.TAG_NAME, "body")
+        deadline = time.monotonic() + 6.0
+        while time.monotonic() < deadline:
+            for by, sel in candidates:
+                try:
+                    for el in self.driver.find_elements(by, sel):
+                        if not el.is_displayed():
+                            continue
+                        if (el.tag_name or "").lower() == "textarea" or (
+                            el.get_attribute("contenteditable") or ""
+                        ).lower() == "true":
+                            return el
+                except Exception:
+                    continue
+            time.sleep(0.15)
+        raise RuntimeError(
+            "Gemini editable textbox not found; refusing to type into a page wrapper."
+        )
 
     def type_prompt_text(self, text: str, retries: int = 3) -> bool:
         """Enter Gemini prompt text through Chrome's input pipeline and verify it."""
