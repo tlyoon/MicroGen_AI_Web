@@ -15,6 +15,7 @@ from selenium_pipeline.three_pc_worker import (
     assigned_jobs,
     run_stage,
     validate_manifest,
+    verify_runtime_dependencies,
 )
 
 
@@ -96,6 +97,15 @@ class PortableWorkerTests(unittest.TestCase):
                     pass
         with LocalInstanceLock("Workstation-42", locks):
             pass
+
+    def test_missing_worker_pdf_module_fails_preflight(self):
+        with patch("importlib.util.find_spec", side_effect=lambda name: None if name == "pymupdf" else object()):
+            with self.assertRaisesRegex(RuntimeError, "worker interpreter.*pymupdf"):
+                verify_runtime_dependencies()
+
+    def test_worker_pdf_modules_available(self):
+        with patch("importlib.util.find_spec", return_value=object()):
+            verify_runtime_dependencies()
 
     def test_idle_watchdog_stops_only_spawned_test_stage(self):
         actual_popen = subprocess.Popen
