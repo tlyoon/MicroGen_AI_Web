@@ -279,6 +279,24 @@ def process_job(
                        "round": attempt, "verified": True, "updated_utc": timestamp()}
         persist()
         return True
+    # A published video without a matching completion receipt may be a valid
+    # repair awaiting figure/narration reconciliation. Re-running earlier
+    # stages could overwrite it, even when the original checkpoint says
+    # "unfinished". Fail closed; an operator must validate and reconcile it.
+    published_video = source.parent / "slides.mp4"
+    if published_video.is_file() and published_video.stat().st_size > 0:
+        reason = (
+            "Published MP4 exists without a valid completion receipt; "
+            "preserving output for manual reconciliation"
+        )
+        report[key] = {
+            "status": "deferred" if attempt == 1 else "unfinished",
+            "stage": "video", "round": attempt, "error": reason,
+            "updated_utc": timestamp(),
+        }
+        persist()
+        print(f"[worker] PRESERVING {key}: {reason}", flush=True)
+        return False
     for stage in STAGES:
         report[key] = {"status": "running", "stage": stage, "round": attempt,
                        "updated_utc": timestamp()}
