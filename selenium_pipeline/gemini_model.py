@@ -10,7 +10,7 @@ class GeminiModelError(RuntimeError):
 
 MODEL_SPECS = {
     "flash": {
-        "menu_prefix": "3.8 Flash",
+        "menu_prefix": "Flash",
         "label_token": "flash",
     },
     "pro": {
@@ -107,7 +107,7 @@ def ensure_mode(port: int = 9222, mode: str | None = None, timeout: float = 15) 
                     pass
             for item in items:
                 try:
-                    if item.is_displayed() and (item.text or "").strip().startswith(prefix):
+                    if item.is_displayed() and ((target_mode == "flash" and "flash" in (item.text or "").lower() and "pro" not in (item.text or "").lower()) or (target_mode != "flash" and (item.text or "").strip().startswith(prefix))):
                         target = item
                         break
                 except Exception:
