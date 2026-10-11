@@ -43,6 +43,28 @@ def timestamp() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def verify_runtime_dependencies() -> None:
+    """Fail before a costly job if the *worker* Python cannot audit PDF figures.
+
+    Stage subprocesses and the separately configured --pipeline-python may
+    use different interpreters. The worker's own Python runs the orchestrator
+    and figure-recovery gate; installing PyMuPDF only in a vendor-stage
+    interpreter does not make the review candidate renderer available here.
+    """
+    import importlib.util
+
+    required = ("pymupdf", "pypdf")
+    missing = [name for name in required if importlib.util.find_spec(name) is None]
+    if missing:
+        raise RuntimeError(
+            f"MicroGen worker interpreter {sys.executable} lacks "
+            f"{', '.join(missing)}. Install the missing packages in the "
+            "Python used to launch three_pc_worker, not only --pipeline-python. "
+            "Do not modify a running worker environment; stop at a safe "
+            "checkpoint before updating dependencies."
+        )
+
+
 def assigned_jobs(root: Path, chapters: list[int]) -> list[str]:
     jobs: list[str] = []
     for chapter in chapters:
@@ -406,6 +428,7 @@ def main(argv: list[str] | None = None) -> int:
     tts_py = args.tts_python or Path(sys.executable)
     if not pipeline_py.is_file() or not tts_py.is_file():
         raise FileNotFoundError(f"Invalid local Python(s): {pipeline_py}; {tts_py}")
+    verify_runtime_dependencies()
     os.environ["MICROGEN_WORKER_PIPELINE_PYTHON"] = str(pipeline_py)
     os.environ["MICROGEN_WORKER_TTS_PYTHON"] = str(tts_py)
     os.environ["MICROGEN_WORKER_SHARED_LANE"] = (
