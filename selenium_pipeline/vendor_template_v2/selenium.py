@@ -1102,16 +1102,17 @@ class GeminiSeleniumClient:
     def open_clean_gemini_chat(self) -> None:
         self.ensure_driver_is_alive()
         assert self.driver is not None
-        # Development default is Flash; production returns to Pro after the
-        # complete point-to-point package is stable. An explicit UI override
-        # always wins, otherwise MICROGEN_MODEL_PHASE controls the target.
         phase = os.getenv("MICROGEN_MODEL_PHASE", "development").strip().lower()
-        target_mode = os.getenv("MICROGEN_GEMINI_UI_MODE", "").strip().lower()
-        if not target_mode:
-            target_mode = "pro" if phase in {"production", "prod", "release"} else "flash"
+
+        # Flash remains the default in every phase.
+        # Pro requires an explicit override.
+        target_mode = (
+            os.getenv("MICROGEN_GEMINI_UI_MODE", "flash").strip().lower()
+            or "flash"
+        )
         if target_mode not in {"flash", "pro"}:
             raise RuntimeError(f"Unsupported MICROGEN_GEMINI_UI_MODE={target_mode!r}")
-        target_prefix = "3.8 Flash" if target_mode == "flash" else "3.1 Pro"
+        target_prefix = "Flash" if target_mode == "flash" else "3.1 Pro"
 
         # Reuse an authenticated Gemini tab identified by its real mode picker.
         # Then actively select the configured target inside that same tab.
@@ -1164,7 +1165,18 @@ class GeminiSeleniumClient:
                         items = []
                     for item in items:
                         try:
-                            if item.is_displayed() and (item.text or "").strip().startswith(target_prefix):
+                            label = (item.text or "").strip().lower()
+                            if item.is_displayed() and (
+                                (
+                                    target_mode == "flash"
+                                    and "flash" in label
+                                    and "pro" not in label
+                                )
+                                or (
+                                    target_mode == "pro"
+                                    and label.startswith(target_prefix.lower())
+                                )
+                            ):
                                 target = item
                                 break
                         except Exception:
