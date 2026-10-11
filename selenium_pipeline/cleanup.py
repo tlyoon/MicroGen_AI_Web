@@ -31,12 +31,14 @@ TRANSIENT_FILES = {
 TRANSIENT_DIRS = {
     ".microgen_work",
     ".microgen_batch_work",
-    ".history",
+    # Historical lecture versions are recovery evidence, never scratch.
     "__pycache__",
     "pages",
     "crops",
 }
-SLIDE_INTERMEDIATE = re.compile(r"slide[1-9][0-9]*\.(?:pdf|wav)$", re.I)
+# Slide audio is a valuable deliverable: keep it for narration corrections and
+# video rebuilding, even when the lecture has a verified completion receipt.
+SLIDE_INTERMEDIATE = re.compile(r"slide[1-9][0-9]*\.pdf$", re.I)
 BUILD_INTERMEDIATE = re.compile(
     r"[^/\\]+\.(?:aux|log|nav|out|snm|toc|vrb|fls|fdb_latexmk|synctex\.gz)$", re.I
 )

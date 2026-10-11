@@ -91,6 +91,7 @@ def load_microvid_env() -> Path | None:
             continue
         seen.add(path)
         loaded = 0
+        key_definitions: dict[str, str] = {}
         for raw in path.read_text(encoding="utf-8-sig").splitlines():
             line = raw.strip()
             if not line or line.startswith("#") or "=" not in line:
@@ -102,6 +103,16 @@ def load_microvid_env() -> Path | None:
                 continue
             if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
                 value = value[1:-1]
+            # Multiple distinct numbered keys are legitimate failover pools.
+            # Repeating the *same* API key variable with different values is
+            # unsafe: one of the secrets would otherwise be silently ignored.
+            if name.startswith("GEMINI_API_KEY"):
+                if name in key_definitions and key_definitions[name] != value:
+                    raise ValueError(
+                        f"Conflicting duplicate {name} in local Microvid .env; "
+                        "use distinct numbered GEMINI_API_KEY_1/_2 names"
+                    )
+                key_definitions[name] = value
             if name not in os.environ:
                 os.environ[name] = value
                 loaded += 1
@@ -242,7 +253,16 @@ def valid(stage: str, folder: Path) -> bool:
                    (folder / f"slide{i}.wav").stat().st_size > 44 for i in range(1, count + 1))
     if stage == "tts_qa":
         report = json.loads((folder / "tts_fidelity_report.json").read_text(encoding="utf-8"))
-        return int(report.get("summary", {}).get("blocking_failures", 1)) == 0
+        summary = report.get("summary", {})
+        pages = slide_pages(folder)
+        return (
+            int(summary.get("slides", -1)) == pages
+            and int(summary.get("passed", -1)) == pages
+            and int(summary.get("review", 1)) == 0
+            and int(summary.get("blocking_failures", 1)) == 0
+            and float(summary.get("minimum_fidelity_percent", -1))
+            >= float(report.get("threshold_percent", 99.0))
+        )
     if stage == "video":
         return (folder / "slides.mp4").stat().st_size > 0
     return False
@@ -399,7 +419,55 @@ class Settings:
         return job_source(self.source_root, self.subchapter)
 
 
+def save_pipeline_state(stamp: Path, state: dict) -> None:
+    """Persist an invalidation before a risky regeneration begins."""
+    pending = stamp.with_name(stamp.name + ".pending")
+    pending.write_text(json.dumps(state, indent=2), encoding="utf-8")
+    pending.replace(stamp)
+
+
+def invalidate_downstream(state: dict, changed_stage: str) -> list[str]:
+    """Invalidate all dependent stage receipts, even outside this partial run.
+
+    A figure/slide-only repair must not leave an old narration/TTS/video
+    checkpoint that a later invocation can mistakenly reuse.
+    """
+    if changed_stage not in STAGES:
+        raise ValueError(f"Unknown changed stage: {changed_stage}")
+    remaining = STAGES[STAGES.index(changed_stage) + 1:]
+    completed = state.setdefault("completed", {})
+    affected = [stage for stage in remaining if stage in completed]
+    for stage in remaining:
+        completed.pop(stage, None)
+    if affected:
+        state.setdefault("invalidations", []).append({
+            "changed_stage": changed_stage,
+            "invalidated": affected,
+            "at_utc": utc(),
+        })
+    return affected
+
+
 def execute(s: Settings) -> Path:
+    """Serialize Gemini use across new direct and distributed jobs on one PC.
+
+    The filesystem lock is local to this PC, never a Google Drive ticket.
+    It spans the full Gemini stage so two MicroGen invocations cannot type in
+    the same authenticated browser simultaneously. OS locks self-release on
+    process exit; a crash cannot leave a permanently owned lock.
+    """
+    first, last = STAGES.index(s.from_stage), STAGES.index(s.through_stage)
+    uses_gemini = any(stage in CHROME_STAGES for stage in STAGES[first:last+1])
+    if s.dry_run or not uses_gemini:
+        return _execute_unlocked(s)
+    from .three_pc_worker import LocalInstanceLock
+    base = Path(os.getenv("LOCALAPPDATA") or (Path.home() / ".cache")) / "Microvid"
+    port = 9223 if s.alternate_gemini_user and s.chrome_port == 9222 else s.chrome_port
+    with LocalInstanceLock(f"gemini_port_{port}", base / "browser_locks"):
+        return _execute_unlocked(s)
+
+
+def _execute_unlocked(s: Settings) -> Path:
     source, folder = s.source(), s.directory()
     if not source.is_file():
         raise FileNotFoundError(source)
@@ -432,6 +500,21 @@ def execute(s: Settings) -> Path:
         )
         print(f"[microgen] completed lecture already published; cleaned {len(removed)} transient item(s)")
         return folder
+    # Direct CLI runs need the same preservation guard as the three-PC worker.
+    # An old MP4 without a verified receipt may be the only usable lecture;
+    # never silently overwrite it when the user runs a new pipeline stage.
+    prior_video = source.parent / "slides.mp4"
+    if not s.force_from and prior_video.is_file() and prior_video.stat().st_size:
+        if completed_lecture(source):
+            raise RuntimeError(
+                "This lecture is already receipt-verified; an explicit "
+                "--force-from is required before any partial regeneration."
+            )
+        raise RuntimeError(
+            "Published MP4 has no valid matching completion receipt; preserve "
+            "and reconcile it before regeneration. An explicit --force-from "
+            "is required for a reviewed repair."
+        )
     # Check the independently configured PDF root and this subchapter before
     # launching Chrome or consuming paid model/API calls.
     verify_source_tree(s.source_root, source)
@@ -517,7 +600,14 @@ def execute(s: Settings) -> Path:
             print(f"[microgen] reuse validated {stage}; published {len(published)} artifact(s) beside source.pdf")
             continue
         state["completed"].pop(stage, None)
+        invalidated = invalidate_downstream(state, stage)
+        if invalidated:
+            print(f"[microgen] {stage} changed; invalidated downstream receipts: "
+                  + ", ".join(invalidated), flush=True)
         changed_upstream = True
+        # Persist invalidation *before* invoking Gemini or FFmpeg. An abrupt
+        # exit must never restore obsolete downstream success stamps.
+        save_pipeline_state(stamp, state)
         log_file = folder / f"microgen_{stage}.log"
         try:
             if stage in CHROME_STAGES:
@@ -617,7 +707,7 @@ def execute(s: Settings) -> Path:
                 from .slide_narration_sync import record_structural_alignment
                 record_structural_alignment(folder)
             state["completed"][stage] = {"at_utc": utc(), "model": model_stamp}
-            stamp.write_text(json.dumps(state, indent=2), encoding="utf-8")
+            save_pipeline_state(stamp, state)
             published = publish_stage_outputs(folder, source, stage)
             if stage == "slides":
                 from .figure_audit import enforce_graphics
@@ -632,11 +722,11 @@ def execute(s: Settings) -> Path:
                 print(f"[microgen] could not publish diagnostics: {diagnostic_error}")
             state["failed_stage"] = stage
             state["failed_at_utc"] = utc()
-            stamp.write_text(json.dumps(state, indent=2), encoding="utf-8")
+            save_pipeline_state(stamp, state)
             raise
     state.pop("failed_stage", None)
     state.pop("failed_at_utc", None)
-    stamp.write_text(json.dumps(state, indent=2), encoding="utf-8")
+    save_pipeline_state(stamp, state)
     # No pruning for an intermediate-stage run or a failed stage. On final
     # success, retain only published lecture deliverables plus the completion
     # receipt. Never delete inputs that may be needed by an unfinished run.

@@ -87,10 +87,13 @@ class PipelineTests(unittest.TestCase):
             folder = Path(td)
             report = folder / "tts_fidelity_report.json"
             (folder / "tts_fidelity_report.md").write_text("report", encoding="utf-8")
-            report.write_text('{"summary":{"blocking_failures":0}}', encoding="utf-8")
-            self.assertTrue(check_valid("tts_qa", folder))
-            report.write_text('{"summary":{"blocking_failures":1}}', encoding="utf-8")
-            self.assertFalse(check_valid("tts_qa", folder))
+            # A zero-blocker counter is insufficient: all slides must pass.
+            good = '{"threshold_percent":99,"summary":{"slides":1,"passed":1,"review":0,"blocking_failures":0,"minimum_fidelity_percent":99.5}}'
+            report.write_text(good, encoding="utf-8")
+            with patch("selenium_pipeline.runner.slide_pages", return_value=1):
+                self.assertTrue(check_valid("tts_qa", folder))
+                report.write_text(good.replace('"blocking_failures":0', '"blocking_failures":1'), encoding="utf-8")
+                self.assertFalse(check_valid("tts_qa", folder))
 
 
 if __name__ == "__main__":

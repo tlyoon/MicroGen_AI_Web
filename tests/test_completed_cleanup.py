@@ -68,10 +68,12 @@ class CompletedCleanupTests(unittest.TestCase):
         removed = cleanup_completed_lecture(self.source, workspace=workspace, pipeline="selenium")
         self.assertTrue(removed)
         self.assertFalse(workspace.exists())
-        for name in ("pages", "crops", ".history", "__pycache__", "slide1.wav",
-                     "slide2.pdf", "script_tts.json", "slides.aux", "slides.log",
+        for name in ("pages", "crops", "__pycache__", "slide2.pdf",
+                     "script_tts.json", "slides.aux", "slides.log",
                      ".selenium_pipeline_state.json"):
             self.assertFalse((self.folder / name).exists(), name)
+        self.assertEqual((self.folder / "slide1.wav").read_text(), "intermediate")
+        self.assertEqual((self.folder / ".history" / "generated.dat").read_bytes(), b"temp")
         for name in ("source.pdf", "slides.tex", "slides.pdf", "script.txt",
                      "slides.mp4", "Figure 8.1.png", "image.jpg",
                      "subchapter-notes.pdf", "custom-script.py",
@@ -137,6 +139,26 @@ class CompletedCleanupTests(unittest.TestCase):
         self.assertEqual(cleanup_completed_lecture(self.source, pipeline="selenium"), [])
         self.assertTrue(completed_lecture(self.source))
 
+    def test_direct_runner_cannot_overwrite_unreconciled_published_mp4(self):
+        self.final()
+        settings = Settings(source_root=self.root, work_root=None, subchapter="8.1",
+                            from_stage="slides", through_stage="video")
+        with patch("selenium_pipeline.launch_gemini.launch",
+                   side_effect=AssertionError("browser must not launch")):
+            with self.assertRaisesRegex(RuntimeError, "Published MP4 has no valid"):
+                execute(settings)
+        self.assertEqual((self.folder / "slides.mp4").read_text(), "Video output")
+
+    def test_partial_run_cannot_replace_a_receipt_verified_video_without_force(self):
+        self.final()
+        cleanup_completed_lecture(self.source, pipeline="selenium")
+        original = (self.folder / "slides.mp4").read_bytes()
+        settings = Settings(source_root=self.root, work_root=None,
+                            subchapter="8.1", from_stage="video", through_stage="video")
+        with self.assertRaisesRegex(RuntimeError, "already receipt-verified"):
+            execute(settings)
+        self.assertEqual((self.folder / "slides.mp4").read_bytes(), original)
+
     def test_selenium_resumes_completed_without_launching_browser(self):
         self.final()
         cleanup_completed_lecture(self.source, pipeline="selenium")
@@ -165,7 +187,7 @@ class CompletedCleanupTests(unittest.TestCase):
         cleanup_completed_lecture(self.source, workspace=workspace, pipeline="batch")
         self.assertFalse(workspace.exists())
         self.assertFalse((self.folder / ".microgen_checkpoint.json").exists())
-        self.assertFalse((self.folder / "slide1.wav").exists())
+        self.assertTrue((self.folder / "slide1.wav").exists())
         self.assertTrue(completed_lecture(self.source))
 
 
