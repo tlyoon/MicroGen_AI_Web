@@ -101,6 +101,6 @@ def test_fail_closed_on_unverified_mp4(tmp_path):
 def test_fail_closed_on_existing_stale_alignment_record(tmp_path):
     folder = make_legacy(tmp_path)
     (folder / "slide_narration_sync.json").write_text('{"version": -1}')
-    with pytest.raises(ValueError, match="changed since synchronization"):
+    with pytest.raises(ValueError, match="Legacy lecture lacks an intact matching completion"):
         reconcile(folder, apply=True)
     assert not (folder / ".history").exists()
