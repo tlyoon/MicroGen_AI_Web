@@ -21,11 +21,18 @@ def incorrect_page_totals(pdf: Path) -> list[dict]:
             return []
         found: list[dict] = []
         for i in sorted({0, pages - 1}):
-            lines = doc[i].get_text().splitlines()
-            matches = [m for line in lines[:8] if (m := COUNTER.fullmatch(line.strip()))]
-            # The page index must match: ignore examples or fractions elsewhere
-            # in slide body. Beamer often uses the top-right footer.
-            for match in matches:
+            page = doc[i]
+            # Beamer's frame count appears at the page's upper-right corner.
+            # Requiring a geometric counter placement avoids mistaking an
+            # actual physics fraction (e.g. 1 / 2) for a page footer.
+            blocks = page.get_text("blocks")
+            for block in blocks:
+                x0, y0, _x1, _y1, text = block[:5]
+                if x0 < page.rect.width * .70 or y0 > page.rect.height * .12:
+                    continue
+                match = COUNTER.fullmatch(str(text).strip())
+                if match is None:
+                    continue
                 number, total = map(int, match.groups())
                 if number == i + 1 and total != pages:
                     found.append({"slide": i + 1, "display": f"{number} / {total}",
