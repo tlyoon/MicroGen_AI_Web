@@ -618,6 +618,11 @@ def _execute_unlocked(s: Settings) -> Path:
         if stage == "video":
             from .slide_narration_sync import verify
             verify(folder)
+            # Production outputs, not just temporary workspace files, must
+            # match the approved slide/script/WAV snapshot before the MP4 is
+            # generated or published. Missing copied proof is a blocking bug.
+            if state["completed"].get("tts_qa"):
+                verify(source.parent)
         if stage in {"narration", "script_qa", "tts", "tts_qa", "video"}:
             from .figure_audit import enforce_graphics
             enforce_graphics(source.parent, repair=True)
