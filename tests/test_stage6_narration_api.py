@@ -59,5 +59,8 @@ def test_api_narration_retains_exact_script_and_repair_loop():
         'force_exact_titles_after_postprocessing(exact_titles)',
         'warnings = collect_all_warnings(OUT_SCRIPT, SLIDES_PDF, exact_titles)',
         'Preserved rejected narration as',
+        'str(SLIDES_PDF.resolve())',
+        'str(SOURCE_PDF.resolve())',
+        'str(RENDERED_PROMPT_FILE.resolve())',
     ):
         assert requirement in text
