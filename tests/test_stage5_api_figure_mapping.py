@@ -56,3 +56,21 @@ def test_api_figure_backend_bypasses_browser(monkeypatch):
     assert _needs_browser("narration")
     monkeypatch.setenv("MICROGEN_FIGURE_MAPPING_BACKEND", "browser")
     assert _needs_browser("figures")
+
+
+def test_api_mapping_normalizes_mathematical_figure_filenames():
+    result = validate_mapping(
+        'fig_1.png : "Unlabeled image" : graph of y = sec^-1 x.png',
+        paths("fig_1.png"),
+    )
+    assert result == [
+        'fig_1.png : "Unlabeled image" : graph of y equals sec power -1 x.png'
+    ]
+
+
+def test_api_mapping_normalized_filename_still_rejects_traversal():
+    with pytest.raises(ValueError):
+        validate_mapping(
+            'fig_1.png : "Unlabeled image" : ../graph of y = sec^-1 x.png',
+            paths("fig_1.png"),
+        )

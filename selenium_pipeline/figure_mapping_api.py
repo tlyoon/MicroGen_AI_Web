@@ -15,7 +15,7 @@ from pathlib import Path
 LINE = re.compile(
     r'^\s*(?P<crop>[A-Za-z0-9_.-]+\.png)\s*:\s*'
     r'"(?P<label>[^"\r\n]{1,100})"\s*:\s*'
-    r'(?P<target>[A-Za-z0-9_. ()-]+\.png)\s*$',
+    r'(?P<target>[^\r\n]{1,160}\.png)\s*$',
     re.IGNORECASE,
 )
 
@@ -39,10 +39,21 @@ def validate_mapping(text: str, crops: list[Path]) -> list[str]:
             raise ValueError(f"Uninformative figure label for {name}")
         if label.lower().startswith("figure") and not re.search(r"\d", label):
             raise ValueError(f"Unnumbered figure label for {name}")
-        if any(token in target for token in ("..", "/", "\\", "<", ">")):
+        if any(token in target for token in ("..", "/", "\\", "<", ">", "|", "?", "*", ":")):
             raise ValueError(f"Unsafe target name for {name}")
         if not target.lower().endswith(".png") or target.startswith("."):
             raise ValueError(f"Non-PNG figure output name for {name}")
+        # Gemini may describe mathematical figures using equations.
+        # Keep the meaning while publishing a file name that downstream
+        # image and LaTeX routines can safely process.
+        stem = target[:-4]
+        for symbol, word in (("=", " equals "), ("^", " power "), ("+", " plus "),
+                             ("(", " "), (")", " ")):
+            stem = stem.replace(symbol, word)
+        stem = " ".join(stem.split())
+        if not stem or len(stem) > 150 or not re.fullmatch(r"[A-Za-z0-9_. -]+", stem):
+            raise ValueError(f"Unsupported target filename characters for {name}")
+        target = stem + ".png"
         validated.append(f'{name} : "{label}" : {target}')
     return validated
 
