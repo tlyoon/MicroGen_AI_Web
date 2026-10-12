@@ -6,6 +6,7 @@ Keep a small completion receipt for safe, inexpensive subsequent reruns.
 """
 from __future__ import annotations
 
+import errno
 import hashlib
 import json
 import re
@@ -180,6 +181,12 @@ def _tex_needs_directory(folder: Path, directory_name: str) -> bool:
     return False
 
 
+def _transient_deletion_blocked(exc: OSError) -> bool:
+    """Only defer known busy/cloud-sync Windows errors on generated artifacts."""
+    return (getattr(exc, "winerror", None) in {5, 32, 145}
+            or exc.errno in {errno.EACCES, errno.EBUSY, errno.ENOTEMPTY})
+
+
 def cleanup_completed_lecture(
     source_pdf: Path,
     *,
@@ -232,11 +239,19 @@ def cleanup_completed_lecture(
     }
     _write_receipt(source_pdf, receipt)
     removed: list[str] = []
+    deferred: list[str] = []
     try:
-        # A default hidden workspace is an owned workspace, removed below.
+        # Filesystem cleanup is best-effort *after* all final deliverables have
+        # been hashed. Google Drive may briefly lock/recreate transient files.
         if owned_work is not None:
-            _safe_remove(owned_work)
-            removed.append(str(owned_work))
+            try:
+                _safe_remove(owned_work)
+                removed.append(str(owned_work))
+            except OSError as exc:
+                if not _transient_deletion_blocked(exc):
+                    raise
+                deferred.append(f"{owned_work.name}: {exc}")
+                print(f"[microgen][cleanup] deferred busy workspace: {exc}", flush=True)
         for entry in folder.iterdir():
             if entry.name == RECEIPT or entry.name == "source.pdf" or entry.is_symlink():
                 continue
@@ -245,16 +260,30 @@ def cleanup_completed_lecture(
                 if (name in TRANSIENT_FILES or SLIDE_INTERMEDIATE.fullmatch(name)
                         or BUILD_INTERMEDIATE.fullmatch(name) or PIPELINE_LOG.fullmatch(name)
                         or name.endswith(".microgen.tmp")):
-                    _safe_remove(entry)
-                    removed.append(name)
+                    try:
+                        _safe_remove(entry)
+                        removed.append(name)
+                    except OSError as exc:
+                        if not _transient_deletion_blocked(exc):
+                            raise
+                        deferred.append(f"{name}: {exc}")
             elif entry.is_dir() and entry.name in TRANSIENT_DIRS:
+                if entry == owned_work and deferred:
+                    continue  # do not retry an incomplete Drive workspace deletion
                 # Images nested under these directories could be required to
                 # recompile LaTeX; only prune the directory when unreferenced.
                 if _tex_needs_directory(folder, entry.name):
                     continue
-                _safe_remove(entry)
-                removed.append(entry.name)
-        receipt["cleanup"] = "complete"
+                try:
+                    _safe_remove(entry)
+                    removed.append(entry.name)
+                except OSError as exc:
+                    if not _transient_deletion_blocked(exc):
+                        raise
+                    deferred.append(f"{entry.name}: {exc}")
+        receipt["cleanup"] = "deferred" if deferred else "complete"
+        if deferred:
+            receipt["cleanup_deferred"] = deferred
         receipt["removed_count"] = len(removed)
         _write_receipt(source_pdf, receipt)
     except Exception:
