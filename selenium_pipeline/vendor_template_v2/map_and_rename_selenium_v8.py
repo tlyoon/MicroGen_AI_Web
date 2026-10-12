@@ -1697,8 +1697,7 @@ def run_mapping(
     try:
         page_dirs = sorted(pages_root.glob("page_*"), key=lambda p: natural_sort_key(p.name))
         if not page_dirs:
-            log("No page_* directories found under pages/.", "ERR")
-            return
+            raise RuntimeError("No page_* directories found under pages/.")
 
         selected = []
         for d in page_dirs:
@@ -1710,18 +1709,22 @@ def run_mapping(
                 selected.append((idx, d))
 
         if not selected:
-            log("No pages in the requested index range.", "ERR")
-            return
+            raise RuntimeError("No pages in the requested index range.")
 
+        failures: list[str] = []
         total = len(selected)
         for k, (idx, page_dir) in enumerate(selected, 1):
             page_png    = page_dir / f"page_{idx}.png"
             crops_dir_i = crops_root / f"page_{idx}"
             log(f"[{k}/{total}] Processing {page_png}")
             if not page_png.exists():
-                log(f"Missing {page_png} -- skipping.", "WARN"); continue
+                failures.append(f"page {idx}: missing full-page image")
+                log(f"[ERROR] Missing required page image {page_png}", "ERR")
+                continue
             if not crops_dir_i.exists():
-                log(f"Missing crops dir {crops_dir_i} -- skipping.", "WARN"); continue
+                failures.append(f"page {idx}: missing crop directory")
+                log(f"[ERROR] Missing required crop folder {crops_dir_i}", "ERR")
+                continue
 
             try:
                 _mapping_txt = None
@@ -1740,6 +1743,12 @@ def run_mapping(
                             wait_cap=wait_cap,
                             upload_only_crops=upload_only_crops,
                         )
+                        expected_figures = len(list(crops_dir_i.glob("fig_*.png")))
+                        if expected_figures and not new_pngs:
+                            raise RuntimeError(
+                                f"page {idx}: {expected_figures} cropped figure(s) "
+                                "but no verified mapped figure was produced"
+                            )
                         break
                     except GeminiGenerationStalled as e:
                         log(
@@ -1770,13 +1779,25 @@ def run_mapping(
                                 shutil.copy2(str(p), str(dst))
                                 log(f"[STATUS] Generated: {p} | Copied to Root: {dst.name}")
                             except Exception as e:
-                                log(f"[WARN] Failed to copy {p.name} to root: {e}", "WARN")
+                                # An uncopied mapped image would disappear from
+                                # downstream Beamer compilation. Fail closed.
+                                raise RuntimeError(
+                                    f"page {idx}: failed publishing {p.name}: {e}"
+                                ) from e
 
             except Exception as e:
                 log(f"[ERROR] Failed to process page {idx}: {e}", "ERR")
+                failures.append(f"page {idx}: {type(e).__name__}: {e}")
                 continue
 
-        log("All mappings completed.")
+        if failures:
+            for item in failures:
+                log(f"[MAPPING_INCOMPLETE] {item}", "ERR")
+            raise RuntimeError(
+                f"Figure mapping incomplete for {len(failures)}/{total} page(s). "
+                "Downstream slides and narration are blocked."
+            )
+        log("All required figure mappings completed and validated.")
     finally:
         # Close the automation Chrome session launched by this run (and only that one)
         client.shutdown()
