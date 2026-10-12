@@ -32,3 +32,15 @@ The tool makes a timestamped backup of the old completion receipt in `.history/`
 The utility does **not** certify scientific correctness, figure selection, slide legibility, or the actual meaning of spoken symbols. It provides *structural and available audio-fidelity evidence* for previously generated lecture materials. Human or independent scientific-content review is still necessary.
 
 Never use it to mark an uncompleted or actively encoding lecture as complete. It cannot create an MP4 or approve a failed generation.
+
+## Three-PC Stage 5 acceptance — verified 12 October 2026
+
+The utility was executed first in read-only mode, then explicitly applied against three **local acceptance copies** of original Serway subchapter PDFs, not production Google Drive teaching directories. All inputs, figures, slides, narration, WAVs and MP4s had been generated with Gemini Flash by the earlier fully executed pipelines. After each repair, a separate repeat invocation reported `already_certified`, and both `slide_narration_sync.verify` and `cleanup.completed_lecture` returned success.
+
+| PC | Serway subchapter | Slides/WAVs | Final MP4 | Structural proof | Post-repair |
+|---|---|---:|---:|---|---|
+| Dell-115 | 8.2 | 23 | 1,522.84 s | SHA-256 bound | PASS |
+| HP | 9.9 | 13 | 783.56 s | SHA-256 bound | PASS |
+| Yoga6 | 13.6 | 15 | 886.40 s | SHA-256 bound | PASS |
+
+Each old completion receipt was backed up in `.history/sync_reconcile_<timestamp>/previous_completion.json`. Original media hashes were unchanged, while each new completion receipt now includes a distinct `structural_sync_sha256`. The verifier refuses any later changed or removed synchronization proof, or altered slide/script/WAV content. Dell-115 and Yoga6 isolated checkouts each passed 269 offline tests with nine non-blocking warnings. Scientific figure selection and pedagogical suitability remain distinct content-QA tasks.
