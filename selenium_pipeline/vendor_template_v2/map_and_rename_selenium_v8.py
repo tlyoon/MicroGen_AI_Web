@@ -1791,6 +1791,15 @@ def run_mapping(
                         if step.backend is CommunicationBackend.SELENIUM and not client_started:
                             client = gemsel.GeminiSeleniumClient(scfg)
                             client.start(ensure_gemini_on_launch=True)
+                            # In fallback mode the runner intentionally does
+                            # not eagerly attach Chrome. Verify the requested
+                            # Flash model *here*, or reject this Selenium
+                            # attempt rather than sending to the wrong model.
+                            from selenium_pipeline.gemini_model import ensure_mode
+                            ensure_mode(
+                                scfg.debug_port,
+                                os.getenv("MICROGEN_GEMINI_UI_MODE", "flash"),
+                            )
                             client_started = True
                         log(f"[transport] page={idx} backend={backend} attempt={step.number}")
                         _mapping_txt, new_pngs = map_and_rename_single_step(
