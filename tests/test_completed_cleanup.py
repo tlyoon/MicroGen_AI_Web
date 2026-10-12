@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -20,6 +21,11 @@ class CompletedCleanupTests(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name)
+        # Unit tests must not contend with a real Gemini worker currently
+        # holding the user's production browser lock on the same Windows PC.
+        self.local_env = patch.dict(os.environ, {"LOCALAPPDATA": str(self.root / "isolated-localappdata")})
+        self.local_env.start()
+        self.addCleanup(self.local_env.stop)
         self.folder = self.root / "8" / "8.1"
         self.folder.mkdir(parents=True)
         self.source = self.folder / "source.pdf"
