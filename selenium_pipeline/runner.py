@@ -61,9 +61,11 @@ STAGES = ("figures", "slides", "narration", "script_qa", "tts", "tts_qa", "video
 CHROME_STAGES = {"figures", "slides", "narration"}
 
 def _needs_browser(stage: str) -> bool:
-    """Figure API mapping never touches Gemini Chrome; other Gemini stages do."""
+    """API figure and slide transports do not need a Chrome session."""
     if stage == "figures":
         return os.getenv("MICROGEN_FIGURE_MAPPING_BACKEND", "api").strip().lower() == "browser"
+    if stage == "slides":
+        return os.getenv("MICROGEN_SLIDES_BACKEND", "browser").strip().lower() != "api"
     return stage in CHROME_STAGES
 
 SCRIPTS = {
@@ -606,10 +608,13 @@ def _execute_unlocked(s: Settings) -> Path:
         "MICROGEN_PACKAGE_ROOT": str(REPO),
         "MICROGEN_FIGURE_MAPPING_BACKEND": os.getenv(
             "MICROGEN_FIGURE_MAPPING_BACKEND", "api").strip().lower(),
+        "MICROGEN_SLIDES_BACKEND": os.getenv(
+            "MICROGEN_SLIDES_BACKEND", "browser").strip().lower(),
     })
-    if "figures" in planned and not _needs_browser("figures"):
-        # Docling environments often lack google-genai; use the independently
-        # validated Gemini/TTS Python for a bounded figure API child process.
+    if (("figures" in planned and not _needs_browser("figures"))
+            or ("slides" in planned and not _needs_browser("slides"))):
+        # Docling environments often lack google-genai. Use the independent
+        # Gemini/TTS interpreter for bounded API figure or slide requests.
         env["MICROGEN_TTS_PYTHON"] = tts_python_executable()
     changed_upstream = False
     for stage in planned:
