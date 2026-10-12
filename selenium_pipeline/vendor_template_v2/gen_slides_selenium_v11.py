@@ -1051,6 +1051,46 @@ def send_prompt_and_capture_transport_block(
     return ""
 
 
+def request_slides_api_once(
+    instruction_text: str,
+    pdf_path: Path,
+    prompt_path: Path,
+    png_json_path: Path,
+    response_path: Path,
+) -> str:
+    """Invoke SDK-capable Python; API responses still face Beamer sanity QA."""
+    package_root = Path(os.environ.get("MICROGEN_PACKAGE_ROOT", "")).expanduser()
+    sdk_python = Path(os.getenv("MICROGEN_TTS_PYTHON", "")).expanduser()
+    if not (package_root / "selenium_pipeline" / "slides_api.py").is_file():
+        raise RuntimeError("Slide API helper unavailable under MICROGEN_PACKAGE_ROOT")
+    if not sdk_python.is_file():
+        raise RuntimeError("Slide API requires validated MICROGEN_TTS_PYTHON")
+    instruction_file = response_path.with_suffix(".instruction.txt")
+    instruction_file.write_text(instruction_text, encoding="utf-8")
+    response_path.unlink(missing_ok=True)
+    cmd = [
+        str(sdk_python), "-m", "selenium_pipeline.slides_api",
+        "--source", str(pdf_path.resolve()),
+        "--prompt", str(prompt_path.resolve()),
+        "--dimensions", str(png_json_path.resolve()),
+        "--instruction-file", str(instruction_file),
+        "--output", str(response_path),
+        "--model", os.getenv("MICROGEN_LLM_MODEL", "gemini-3.8-flash"),
+    ]
+    env = os.environ.copy()
+    env.setdefault("MICROGEN_GEMINI_MAX_RETRIES", "1")
+    task = subprocess.run(
+        cmd, cwd=str(package_root), env=env,
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+        timeout=max(30, int(env.get("MICROGEN_SLIDES_API_TIMEOUT_SECONDS", "480"))),
+        check=False,
+    )
+    log(f"[slides-api] exit={task.returncode} " + (task.stdout or "")[-1800:])
+    if task.returncode or not response_path.is_file():
+        raise RuntimeError("Slides API transport did not produce a raw reply")
+    return response_path.read_text(encoding="utf-8")
+
+
 def generate_slides_tex(
     client: "gemsel.GeminiSeleniumClient",
     pdf_path: Path,
@@ -1058,6 +1098,9 @@ def generate_slides_tex(
     png_json_path: Path,
     out_tex: Path,
     wait_cap: int,
+    *,
+    response_provider=None,
+    communication_plan=None,
 ) -> Path:
     """
     Robust generation:
@@ -1073,13 +1116,17 @@ def generate_slides_tex(
     #for attempt in range(1, 4):
     #    log(f"Slides generation attempt {attempt}/3", "INFO")
 
-    max_attempts = int(os.getenv("SLIDES_MAX_ATTEMPTS", "6"))
+    max_attempts = (
+        len(communication_plan) if communication_plan is not None
+        else int(os.getenv("SLIDES_MAX_ATTEMPTS", "6"))
+    )
     
     for attempt in range(1, max_attempts + 1):
         log(f"Slides generation attempt {attempt}/{max_attempts}", "INFO")        
               
-        client.open_clean_gemini_chat()
-        client.upload_files([pdf_path, prompt_path, png_json_path])
+        if response_provider is None:
+            client.open_clean_gemini_chat()
+            client.upload_files([pdf_path, prompt_path, png_json_path])
 
         instruction = (
             f"Please read the attached file '{prompt_path.name}' and execute the instructions EXACTLY as written. "
@@ -1107,11 +1154,21 @@ def generate_slides_tex(
         )
         
         ###
-        response_text = send_prompt_and_capture_transport_block(
-            client=client,
-            instruction_text=instruction,
-            wait_cap=wait_cap,
-        )
+        try:
+            if response_provider is None:
+                response_text = send_prompt_and_capture_transport_block(
+                    client=client, instruction_text=instruction, wait_cap=wait_cap,
+                )
+            else:
+                backend = communication_plan[attempt - 1].backend.value
+                log(f"[slides-transport] attempt={attempt}/{max_attempts} backend={backend}")
+                response_text = response_provider(backend, instruction)
+        except Exception as exc:
+            if isinstance(exc, (FileNotFoundError, PermissionError, ValueError)):
+                raise
+            log(f"[slides-transport] attempt {attempt}: "
+                f"{type(exc).__name__}; no response accepted", "WARN")
+            continue
         
         raw_attempt_path = out_tex.with_name(f"slides_attempt_{attempt}_raw.txt")
         raw_attempt_path.write_text(response_text or "", encoding="utf-8", newline="\n")
@@ -1303,26 +1360,61 @@ def main() -> int:
         force_kill_chrome_to_free_port=(os.getenv("SAFE_CHROME", "0") != "1"),
     )
 
-    client = gemsel.GeminiSeleniumClient(cfg)
+    package_root = Path(os.getenv("MICROGEN_PACKAGE_ROOT", "")).expanduser()
+    if not (package_root / "selenium_pipeline" / "communication_policy.py").is_file():
+        package_root = Path(__file__).resolve().parents[2]
+    if str(package_root) not in sys.path:
+        sys.path.insert(0, str(package_root))
+    from selenium_pipeline.communication_policy import policy_from_configuration
+
+    policy = policy_from_configuration(
+        selenium_attempts=int(os.getenv("MICROGEN_SELENIUM_ATTEMPTS", "3")),
+        api_attempts=int(os.getenv("MICROGEN_API_ATTEMPTS", "2")),
+    )
+    log(f"[slides-transport] mode={policy.mode.value}", "INFO")
+    client = None
+
+    def request_backend(backend: str, instruction: str) -> str:
+        nonlocal client
+        if backend == "api":
+            return request_slides_api_once(
+                instruction, pdf_path, rendered_prompt_path, png_json_path,
+                out_tex.with_name("slides_api_transport_response.txt"),
+            )
+        if backend != "selenium":
+            raise ValueError(f"Unsupported slides communication backend: {backend}")
+        if client is None:
+            fresh = gemsel.GeminiSeleniumClient(cfg)
+            try:
+                fresh.start(ensure_gemini_on_launch=True)
+                from selenium_pipeline.gemini_model import ensure_mode
+                ensure_mode(cfg.debug_port, os.getenv("MICROGEN_GEMINI_UI_MODE", "flash"))
+            except Exception:
+                try:
+                    fresh.shutdown()
+                except Exception:
+                    pass
+                raise
+            client = fresh
+        client.open_clean_gemini_chat()
+        client.upload_files([pdf_path, rendered_prompt_path, png_json_path])
+        return send_prompt_and_capture_transport_block(
+            client=client, instruction_text=instruction, wait_cap=wait_cap,
+        )
 
     try:
-        log("Starting Gemini Selenium client...", "INFO")
-        client.start(ensure_gemini_on_launch=True)
         generate_slides_tex(
-            client=client,
-            pdf_path=pdf_path,
-            prompt_path=rendered_prompt_path,
-            png_json_path=png_json_path,
-            out_tex=out_tex,
-            wait_cap=wait_cap,
+            client=client, pdf_path=pdf_path, prompt_path=rendered_prompt_path,
+            png_json_path=png_json_path, out_tex=out_tex, wait_cap=wait_cap,
+            response_provider=request_backend, communication_plan=policy.plan("slides"),
         )
     finally:
-        try:
-            client.shutdown()
-            #pass
-        except Exception:
-            pass
-        log("Selenium session is done.", "INFO")
+        if client is not None:
+            try:
+                client.shutdown()
+            except Exception:
+                pass
+        log("Slide transport session finished.", "INFO")
 
     time.sleep(1.0)
     log("Compiling latex (pre-check) ...", "INFO")
@@ -1356,13 +1448,5 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    
-    ##
-    SCRIPT_1 = "launch_gemini_chrome.py"
-    script_path = Path(__file__).resolve().with_name(SCRIPT_1)
-    result = subprocess.run(
-        [sys.executable, str(script_path)],
-        check=True
-    )
-    ##
+    # Do not open Chrome in pure API mode; the central mode controls transport.
     raise SystemExit(main())
