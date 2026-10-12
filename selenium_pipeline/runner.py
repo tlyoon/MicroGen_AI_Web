@@ -10,6 +10,7 @@ import hashlib
 import json
 import os
 import re
+import signal
 import shutil
 import subprocess
 import sys
@@ -322,9 +323,39 @@ def hydrate_video_only_inputs(source: Path, workspace: Path) -> None:
         raise FileNotFoundError("Video-only restart requires published slideN.wav files")
 
 
+def _terminate_child(proc: subprocess.Popen, *, whole_tree: bool = False) -> None:
+    """Never leave an FFmpeg grandchild encoding after the parent times out.
+
+    Only the explicitly launched video-stage process tree is terminated. Other
+    Chrome processes, workers and lectures are not targeted.
+    """
+    if proc.poll() is not None:
+        return
+    if whole_tree and os.name == "nt":
+        # Windows terminate() only kills the immediate Python child. Its FFmpeg
+        # process otherwise survives and burns CPU for hours (observed on HP).
+        try:
+            subprocess.run(["taskkill", "/PID", str(proc.pid), "/T", "/F"],
+                           capture_output=True, check=False, timeout=20)
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+    elif whole_tree:
+        try:
+            os.killpg(proc.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+    else:
+        proc.terminate()
+    try:
+        proc.wait(timeout=10)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.wait(timeout=10)
+
+
 def run_cmd(command: list[str], cwd: Path, log_path: Path, env: dict[str, str],
-            timeout_s: int = 3600) -> None:
-    """Stream progress without allowing a silent Selenium child to hang forever."""
+            timeout_s: int = 3600, *, kill_tree_on_timeout: bool = False) -> None:
+    """Stream progress with a hard cap and scoped video-stage tree cleanup."""
     from queue import Empty, Queue
     from threading import Thread
     stream: Queue[str] = Queue()
@@ -333,7 +364,8 @@ def run_cmd(command: list[str], cwd: Path, log_path: Path, env: dict[str, str],
         logfile.flush()
         with subprocess.Popen(command, cwd=str(cwd), env=env, stdout=subprocess.PIPE,
                               stderr=subprocess.STDOUT, encoding="utf-8", errors="replace",
-                              text=True, bufsize=1) as proc:
+                              text=True, bufsize=1,
+                              start_new_session=kill_tree_on_timeout and os.name != "nt") as proc:
             assert proc.stdout is not None
             def drain() -> None:
                 for line in proc.stdout:
@@ -350,11 +382,7 @@ def run_cmd(command: list[str], cwd: Path, log_path: Path, env: dict[str, str],
                 except Empty:
                     pass
                 if time.monotonic() - started > timeout_s:
-                    proc.terminate()  # Only the child, never all Chrome windows.
-                    try:
-                        proc.wait(timeout=10)
-                    except subprocess.TimeoutExpired:
-                        proc.kill()
+                    _terminate_child(proc, whole_tree=kill_tree_on_timeout)
                     raise TimeoutError(f"Stage timed out after {timeout_s}s; see {log_path}")
                 if proc.poll() is not None and not worker.is_alive() and stream.empty():
                     break
@@ -696,7 +724,9 @@ def _execute_unlocked(s: Settings) -> Path:
                     run_cmd([
                         stage_python, str(REPO / "selenium_pipeline" / "video_ffmpeg.py"),
                         "--folder", str(folder),
-                    ], folder, log_file, env)
+                    ], folder, log_file, env,
+                        timeout_s=int(os.getenv("MICROGEN_VIDEO_STAGE_TIMEOUT_SECONDS", "3600")),
+                        kill_tree_on_timeout=True)
             if not check_valid(stage, folder):
                 raise RuntimeError(f"Validation failed at {stage}; see {log_file}")
             if stage == "tts_qa":
