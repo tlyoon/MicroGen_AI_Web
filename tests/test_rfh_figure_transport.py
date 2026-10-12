@@ -202,3 +202,40 @@ def test_old_per_stage_api_override_cannot_force_api_under_selenium(monkeypatch)
         assert calls == ["browser"]
     finally:
         shutil.rmtree(tmp_path, ignore_errors=True)
+
+
+def test_chrome_startup_failure_is_bounded_and_can_use_api_fallback(tmp_path, monkeypatch):
+    monkeypatch.setenv("MICROGEN_COMMUNICATION_MODE", "fallback")
+    monkeypatch.setattr(FakeChrome, "start",
+                        lambda self, **kwargs: (_ for _ in ()).throw(
+                            RuntimeError("Chrome port / authenticated session unavailable")))
+    backends = []
+
+    def mapper(client, page, folder, **kwargs):
+        backends.append(kwargs["backend_override"])
+        assert kwargs["backend_override"] == "api"
+        return page.with_name("verified.txt"), []
+
+    run, clients, crops = make_runner(tmp_path, monkeypatch, mapper)
+    run("pages", "crops", 1, 1, 30, False, False)
+    assert len(clients) == 3
+    assert all(client.shutdown_calls == 1 for client in clients)
+    assert backends == ["api"]
+    import json
+    statuses = json.loads((crops / "gemini_transport_attempts.json").read_text())
+    assert [item["status"] for item in statuses["attempts"]] == [
+        "rejected", "rejected", "rejected", "validated"
+    ]
+
+
+def test_invalid_mode_fails_before_gemini_or_file_processing(tmp_path, monkeypatch):
+    monkeypatch.setenv("MICROGEN_COMMUNICATION_MODE", "hybrid")
+    calls = []
+    run, clients, crop = make_runner(
+        tmp_path, monkeypatch,
+        lambda *args, **kwargs: calls.append(1)
+    )
+    with pytest.raises(ValueError, match="must be selenium, api, or fallback"):
+        run("pages", "crops", 1, 1, 30, False, False)
+    assert not calls and not clients
+    assert not (crop / "gemini_transport_attempts.json").exists()
