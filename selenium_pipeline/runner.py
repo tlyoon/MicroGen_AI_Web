@@ -59,6 +59,13 @@ if DEFAULT_BROWSER_UI_MODE not in {"flash", "pro"}:
 
 STAGES = ("figures", "slides", "narration", "script_qa", "tts", "tts_qa", "video")
 CHROME_STAGES = {"figures", "slides", "narration"}
+
+def _needs_browser(stage: str) -> bool:
+    """Figure API mapping never touches Gemini Chrome; other Gemini stages do."""
+    if stage == "figures":
+        return os.getenv("MICROGEN_FIGURE_MAPPING_BACKEND", "api").strip().lower() == "browser"
+    return stage in CHROME_STAGES
+
 SCRIPTS = {
     "figures": ("crop_figs_v3.py", "map_and_rename_selenium_v8.py", "merge_lettered_figs_v3.py"),
     "slides": ("gen_slides_selenium_v11.py",),
@@ -485,7 +492,7 @@ def execute(s: Settings) -> Path:
     process exit; a crash cannot leave a permanently owned lock.
     """
     first, last = STAGES.index(s.from_stage), STAGES.index(s.through_stage)
-    uses_gemini = any(stage in CHROME_STAGES for stage in STAGES[first:last+1])
+    uses_gemini = any(_needs_browser(stage) for stage in STAGES[first:last+1])
     if s.dry_run or not uses_gemini:
         return _execute_unlocked(s)
     from .three_pc_worker import LocalInstanceLock
@@ -546,7 +553,7 @@ def _execute_unlocked(s: Settings) -> Path:
     # Check the independently configured PDF root and this subchapter before
     # launching Chrome or consuming paid model/API calls.
     verify_source_tree(s.source_root, source)
-    if any(x in CHROME_STAGES for x in planned):
+    if any(_needs_browser(x) for x in planned):
         from .launch_gemini import launch
         requested_port = s.chrome_port
         # Keep 9222 for the normal persistent account. If alternate mode is
@@ -573,7 +580,7 @@ def _execute_unlocked(s: Settings) -> Path:
         "caption_benchmark": CAPTION_BENCHMARK_MODEL,
         "slides": DEFAULT_SLIDE_MODEL,
         "narration": DEFAULT_NARRATION_MODEL,
-        "ui_selection_verified_automatically": any(x in CHROME_STAGES for x in planned),
+        "ui_selection_verified_automatically": any(_needs_browser(x) for x in planned),
         "tts": s.tts_model,
         "tts_provider": s.tts_provider,
         "tts_qa": s.tts_qa_model,
@@ -596,7 +603,14 @@ def _execute_unlocked(s: Settings) -> Path:
         # validated pipeline environment (notably decorator 5.x breaking
         # MoviePy 1.0.3's fps wrapper on Dell-115).
         "PYTHONNOUSERSITE": "1",
+        "MICROGEN_PACKAGE_ROOT": str(REPO),
+        "MICROGEN_FIGURE_MAPPING_BACKEND": os.getenv(
+            "MICROGEN_FIGURE_MAPPING_BACKEND", "api").strip().lower(),
     })
+    if "figures" in planned and not _needs_browser("figures"):
+        # Docling environments often lack google-genai; use the independently
+        # validated Gemini/TTS Python for a bounded figure API child process.
+        env["MICROGEN_TTS_PYTHON"] = tts_python_executable()
     changed_upstream = False
     for stage in planned:
         # A successful PDF compile can silently skip missing IfFileExists
@@ -638,7 +652,7 @@ def _execute_unlocked(s: Settings) -> Path:
         save_pipeline_state(stamp, state)
         log_file = folder / f"microgen_{stage}.log"
         try:
-            if stage in CHROME_STAGES:
+            if _needs_browser(stage):
                 from .gemini_model import ensure_mode
                 print(f"[microgen] {stage} Gemini mode: {ensure_mode(s.chrome_port, DEFAULT_BROWSER_UI_MODE)}")
             if stage not in {"tts", "video"}:
