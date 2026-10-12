@@ -51,7 +51,7 @@ OUTPUT_NAMES = {
     "narration": ("script.txt", "script_tts.json"),
     "script_qa": ("script_risk_report.json", "script_risk_report.md"),
     "tts": ("script_tts.json",),
-    "tts_qa": ("tts_fidelity_report.json", "tts_fidelity_report.md"),
+    "tts_qa": ("tts_fidelity_report.json", "tts_fidelity_report.md", "slide_narration_sync.json"),
     "video": ("slides.mp4",),
 }
 OUTPUT_GLOBS = {
