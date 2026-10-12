@@ -61,18 +61,28 @@ STAGES = ("figures", "slides", "narration", "script_qa", "tts", "tts_qa", "video
 CHROME_STAGES = {"figures", "slides", "narration"}
 
 def _needs_browser(stage: str) -> bool:
-    """Figure API mapping never touches Gemini Chrome; other Gemini stages do."""
+    """Whether this stage needs an eager, prevalidated browser session.
+
+    Figure fallback initializes Selenium on the first request rather than
+    eagerly here: an unavailable Chrome must be a bounded Selenium failure,
+    not prevent a valid API fallback from being attempted.
+    """
     if stage == "figures":
-        return os.getenv("MICROGEN_FIGURE_MAPPING_BACKEND", "api").strip().lower() == "browser"
+        from .communication_policy import CommunicationMode, resolve_mode
+        return resolve_mode() is CommunicationMode.SELENIUM
     if stage == "narration":
         return os.getenv("MICROGEN_NARRATION_BACKEND", "api").strip().lower() == "ui"
     return stage in CHROME_STAGES
 
 
 def _needs_api_python_for_stages(planned: list[str]) -> bool:
-    """Expose the Gemini SDK-capable Python for both API figure and narration stages."""
-    return any(stage in planned and not _needs_browser(stage)
-               for stage in ("figures", "narration"))
+    """Include potential API fallback even when Selenium is primary."""
+    from .communication_policy import CommunicationMode, resolve_mode
+    figures_api = "figures" in planned and resolve_mode() in {
+        CommunicationMode.API, CommunicationMode.FALLBACK
+    }
+    narration_api = "narration" in planned and not _needs_browser("narration")
+    return figures_api or narration_api
 
 
 SCRIPTS = {
@@ -613,6 +623,10 @@ def _execute_unlocked(s: Settings) -> Path:
         # MoviePy 1.0.3's fps wrapper on Dell-115).
         "PYTHONNOUSERSITE": "1",
         "MICROGEN_PACKAGE_ROOT": str(REPO),
+        "MICROGEN_COMMUNICATION_MODE": os.getenv(
+            "MICROGEN_COMMUNICATION_MODE", "selenium").strip().lower(),
+        # Legacy adapter setting is deliberately subordinate to the central
+        # communication mode in the figure mapper.
         "MICROGEN_FIGURE_MAPPING_BACKEND": os.getenv(
             "MICROGEN_FIGURE_MAPPING_BACKEND", "api").strip().lower(),
         # Gemini Flash API is the default narration transport: no Chrome
