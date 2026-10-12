@@ -72,7 +72,7 @@ class VideoAssemblyTests(unittest.TestCase):
             hydrate_video_only_inputs(source, workspace)
 
     def test_old_moviepy_script_no_longer_invoked(self):
-        self.assertEqual(runner.SCRIPTS["video"], ("slice_pdf.py",))
+        self.assertEqual(runner.SCRIPTS["video"], ())  # maintained splitter runs as a module
 
     def test_bad_output_name_rejected(self):
         self.pair(1)

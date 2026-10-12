@@ -63,7 +63,7 @@ SCRIPTS = {
     "figures": ("crop_figs_v3.py", "map_and_rename_selenium_v8.py", "merge_lettered_figs_v3.py"),
     "slides": ("gen_slides_selenium_v11.py",),
     "narration": ("gen_script_selenium_v15.py",),
-    "video": ("slice_pdf.py",),  # FFmpeg assembler invoked separately below
+    "video": (),  # maintained local-disk slide splitter invoked below
 }
 RESOURCE_FILES = ("beamerthemeGelugor.sty", "usmlg.jpg", "usmemb.jpg", "logotype.jpg")
 OUTPUTS = {
@@ -718,6 +718,14 @@ def _execute_unlocked(s: Settings) -> Path:
                         raise FileNotFoundError(f"Missing reference entrypoint: {script}")
                     run_cmd([stage_python, script], folder, log_file, env)
                 if stage == "video":
+                    # Stage split PDFs locally before publishing; vendor
+                    # slice_pdf.py writes directly to cloud drives and can stall.
+                    run_cmd([
+                        stage_python, "-m", "selenium_pipeline.slide_pdf_split",
+                        "--folder", str(folder),
+                    ], folder, log_file, env,
+                        timeout_s=int(os.getenv("MICROGEN_SLIDE_SPLIT_TIMEOUT_SECONDS", "900")),
+                        kill_tree_on_timeout=True)
                     # Use the maintained FFmpeg assembler, NOT the old MoviePy
                     # gen_video.py (which can pass fps=None through decorator
                     # wrappers and fail after long audio generation).

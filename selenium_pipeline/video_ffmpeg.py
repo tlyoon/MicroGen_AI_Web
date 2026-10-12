@@ -82,9 +82,9 @@ def run_ffmpeg(exe: str, args: list[str], *, step: str) -> str:
     a separate stall deadline. Neither error overwrites an existing MP4.
     """
     timeout = max(1.0, float(os.getenv("MICROGEN_FFMPEG_TIMEOUT_SECONDS", "1200")))
-    stall_limit = max(5.0, float(os.getenv("MICROGEN_FFMPEG_STALL_SECONDS", "300")))
+    stall_limit = max(5.0, float(os.getenv("MICROGEN_FFMPEG_STALL_SECONDS", "90")))
     command = [exe, "-hide_banner", "-nostdin", "-loglevel", "error",
-               "-stats_period", "5", "-progress", "pipe:1", *args]
+               "-progress", "pipe:1", *args]
     print(f"[video] FFmpeg starting {step} (hard={timeout:.0f}s, "
           f"no-progress={stall_limit:.0f}s)", flush=True)
     started = time.monotonic()
@@ -194,6 +194,29 @@ def _sha256(file: Path) -> str:
     return digest.hexdigest()
 
 
+def _verified_local_input(source: Path, target: Path, expected_sha256: str) -> Path:
+    """Stage one media input onto local storage, detecting stale/racing Drive sync.
+
+    Never allow an FFmpeg process to read an audio track directly from a
+    remote/cloud-mounted drive. Intermediate copies are never promoted unless
+    the bytes match the input hash captured for this segment.
+    """
+    # Reject a changed remote input even if an older local cached copy exists.
+    if _sha256(source) != expected_sha256:
+        raise RuntimeError(f"Input changed during local staging: {source}")
+    if target.is_file() and _sha256(target) == expected_sha256:
+        return target
+    partial = target.with_name(target.name + ".partial")
+    try:
+        shutil.copy2(source, partial)
+        if _sha256(partial) != expected_sha256:
+            raise RuntimeError(f"Input changed during local staging: {source}")
+        partial.replace(target)
+    finally:
+        partial.unlink(missing_ok=True)
+    return target
+
+
 def _segment_signature(pdf: Path, wav: Path, seconds: float,
                        fps: int, width: int, height: int) -> dict:
     """Changing a slide, voice, or encoding profile invalidates cached media."""
@@ -250,7 +273,13 @@ def assemble(folder: Path, *, output: str = "slides.mp4", fps: int = 2,
         if cached:
             print(f"[video] reused validated slide {number}/{len(entries)}", flush=True)
         else:
-            with fitz.open(str(pdf)) as document:
+            # Both the PDF renderer and FFmpeg read only local scratch files.
+            # A remote WAV input was the remaining cause of stalled encoders.
+            local_pdf = _verified_local_input(
+                pdf, cache / f"input{number}.pdf", identity["pdf_sha256"])
+            local_wav = _verified_local_input(
+                wav, cache / f"input{number}.wav", identity["wav_sha256"])
+            with fitz.open(str(local_pdf)) as document:
                 if document.page_count != 1:
                     raise ValueError(f"{pdf.name} must contain exactly one PDF page")
                 page = document[0]
@@ -262,10 +291,10 @@ def assemble(folder: Path, *, output: str = "slides.mp4", fps: int = 2,
             pending.unlink(missing_ok=True)
             run_ffmpeg(ffmpeg, [
                 "-y", "-loop", "1", "-framerate", str(fps),
-                "-i", str(frame), "-i", str(wav),
+                "-i", str(frame), "-i", str(local_wav),
                 "-filter:v", f"scale={width}:{height}:force_original_aspect_ratio=decrease,"
                              f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,format=yuv420p",
-                "-c:v", "libx264", "-preset", "veryfast", "-crf", "24",
+                "-c:v", "libx264", "-threads:v", "2", "-preset", "veryfast", "-crf", "24",
                 "-r", str(fps), "-c:a", "aac", "-b:a", "128k",
                 "-ar", "44100", "-ac", "2",
                 "-t", f"{seconds:.6f}",
@@ -300,9 +329,15 @@ def assemble(folder: Path, *, output: str = "slides.mp4", fps: int = 2,
         old_copy = archival / output
         shutil.copy2(dest, old_copy)
         print(f"[video] archived previous {output} at {old_copy}", flush=True)
-    staged = folder / ("." + output + ".pending")
-    shutil.copy2(candidate, staged)
-    staged.replace(dest)
+    # Only publish a fully-verified, hash-matched copy. Leave the old final
+    # video untouched if Google Drive becomes unavailable during publication.
+    staged = folder / ("." + output + f".pending.{os.getpid()}")
+    try:
+        _verified_local_input(candidate, staged, _sha256(candidate))
+        validate_video(ffmpeg, staged, total)
+        staged.replace(dest)
+    finally:
+        staged.unlink(missing_ok=True)
 
     # Cleanup is strictly nonfatal after publication. On failure, keep the
     # cache so a subsequent invocation can resume without re-encoding.
