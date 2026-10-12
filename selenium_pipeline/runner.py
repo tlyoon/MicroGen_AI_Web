@@ -67,7 +67,7 @@ def _needs_browser(stage: str) -> bool:
     eagerly here: an unavailable Chrome must be a bounded Selenium failure,
     not prevent a valid API fallback from being attempted.
     """
-    if stage == "figures":
+    if stage in {"figures", "slides"}:
         from .communication_policy import CommunicationMode, resolve_mode
         return resolve_mode() is CommunicationMode.SELENIUM
     if stage == "narration":
@@ -78,11 +78,11 @@ def _needs_browser(stage: str) -> bool:
 def _needs_api_python_for_stages(planned: list[str]) -> bool:
     """Include potential API fallback even when Selenium is primary."""
     from .communication_policy import CommunicationMode, resolve_mode
-    figures_api = "figures" in planned and resolve_mode() in {
-        CommunicationMode.API, CommunicationMode.FALLBACK
-    }
+    content_api = any(stage in planned for stage in ("figures", "slides")) and (
+        resolve_mode() in {CommunicationMode.API, CommunicationMode.FALLBACK}
+    )
     narration_api = "narration" in planned and not _needs_browser("narration")
-    return figures_api or narration_api
+    return content_api or narration_api
 
 
 SCRIPTS = {
