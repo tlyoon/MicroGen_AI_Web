@@ -49,6 +49,10 @@ def test_api_figure_backend_bypasses_browser(monkeypatch):
     monkeypatch.delenv("MICROGEN_FIGURE_MAPPING_BACKEND", raising=False)
     assert not _needs_browser("figures")
     assert _needs_browser("slides")
+    # Narration also defaults to the API in Stage 6; the UI remains opt-in.
+    monkeypatch.delenv("MICROGEN_NARRATION_BACKEND", raising=False)
+    assert not _needs_browser("narration")
+    monkeypatch.setenv("MICROGEN_NARRATION_BACKEND", "ui")
     assert _needs_browser("narration")
     monkeypatch.setenv("MICROGEN_FIGURE_MAPPING_BACKEND", "browser")
     assert _needs_browser("figures")
