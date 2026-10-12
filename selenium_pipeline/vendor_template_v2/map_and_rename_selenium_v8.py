@@ -1579,7 +1579,9 @@ def map_and_rename_single_step(
             f"after {response_attempts} attempt(s). Check {mapping_txt.name}.",
             "WARN",
         )
-        return mapping_txt, []
+        raise RuntimeError(
+            f"Unverified figure mapping for {page_png.name}; retained {mapping_txt.name}"
+        )
 
     # Keep only as many mappings as local crops available
     usable_count = min(len(parsed), len(fig_files))
@@ -1773,9 +1775,15 @@ def run_mapping(
 
             except Exception as e:
                 log(f"[ERROR] Failed to process page {idx}: {e}", "ERR")
-                continue
+                # A browser/UI failure invalidates this page's figure mapping
+                # and therefore all downstream slides and narration. Avoid
+                # burning time on later pages before repairing the root cause.
+                # Keep already-extracted figures and rejected response logs.
+                raise RuntimeError(
+                    f"Figure mapping halted at page {idx}; no completion claim"
+                ) from e
 
-        log("All mappings completed.")
+        log("All selected figure mappings completed with no exceptions.")
     finally:
         # Close the automation Chrome session launched by this run (and only that one)
         client.shutdown()
