@@ -30,7 +30,8 @@ jobs:
             tests.test_reliability_audit \
             tests.test_env_key_conflicts \
             tests.test_downstream_invalidation \
-            tests.test_dell_tts_deadlines
+            tests.test_dell_tts_deadlines \
+            tests.test_narration_retry_feedback
       - name: Syntax-check updated Python entry points
         run: |
           python -m py_compile \
