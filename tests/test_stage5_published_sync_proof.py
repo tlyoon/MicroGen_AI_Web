@@ -83,7 +83,7 @@ def test_missing_publication_proof_fails_verification(tmp_path):
 
 def test_runner_prevideo_verifies_published_proof(tmp_path):
     runner_path = Path(__file__).resolve().parents[1] / "selenium_pipeline" / "runner.py"
-    tree = ast.parse(runner_path.read_text(encoding="utf-8"))
+    tree = ast.parse(runner_path.read_text(encoding="utf-8-sig"))
     calls = [n for n in ast.walk(tree) if isinstance(n, ast.Call)
              and isinstance(n.func, ast.Name) and n.func.id == "verify"]
     assert any(ast.unparse(c) == "verify(source.parent)" for c in calls), (
