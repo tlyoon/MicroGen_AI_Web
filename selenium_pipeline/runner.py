@@ -76,6 +76,19 @@ def _needs_browser(stage: str) -> bool:
     return stage in CHROME_STAGES
 
 
+def _may_use_browser(stage: str) -> bool:
+    """Protect fallback Selenium attempts with the same local Chrome lock.
+
+    _needs_browser() controls *eager startup*; in fallback mode Chrome starts
+    only during a Selenium attempt. The local exclusion lock must still span
+    that possibility to prevent concurrent workers typing into the same tab.
+    """
+    if stage in {"figures", "slides", "narration"}:
+        from .communication_policy import CommunicationMode, resolve_mode
+        return resolve_mode() is not CommunicationMode.API
+    return False
+
+
 def _needs_api_python_for_stages(planned: list[str]) -> bool:
     """Include potential API fallback even when Selenium is primary."""
     from .communication_policy import CommunicationMode, resolve_mode
@@ -511,7 +524,7 @@ def execute(s: Settings) -> Path:
     process exit; a crash cannot leave a permanently owned lock.
     """
     first, last = STAGES.index(s.from_stage), STAGES.index(s.through_stage)
-    uses_gemini = any(_needs_browser(stage) for stage in STAGES[first:last+1])
+    uses_gemini = any(_may_use_browser(stage) for stage in STAGES[first:last+1])
     if s.dry_run or not uses_gemini:
         return _execute_unlocked(s)
     from .three_pc_worker import LocalInstanceLock
