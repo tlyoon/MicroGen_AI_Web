@@ -40,7 +40,10 @@ class GeminiOutputRetryPolicyTests(unittest.TestCase):
 
     def test_page_stall_retries_default_to_three(self):
         source = MAPPER.read_text(encoding="utf-8")
-        self.assertIn('GEMINI_PAGE_ATTEMPTS", "3"', source)
+        # Central Phase 1 policy replaces the old GEMINI_PAGE_ATTEMPTS loop.
+        self.assertIn('MICROGEN_SELENIUM_ATTEMPTS", "3"', source)
+        self.assertIn('policy.plan("figures")', source)
+        self.assertIn('single_attempt=True', source)
 
     def test_mapping_stall_window_does_not_preempt_normal_slow_response(self):
         source = MAPPER.read_text(encoding="utf-8")

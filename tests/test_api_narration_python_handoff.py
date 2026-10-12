@@ -12,11 +12,11 @@ class ApiPythonStageTests(unittest.TestCase):
             self.assertTrue(runner._needs_api_python_for_stages(
                 ["narration","script_qa","tts","tts_qa","video"]))
     def test_figures_only_api_requires_sdk_python(self):
-        with patch.dict("os.environ", {"MICROGEN_FIGURE_MAPPING_BACKEND":"api"}, clear=False):
+        with patch.dict("os.environ", {"MICROGEN_COMMUNICATION_MODE":"api"}, clear=False):
             self.assertTrue(runner._needs_api_python_for_stages(["figures"]))
     def test_ui_stages_do_not_use_sdk_python(self):
         with patch.dict("os.environ", {"MICROGEN_NARRATION_BACKEND":"ui",
-                                       "MICROGEN_FIGURE_MAPPING_BACKEND":"browser"}, clear=False):
+                                       "MICROGEN_COMMUNICATION_MODE":"selenium"}, clear=False):
             self.assertFalse(runner._needs_api_python_for_stages(["figures","narration"]))
             self.assertFalse(runner._needs_api_python_for_stages(["slides"]))
     def test_runner_applies_helper_to_child_env(self):

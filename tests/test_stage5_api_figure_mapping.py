@@ -46,16 +46,21 @@ def test_api_mapping_never_claims_validity_without_crops():
 
 
 def test_api_figure_backend_bypasses_browser(monkeypatch):
-    monkeypatch.delenv("MICROGEN_FIGURE_MAPPING_BACKEND", raising=False)
-    assert not _needs_browser("figures")
+    # Selenium is the new Phase 1 default; API-only must not touch Chrome.
+    monkeypatch.delenv("MICROGEN_COMMUNICATION_MODE", raising=False)
+    assert _needs_browser("figures")
     assert _needs_browser("slides")
-    # Narration also defaults to the API in Stage 6; the UI remains opt-in.
+    monkeypatch.setenv("MICROGEN_COMMUNICATION_MODE", "api")
+    assert not _needs_browser("figures")
+    monkeypatch.setenv("MICROGEN_COMMUNICATION_MODE", "fallback")
+    assert not _needs_browser("figures")  # lazy browser initialization
     monkeypatch.delenv("MICROGEN_NARRATION_BACKEND", raising=False)
     assert not _needs_browser("narration")
     monkeypatch.setenv("MICROGEN_NARRATION_BACKEND", "ui")
     assert _needs_browser("narration")
-    monkeypatch.setenv("MICROGEN_FIGURE_MAPPING_BACKEND", "browser")
-    assert _needs_browser("figures")
+    monkeypatch.setenv("MICROGEN_COMMUNICATION_MODE", "selenium")
+    monkeypatch.setenv("MICROGEN_FIGURE_MAPPING_BACKEND", "api")
+    assert _needs_browser("figures")  # old per-stage backend cannot force API
 
 
 def test_api_mapping_normalizes_mathematical_figure_filenames():

@@ -1445,7 +1445,9 @@ def map_and_rename_single_step(
     page_png: Path,
     crops_dir: Path,
     wait_cap: int,
-    upload_only_crops: bool = False
+    upload_only_crops: bool = False,
+    backend_override: str | None = None,
+    single_attempt: bool = False,
 ) -> tuple[Optional[Path], list[Path]]:
     """
     Returns: (mapping_txt_path_or_None, mapped_outputs_in_crops_dir)
@@ -1463,9 +1465,12 @@ def map_and_rename_single_step(
         log(f"No crops found in {crops_dir}; skipping mapping for {page_png.name}.", "WARN")
         return None, []
 
-    backend = os.getenv("MICROGEN_FIGURE_MAPPING_BACKEND", "api").strip().lower()
-    if backend not in {"api", "browser"}:
-        raise ValueError("MICROGEN_FIGURE_MAPPING_BACKEND must be api or browser")
+    backend = (
+        backend_override if backend_override is not None
+        else os.getenv("MICROGEN_FIGURE_MAPPING_BACKEND", "browser")
+    ).strip().lower()
+    if backend not in {"api", "browser", "selenium"}:
+        raise ValueError("Figure backend must be api or selenium/browser")
     if backend == "api":
         package_root = Path(os.getenv("MICROGEN_PACKAGE_ROOT", "")).expanduser()
         entry = package_root / "selenium_pipeline" / "figure_mapping_api.py"
@@ -1555,7 +1560,10 @@ def map_and_rename_single_step(
             "The left-hand filename may be any attachment name, and will be ignored by the script.\n"
         )
 
-        response_attempts = max(1, int(os.getenv("GEMINI_OUTPUT_ATTEMPTS", "3")))
+        # Managed three-mode requests have their own explicit retry budget.
+        # Do not multiply their attempts by this older nested prompt loop.
+        response_attempts = (1 if single_attempt else
+                             max(1, int(os.getenv("GEMINI_OUTPUT_ATTEMPTS", "3"))))
         parsed: List[Tuple[str, str, str]] = []
         txt = ""
 
@@ -1722,14 +1730,22 @@ def run_mapping(
         use_persistent_chrome=CFG.use_persistent_chrome,
         force_kill_chrome_to_free_port=CFG.force_kill_chrome_to_free_port,
     )
-    backend = os.getenv("MICROGEN_FIGURE_MAPPING_BACKEND", "api").strip().lower()
-    if backend not in {"api", "browser"}:
-        raise ValueError("MICROGEN_FIGURE_MAPPING_BACKEND must be api or browser")
-    client = gemsel.GeminiSeleniumClient(scfg) if backend == "browser" else None
-
-    # The API-only caption pathway does not need a browser or a user chat.
-    if client is not None:
-        client.start(ensure_gemini_on_launch=True)
+    # Common mode contract: Selenium is the default. Stage-level legacy
+    # variables must not override the requested mode, including fallback.
+    package_root = Path(os.getenv("MICROGEN_PACKAGE_ROOT", "")).expanduser()
+    if not (package_root / "selenium_pipeline" / "communication_policy.py").is_file():
+        package_root = Path(__file__).resolve().parents[2]
+    if str(package_root) not in sys.path:
+        sys.path.insert(0, str(package_root))
+    from selenium_pipeline.communication_policy import policy_from_configuration
+    policy = policy_from_configuration(
+        selenium_attempts=int(os.getenv("MICROGEN_SELENIUM_ATTEMPTS", "3")),
+        api_attempts=int(os.getenv("MICROGEN_API_ATTEMPTS", "2")),
+    )
+    log(f"[transport] figures mode={policy.mode.value}; "
+        f"selenium_budget={policy.selenium_attempts}; api_budget={policy.api_attempts}")
+    client = None
+    client_started = False
 
     try:
         page_dirs = sorted(pages_root.glob("page_*"), key=lambda p: natural_sort_key(p.name))
@@ -1763,38 +1779,83 @@ def run_mapping(
             try:
                 _mapping_txt = None
                 new_pngs = []
-                page_attempts = max(1, int(os.getenv("GEMINI_PAGE_ATTEMPTS", "3")))
-                for page_attempt in range(1, page_attempts + 1):
+                from selenium_pipeline.communication_policy import CommunicationBackend
+                attempts = policy.plan("figures")
+                attempt_trace = []
+                final_error = None
+                for step in attempts:
+                    backend = step.backend.value
                     try:
-                        if page_attempt > 1:
-                            log(
-                                f"[RETRY] Re-running page {idx} in a fresh Gemini chat "
-                                f"(attempt {page_attempt}/{page_attempts}).",
-                                "WARN",
+                        # In pure API mode never attach to Chrome; in fallback
+                        # start a browser only on the Selenium attempts.
+                        if step.backend is CommunicationBackend.SELENIUM and not client_started:
+                            client = gemsel.GeminiSeleniumClient(scfg)
+                            client.start(ensure_gemini_on_launch=True)
+                            # In fallback mode the runner intentionally does
+                            # not eagerly attach Chrome. Verify the requested
+                            # Flash model *here*, or reject this Selenium
+                            # attempt rather than sending to the wrong model.
+                            from selenium_pipeline.gemini_model import ensure_mode
+                            ensure_mode(
+                                scfg.debug_port,
+                                os.getenv("MICROGEN_GEMINI_UI_MODE", "flash"),
                             )
+                            client_started = True
+                        log(f"[transport] page={idx} backend={backend} attempt={step.number}")
                         _mapping_txt, new_pngs = map_and_rename_single_step(
-                            client, page_png, crops_dir_i,
-                            wait_cap=wait_cap,
+                            client, page_png, crops_dir_i, wait_cap=wait_cap,
                             upload_only_crops=upload_only_crops,
+                            backend_override=("browser" if backend == "selenium" else "api"),
+                            single_attempt=True,
                         )
+                        attempt_trace.append({"backend": backend, "attempt": step.number,
+                                              "status": "validated"})
+                        final_error = None
                         break
-                    except GeminiGenerationStalled as e:
-                        log(
-                            f"[STALL] Page {idx} attempt {page_attempt}/{page_attempts}: {e}",
-                            "WARN",
-                        )
-                        try:
-                            stopped = stop_generation_if_present(client)
-                            log(
-                                f"[STALL] Stop response requested before reset: stopped={stopped}",
-                                "WARN",
-                            )
-                        except Exception:
-                            pass
-                        setattr(client, "_map_prompt_cache", None)
-                        time.sleep(0.6)
-                        if page_attempt >= page_attempts:
+                    except Exception as e:
+                        # Invalid local inputs, unsafe filenames and missing
+                        # permissions are permanent, not transient Gemini
+                        # failures. Do not waste API quota or circumvent them.
+                        if isinstance(e, (ValueError, FileNotFoundError, PermissionError)):
                             raise
+                        final_error = e
+                        attempt_trace.append({
+                            "backend": backend, "attempt": step.number,
+                            "status": "rejected", "error_type": type(e).__name__
+                        })
+                        log(f"[transport] page={idx} {backend} attempt {step.number} "
+                            f"failed ({type(e).__name__}); no output accepted", "WARN")
+                        if client is not None and step.backend is CommunicationBackend.SELENIUM:
+                            try:
+                                stop_generation_if_present(client)
+                                setattr(client, "_map_prompt_cache", None)
+                            except Exception:
+                                pass
+                            if not client_started:
+                                # Chrome may have failed to attach/start. Clean
+                                # the partial session before the next try.
+                                try:
+                                    client.shutdown()
+                                except Exception:
+                                    pass
+                                client = None
+                        if step != attempts[-1]:
+                            time.sleep(min(2.0, 0.35 * step.number))
+                # Keep the complete transport decision with the page crop
+                # workspace, not with any credentials or Gemini chat logs.
+                import json as _json
+                trace_path = crops_dir_i / "gemini_transport_attempts.json"
+                staged = trace_path.with_suffix(".json.pending")
+                staged.write_text(_json.dumps({
+                    "mode": policy.mode.value, "page": idx, "attempts": attempt_trace,
+                    "completed": final_error is None,
+                }, indent=2), encoding="utf-8")
+                staged.replace(trace_path)
+                if final_error is not None:
+                    raise RuntimeError(
+                        f"Figure mapping exhausted {len(attempts)} {policy.mode.value} "
+                        "transport attempt(s); no figure mapping accepted"
+                    ) from final_error
 
                 if copy_to_root:
                     root = Path(".").resolve()
@@ -1850,10 +1911,8 @@ CFG = Config(root=Path.cwd(), wait_mapping_max=args.wait_cap)
 try:
     
     ##
-    if os.getenv("MICROGEN_FIGURE_MAPPING_BACKEND", "api").strip().lower() == "browser":
-        SCRIPT_1 = "launch_gemini_chrome.py"
-        script_path = Path(__file__).resolve().with_name(SCRIPT_1)
-        subprocess.run([sys.executable, str(script_path)], check=True)
+    # Let the common policy initialize Chrome *only* if a Selenium
+    # request is actually attempted. Pure API must never launch Chrome.
     ##
     
     run_mapping(
