@@ -48,8 +48,10 @@ class VideoRecoveryTests(unittest.TestCase):
         with patch.dict(os.environ, {"MICROGEN_VIDEO_CACHE_ROOT": str(root)}):
             a = video_ffmpeg._video_cache(self.folder / "subchapter")
             b = video_ffmpeg._video_cache(self.folder / "subchapter")
+            via_alias = video_ffmpeg._video_cache(self.folder / "subchapter" / ".." / "subchapter")
             other = video_ffmpeg._video_cache(self.folder / "another")
         self.assertEqual(a, b)
+        self.assertEqual(a, via_alias, "Equivalent Windows canonical paths must share recovery cache")
         self.assertNotEqual(a, other)
         self.assertTrue(a.is_relative_to(root))
 
