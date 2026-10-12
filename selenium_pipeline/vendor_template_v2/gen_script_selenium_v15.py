@@ -1010,14 +1010,22 @@ def main() -> int:
 """
     )
 
-    backend = os.environ.get("MICROGEN_NARRATION_BACKEND", "api").strip().lower()
-    if backend not in {"api", "ui"}:
-        raise ValueError(f"Unsupported MicroGen narration backend: {backend}")
-    if backend == "ui":
-        script_path = Path(__file__).resolve().with_name("launch_gemini_chrome.py")
-        subprocess.run([sys.executable, str(script_path)], check=True)
-    else:
-        log("Narration backend: Gemini Flash API, no Chrome interaction required.", "INFO")
+    # Central transport policy applies to each narration generation request.
+    # Old per-stage overrides cannot silently defeat Selenium as default.
+    package_root = Path(os.environ.get("MICROGEN_PACKAGE_ROOT", "")).expanduser()
+    if not (package_root / "selenium_pipeline" / "communication_policy.py").is_file():
+        package_root = Path(__file__).resolve().parents[2]
+    if str(package_root) not in sys.path:
+        sys.path.insert(0, str(package_root))
+    from selenium_pipeline.communication_policy import (
+        CommunicationBackend, policy_from_configuration,
+    )
+    policy = policy_from_configuration(
+        selenium_attempts=int(os.getenv("MICROGEN_SELENIUM_ATTEMPTS", "3")),
+        api_attempts=int(os.getenv("MICROGEN_API_ATTEMPTS", "2")),
+    )
+    log(f"Narration Gemini transport: {policy.mode.value}; "
+        f"Selenium retries={policy.selenium_attempts}; API retries={policy.api_attempts}")
 
     missing = [p for p in [SLIDES_PDF, SOURCE_PDF, PROMPT_FILE] if not p.exists()]
     if missing:
@@ -1048,77 +1056,117 @@ def main() -> int:
 
     client = None
     gemsel = None
-    if backend == "ui":
-        gemsel = _load_local_gemini_selenium_module()
-        cfg = gemsel.Config(root=Path.cwd())
-        client = gemsel.GeminiSeleniumClient(cfg)
     instruction = build_instruction(RENDERED_PROMPT_FILE.name, slide_count)
+    last_warnings: list[str] = []
+    attempts = policy.plan("narration")
+    trace: list[dict[str, object]] = []
+    trace_path = Path.cwd() / "gemini_narration_transport_attempts.json"
 
     try:
-        if client is not None:
-            client.start(ensure_gemini_on_launch=True)
-
-        attempts = RETRY_COUNT + 1
-        last_warnings: list[str] = []
-
-        for attempt in range(1, attempts + 1):
-            if attempt > 1:
-                log(f"Regeneration attempt {attempt} of {attempts}", "WARN")
-
+        for step in attempts:
+            backend = step.backend.value
+            response: Optional[str] = None
             revised = retry_instruction(instruction, last_warnings)
-            if backend == "api":
-                response = request_script_api_once(revised, slide_count)
-            else:
-                response = request_script_once(client, gemsel, revised, slide_count)
-            
-            if not response:
+            log(f"[transport] Narration backend={backend} attempt={step.number}", "INFO")
+            try:
+                if step.backend is CommunicationBackend.SELENIUM:
+                    # Lazy Selenium start: an unavailable Chrome may be
+                    # retried, then API fallback can still be reached.
+                    if client is None:
+                        gemsel = _load_local_gemini_selenium_module()
+                        cfg = gemsel.Config(root=Path.cwd())
+                        client = gemsel.GeminiSeleniumClient(cfg)
+                        try:
+                            client.start(ensure_gemini_on_launch=True)
+                        except Exception:
+                            try:
+                                client.shutdown()
+                            except Exception:
+                                pass
+                            client = None
+                            raise
+                    response = request_script_once(client, gemsel, revised, slide_count)
+                else:
+                    # Browser is never needed for pure API narration.
+                    if client is not None:
+                        try:
+                            client.shutdown()
+                        finally:
+                            client = None
+                    response = request_script_api_once(revised, slide_count)
+            except (ValueError, FileNotFoundError, PermissionError):
+                # Invalid local inputs must fail closed without retry or API
+                # escalation. Do not spend model quota on a bad source.
+                raise
+            except Exception as e:
+                trace.append({"backend": backend, "attempt": step.number,
+                              "result": "transport_error", "error_type": type(e).__name__})
+                log(f"[transport] {backend} attempt {step.number} failed: "
+                    f"{type(e).__name__}; preserving valid earlier work", "WARN")
                 continue
 
-            rebuilt = sanitize_and_rebuild_script(response, exact_titles)
-            save_script_text(rebuilt)
-            run_post_processors()
-            force_exact_titles_after_postprocessing(exact_titles)            
-            warnings = collect_all_warnings(OUT_SCRIPT, SLIDES_PDF, exact_titles)
+            if not response:
+                trace.append({"backend": backend, "attempt": step.number,
+                              "result": "empty_or_invalid"})
+                continue
+
+            try:
+                rebuilt = sanitize_and_rebuild_script(response, exact_titles)
+                save_script_text(rebuilt)
+                run_post_processors()
+                force_exact_titles_after_postprocessing(exact_titles)
+                warnings = collect_all_warnings(OUT_SCRIPT, SLIDES_PDF, exact_titles)
+            except (ValueError, FileNotFoundError, PermissionError):
+                raise
+            except Exception as e:
+                warnings = [f"Script validation failed: {type(e).__name__}: {e}"]
+
             if not warnings:
-                run_post_processors()  #### additional post_process to filter out title's possible error after exiting for loop
+                run_post_processors()
+                trace.append({"backend": backend, "attempt": step.number,
+                              "result": "validated"})
+                tmp = trace_path.with_suffix(".json.pending")
+                tmp.write_text(json.dumps({
+                    "mode": policy.mode.value, "completed": True, "attempts": trace
+                }, indent=2), encoding="utf-8")
+                tmp.replace(trace_path)
                 log("Script validation passed.", "OK")
                 return 0
 
             last_warnings = warnings
-            for w in warnings:
-                log(w, "WARN")
-
+            trace.append({"backend": backend, "attempt": step.number,
+                          "result": "rejected_by_quality_gate"})
+            for warning in warnings:
+                log(warning, "WARN")
             try:
-                archive = OUT_SCRIPT.with_name(f"{OUT_SCRIPT.stem}.rejected_attempt_{attempt}{OUT_SCRIPT.suffix}")
+                archive = OUT_SCRIPT.with_name(
+                    f"{OUT_SCRIPT.stem}.rejected_{backend}_attempt_{step.number}{OUT_SCRIPT.suffix}"
+                )
                 if archive.exists():
                     backup_existing(archive)
-                OUT_SCRIPT.replace(archive)
-                log(f"Preserved rejected narration as {archive.name}", "WARN")
+                if OUT_SCRIPT.exists():
+                    OUT_SCRIPT.replace(archive)
+                    log(f"Preserved rejected narration as {archive.name}", "WARN")
             except Exception as e:
-                log(f"Could not archive rejected narration; refusing destructive retry: {e}", "ERR")
+                log(f"Could not archive rejected script; refusing retry: {e}", "ERR")
                 return 1
 
-            try:
-                OUT_SCRIPT.unlink(missing_ok=True)
-                log(f"Removed {OUT_SCRIPT.name} to regenerate it.", "WARN")
-            except Exception as e:
-                log(f"Could not remove {OUT_SCRIPT.name}: {e}", "WARN")
-        
-        
-        
-        for w in last_warnings:
-            log(f"Final failure: {w}", "ERR")
+        # No success receipt or accepted script after all planned attempts.
+        tmp = trace_path.with_suffix(".json.pending")
+        tmp.write_text(json.dumps({
+            "mode": policy.mode.value, "completed": False, "attempts": trace
+        }, indent=2), encoding="utf-8")
+        tmp.replace(trace_path)
+        for warning in last_warnings:
+            log(f"Final failure: {warning}", "ERR")
         return 1
-
     finally:
         if client is not None:
             try:
                 client.shutdown()
             except Exception:
                 pass
-            log("Selenium session finished.", "OK")
-        else:
-            log("Gemini API narration attempt finished.", "INFO")
+        log("Gemini narration transport finished.", "INFO")
 
 
 if __name__ == "__main__":
