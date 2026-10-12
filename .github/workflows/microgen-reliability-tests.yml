@@ -19,7 +19,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install minimal offline test dependencies
-        run: python -m pip install selenium pymupdf pypdf 'google-genai>=2.25,<3'
+        run: python -m pip install selenium pymupdf pypdf imageio-ffmpeg 'google-genai>=2.25,<3'
       - name: Verify known historical failure protections
         run: |
           python -m unittest -v \
@@ -31,7 +31,9 @@ jobs:
             tests.test_env_key_conflicts \
             tests.test_downstream_invalidation \
             tests.test_dell_tts_deadlines \
-            tests.test_narration_retry_feedback
+            tests.test_narration_retry_feedback \
+            tests.test_video_ffmpeg_assembly \
+            tests.test_stage2_video_recovery
       - name: Syntax-check updated Python entry points
         run: |
           python -m py_compile \
@@ -40,4 +42,5 @@ jobs:
             selenium_pipeline/gemini_model.py \
             selenium_pipeline/figure_recovery_candidates.py \
             selenium_pipeline/figure_audit.py \
-            selenium_pipeline/reliability_audit.py
+            selenium_pipeline/reliability_audit.py \
+            selenium_pipeline/video_ffmpeg.py
