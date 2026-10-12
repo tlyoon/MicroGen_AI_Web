@@ -117,6 +117,12 @@ def inspect(folder: Path) -> dict:
                     if len(block) < 5 or not str(block[4]).strip():
                         continue
                     x0, y0, x1, y1 = block[:4]
+                    # Beamer's legitimate corner frame counter may start
+                    # fractionally above y=0 due to font ascender metrics.
+                    # It is not a genuinely overflowing physics text block.
+                    if (x0 > page.rect.width * .70 and y0 < page.rect.height * .12
+                            and re.fullmatch(r"\s*\d+\s*/\s*\d+\s*", str(block[4]).strip())):
+                        continue
                     if x0 < -5 or y0 < -5 or x1 > page.rect.width + 5 or y1 > page.rect.height + 5:
                         flag("review", "text_outside_page", "Text extends outside PDF page geometry", idx)
                         break
