@@ -121,3 +121,8 @@ def test_production_launcher_and_runner_default_to_api():
     assert 'if backend == "api":' in vendor
     assert 'request_script_api_once(revised, slide_count)' in vendor
     assert 'if backend == "ui":' in vendor
+    from selenium_pipeline.runner import _needs_browser
+    with patch.dict("os.environ", {"MICROGEN_NARRATION_BACKEND": "api"}):
+        assert not _needs_browser("narration")
+    with patch.dict("os.environ", {"MICROGEN_NARRATION_BACKEND": "ui"}):
+        assert _needs_browser("narration")
