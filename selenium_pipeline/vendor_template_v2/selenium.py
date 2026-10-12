@@ -979,6 +979,9 @@ class GeminiSeleniumClient:
 
         # Track ownership of the chrome instance we launched:
         self._launched_profile_dir: Optional[str] = None
+        # This handle is created by MicroGen, unlike the user's existing Gemini tabs.
+        # Only owned tabs may be closed/reset between requests.
+        self._automation_tab: Optional[str] = None
 
     # ---------- Chrome lifecycle ----------
     def start(self, ensure_gemini_on_launch: bool = True) -> None:
@@ -1023,6 +1026,8 @@ class GeminiSeleniumClient:
                 # Port is in use and we are not allowed to attach => fail explicitly
                 raise RuntimeError(f"Remote debug port {cfg.debug_port} already in use.")
 
+        # A browser reconnect cannot trust handles from a previous driver.
+        self._automation_tab = None
         # Attach Selenium
         opts = Options()
         opts.add_experimental_option("debuggerAddress", f"127.0.0.1:{cfg.debug_port}")
@@ -1075,6 +1080,15 @@ class GeminiSeleniumClient:
             self.start(ensure_gemini_on_launch=True)
 
     def shutdown(self) -> None:
+        # Close only MicroGen-owned chat tabs. Never close unrelated browser tabs.
+        if self.driver is not None and self._automation_tab is not None:
+            try:
+                if self._automation_tab in self.driver.window_handles:
+                    self.driver.switch_to.window(self._automation_tab)
+                    self.driver.close()
+            except Exception:
+                pass
+            self._automation_tab = None
         # Quit selenium driver
         try:
             if self.driver is not None:
@@ -1139,14 +1153,31 @@ class GeminiSeleniumClient:
             raise RuntimeError(f"Unsupported MICROGEN_GEMINI_UI_MODE={target_mode!r}")
         target_prefix = "Flash" if target_mode == "flash" else "3.1 Pro"
 
-        # Reuse an authenticated Gemini tab identified by its real mode picker.
+        # Every mapping page gets a browser tab owned by this MicroGen instance.
+        # Reusing an arbitrary authenticated user tab left stale image chips,
+        # nonreactive Send buttons and even another conversation's prompt history.
+        # Preserve all borrowed tabs and close only the previous owned one.
+        previous = self._automation_tab
+        if previous is not None:
+            try:
+                if previous in self.driver.window_handles:
+                    self.driver.switch_to.window(previous)
+                    self.driver.close()
+            except Exception:
+                pass
+            self._automation_tab = None
+        self.driver.switch_to.new_window("tab")
+        self._automation_tab = self.driver.current_window_handle
+        self.driver.get(self.cfg.gemini_url)
+
+        # Verify the Gemini model in our own tab, never a different conversation.
         # Then actively select the configured target inside that same tab.
         selected = False
         selected_mode = ""
         picker = None
         select_deadline = time.time() + 12.0
         while time.time() < select_deadline and not selected:
-            for handle in list(self.driver.window_handles):
+            for handle in (self._automation_tab,):
                 try:
                     self.driver.switch_to.window(handle)
                     if not self.driver.current_url.startswith("https://gemini.google.com/"):

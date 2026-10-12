@@ -1330,24 +1330,23 @@ def _send_prompt_and_capture_mapping_text(client, instruction_text: str, wait_ca
             before_model_count = 0
             before_user_count = 0
 
+        # Use the same browser-confirmed submission routine as the slide and
+        # narration stages. It checks a new user turn, conversation route or
+        # persisted Stop state together with a cleared composer. The previous
+        # figure-only click/Enter/native-Windows chain could silently fail even
+        # with a visible Send button, and its pywinauto fallback was broken on
+        # HP by a pywin32 DLL mismatch. No unverified repeated clicking.
         t_step = _ts_now()
-        clicked = click_safe_send_button(
-            client,
-            before_model_count=before_model_count,
-            before_user_count=before_user_count,
+        clicked = client.click_send_with_fallbacks(retries=1)
+        log_timing(
+            f"attempt {attempt+1} verified send",
+            t_step,
+            f"registered={clicked}",
+            level=("INFO" if clicked else "WARN"),
         )
-        log_timing(f"attempt {attempt+1} click send", t_step, f"clicked={clicked}", level=("INFO" if clicked else "WARN"))
-        if not clicked:
-            time.sleep(0.08)
-            log_timing(f"attempt {attempt+1} total", t_attempt, "send click failed", level="WARN")
-            continue
-
-        t_step = _ts_now()
-        registered = wait_for_prompt_to_leave_composer(client, before_text=composer_before_send, timeout=3.0, poll=0.05, before_model_count=before_model_count, before_user_count=before_user_count)
-        log_timing(f"attempt {attempt+1} register send", t_step, f"registered={registered}", level=("INFO" if registered else "WARN"))
-        if registered:
+        if clicked:
             send_ok = True
-            log_timing(f"attempt {attempt+1} total", t_attempt, "submission registered")
+            log_timing(f"attempt {attempt+1} total", t_attempt, "submission registered by shared client")
             break
 
         log(f"Prompt did not register after Send on attempt {attempt+1}.", "WARN")
@@ -1580,7 +1579,9 @@ def map_and_rename_single_step(
             f"after {response_attempts} attempt(s). Check {mapping_txt.name}.",
             "WARN",
         )
-        return mapping_txt, []
+        raise RuntimeError(
+            f"Unverified figure mapping for {page_png.name}; retained {mapping_txt.name}"
+        )
 
     # Keep only as many mappings as local crops available
     usable_count = min(len(parsed), len(fig_files))
@@ -1774,9 +1775,15 @@ def run_mapping(
 
             except Exception as e:
                 log(f"[ERROR] Failed to process page {idx}: {e}", "ERR")
-                continue
+                # A browser/UI failure invalidates this page's figure mapping
+                # and therefore all downstream slides and narration. Avoid
+                # burning time on later pages before repairing the root cause.
+                # Keep already-extracted figures and rejected response logs.
+                raise RuntimeError(
+                    f"Figure mapping halted at page {idx}; no completion claim"
+                ) from e
 
-        log("All mappings completed.")
+        log("All selected figure mappings completed with no exceptions.")
     finally:
         # Close the automation Chrome session launched by this run (and only that one)
         client.shutdown()
