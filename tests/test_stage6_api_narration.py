@@ -110,19 +110,22 @@ def test_cli_stages_only_valid_full_answer(tmp_path):
     assert output.read_text().count("**Slide ") == 2
 
 
-def test_production_launcher_and_runner_default_to_api():
+def test_production_launcher_and_runner_expose_three_modes():
     repo = Path(__file__).resolve().parents[1]
     ps = (repo / "operations" / "Start-MicroGen_AI_Web.ps1").read_text(encoding="utf-8-sig")
     runner = (repo / "selenium_pipeline" / "runner.py").read_text(encoding="utf-8-sig")
     vendor = (repo / "selenium_pipeline" / "vendor_template_v2" /
               "gen_script_selenium_v15.py").read_text(encoding="utf-8-sig")
-    assert "$env:MICROGEN_NARRATION_BACKEND = 'api'" in ps
-    assert '"MICROGEN_NARRATION_BACKEND"' in runner
-    assert 'if backend == "api":' in vendor
+    assert "$env:MICROGEN_COMMUNICATION_MODE = 'selenium'" in ps
+    assert "$env:MICROGEN_NARRATION_BACKEND = 'api'" not in ps
+    assert '--communication-mode' in runner
+    assert 'policy.plan("narration")' in vendor
     assert 'request_script_api_once(revised, slide_count)' in vendor
-    assert 'if backend == "ui":' in vendor
+    assert 'request_script_once(client, gemsel, revised, slide_count)' in vendor
     from selenium_pipeline.runner import _needs_browser
-    with patch.dict("os.environ", {"MICROGEN_NARRATION_BACKEND": "api"}):
-        assert not _needs_browser("narration")
-    with patch.dict("os.environ", {"MICROGEN_NARRATION_BACKEND": "ui"}):
+    with patch.dict("os.environ", {"MICROGEN_COMMUNICATION_MODE": "selenium"}):
         assert _needs_browser("narration")
+    with patch.dict("os.environ", {"MICROGEN_COMMUNICATION_MODE": "api"}):
+        assert not _needs_browser("narration")
+    with patch.dict("os.environ", {"MICROGEN_COMMUNICATION_MODE": "fallback"}):
+        assert not _needs_browser("narration")

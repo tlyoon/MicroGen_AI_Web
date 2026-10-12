@@ -54,11 +54,9 @@ def test_api_figure_backend_bypasses_browser(monkeypatch):
     assert not _needs_browser("figures")
     monkeypatch.setenv("MICROGEN_COMMUNICATION_MODE", "fallback")
     assert not _needs_browser("figures")  # lazy browser initialization
-    monkeypatch.delenv("MICROGEN_NARRATION_BACKEND", raising=False)
-    assert not _needs_browser("narration")
-    monkeypatch.setenv("MICROGEN_NARRATION_BACKEND", "ui")
-    assert _needs_browser("narration")
+    assert not _needs_browser("narration")  # fallback lazily opens UI
     monkeypatch.setenv("MICROGEN_COMMUNICATION_MODE", "selenium")
+    assert _needs_browser("narration")
     monkeypatch.setenv("MICROGEN_FIGURE_MAPPING_BACKEND", "api")
     assert _needs_browser("figures")  # old per-stage backend cannot force API
 

@@ -20,7 +20,9 @@ def test_flash_and_isolated_workroot_are_explicit():
     text = SCRIPT.read_text(encoding="utf-8")
     assert "MICROGEN_GEMINI_UI_MODE = 'flash'" in text
     assert "MICROGEN_LLM_MODEL = 'gemini-3.8-flash'" in text
-    assert "MICROGEN_FIGURE_MAPPING_BACKEND = 'api'" in text
+    assert "MICROGEN_COMMUNICATION_MODE = 'selenium'" in text
+    assert "MICROGEN_FIGURE_MAPPING_BACKEND = 'api'" not in text
+    assert "MICROGEN_NARRATION_BACKEND = 'api'" not in text
     assert "MICROGEN_PIPELINE_PYTHON" in text
     assert "MICROGEN_TTS_PYTHON" in text
     assert "'--work-root', $work" in text

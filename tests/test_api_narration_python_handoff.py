@@ -7,7 +7,7 @@ from selenium_pipeline import runner
 
 class ApiPythonStageTests(unittest.TestCase):
     def test_narration_only_resume_requires_sdk_python(self):
-        with patch.dict("os.environ", {"MICROGEN_NARRATION_BACKEND":"api"}, clear=False):
+        with patch.dict("os.environ", {"MICROGEN_COMMUNICATION_MODE":"api"}, clear=False):
             self.assertTrue(runner._needs_api_python_for_stages(["narration"]))
             self.assertTrue(runner._needs_api_python_for_stages(
                 ["narration","script_qa","tts","tts_qa","video"]))
