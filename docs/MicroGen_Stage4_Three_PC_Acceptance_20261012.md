@@ -62,3 +62,28 @@ After this guard, the old snapshot's 18 completions should no longer automatical
 5. Resolve the 26 partial and 2 no-slides jobs and get **46/46 genuinely verified lecture completions** without losing existing deliverables.
 
 **No assertion of complete Stage 4 production certification or zero future external-service errors is made.** The successful scope so far is pinned source parity, cross-PC regression compliance and robust real-media interruption/recovery.
+
+## Final Stage 4 cross-PC release retest — 12 October 2026
+
+The final accepted code revision under test was **1ff92021cfd1aa2dd05645645a59eed2f0f15f8a** (PR #36, integrated after the portable media PRs #34–#35). All three AppData acceptance clones were safely pinned to this exact revision and kept separate from original live generator checkouts.
+
+- **Dell-115:** 244 tests passed, 3 nonfatal warnings; Python modules and FFmpeg/pdflatex doctor available for default Gemini Flash generation.
+- **HP:** 244 tests passed, 3 nonfatal warnings; same doctor baseline.
+- **Yoga6:** 244 tests passed, 3 nonfatal warnings; same doctor baseline.
+- GitHub main full Windows and Ubuntu suites and targeted regressions passed on the code release revision.
+
+The second real-media pass **used the final 1ff9202 revision**, not the earlier Stage 3 revision. It performed complete local H.264/AAC encoding from the same unchanged real input slides and WAVs on each PC; final candidates were validated and previous local test MP4s archived.
+
+| PC | Lecture | Slide count | Confirmed output duration | MP4 bytes | Result |
+|---|---|---:|---:|---:|---|
+| Dell-115 | Serway 8.1 | 19 | 978.94 s | 16,967,628 | PASS |
+| HP | Calculus 10.3 | 24 | 1,328.70 s | 22,746,425 | PASS |
+| Yoga6 | Serway 12.1 | 17 | 1,067.04 s | 18,329,678 | PASS |
+
+The first real-media pass using the previous pinned revision had additionally **injected deliberate interruptions**, proved segment reuse, and passed all three hosts. The final revision's offline fault-injection suite retains those tests; the second real-media pass was a complete encode/validate comparison rather than another deliberately interrupted run. All final pass results reported `original_inputs_unchanged=true`.
+
+A new read-only campaign audit with the final synchronization guard found **17 genuinely receipt-verified Serway lectures, one published lecture requiring reconciliation (12.1), 26 with partially published slides, and two with no published slide PDF**, from the original 46 sources. **Twenty** of the incomplete lectures had unresolved LaTeX graphics in the initial audit. No failed source was silently stamped as successful or had its published MP4 discarded.
+
+The lightweight `--doctor` on all three cloned Windows environments found Selenium, pypdf, Google GenAI, MiKTeX/pdflatex, FFmpeg, and the vendored template available; the optional Google Cloud Text-to-Speech client was absent in all three, which does not block the configured default Gemini TTS pathway. This doctor is a dependency discovery check, not proof that each workstation completed a fresh Gemini UI login and generation.
+
+**Overall Stage 4 decision:** Cross-PC release parity, offline regression compliance, production-size real-video encoding, safe segment recovery and fail-closed completion evidence are accepted. **Full Stage 4 production certification remains open** until each PC completes an unattended source-to-final Gemini Flash generation and controlled browser/API interruption recovery, corrected figures/narration pass scientific inspection, legacy launchers are safely migrated, and the full 46-source Serway campaign attains authentic completion receipts.
