@@ -88,6 +88,7 @@ New-Item -ItemType Directory -Path $work -Force | Out-Null
 $env:MICROGEN_GEMINI_UI_MODE = 'flash'
 $env:MICROGEN_LLM_MODEL = 'gemini-3.8-flash'
 $env:MICROGEN_FIGURE_MAPPING_BACKEND = 'api'
+$env:MICROGEN_NARRATION_BACKEND = 'api'
 $env:MICROGEN_PIPELINE_PYTHON = [string]$config.pipeline_python
 $env:MICROGEN_TTS_PYTHON = [string]$config.runtime_python
 $env:PYTHONNOUSERSITE = '1'
