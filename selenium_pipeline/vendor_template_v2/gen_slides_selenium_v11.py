@@ -1073,13 +1073,21 @@ def generate_slides_tex(
     #for attempt in range(1, 4):
     #    log(f"Slides generation attempt {attempt}/3", "INFO")
 
-    max_attempts = int(os.getenv("SLIDES_MAX_ATTEMPTS", "6"))
+    backend = os.getenv("MICROGEN_SLIDES_BACKEND", "api").strip().lower()
+    if backend not in {"api", "browser"}:
+        raise ValueError("MICROGEN_SLIDES_BACKEND must be api or browser")
+    max_attempts = int(os.getenv(
+        "MICROGEN_SLIDES_API_ATTEMPTS" if backend == "api" else "SLIDES_MAX_ATTEMPTS",
+        "3" if backend == "api" else "6",
+    ))
+    previous_rejection = ""
     
     for attempt in range(1, max_attempts + 1):
         log(f"Slides generation attempt {attempt}/{max_attempts}", "INFO")        
               
-        client.open_clean_gemini_chat()
-        client.upload_files([pdf_path, prompt_path, png_json_path])
+        if backend == "browser":
+            client.open_clean_gemini_chat()
+            client.upload_files([pdf_path, prompt_path, png_json_path])
 
         instruction = (
             f"Please read the attached file '{prompt_path.name}' and execute the instructions EXACTLY as written. "
@@ -1107,11 +1115,40 @@ def generate_slides_tex(
         )
         
         ###
-        response_text = send_prompt_and_capture_transport_block(
-            client=client,
-            instruction_text=instruction,
-            wait_cap=wait_cap,
-        )
+        if backend == "api":
+            # Gemini figure and slide APIs share the existing failover-managed
+            # interpreter; the Docling Python does not need google.genai.
+            package_root = Path(os.getenv("MICROGEN_PACKAGE_ROOT", "")).expanduser()
+            entry = package_root / "selenium_pipeline" / "slide_generation_api.py"
+            if not entry.is_file():
+                raise RuntimeError("Missing source-grounded API slide generator")
+            api_python = os.getenv("MICROGEN_TTS_PYTHON", sys.executable)
+            trial = out_tex.with_name(f"slides_attempt_{attempt}_api_draft.txt")
+            command = [
+                api_python, str(entry), "--pdf", str(pdf_path),
+                "--prompt", str(prompt_path), "--metadata", str(png_json_path),
+                "--folder", str(out_tex.parent), "--output", str(trial),
+                "--model", os.getenv("MICROGEN_LLM_MODEL", "gemini-3.8-flash"),
+            ]
+            if previous_rejection:
+                command.extend(["--feedback", previous_rejection])
+            env = os.environ.copy()
+            env.setdefault("MICROGEN_GEMINI_REQUEST_TIMEOUT_MS", "180000")
+            env.setdefault("MICROGEN_GEMINI_MAX_RETRIES", "1")
+            deadline = max(60, int(env.get("MICROGEN_SLIDES_API_TIMEOUT_SECONDS", "420")))
+            proc = subprocess.run(
+                command, cwd=str(out_tex.parent), env=env,
+                text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                timeout=deadline, check=False,
+            )
+            log(f"[slide-api] child status={proc.returncode}; " + (proc.stdout or "")[-1800:])
+            if proc.returncode != 0 or not trial.is_file():
+                raise RuntimeError("API slide generation failed; no unverified slides published")
+            response_text = trial.read_text(encoding="utf-8")
+        else:
+            response_text = send_prompt_and_capture_transport_block(
+                client=client, instruction_text=instruction, wait_cap=wait_cap,
+            )
         
         raw_attempt_path = out_tex.with_name(f"slides_attempt_{attempt}_raw.txt")
         raw_attempt_path.write_text(response_text or "", encoding="utf-8", newline="\n")
@@ -1145,6 +1182,7 @@ def generate_slides_tex(
         )
         
         if not sanity_ok:
+            previous_rejection = "\n".join(sanity_reasons[:12])
             failed_candidate = out_tex.with_name(f"slides_attempt_{attempt}_failed_sanity.tex")
             failed_report = out_tex.with_name(f"slides_attempt_{attempt}_failed_sanity_report.txt")
         
@@ -1303,11 +1341,15 @@ def main() -> int:
         force_kill_chrome_to_free_port=(os.getenv("SAFE_CHROME", "0") != "1"),
     )
 
-    client = gemsel.GeminiSeleniumClient(cfg)
+    backend = os.getenv("MICROGEN_SLIDES_BACKEND", "api").strip().lower()
+    if backend not in {"api", "browser"}:
+        raise ValueError("MICROGEN_SLIDES_BACKEND must be api or browser")
+    client = gemsel.GeminiSeleniumClient(cfg) if backend == "browser" else None
 
     try:
-        log("Starting Gemini Selenium client...", "INFO")
-        client.start(ensure_gemini_on_launch=True)
+        if client is not None:
+            log("Starting Gemini Selenium client...", "INFO")
+            client.start(ensure_gemini_on_launch=True)
         generate_slides_tex(
             client=client,
             pdf_path=pdf_path,
@@ -1317,12 +1359,12 @@ def main() -> int:
             wait_cap=wait_cap,
         )
     finally:
-        try:
-            client.shutdown()
-            #pass
-        except Exception:
-            pass
-        log("Selenium session is done.", "INFO")
+        if client is not None:
+            try:
+                client.shutdown()
+            except Exception:
+                pass
+            log("Selenium session is done.", "INFO")
 
     time.sleep(1.0)
     log("Compiling latex (pre-check) ...", "INFO")
@@ -1358,11 +1400,9 @@ def main() -> int:
 if __name__ == "__main__":
     
     ##
-    SCRIPT_1 = "launch_gemini_chrome.py"
-    script_path = Path(__file__).resolve().with_name(SCRIPT_1)
-    result = subprocess.run(
-        [sys.executable, str(script_path)],
-        check=True
-    )
+    if os.getenv("MICROGEN_SLIDES_BACKEND", "api").strip().lower() == "browser":
+        SCRIPT_1 = "launch_gemini_chrome.py"
+        script_path = Path(__file__).resolve().with_name(SCRIPT_1)
+        subprocess.run([sys.executable, str(script_path)], check=True)
     ##
     raise SystemExit(main())
