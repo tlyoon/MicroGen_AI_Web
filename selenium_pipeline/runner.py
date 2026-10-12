@@ -68,6 +68,13 @@ def _needs_browser(stage: str) -> bool:
         return os.getenv("MICROGEN_NARRATION_BACKEND", "api").strip().lower() == "ui"
     return stage in CHROME_STAGES
 
+
+def _needs_api_python_for_stages(planned: list[str]) -> bool:
+    """Expose the Gemini SDK-capable Python for both API figure and narration stages."""
+    return any(stage in planned and not _needs_browser(stage)
+               for stage in ("figures", "narration"))
+
+
 SCRIPTS = {
     "figures": ("crop_figs_v3.py", "map_and_rename_selenium_v8.py", "merge_lettered_figs_v3.py"),
     "slides": ("gen_slides_selenium_v11.py",),
@@ -613,9 +620,11 @@ def _execute_unlocked(s: Settings) -> Path:
         "MICROGEN_NARRATION_BACKEND": os.getenv(
             "MICROGEN_NARRATION_BACKEND", "api").strip().lower(),
     })
-    if "figures" in planned and not _needs_browser("figures"):
-        # Docling environments often lack google-genai; use the independently
-        # validated Gemini/TTS Python for a bounded figure API child process.
+    if _needs_api_python_for_stages(planned):
+        # Both API figure mapping and API narration may run under a Docling
+        # pipeline Python without the google-genai SDK. Always pass the
+        # independently validated Gemini/TTS Python to either API subprocess,
+        # including stage-only resumes that do not contain a figures stage.
         env["MICROGEN_TTS_PYTHON"] = tts_python_executable()
     changed_upstream = False
     for stage in planned:
