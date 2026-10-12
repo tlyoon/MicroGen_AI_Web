@@ -30,7 +30,7 @@ def test_narration_request_is_flash_only_and_failover_managed(tmp_path):
         called.update(kwargs)
         return SimpleNamespace(text=response)
     with patch("gemini_keys.call_with_client_failover", side_effect=fake_failover):
-        assert narration_api.request_narration(*data, "gemini-3.8-flash") == response
+        assert narration_api.request_narration(*data, "gemini-3.8-flash") == response.strip()
     assert called["max_retries"] == 1
 
 
