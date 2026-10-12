@@ -47,9 +47,18 @@ def inspect(folder: Path) -> dict:
     result = {"subchapter": folder.name, "source_dir": str(folder),
               "source_present": source.is_file(), "slide_pdf_present": deck.is_file(),
               "issues": issues}
+    def finalize() -> dict:
+        result["blockers"] = sum(x["severity"] == "blocker" for x in issues)
+        result["review_flags"] = sum(x["severity"] == "review" for x in issues)
+        result["classification"] = ("blocked" if result["blockers"] else
+                                    "review_required" if result["review_flags"] else
+                                    "structurally_screened")
+        result["scientific_correctness_certified"] = False
+        return result
+
     if not source.is_file() or source.is_symlink():
         flag("blocker", "source_missing", "Required original source.pdf is missing")
-        return result
+        return finalize()
 
     source_text = ""
     source_images = 0
@@ -60,7 +69,7 @@ def inspect(folder: Path) -> dict:
             result["source_pages"] = len(src)
     except (OSError, RuntimeError, ValueError) as exc:
         flag("blocker", "source_unreadable", f"Source PDF is unreadable: {type(exc).__name__}")
-        return result
+        return finalize()
 
     result["source_figure_mentions"] = len(set(m.group().lower() for m in FIGURE.finditer(source_text)))
     result["source_embedded_images"] = source_images
@@ -79,7 +88,7 @@ def inspect(folder: Path) -> dict:
 
     if not deck.is_file() or deck.is_symlink():
         flag("blocker", "slides_missing", "Slide PDF has not been generated")
-        return result
+        return finalize()
     all_text = []
     image_count = 0
     vector_pages = 0
@@ -113,7 +122,7 @@ def inspect(folder: Path) -> dict:
                         break
     except (OSError, RuntimeError, ValueError) as exc:
         flag("blocker", "slides_unreadable", f"Slide PDF is unreadable: {type(exc).__name__}")
-        return result
+        return finalize()
 
     result["pdf_embedded_images"] = image_count
     result["pages_with_vector_drawings"] = vector_pages
@@ -141,7 +150,7 @@ def inspect(folder: Path) -> dict:
                                 "review_required" if result["review_flags"] else
                                 "structurally_screened")
     result["scientific_correctness_certified"] = False
-    return result
+    return finalize()
 
 
 def inspect_campaign(root: Path) -> dict:
