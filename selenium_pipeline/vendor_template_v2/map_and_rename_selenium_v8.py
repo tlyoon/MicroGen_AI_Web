@@ -1463,112 +1463,144 @@ def map_and_rename_single_step(
         log(f"No crops found in {crops_dir}; skipping mapping for {page_png.name}.", "WARN")
         return None, []
 
-    t_step = _ts_now()
-    client.open_clean_gemini_chat()
-    log_timing(f"page {page_png.stem} open clean chat", t_step)
-
-    to_upload = fig_files if upload_only_crops else [page_png] + fig_files
-
-    baseline_attachment_count = 0
-    if client.driver is not None:
-        # Aborted/failed Gemini sends can leave attachment tiles in the composer
-        # even after opening a clean chat. Remove them before establishing the
-        # baseline for this page.
-        for _ in range(12):
-            stale = client.driver.find_elements("css selector", 'button[aria-label="close attachment"]')
-            stale = [b for b in stale if b.is_displayed()]
-            if not stale:
-                break
-            try:
-                client.driver.execute_script("arguments[0].click();", stale[-1])
-            except Exception:
-                try:
-                    stale[-1].click()
-                except Exception:
-                    break
-            time.sleep(0.12)
-        baseline_attachment_count = get_visible_attachment_count(client.driver)
-        if baseline_attachment_count:
-            raise RuntimeError(f"Could not clear {baseline_attachment_count} stale Gemini attachment(s).")
-
-    t_step = _ts_now()
-    client.upload_files(to_upload)
-    log_timing(f"page {page_png.stem} upload_files call", t_step, f"files={len(to_upload)}")
-
-    # upload_files() is the authoritative fail-closed upload check. Current
-    # Gemini collapses image chips and can remove the accessible acknowledgement
-    # before the legacy settle probe observes it, so a second independent gate
-    # can contradict a confirmed upload. Keep only a short stabilization delay.
-    t_step = _ts_now()
-    time.sleep(0.6)
-    page_txt_now = _page_text_lower(client.driver) if client.driver is not None else ""
-    if "file upload error" in page_txt_now:
-        raise RuntimeError(
-            f"Gemini reported a file upload error for {page_png.name}; refusing to submit text."
-        )
-    log_timing(f"page {page_png.stem} post-upload stabilization", t_step, "upload_files confirmed")
-
-    crop_manifest = "\n".join(f"{i+1}. {p.name}" for i, p in enumerate(fig_files))
-
-    prompt = (
-        "You are given one full textbook page image and several cropped figure images from that page.\n\n"
-        "IMPORTANT:\n"
-        "The actual crop files, in order, are:\n"
-        f"{crop_manifest}\n\n"
-        "For each crop, identify the correct figure caption label from the page and propose the target filename.\n"
-        "Return exactly one line per crop, in the SAME ORDER as the crop list above.\n"
-        "Do not add commentary.\n"
-        "Use exactly this format:\n"
-        'anything.png : "Figure 22.4" : Figure 22.4.png\n'
-        "The left-hand filename may be any attachment name, and will be ignored by the script.\n"
-    )
-
-    response_attempts = max(1, int(os.getenv("GEMINI_OUTPUT_ATTEMPTS", "3")))
-    parsed: List[Tuple[str, str, str]] = []
-    txt = ""
-
-    for response_attempt in range(1, response_attempts + 1):
+    backend = os.getenv("MICROGEN_FIGURE_MAPPING_BACKEND", "api").strip().lower()
+    if backend not in {"api", "browser"}:
+        raise ValueError("MICROGEN_FIGURE_MAPPING_BACKEND must be api or browser")
+    if backend == "api":
+        package_root = Path(os.getenv("MICROGEN_PACKAGE_ROOT", "")).expanduser()
+        entry = package_root / "selenium_pipeline" / "figure_mapping_api.py"
+        if not entry.is_file():
+            raise RuntimeError("Gemini API mapper missing: set MICROGEN_PACKAGE_ROOT to MicroGen_AI_Web")
+        api_python = os.getenv("MICROGEN_TTS_PYTHON", sys.executable)
+        verified = page_png.with_name(page_png.stem + "_api_verified.txt")
+        env = os.environ.copy()
+        # Bound SDK attempts to avoid a second retry loop outliving its parent.
+        env.setdefault("MICROGEN_GEMINI_MAX_RETRIES", "1")
+        env.setdefault("MICROGEN_GEMINI_REQUEST_TIMEOUT_MS", "60000")
+        timeout = max(30, int(env.get("MICROGEN_FIGURE_API_TIMEOUT_SECONDS", "240")))
+        command = [api_python, str(entry), "--page", str(page_png),
+                   "--output", str(verified), "--model",
+                   os.getenv("MICROGEN_LLM_MODEL", "gemini-3.8-flash")]
+        for crop in fig_files:
+            command.extend(["--crop", str(crop)])
+        proc = subprocess.run(command, cwd=str(CFG.root), env=env,
+                              text=True, stdout=subprocess.PIPE,
+                              stderr=subprocess.STDOUT, timeout=timeout, check=False)
+        log(f"[figure-api] child status={proc.returncode}; " + (proc.stdout or "")[-2500:])
+        if proc.returncode != 0 or not verified.is_file():
+            raise RuntimeError(f"Verified Gemini API mapping failed for {page_png.name}")
+        txt = verified.read_text(encoding="utf-8")
+        parsed = parse_mapping_lines(txt)
+        response_attempts = 1
+        if len(parsed) != len(fig_files):
+            raise RuntimeError(f"Incomplete API mapping for {page_png.name}")
+    else:
         t_step = _ts_now()
-        raw = _send_prompt_and_capture_mapping_text(client, prompt, wait_cap=wait_cap)
-        log_timing(
-            f"page {page_png.stem} prompt-to-response pipeline",
-            t_step,
-            f"attempt={response_attempt}/{response_attempts}",
-        )
-        txt = clean_model_text(raw)
-        log(
-            f"[DEBUG] model_txt_first_400 attempt {response_attempt}/{response_attempts}="
-            + repr((txt or "")[:400])
-        )
+        client.open_clean_gemini_chat()
+        log_timing(f"page {page_png.stem} open clean chat", t_step)
 
-        parsed = parse_mapping_lines(txt or "")
-        explicit_error = _looks_like_gemini_failure_text(txt)
-        exact_count = len(parsed) == len(fig_files)
-        log(
-            f"[PARSE] {page_png.name}: parsed {len(parsed)} mapping line(s); "
-            f"expected {len(fig_files)}; explicit_error={explicit_error}."
-        )
+        to_upload = fig_files if upload_only_crops else [page_png] + fig_files
 
-        if exact_count and not explicit_error:
-            break
+        baseline_attachment_count = 0
+        if client.driver is not None:
+            # Aborted/failed Gemini sends can leave attachment tiles in the composer
+            # even after opening a clean chat. Remove them before establishing the
+            # baseline for this page.
+            for _ in range(12):
+                stale = client.driver.find_elements("css selector", 'button[aria-label="close attachment"]')
+                stale = [b for b in stale if b.is_displayed()]
+                if not stale:
+                    break
+                try:
+                    client.driver.execute_script("arguments[0].click();", stale[-1])
+                except Exception:
+                    try:
+                        stale[-1].click()
+                    except Exception:
+                        break
+                time.sleep(0.12)
+            baseline_attachment_count = get_visible_attachment_count(client.driver)
+            if baseline_attachment_count:
+                raise RuntimeError(f"Could not clear {baseline_attachment_count} stale Gemini attachment(s).")
 
-        if response_attempt < response_attempts:
-            reason = (
-                "Gemini returned an explicit error response"
-                if explicit_error
-                else f"response format/count invalid ({len(parsed)} parsed, {len(fig_files)} expected)"
+        t_step = _ts_now()
+        client.upload_files(to_upload)
+        log_timing(f"page {page_png.stem} upload_files call", t_step, f"files={len(to_upload)}")
+
+        # upload_files() is the authoritative fail-closed upload check. Current
+        # Gemini collapses image chips and can remove the accessible acknowledgement
+        # before the legacy settle probe observes it, so a second independent gate
+        # can contradict a confirmed upload. Keep only a short stabilization delay.
+        t_step = _ts_now()
+        time.sleep(0.6)
+        page_txt_now = _page_text_lower(client.driver) if client.driver is not None else ""
+        if "file upload error" in page_txt_now:
+            raise RuntimeError(
+                f"Gemini reported a file upload error for {page_png.name}; refusing to submit text."
             )
+        log_timing(f"page {page_png.stem} post-upload stabilization", t_step, "upload_files confirmed")
+
+        crop_manifest = "\n".join(f"{i+1}. {p.name}" for i, p in enumerate(fig_files))
+
+        prompt = (
+            "You are given one full textbook page image and several cropped figure images from that page.\n\n"
+            "IMPORTANT:\n"
+            "The actual crop files, in order, are:\n"
+            f"{crop_manifest}\n\n"
+            "For each crop, identify the correct figure caption label from the page and propose the target filename.\n"
+            "Return exactly one line per crop, in the SAME ORDER as the crop list above.\n"
+            "Do not add commentary.\n"
+            "Use exactly this format:\n"
+            'anything.png : "Figure 22.4" : Figure 22.4.png\n'
+            "The left-hand filename may be any attachment name, and will be ignored by the script.\n"
+        )
+
+        response_attempts = max(1, int(os.getenv("GEMINI_OUTPUT_ATTEMPTS", "3")))
+        parsed: List[Tuple[str, str, str]] = []
+        txt = ""
+
+        for response_attempt in range(1, response_attempts + 1):
+            t_step = _ts_now()
+            raw = _send_prompt_and_capture_mapping_text(client, prompt, wait_cap=wait_cap)
+            log_timing(
+                f"page {page_png.stem} prompt-to-response pipeline",
+                t_step,
+                f"attempt={response_attempt}/{response_attempts}",
+            )
+            txt = clean_model_text(raw)
             log(
-                f"[RETRY] {page_png.name}: {reason}; resubmitting the SAME request "
-                f"(attempt {response_attempt + 1}/{response_attempts}).",
-                "WARN",
+                f"[DEBUG] model_txt_first_400 attempt {response_attempt}/{response_attempts}="
+                + repr((txt or "")[:400])
             )
-            try:
-                stop_generation_if_present(client)
-            except Exception:
-                pass
-            setattr(client, "_map_prompt_cache", None)
-            time.sleep(0.6)
+
+            parsed = parse_mapping_lines(txt or "")
+            explicit_error = _looks_like_gemini_failure_text(txt)
+            exact_count = len(parsed) == len(fig_files)
+            log(
+                f"[PARSE] {page_png.name}: parsed {len(parsed)} mapping line(s); "
+                f"expected {len(fig_files)}; explicit_error={explicit_error}."
+            )
+
+            if exact_count and not explicit_error:
+                break
+
+            if response_attempt < response_attempts:
+                reason = (
+                    "Gemini returned an explicit error response"
+                    if explicit_error
+                    else f"response format/count invalid ({len(parsed)} parsed, {len(fig_files)} expected)"
+                )
+                log(
+                    f"[RETRY] {page_png.name}: {reason}; resubmitting the SAME request "
+                    f"(attempt {response_attempt + 1}/{response_attempts}).",
+                    "WARN",
+                )
+                try:
+                    stop_generation_if_present(client)
+                except Exception:
+                    pass
+                setattr(client, "_map_prompt_cache", None)
+                time.sleep(0.6)
 
     mapping_txt = page_png.with_name(page_png.stem + "_mapping.txt")
 
@@ -1690,10 +1722,14 @@ def run_mapping(
         use_persistent_chrome=CFG.use_persistent_chrome,
         force_kill_chrome_to_free_port=CFG.force_kill_chrome_to_free_port,
     )
-    client = gemsel.GeminiSeleniumClient(scfg)
+    backend = os.getenv("MICROGEN_FIGURE_MAPPING_BACKEND", "api").strip().lower()
+    if backend not in {"api", "browser"}:
+        raise ValueError("MICROGEN_FIGURE_MAPPING_BACKEND must be api or browser")
+    client = gemsel.GeminiSeleniumClient(scfg) if backend == "browser" else None
 
-    # Start selenium once for the whole run (same as v7)
-    client.start(ensure_gemini_on_launch=True)
+    # The API-only caption pathway does not need a browser or a user chat.
+    if client is not None:
+        client.start(ensure_gemini_on_launch=True)
 
     try:
         page_dirs = sorted(pages_root.glob("page_*"), key=lambda p: natural_sort_key(p.name))
@@ -1786,7 +1822,8 @@ def run_mapping(
         log("All selected figure mappings completed with no exceptions.")
     finally:
         # Close the automation Chrome session launched by this run (and only that one)
-        client.shutdown()
+        if client is not None:
+            client.shutdown()
         #pass
 
 
@@ -1813,12 +1850,10 @@ CFG = Config(root=Path.cwd(), wait_mapping_max=args.wait_cap)
 try:
     
     ##
-    SCRIPT_1 = "launch_gemini_chrome.py"
-    script_path = Path(__file__).resolve().with_name(SCRIPT_1)
-    result = subprocess.run(
-        [sys.executable, str(script_path)],
-        check=True
-    )
+    if os.getenv("MICROGEN_FIGURE_MAPPING_BACKEND", "api").strip().lower() == "browser":
+        SCRIPT_1 = "launch_gemini_chrome.py"
+        script_path = Path(__file__).resolve().with_name(SCRIPT_1)
+        subprocess.run([sys.executable, str(script_path)], check=True)
     ##
     
     run_mapping(
