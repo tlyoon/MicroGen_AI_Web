@@ -897,9 +897,9 @@ def _request_script_via_api(instruction: str, attempt: int) -> str:
     result = subprocess.run(
         [
             str(runtime), "-m", "selenium_pipeline.narration_api",
-            "--slides", str(SLIDES_PDF),
-            "--source", str(SOURCE_PDF),
-            "--rendered-prompt", str(RENDERED_PROMPT_FILE),
+            "--slides", str(SLIDES_PDF.resolve()),
+            "--source", str(SOURCE_PDF.resolve()),
+            "--rendered-prompt", str(RENDERED_PROMPT_FILE.resolve()),
             "--instructions", str(advice),
             "--raw-output", str(raw),
             "--model", os.environ.get("MICROGEN_LLM_MODEL", "gemini-3.8-flash"),
@@ -911,7 +911,7 @@ def _request_script_via_api(instruction: str, attempt: int) -> str:
     if result.returncode != 0:
         diagnostic = Path.cwd() / f"narration_attempt_{attempt}_api_failure.log"
         diagnostic.write_text(
-            (result.stdout + "\\n" + result.stderr)[-12000:], encoding="utf-8"
+            (result.stdout + "\n" + result.stderr)[-12000:], encoding="utf-8"
         )
         raise RuntimeError(
             f"Gemini Flash narration API failed with exit {result.returncode}; "
