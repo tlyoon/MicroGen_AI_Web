@@ -1189,6 +1189,11 @@ def generate_slides_tex(
         latex = sanitize_gemini_latex_response(response_text)
         latex = normalize_unicode_to_latex(latex)
         
+        from selenium_pipeline.latex_graphics_bounds import bound_beamer_graphics
+        latex, bounded_count = bound_beamer_graphics(latex)
+        if bounded_count:
+            log(f"Bounded {bounded_count} Beamer image(s) before sanity compilation.")
+
         last_latex = latex
         last_preview = latex[:500].replace("\n", "\\n")
         
