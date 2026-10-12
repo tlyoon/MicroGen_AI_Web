@@ -52,7 +52,8 @@ class GeminiOutputRetryPolicyTests(unittest.TestCase):
     def test_narration_defaults_to_three_total_attempts(self):
         source = NARRATION.read_text(encoding="utf-8")
         self.assertIn('RETRY_COUNT = int(os.environ.get("RETRY_COUNT", "2"))', source)
-        self.assertIn("attempts = RETRY_COUNT + 1", source)
+        self.assertIn('policy.plan("narration")', source)
+        self.assertIn('MICROGEN_SELENIUM_ATTEMPTS", "3"', source)
 
 
 if __name__ == "__main__":
