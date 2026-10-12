@@ -147,11 +147,16 @@ def pdflatex_compiles(tex_path: Path) -> bool:
         with pymupdf.open(pdf) as doc:
             if len(doc) > 1:
                 for index in (0, len(doc) - 1):
-                    for line in doc[index].get_text().splitlines()[:8]:
-                        match = re.fullmatch(r"\s*(\d+)\s*/\s*(\d+)\s*", line)
+                    page = doc[index]
+                    for block in page.get_text("blocks"):
+                        x0, y0, _x1, _y1, text = block[:5]
+                        if x0 < page.rect.width * .70 or y0 > page.rect.height * .12:
+                            continue
+                        label = str(text).strip()
+                        match = re.fullmatch(r"\s*(\d+)\s*/\s*(\d+)\s*", label)
                         if match and int(match.group(1)) == index + 1 and int(match.group(2)) != len(doc):
                             logpath.write_text(
-                                "\n".join(logs) + f"\n[incorrect Beamer page total] {line} of {len(doc)}\n",
+                                "\n".join(logs) + f"\n[incorrect Beamer page total] {label} of {len(doc)}\n",
                                 encoding="utf-8",
                             )
                             return False
