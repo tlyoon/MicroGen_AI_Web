@@ -964,6 +964,48 @@ def _copy_last_gemini_response(driver) -> str:
 
     return ""
 
+def _wait_for_gemini_document_upload_ready(
+    driver, expected: int, *, timeout_s: float = 60.0,
+    stable_s: float = 0.65,
+) -> None:
+    """Wait until every document preview exists and upload spinners are gone.
+
+    Gemini enables Send while individual PDF/TXT/JSON uploads still show
+    'Loading attachment'. Pressing Send in this state can silently fail to
+    register a user turn. The unrelated 'Loading Gems' background spinner
+    must not delay a completed upload.
+    """
+    if expected <= 0:
+        return
+    start = time.monotonic()
+    stable_since = None
+    last = {}
+    while time.monotonic() - start < max(1.0, float(timeout_s)):
+        last = driver.execute_script("""
+            const vis=e=>!!(e&&(e.offsetWidth||e.offsetHeight||e.getClientRects().length));
+            return {
+              previews:[...document.querySelectorAll(
+                'uploader-file-preview')].filter(vis).length,
+              loading:[...document.querySelectorAll(
+                '[aria-label="Loading attachment"]')].filter(vis).length,
+              errors:[...document.querySelectorAll('[role="alert"]')]
+                .filter(vis).map(e=>(e.innerText||'').slice(0,120))
+            };
+        """) or {}
+        if last.get("previews") == expected and last.get("loading") == 0 and not last.get("errors"):
+            if stable_since is None:
+                stable_since = time.monotonic()
+            if time.monotonic() - stable_since >= stable_s:
+                return
+        else:
+            stable_since = None
+        time.sleep(0.16)
+    raise TimeoutError(
+        f"Gemini document attachments not ready after {timeout_s:g}s: "
+        f"expected {expected}, state={last}"
+    )
+
+
 class GeminiSeleniumClient:
     """
     Reusable Gemini UI automation layer:
@@ -1962,10 +2004,19 @@ class GeminiSeleniumClient:
                     raise
 
                 self._switch_to_default()
-                # Gemini attachment chips do not consistently expose filenames
-                # as page text. The caller performs the authoritative attachment
-                # count/progress/send-ready verification before submitting.
-                time.sleep(0.8)
+                # Returning from send_keys only confirms file-input selection.
+                # Gemini can still show 'Loading attachment' for multiple
+                # seconds while Send appears enabled. Guard the full document
+                # batch before the caller types/sends any prompt.
+                if not all_images:
+                    _wait_for_gemini_document_upload_ready(
+                        self.driver, len(paths),
+                        timeout_s=float(os.getenv(
+                            "MICROGEN_GEMINI_DOCUMENT_READY_TIMEOUT_S", "60")),
+                    )
+                    log(f"[UPLOAD-VERIFY] {len(paths)} Gemini documents fully ready")
+                else:
+                    time.sleep(0.8)
                 dismiss_native_file_dialogs(timeout=0.3)
                 return
 
