@@ -36,7 +36,7 @@ def _main(tmp_path, monkeypatch, selenium_responses, api_responses):
     made = []
 
     class FakeClient:
-        def __init__(self, **kwargs):
+        def __init__(self, *args, **kwargs):
             self.start_count = 0
             self.shutdown_count = 0
             made.append(self)
