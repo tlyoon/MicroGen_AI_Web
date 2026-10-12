@@ -121,21 +121,43 @@ if slides_tex.exists() and slides_pdf.exists():
 # Pre-check compile
 # ------------------------------------------------------------
 def pdflatex_compiles(tex_path: Path) -> bool:
-    """Return True if pdflatex compiles the file (single pass)."""
+    """Two passes are mandatory: Beamer total frame numbers require .aux.
+
+    Return success only when the output is present, both pdflatex passes
+    succeed, and any rendered page counters match the final page total.
+    """
+    logpath = tex_path.with_suffix(".compile0.log")
     try:
         cmd = ["pdflatex", "-interaction=nonstopmode", "-halt-on-error", tex_path.name]
-        proc = subprocess.run(
-            cmd,
-            cwd=str(tex_path.parent),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            timeout=180,
-        )
-        (tex_path.with_suffix(".compile0.log")).write_text(proc.stdout, encoding="utf-8", newline="\n")
-        return proc.returncode == 0
+        logs = []
+        for pass_number in (1, 2):
+            proc = subprocess.run(
+                cmd, cwd=str(tex_path.parent), stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT, text=True, timeout=180,
+            )
+            logs.append(f"--- pdflatex pass {pass_number}/2 ---\n{proc.stdout}")
+            logpath.write_text("\n".join(logs), encoding="utf-8", newline="\n")
+            if proc.returncode != 0:
+                return False
+        pdf = tex_path.with_suffix(".pdf")
+        if not pdf.is_file() or pdf.stat().st_size == 0:
+            logpath.write_text("\n".join(logs) + "\n[empty PDF]\n", encoding="utf-8")
+            return False
+        import pymupdf
+        with pymupdf.open(pdf) as doc:
+            if len(doc) > 1:
+                for index in (0, len(doc) - 1):
+                    for line in doc[index].get_text().splitlines()[:8]:
+                        match = re.fullmatch(r"\s*(\d+)\s*/\s*(\d+)\s*", line)
+                        if match and int(match.group(1)) == index + 1 and int(match.group(2)) != len(doc):
+                            logpath.write_text(
+                                "\n".join(logs) + f"\n[incorrect Beamer page total] {line} of {len(doc)}\n",
+                                encoding="utf-8",
+                            )
+                            return False
+        return True
     except Exception as e:
-        (tex_path.with_suffix(".compile0.log")).write_text(f"[compile exception] {e}\n", encoding="utf-8")
+        logpath.write_text(f"[compile exception] {type(e).__name__}: {e}\n", encoding="utf-8")
         return False
 
 
@@ -749,17 +771,18 @@ def compile_candidate_and_count_pages(
         probe.write_text(tex_text + "\n", encoding="utf-8", newline="\n")
 
         cmd = ["pdflatex", "-interaction=nonstopmode", "-halt-on-error", probe.name]
-        proc = subprocess.run(
-            cmd,
-            cwd=str(target_dir),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            timeout=180,
-        )
-
-        compile_log = proc.stdout or ""
-        ok = proc.returncode == 0
+        logs = []
+        ok = True
+        for pass_number in (1, 2):
+            proc = subprocess.run(
+                cmd, cwd=str(target_dir), stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT, text=True, timeout=180,
+            )
+            logs.append(f"--- probe pdflatex pass {pass_number}/2 ---\n" + (proc.stdout or ""))
+            if proc.returncode != 0:
+                ok = False
+                break
+        compile_log = "\n".join(logs)
 
         page_count = None
         rendered_text = ""
@@ -1332,6 +1355,9 @@ def main() -> int:
         log("slides.tex failed to compile. Running fix_latex_selenium_v4.", "WARN")
         fix_latex_selenium_v4.fix_latex(str(out_tex))
         cleanup_latex_artifacts(stem="slides")
+        if not pdflatex_compiles(out_tex):
+            log("Final two-pass LaTeX compilation or footer verification failed.", "ERROR")
+            return 1
 
     # Final release gate: inspect both the accepted LaTeX and the rendered PDF.
     # Compilation success alone is insufficient if source-tracking metadata is
