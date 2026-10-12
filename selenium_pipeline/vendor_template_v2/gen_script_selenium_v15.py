@@ -806,6 +806,20 @@ def build_instruction(rendered_prompt_name: str, slide_count: int) -> str:
     )
 
 
+def retry_instruction(base_instruction: str, warnings: list[str]) -> str:
+    """Give the next generation precise, bounded validation feedback."""
+    if not warnings:
+        return base_instruction
+    unique = list(dict.fromkeys(warnings))[:20]
+    details = "\n".join(f"- {w[:350]}" for w in unique)
+    return (base_instruction + "\n\nThe previous narration was rejected by local validation. "
+            "Regenerate the COMPLETE script, correcting these errors without changing slide order "
+            "or weakening any formatting or speech-safety requirements:\n" + details +
+            "\nFor ambiguous capital letters, explicitly state the intended physical quantity "
+            "in spoken words according to the slide context; never guess an unsupported meaning. "
+            "Return all slide blocks, not just corrected slides.")
+
+
 def sanitize_and_rebuild_script(script_text: str, exact_titles: list[str]) -> str:
     cleaned = strip_leading_ui_artifacts(script_text)
     cleaned = strip_inline_citation_artifacts(cleaned)
@@ -1008,7 +1022,7 @@ def main() -> int:
                 log(f"Regeneration attempt {attempt} of {attempts}", "WARN")
 
             #response = request_script_once(client, gemsel, instruction)
-            response = request_script_once(client, gemsel, instruction, slide_count)
+            response = request_script_once(client, gemsel, retry_instruction(instruction, last_warnings), slide_count)
             
             if not response:
                 continue
@@ -1026,6 +1040,16 @@ def main() -> int:
             last_warnings = warnings
             for w in warnings:
                 log(w, "WARN")
+
+            try:
+                archive = OUT_SCRIPT.with_name(f"{OUT_SCRIPT.stem}.rejected_attempt_{attempt}{OUT_SCRIPT.suffix}")
+                if archive.exists():
+                    backup_existing(archive)
+                OUT_SCRIPT.replace(archive)
+                log(f"Preserved rejected narration as {archive.name}", "WARN")
+            except Exception as e:
+                log(f"Could not archive rejected narration; refusing destructive retry: {e}", "ERR")
+                return 1
 
             try:
                 OUT_SCRIPT.unlink(missing_ok=True)
