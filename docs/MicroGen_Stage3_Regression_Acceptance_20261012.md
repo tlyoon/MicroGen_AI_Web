@@ -45,6 +45,10 @@ The GitHub Actions workflow also runs the targeted historical-failure tests sepa
 | Unreliable Drive tickets / machine portability | tests/test_three_pc_worker.py, tests/test_worker_portability.py | Disjoint assignments; local environments; no shared-Drive mutex assumption |
 | Campaign false positives and missing sources | tests/test_reliability_audit.py, Stage 3 read-only audit case | Count only genuine source-matched receipt proof |
 
+## Additional defect found by Windows CI
+
+The first complete Windows CI run exposed a Stage 2 cache-path portability bug: the encoder canonicalized the lecture folder before hashing its cache identity, while a second caller supplied the unnormalized path. Windows hosted runners could therefore disagree about the cache directory even though the first segment had been successfully encoded. Stage 3 fixes this by canonicalizing the source path inside the cache helper and regresses equivalent path aliases. This is a genuine software fix discovered by the expanded cross-platform test coverage.
+
 ## Mandatory acceptance outcomes
 
 1. All offline tests pass on the proposed commit on Windows and Ubuntu, without collecting or rewriting production materials.
