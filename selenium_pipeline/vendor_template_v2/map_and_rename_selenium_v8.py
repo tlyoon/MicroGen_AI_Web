@@ -1803,8 +1803,12 @@ def run_mapping(
                                               "status": "validated"})
                         final_error = None
                         break
-                    except (GeminiGenerationStalled, RuntimeError, TimeoutError,
-                            subprocess.TimeoutExpired) as e:
+                    except Exception as e:
+                        # Invalid local inputs, unsafe filenames and missing
+                        # permissions are permanent, not transient Gemini
+                        # failures. Do not waste API quota or circumvent them.
+                        if isinstance(e, (ValueError, FileNotFoundError, PermissionError)):
+                            raise
                         final_error = e
                         attempt_trace.append({
                             "backend": backend, "attempt": step.number,
@@ -1818,6 +1822,14 @@ def run_mapping(
                                 setattr(client, "_map_prompt_cache", None)
                             except Exception:
                                 pass
+                            if not client_started:
+                                # Chrome may have failed to attach/start. Clean
+                                # the partial session before the next try.
+                                try:
+                                    client.shutdown()
+                                except Exception:
+                                    pass
+                                client = None
                         if step != attempts[-1]:
                             time.sleep(min(2.0, 0.35 * step.number))
                 # Keep the complete transport decision with the page crop
