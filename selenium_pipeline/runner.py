@@ -71,18 +71,18 @@ def _needs_browser(stage: str) -> bool:
         from .communication_policy import CommunicationMode, resolve_mode
         return resolve_mode() is CommunicationMode.SELENIUM
     if stage == "narration":
-        return os.getenv("MICROGEN_NARRATION_BACKEND", "api").strip().lower() == "ui"
+        from .communication_policy import CommunicationMode, resolve_mode
+        return resolve_mode() is CommunicationMode.SELENIUM
     return stage in CHROME_STAGES
 
 
 def _needs_api_python_for_stages(planned: list[str]) -> bool:
     """Include potential API fallback even when Selenium is primary."""
     from .communication_policy import CommunicationMode, resolve_mode
-    content_api = any(stage in planned for stage in ("figures", "slides")) and (
+    content_api = any(stage in planned for stage in ("figures", "slides", "narration")) and (
         resolve_mode() in {CommunicationMode.API, CommunicationMode.FALLBACK}
     )
-    narration_api = "narration" in planned and not _needs_browser("narration")
-    return content_api or narration_api
+    return content_api
 
 
 SCRIPTS = {
@@ -629,10 +629,10 @@ def _execute_unlocked(s: Settings) -> Path:
         # communication mode in the figure mapper.
         "MICROGEN_FIGURE_MAPPING_BACKEND": os.getenv(
             "MICROGEN_FIGURE_MAPPING_BACKEND", "api").strip().lower(),
-        # Gemini Flash API is the default narration transport: no Chrome
-        # composer/send/copy race and no 420s empty-response stall.
+        # Backward-compatible metadata; the central communication mode
+        # takes precedence, including for narration fallback.
         "MICROGEN_NARRATION_BACKEND": os.getenv(
-            "MICROGEN_NARRATION_BACKEND", "api").strip().lower(),
+            "MICROGEN_NARRATION_BACKEND", "ui").strip().lower(),
     })
     if _needs_api_python_for_stages(planned):
         # Both API figure mapping and API narration may run under a Docling
@@ -863,6 +863,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--tts-voice", default="Kore")
     p.add_argument("--tts-qa-model", default=ACTIVE_LLM_MODEL)
     p.add_argument("--tts-qa-threshold", type=float, default=99.0)
+    p.add_argument("--communication-mode", choices=("selenium", "api", "fallback"),
+                   help="Override MICROGEN_COMMUNICATION_MODE for figure, slide and narration tasks")
     p.add_argument("--chrome-port", type=int, default=9222)
     p.add_argument("--alternate-gemini-user", metavar="PROFILE_LABEL",
                    help="Use a separate persistent Chrome profile; sign-in is interactive only if needed")
@@ -874,6 +876,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--doctor", action="store_true", help="Inspect local dependencies")
     args = p.parse_args(argv)
     load_microvid_env()
+    from .communication_policy import resolve_mode
+    os.environ["MICROGEN_COMMUNICATION_MODE"] = resolve_mode(args.communication_mode).value
     if args.doctor:
         doctor()
         return 0
