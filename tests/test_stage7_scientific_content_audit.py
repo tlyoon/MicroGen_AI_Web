@@ -91,3 +91,20 @@ def test_source_pdf_is_never_changed_by_screening(tmp_path):
         inspect(folder)
     assert source.read_bytes() == data
     assert not list(folder.glob("*.json"))
+
+
+def test_missing_source_is_blocked_not_a_campaign_crash(tmp_path):
+    folder = _job(tmp_path)
+    (folder / "source.pdf").unlink()
+    result = inspect(folder)
+    assert result["classification"] == "blocked"
+    assert result["blockers"] >= 1
+    assert "source_missing" in {i["code"] for i in result["issues"]}
+
+
+def test_missing_slide_pdf_is_fail_closed(tmp_path):
+    folder = _job(tmp_path)
+    (folder / "slides.pdf").unlink()
+    result = inspect(folder)
+    assert result["classification"] == "blocked"
+    assert result["blockers"] >= 1
