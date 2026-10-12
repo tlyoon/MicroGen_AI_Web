@@ -22,7 +22,9 @@ def _pdf(path: Path, pages: list[str]):
 def _job(tmp_path, chapter="8", subchapter="8.2"):
     folder = tmp_path / chapter / subchapter
     folder.mkdir(parents=True)
-    _pdf(folder / "source.pdf", ["The electric field and a test charge exert an electric force."])
+    _pdf(folder / "source.pdf", ["The electric field and a test charge exert an electric force. "
+         "Electric field lines describe the field around a source charge. "
+         "A test charge is affected by electric forces in the space."])
     _pdf(folder / "slides.pdf", ["The electric field exerts a force on a charge."])
     (folder / "slides.tex").write_text(r"\documentclass{beamer}", encoding="utf-8")
     return folder
