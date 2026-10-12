@@ -124,6 +124,11 @@ def inspect(folder: Path) -> dict:
         flag("blocker", "slides_unreadable", f"Slide PDF is unreadable: {type(exc).__name__}")
         return finalize()
 
+    from .latex_footer import incorrect_page_totals
+    for bad in incorrect_page_totals(deck):
+        flag("blocker", "incorrect_beamer_page_total",
+             f"Slide displays {bad['display']}, but deck has {bad['actual_total']} pages",
+             bad["slide"])
     result["pdf_embedded_images"] = image_count
     result["pages_with_vector_drawings"] = vector_pages
     combined = "\n".join(all_text)
