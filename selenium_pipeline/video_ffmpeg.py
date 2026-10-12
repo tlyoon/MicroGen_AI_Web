@@ -208,7 +208,8 @@ def _video_cache(folder: Path) -> Path:
         "MICROGEN_VIDEO_CACHE_ROOT",
         str(Path(os.getenv("LOCALAPPDATA", tempfile.gettempdir()))
             / "MicroGen" / "video_cache")))
-    identifier = hashlib.sha256(str(folder).casefold().encode("utf-8")).hexdigest()[:24]
+    canonical_folder = folder.expanduser().resolve()
+    identifier = hashlib.sha256(str(canonical_folder).casefold().encode("utf-8")).hexdigest()[:24]
     target = root / identifier
     target.mkdir(parents=True, exist_ok=True)
     return target
