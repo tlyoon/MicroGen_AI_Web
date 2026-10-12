@@ -1051,6 +1051,54 @@ def send_prompt_and_capture_transport_block(
     return ""
 
 
+def _api_transport_for_slides(
+    source: Path, prompt: Path, dimensions: Path, instruction_text: str,
+    output: Path, attempt: int,
+) -> str:
+    """Use the existing Gemini key-failover Python, without browser coupling.
+
+    Only return the raw draft; the caller must run the exact same Beamer
+    sanity, PDF compile, grounding and citation-removal gates as UI output.
+    """
+    repo = Path(os.environ.get("MICROGEN_PACKAGE_ROOT", "")).expanduser()
+    if not (repo / "selenium_pipeline" / "slides_api.py").is_file():
+        raise RuntimeError("MICROGEN_PACKAGE_ROOT does not identify the slides API package")
+    runtime = Path(os.environ.get("MICROGEN_TTS_PYTHON", sys.executable))
+    if not runtime.is_file():
+        raise FileNotFoundError(f"Configured Gemini API Python is missing: {runtime}")
+    instruction_file = output.with_name("gen_slides_api_instruction.txt")
+    raw_file = output.with_name(f"slides_attempt_{attempt}_api_raw.txt")
+    instruction_file.write_text(instruction_text, encoding="utf-8")
+    command = [
+        str(runtime), "-m", "selenium_pipeline.slides_api",
+        "--source", str(source),
+        "--rendered-prompt", str(prompt),
+        "--dimensions", str(dimensions),
+        "--instructions", str(instruction_file),
+        "--raw-output", str(raw_file),
+        "--model", os.environ.get("MICROGEN_LLM_MODEL", "gemini-3.8-flash"),
+    ]
+    # External API latency is bounded. Source/output files stay in the
+    # isolated staging directory until validated by the caller.
+    seconds = max(60, int(os.environ.get("MICROGEN_SLIDES_API_TIMEOUT_SECONDS", "420")))
+    result = subprocess.run(
+        command, cwd=str(repo), capture_output=True, text=True,
+        errors="replace", timeout=seconds, check=False,
+    )
+    if result.returncode != 0:
+        diagnostic = output.with_name(f"slides_attempt_{attempt}_api_failure.log")
+        diagnostic.write_text(
+            (result.stdout + "\\n" + result.stderr)[-12000:], encoding="utf-8"
+        )
+        raise RuntimeError(
+            f"Gemini Flash slide API failed with status {result.returncode}; "
+            f"see {diagnostic.name}"
+        )
+    if not raw_file.is_file():
+        raise RuntimeError("Gemini Flash slide API produced no raw output")
+    return raw_file.read_text(encoding="utf-8")
+
+
 def generate_slides_tex(
     client: "gemsel.GeminiSeleniumClient",
     pdf_path: Path,
@@ -1073,13 +1121,19 @@ def generate_slides_tex(
     #for attempt in range(1, 4):
     #    log(f"Slides generation attempt {attempt}/3", "INFO")
 
-    max_attempts = int(os.getenv("SLIDES_MAX_ATTEMPTS", "6"))
+    backend = os.environ.get("MICROGEN_SLIDES_BACKEND", "browser").strip().lower()
+    if backend not in {"browser", "api"}:
+        raise ValueError("MICROGEN_SLIDES_BACKEND must be browser or api")
+    max_attempts = int(os.getenv("SLIDES_MAX_ATTEMPTS", "2" if backend == "api" else "6"))
     
     for attempt in range(1, max_attempts + 1):
         log(f"Slides generation attempt {attempt}/{max_attempts}", "INFO")        
               
-        client.open_clean_gemini_chat()
-        client.upload_files([pdf_path, prompt_path, png_json_path])
+        if backend == "browser":
+            if client is None:
+                raise RuntimeError("Browser slide transport requires an authenticated client")
+            client.open_clean_gemini_chat()
+            client.upload_files([pdf_path, prompt_path, png_json_path])
 
         instruction = (
             f"Please read the attached file '{prompt_path.name}' and execute the instructions EXACTLY as written. "
@@ -1107,11 +1161,16 @@ def generate_slides_tex(
         )
         
         ###
-        response_text = send_prompt_and_capture_transport_block(
-            client=client,
-            instruction_text=instruction,
-            wait_cap=wait_cap,
-        )
+        if backend == "api":
+            response_text = _api_transport_for_slides(
+                pdf_path, prompt_path, png_json_path, instruction, out_tex, attempt,
+            )
+        else:
+            response_text = send_prompt_and_capture_transport_block(
+                client=client,
+                instruction_text=instruction,
+                wait_cap=wait_cap,
+            )
         
         raw_attempt_path = out_tex.with_name(f"slides_attempt_{attempt}_raw.txt")
         raw_attempt_path.write_text(response_text or "", encoding="utf-8", newline="\n")
@@ -1303,26 +1362,36 @@ def main() -> int:
         force_kill_chrome_to_free_port=(os.getenv("SAFE_CHROME", "0") != "1"),
     )
 
-    client = gemsel.GeminiSeleniumClient(cfg)
-
-    try:
-        log("Starting Gemini Selenium client...", "INFO")
-        client.start(ensure_gemini_on_launch=True)
+    backend = os.environ.get("MICROGEN_SLIDES_BACKEND", "browser").strip().lower()
+    if backend == "api":
+        log("Using bounded Gemini Flash API for slide drafting (no Chrome UI)", "INFO")
         generate_slides_tex(
-            client=client,
+            client=None,
             pdf_path=pdf_path,
             prompt_path=rendered_prompt_path,
             png_json_path=png_json_path,
             out_tex=out_tex,
             wait_cap=wait_cap,
         )
-    finally:
+    else:
+        client = gemsel.GeminiSeleniumClient(cfg)
         try:
-            client.shutdown()
-            #pass
-        except Exception:
-            pass
-        log("Selenium session is done.", "INFO")
+            log("Starting Gemini Selenium client...", "INFO")
+            client.start(ensure_gemini_on_launch=True)
+            generate_slides_tex(
+                client=client,
+                pdf_path=pdf_path,
+                prompt_path=rendered_prompt_path,
+                png_json_path=png_json_path,
+                out_tex=out_tex,
+                wait_cap=wait_cap,
+            )
+        finally:
+            try:
+                client.shutdown()
+            except Exception:
+                pass
+            log("Selenium session is done.", "INFO")
 
     time.sleep(1.0)
     log("Compiling latex (pre-check) ...", "INFO")
@@ -1360,9 +1429,10 @@ if __name__ == "__main__":
     ##
     SCRIPT_1 = "launch_gemini_chrome.py"
     script_path = Path(__file__).resolve().with_name(SCRIPT_1)
-    result = subprocess.run(
-        [sys.executable, str(script_path)],
-        check=True
-    )
+    if os.environ.get("MICROGEN_SLIDES_BACKEND", "browser").strip().lower() != "api":
+        result = subprocess.run(
+            [sys.executable, str(script_path)],
+            check=True
+        )
     ##
     raise SystemExit(main())
