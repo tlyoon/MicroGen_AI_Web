@@ -721,7 +721,7 @@ def _execute_unlocked(s: Settings) -> Path:
                     # Stage split PDFs locally before publishing; vendor
                     # slice_pdf.py writes directly to cloud drives and can stall.
                     run_cmd([
-                        stage_python, "-m", "selenium_pipeline.slide_pdf_split",
+                        stage_python, str(REPO / "selenium_pipeline" / "slide_pdf_split.py"),
                         "--folder", str(folder),
                     ], folder, log_file, env,
                         timeout_s=int(os.getenv("MICROGEN_SLIDE_SPLIT_TIMEOUT_SECONDS", "900")),
