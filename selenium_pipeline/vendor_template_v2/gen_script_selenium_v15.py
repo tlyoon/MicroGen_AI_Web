@@ -883,6 +883,46 @@ def force_exact_titles_after_postprocessing(exact_titles: list[str]) -> None:
     log("Re-applied the exact first-slide title after post-processing.", "INFO")
 
 
+def request_script_api_once(instruction: str, expected_slide_count: int) -> Optional[str]:
+    """Use the same Flash PDF grounding without brittle Chrome submission/capture.
+
+    Launch through the vetted API/TTS Python, because some Docling environments
+    do not have a compatible google-genai SDK. Keep all raw/rejected answers in
+    the job workspace; script.txt is still published only after local QA.
+    """
+    repo = Path(os.environ.get("MICROGEN_PACKAGE_ROOT", "")).expanduser()
+    executable = os.environ.get("MICROGEN_TTS_PYTHON", "").strip()
+    if not repo.is_dir() or not executable or not Path(executable).is_file():
+        raise RuntimeError("Gemini API narration requires code root and TTS Python")
+    instruction_file = Path.cwd() / "narration_api_instruction.txt"
+    output = Path.cwd() / "narration_api_response.txt"
+    instruction_file.write_text(instruction, encoding="utf-8")
+    output.unlink(missing_ok=True)
+    command = [
+        executable, "-m", "selenium_pipeline.narration_api",
+        "--slides", str(SLIDES_PDF.resolve()),
+        "--source", str(SOURCE_PDF.resolve()),
+        "--prompt", str(RENDERED_PROMPT_FILE.resolve()),
+        "--instruction-file", str(instruction_file),
+        "--output", str(output),
+        "--expected-slides", str(expected_slide_count),
+        "--model", os.getenv("MICROGEN_LLM_MODEL", "gemini-3.8-flash"),
+    ]
+    log(f"Requesting {expected_slide_count} source-grounded narration blocks via Gemini Flash API.", "INFO")
+    # The child inherits non-committed AppData keys from the launcher; no token
+    # is passed in arguments or written to a staging file.
+    result = subprocess.run(command, cwd=repo, check=False, timeout=480)
+    if result.returncode != 0:
+        raise RuntimeError(f"Gemini narration API failed (exit={result.returncode}); see rejected diagnostic")
+    if not output.is_file():
+        raise RuntimeError("Gemini narration API returned no validated raw response")
+    response = output.read_text(encoding="utf-8")
+    if not raw_response_has_real_narration(response, expected_slide_count):
+        log("API returned only incomplete narration; refusing to publish it.", "WARN")
+        return None
+    return response
+
+
 def request_script_once(client, gemsel_module, instruction: str, expected_slide_count: int) -> Optional[str]:
     client.open_clean_gemini_chat()
     client.upload_files([SLIDES_PDF, SOURCE_PDF, RENDERED_PROMPT_FILE])
@@ -970,14 +1010,14 @@ def main() -> int:
 """
     )
 
-    ##
-    SCRIPT_1 = "launch_gemini_chrome.py"
-    script_path = Path(__file__).resolve().with_name(SCRIPT_1)
-    result = subprocess.run(
-        [sys.executable, str(script_path)],
-        check=True
-    )
-    ##
+    backend = os.environ.get("MICROGEN_NARRATION_BACKEND", "api").strip().lower()
+    if backend not in {"api", "ui"}:
+        raise ValueError(f"Unsupported MicroGen narration backend: {backend}")
+    if backend == "ui":
+        script_path = Path(__file__).resolve().with_name("launch_gemini_chrome.py")
+        subprocess.run([sys.executable, str(script_path)], check=True)
+    else:
+        log("Narration backend: Gemini Flash API, no Chrome interaction required.", "INFO")
 
     missing = [p for p in [SLIDES_PDF, SOURCE_PDF, PROMPT_FILE] if not p.exists()]
     if missing:
@@ -1006,13 +1046,17 @@ def main() -> int:
         log(f"Could not render prompt or title metadata: {e}", "ERR")
         return 1
 
-    gemsel = _load_local_gemini_selenium_module()
-    cfg = gemsel.Config(root=Path.cwd())
-    client = gemsel.GeminiSeleniumClient(cfg)
+    client = None
+    gemsel = None
+    if backend == "ui":
+        gemsel = _load_local_gemini_selenium_module()
+        cfg = gemsel.Config(root=Path.cwd())
+        client = gemsel.GeminiSeleniumClient(cfg)
     instruction = build_instruction(RENDERED_PROMPT_FILE.name, slide_count)
 
     try:
-        client.start(ensure_gemini_on_launch=True)
+        if client is not None:
+            client.start(ensure_gemini_on_launch=True)
 
         attempts = RETRY_COUNT + 1
         last_warnings: list[str] = []
@@ -1021,8 +1065,11 @@ def main() -> int:
             if attempt > 1:
                 log(f"Regeneration attempt {attempt} of {attempts}", "WARN")
 
-            #response = request_script_once(client, gemsel, instruction)
-            response = request_script_once(client, gemsel, retry_instruction(instruction, last_warnings), slide_count)
+            revised = retry_instruction(instruction, last_warnings)
+            if backend == "api":
+                response = request_script_api_once(revised, slide_count)
+            else:
+                response = request_script_once(client, gemsel, revised, slide_count)
             
             if not response:
                 continue
@@ -1064,12 +1111,14 @@ def main() -> int:
         return 1
 
     finally:
-        try:
-            client.shutdown()
-            #pass
-        except Exception:
-            pass
-        log("Selenium session finished.", "OK")
+        if client is not None:
+            try:
+                client.shutdown()
+            except Exception:
+                pass
+            log("Selenium session finished.", "OK")
+        else:
+            log("Gemini API narration attempt finished.", "INFO")
 
 
 if __name__ == "__main__":
