@@ -67,22 +67,19 @@ def _needs_browser(stage: str) -> bool:
     eagerly here: an unavailable Chrome must be a bounded Selenium failure,
     not prevent a valid API fallback from being attempted.
     """
-    if stage in {"figures", "slides"}:
+    if stage in {"figures", "slides", "narration"}:
         from .communication_policy import CommunicationMode, resolve_mode
         return resolve_mode() is CommunicationMode.SELENIUM
-    if stage == "narration":
-        return os.getenv("MICROGEN_NARRATION_BACKEND", "api").strip().lower() == "ui"
     return stage in CHROME_STAGES
 
 
 def _needs_api_python_for_stages(planned: list[str]) -> bool:
     """Include potential API fallback even when Selenium is primary."""
     from .communication_policy import CommunicationMode, resolve_mode
-    content_api = any(stage in planned for stage in ("figures", "slides")) and (
-        resolve_mode() in {CommunicationMode.API, CommunicationMode.FALLBACK}
+    return (
+        any(stage in planned for stage in ("figures", "slides", "narration"))
+        and resolve_mode() in {CommunicationMode.API, CommunicationMode.FALLBACK}
     )
-    narration_api = "narration" in planned and not _needs_browser("narration")
-    return content_api or narration_api
 
 
 SCRIPTS = {
@@ -457,6 +454,7 @@ class Settings:
     alternate_gemini_user: str | None = None
     confirm_pro: bool = False
     dry_run: bool = False
+    communication_mode: str | None = None
     force_from: str | None = None
     from_stage: str = "figures"
     through_stage: str = "video"
@@ -529,6 +527,11 @@ def _execute_unlocked(s: Settings) -> Path:
     if first > last:
         raise ValueError("--from-stage must precede --through-stage")
     planned = STAGES[first:last + 1]
+    from .communication_policy import resolve_mode
+    selected_mode = resolve_mode(s.communication_mode)
+    # Per invocation the CLI takes priority over environment/default.
+    os.environ["MICROGEN_COMMUNICATION_MODE"] = selected_mode.value
+    print(f"[microgen] communication mode: {selected_mode.value}")
     print(f"[microgen] code root: {REPO} | job: {s.subchapter}")
     print(f"[microgen] input: {source} | work: {folder}")
     print(f"[microgen] model phase: {MODEL_PHASE}")
@@ -629,10 +632,10 @@ def _execute_unlocked(s: Settings) -> Path:
         # communication mode in the figure mapper.
         "MICROGEN_FIGURE_MAPPING_BACKEND": os.getenv(
             "MICROGEN_FIGURE_MAPPING_BACKEND", "api").strip().lower(),
-        # Gemini Flash API is the default narration transport: no Chrome
-        # composer/send/copy race and no 420s empty-response stall.
+        # Legacy narration backend has no authority over central
+        # Selenium/API/fallback policy. Kept only as a compatibility hint.
         "MICROGEN_NARRATION_BACKEND": os.getenv(
-            "MICROGEN_NARRATION_BACKEND", "api").strip().lower(),
+            "MICROGEN_NARRATION_BACKEND", "ui").strip().lower(),
     })
     if _needs_api_python_for_stages(planned):
         # Both API figure mapping and API narration may run under a Docling
@@ -863,6 +866,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--tts-voice", default="Kore")
     p.add_argument("--tts-qa-model", default=ACTIVE_LLM_MODEL)
     p.add_argument("--tts-qa-threshold", type=float, default=99.0)
+    p.add_argument("--communication-mode", choices=("selenium", "api", "fallback"),
+                   help="Gemini content backend (default: Selenium; overrides MICROGEN_COMMUNICATION_MODE)")
     p.add_argument("--chrome-port", type=int, default=9222)
     p.add_argument("--alternate-gemini-user", metavar="PROFILE_LABEL",
                    help="Use a separate persistent Chrome profile; sign-in is interactive only if needed")
@@ -907,6 +912,7 @@ def main(argv: list[str] | None = None) -> int:
                          tts_qa_threshold=args.tts_qa_threshold,
                          chrome_port=args.chrome_port, alternate_gemini_user=args.alternate_gemini_user,
                          from_stage=args.from_stage,
+                         communication_mode=args.communication_mode,
                          through_stage=args.through_stage, force_from=args.force_from,
                          confirm_pro=args.confirm_pro, dry_run=args.dry_run))
     return 0
