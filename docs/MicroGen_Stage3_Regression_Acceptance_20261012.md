@@ -49,6 +49,8 @@ The GitHub Actions workflow also runs the targeted historical-failure tests sepa
 
 The first complete Windows CI run exposed a Stage 2 cache-path portability bug: the encoder canonicalized the lecture folder before hashing its cache identity, while a second caller supplied the unnormalized path. Windows hosted runners could therefore disagree about the cache directory even though the first segment had been successfully encoded. Stage 3 fixes this by canonicalizing the source path inside the cache helper and regresses equivalent path aliases. This is a genuine software fix discovered by the expanded cross-platform test coverage.
 
+The second full-Windows CI attempt exposed a related manifest-portability defect: a worker source-root check compared noncanonical absolute path strings. On Windows, equivalent spellings could incorrectly fail the manifest gate. The worker now resolves both manifest and local paths before comparison while preserving rejection of genuinely different directories. The existing Windows portability integration test exercises this exact fail-closed gate.
+
 ## Mandatory acceptance outcomes
 
 1. All offline tests pass on the proposed commit on Windows and Ubuntu, without collecting or rewriting production materials.
