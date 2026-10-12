@@ -64,6 +64,8 @@ def _needs_browser(stage: str) -> bool:
     """Figure API mapping never touches Gemini Chrome; other Gemini stages do."""
     if stage == "figures":
         return os.getenv("MICROGEN_FIGURE_MAPPING_BACKEND", "api").strip().lower() == "browser"
+    if stage == "narration":
+        return os.getenv("MICROGEN_NARRATION_BACKEND", "api").strip().lower() == "ui"
     return stage in CHROME_STAGES
 
 SCRIPTS = {
@@ -606,6 +608,10 @@ def _execute_unlocked(s: Settings) -> Path:
         "MICROGEN_PACKAGE_ROOT": str(REPO),
         "MICROGEN_FIGURE_MAPPING_BACKEND": os.getenv(
             "MICROGEN_FIGURE_MAPPING_BACKEND", "api").strip().lower(),
+        # Gemini Flash API is the default narration transport: no Chrome
+        # composer/send/copy race and no 420s empty-response stall.
+        "MICROGEN_NARRATION_BACKEND": os.getenv(
+            "MICROGEN_NARRATION_BACKEND", "api").strip().lower(),
     })
     if "figures" in planned and not _needs_browser("figures"):
         # Docling environments often lack google-genai; use the independently
