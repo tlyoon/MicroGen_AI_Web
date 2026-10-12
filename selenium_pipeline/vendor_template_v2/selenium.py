@@ -1022,7 +1022,12 @@ def _rotate_owned_gemini_tab(driver, previous: Optional[str]) -> str:
     # Recover if our earlier owned tab vanished asynchronously. Explicitly
     # switch to a known live target before attempting NEW_WINDOW.
     anchor = previous if previous in handles else handles[0]
-    driver.switch_to.window(anchor)
+    try:
+        current = driver.current_window_handle
+    except Exception:
+        current = None
+    if current != anchor:
+        driver.switch_to.window(anchor)
     driver.switch_to.new_window("tab")
     fresh = driver.current_window_handle
     if not fresh or fresh == previous:
