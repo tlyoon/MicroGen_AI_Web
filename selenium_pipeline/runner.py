@@ -64,6 +64,8 @@ def _needs_browser(stage: str) -> bool:
     """Figure API mapping never touches Gemini Chrome; other Gemini stages do."""
     if stage == "figures":
         return os.getenv("MICROGEN_FIGURE_MAPPING_BACKEND", "api").strip().lower() == "browser"
+    if stage == "narration":
+        return os.getenv("MICROGEN_NARRATION_BACKEND", "api").strip().lower() == "ui"
     return stage in CHROME_STAGES
 
 SCRIPTS = {
