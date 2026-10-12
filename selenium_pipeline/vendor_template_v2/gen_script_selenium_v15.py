@@ -1122,7 +1122,8 @@ def main() -> int:
                 warnings = [f"Script validation failed: {type(e).__name__}: {e}"]
 
             if not warnings:
-                run_post_processors()
+                # The script has already been post-processed and validated.
+                # Do not mutate it again after the final quality gate.
                 trace.append({"backend": backend, "attempt": step.number,
                               "result": "validated"})
                 tmp = trace_path.with_suffix(".json.pending")
