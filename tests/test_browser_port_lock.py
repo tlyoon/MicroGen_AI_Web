@@ -29,7 +29,7 @@ class BrowserPortLockTests(unittest.TestCase):
 
     def test_chrome_stage_uses_lock(self):
         s = Settings(source_root=self.root, work_root=None, subchapter="8.1",
-                     from_stage="figures", through_stage="slides")
+                     from_stage="narration", through_stage="narration")
         with patch("selenium_pipeline.runner._execute_unlocked", return_value=self.root):
             with patch("selenium_pipeline.three_pc_worker.LocalInstanceLock") as lock:
                 execute(s)
