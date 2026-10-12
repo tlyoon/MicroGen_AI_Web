@@ -22,6 +22,15 @@ A worker with a finished checkpoint, a staging MP4 or a published PDF is not
 necessarily finished. Unresolved figures produce source-grounded review
 candidates; they are **never automatically replaced with guessed diagrams**.
 
+## Windows worker environment and TTS reliability
+
+For a new, local MicroGen worker environment (rather than a virtual environment
+stored under a synchronized Google Drive tree), use
+`requirements-worker.txt`. See the [Dell-115 TTS and Python reliability repair
+notes](docs/Dell115_TTS_and_Python_Reliability_20261012.md) for the October 2026
+configuration failure, first-slide Gemini TTS timeouts, and strict voice-safe
+fallback behavior. The normal browser model remains Gemini Flash.
+
 ## Reusable multi-PC lecture generation prompt
 
 To request automatic generation of **all source.pdf subchapters** using available,

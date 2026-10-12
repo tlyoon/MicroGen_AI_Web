@@ -213,6 +213,34 @@ def _merge_wav_payloads(payloads: list[bytes]) -> bytes:
     return output.getvalue()
 
 
+def _tts_child_request_env(timeout_seconds: float) -> dict[str, str]:
+    """Bound SDK per-key retries *inside* the outer TTS process watchdog.
+
+    In the October 2026 Dell campaign the inner SDK's 120-second request
+    timeout exceeded a 105-second outer child-process deadline. That killed
+    requests before a second configured API key could be attempted, despite
+    successful TTS on the other PCs. Reserve 25% of the outer budget for
+    client startup, failover and shutdown, and divide the remainder among
+    configured keys. Do not expose key values or relax narration QA.
+    """
+    from gemini_keys import get_gemini_api_keys
+
+    env = os.environ.copy()
+    configured_keys = max(1, len(get_gemini_api_keys()))
+    budget_ms = max(
+        1_000,
+        int(timeout_seconds * 0.75 * 1000 / configured_keys),
+    )
+    requested_ms = int(env.get("MICROGEN_GEMINI_REQUEST_TIMEOUT_MS", "120000"))
+    env["MICROGEN_GEMINI_REQUEST_TIMEOUT_MS"] = str(
+        min(max(1_000, requested_ms), budget_ms)
+    )
+    env["MICROGEN_GEMINI_SDK_RETRY_ATTEMPTS"] = "1"
+    env["MICROGEN_GEMINI_MAX_RETRIES"] = "0"
+    env["MICROGEN_GEMINI_TRANSIENT_RETRIES_PER_KEY"] = "1"
+    return env
+
+
 def _gemini_say_with_watchdog(
     text: str,
     number: int,
@@ -256,7 +284,7 @@ def _gemini_say_with_watchdog(
                     text=True,
                     capture_output=True,
                     timeout=timeout_seconds,
-                    env=os.environ.copy(),
+                    env=_tts_child_request_env(timeout_seconds),
                 )
             except subprocess.TimeoutExpired:
                 timed_out_attempts += 1
@@ -500,6 +528,56 @@ def _fallback_payload(
     raise ValueError(f"Unsupported fallback provider: {spec['provider']}")
 
 
+def _stream_batch_fallback_progress(proc: subprocess.Popen, timeout: float) -> str:
+    """Relay batch TTS progress so the parent worker's idle watch can see it.
+
+    communicate() captured the entire fallback output until exit. On Dell a
+    running fallback with multiple slides emitted *nothing* to its parent
+    for 900 seconds and the stage watchdog killed good in-progress work.
+    Keep a bounded tail for failure messages without buffering all output.
+    """
+    import queue
+    import threading
+
+    messages: queue.Queue[str | None] = queue.Queue()
+
+    def reader() -> None:
+        try:
+            if proc.stdout is not None:
+                for line in proc.stdout:
+                    messages.put(line)
+        finally:
+            messages.put(None)
+
+    threading.Thread(target=reader, daemon=True).start()
+    deadline = time.monotonic() + timeout
+    last_heartbeat = time.monotonic()
+    tail: list[str] = []
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise subprocess.TimeoutExpired(proc.args, timeout)
+        try:
+            line = messages.get(timeout=min(1.0, remaining))
+        except queue.Empty:
+            if time.monotonic() - last_heartbeat >= 60:
+                print("[tts] whole-batch fallback still running", flush=True)
+                last_heartbeat = time.monotonic()
+            continue
+        if line is None:
+            break
+        cleaned = line.rstrip()
+        print(f"[tts batch] {cleaned}", flush=True)
+        tail.append(cleaned)
+        if len(tail) > 35:
+            tail.pop(0)
+        last_heartbeat = time.monotonic()
+    proc.wait(timeout=max(0.1, deadline - time.monotonic()))
+    if proc.stdout is not None:
+        proc.stdout.close()
+    return "\n".join(tail)[-1800:]
+
+
 def _whole_batch_fallback(
     folder: Path,
     items: list[tuple[int, str]],
@@ -550,7 +628,7 @@ def _whole_batch_fallback(
             creationflags=creationflags,
         )
         try:
-            output, _ = proc.communicate(timeout=timeout)
+            output = _stream_batch_fallback_progress(proc, timeout)
         except subprocess.TimeoutExpired:
             if os.name == "nt":
                 subprocess.run(

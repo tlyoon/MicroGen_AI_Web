@@ -1,0 +1,15 @@
+# Lightweight MicroGen worker environment. Avoids IDE/Spyder/chromadb.
+# For Windows, install with: python -m pip install -r requirements-worker.txt
+pymupdf>=1.26.4,<1.28
+google-genai>=2.25,<3
+google-cloud-texttospeech>=2.0
+selenium>=4.18,<5
+pypdf>=4,<7
+pypdf2>=3,<4
+pdf2image>=1.17
+Pillow>=10
+imageio-ffmpeg>=0.5
+contractions>=0.1
+python-dotenv>=1
+pyperclip>=1.8
+pywinauto>=0.6.8; sys_platform == "win32"

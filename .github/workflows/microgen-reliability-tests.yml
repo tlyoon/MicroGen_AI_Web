@@ -19,7 +19,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install minimal offline test dependencies
-        run: python -m pip install selenium pymupdf pypdf
+        run: python -m pip install selenium pymupdf pypdf 'google-genai>=2.25,<3'
       - name: Verify known historical failure protections
         run: |
           python -m unittest -v \
@@ -29,7 +29,8 @@ jobs:
             tests.test_figure_recovery_candidates \
             tests.test_reliability_audit \
             tests.test_env_key_conflicts \
-            tests.test_downstream_invalidation
+            tests.test_downstream_invalidation \
+            tests.test_dell_tts_deadlines
       - name: Syntax-check updated Python entry points
         run: |
           python -m py_compile \
