@@ -1148,7 +1148,7 @@ def main() -> int:
                     OUT_SCRIPT.replace(archive)
                     log(f"Preserved rejected narration as {archive.name}", "WARN")
             except Exception as e:
-                log(f"Could not archive rejected script; refusing retry: {e}", "ERR")
+                log(f"Could not archive rejected script; refusing destructive retry: {e}", "ERR")
                 return 1
 
         # No success receipt or accepted script after all planned attempts.
