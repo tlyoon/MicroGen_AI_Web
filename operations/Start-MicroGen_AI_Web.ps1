@@ -23,6 +23,9 @@ param(
 
     [switch]$DryRun,
 
+    [ValidateSet('selenium','api','fallback')]
+    [string]$CommunicationMode = '',
+
     [string]$ConfigurationFile = ''
 )
 Set-StrictMode -Version Latest
@@ -87,8 +90,20 @@ New-Item -ItemType Directory -Path $work -Force | Out-Null
 
 $env:MICROGEN_GEMINI_UI_MODE = 'flash'
 $env:MICROGEN_LLM_MODEL = 'gemini-3.8-flash'
-$env:MICROGEN_FIGURE_MAPPING_BACKEND = 'api'
-$env:MICROGEN_NARRATION_BACKEND = 'api'
+# Central mode is the single source of truth for figures, slides and narration.
+# Explicit launcher mode overrides the environment; otherwise Selenium wins
+# when no environment choice is supplied. Legacy per-stage API settings must
+# not silently override this setting.
+if ($CommunicationMode) {
+    $env:MICROGEN_COMMUNICATION_MODE = $CommunicationMode
+} elseif (-not $env:MICROGEN_COMMUNICATION_MODE) {
+    $env:MICROGEN_COMMUNICATION_MODE = 'selenium'
+}
+if ($env:MICROGEN_COMMUNICATION_MODE -notin @('selenium','api','fallback')) {
+    throw 'MICROGEN_COMMUNICATION_MODE must be selenium, api or fallback'
+}
+Remove-Item Env:MICROGEN_FIGURE_MAPPING_BACKEND -ErrorAction SilentlyContinue
+Remove-Item Env:MICROGEN_NARRATION_BACKEND -ErrorAction SilentlyContinue
 $env:MICROGEN_PIPELINE_PYTHON = [string]$config.pipeline_python
 $env:MICROGEN_TTS_PYTHON = [string]$config.runtime_python
 $env:PYTHONNOUSERSITE = '1'
@@ -100,7 +115,8 @@ $pipelineArgs = @(
     '--subchapter', $Subchapter,
     '--work-root', $work,
     '--from-stage', $FromStage,
-    '--through-stage', $ThroughStage
+    '--through-stage', $ThroughStage,
+    '--communication-mode', $env:MICROGEN_COMMUNICATION_MODE
 )
 if ($ForceFrom) {
     $pipelineArgs += @('--force-from', $ForceFrom)
@@ -108,7 +124,7 @@ if ($ForceFrom) {
 if ($DryRun) {
     $pipelineArgs += '--dry-run'
 }
-Write-Output "[MicroGen_AI_Web] release=$release subchapter=$Subchapter root=$source work=$work flash=enabled dry_run=$DryRun"
+Write-Output "[MicroGen_AI_Web] release=$release subchapter=$Subchapter root=$source work=$work gemini_mode=$env:MICROGEN_COMMUNICATION_MODE flash=enabled dry_run=$DryRun"
 Push-Location $repo
 try {
     & ([string]$config.runtime_python) @pipelineArgs
