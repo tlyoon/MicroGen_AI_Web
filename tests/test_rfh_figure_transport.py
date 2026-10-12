@@ -67,6 +67,8 @@ def make_runner(tmp_path: Path, monkeypatch, fake_mapper):
     )
     monkeypatch.setenv("MICROGEN_PACKAGE_ROOT", str(REPO))
     monkeypatch.setattr(time, "sleep", lambda _: None)
+    monkeypatch.setattr("selenium_pipeline.gemini_model.ensure_mode",
+                        lambda *args, **kwargs: "flash")
     namespace = {
         "Path": Path, "sys": sys, "os": os, "time": time,
         "subprocess": subprocess, "shutil": shutil,
