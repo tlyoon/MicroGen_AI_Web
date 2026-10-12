@@ -883,6 +883,45 @@ def force_exact_titles_after_postprocessing(exact_titles: list[str]) -> None:
     log("Re-applied the exact first-slide title after post-processing.", "INFO")
 
 
+def _request_script_via_api(instruction: str, attempt: int) -> str:
+    """Use isolated Flash API Python and preserve all raw/failed candidates."""
+    repo = Path(os.environ.get("MICROGEN_PACKAGE_ROOT", "")).expanduser()
+    if not (repo / "selenium_pipeline" / "narration_api.py").is_file():
+        raise RuntimeError("MICROGEN_PACKAGE_ROOT does not identify narration API")
+    runtime = Path(os.environ.get("MICROGEN_TTS_PYTHON", sys.executable))
+    if not runtime.is_file():
+        raise FileNotFoundError(f"Gemini narration API Python missing: {runtime}")
+    advice = Path.cwd() / "gen_script_api_instruction.txt"
+    raw = Path.cwd() / f"narration_attempt_{attempt}_api_raw.txt"
+    advice.write_text(instruction, encoding="utf-8")
+    result = subprocess.run(
+        [
+            str(runtime), "-m", "selenium_pipeline.narration_api",
+            "--slides", str(SLIDES_PDF),
+            "--source", str(SOURCE_PDF),
+            "--rendered-prompt", str(RENDERED_PROMPT_FILE),
+            "--instructions", str(advice),
+            "--raw-output", str(raw),
+            "--model", os.environ.get("MICROGEN_LLM_MODEL", "gemini-3.8-flash"),
+        ],
+        cwd=str(repo), capture_output=True, text=True, errors="replace",
+        timeout=max(60, int(os.getenv("MICROGEN_NARRATION_API_TIMEOUT_SECONDS", "420"))),
+        check=False,
+    )
+    if result.returncode != 0:
+        diagnostic = Path.cwd() / f"narration_attempt_{attempt}_api_failure.log"
+        diagnostic.write_text(
+            (result.stdout + "\\n" + result.stderr)[-12000:], encoding="utf-8"
+        )
+        raise RuntimeError(
+            f"Gemini Flash narration API failed with exit {result.returncode}; "
+            f"see {diagnostic.name}"
+        )
+    if not raw.is_file():
+        raise RuntimeError("Gemini Flash API did not produce narration text")
+    return raw.read_text(encoding="utf-8")
+
+
 def request_script_once(client, gemsel_module, instruction: str, expected_slide_count: int) -> Optional[str]:
     client.open_clean_gemini_chat()
     client.upload_files([SLIDES_PDF, SOURCE_PDF, RENDERED_PROMPT_FILE])
@@ -971,12 +1010,16 @@ def main() -> int:
     )
 
     ##
-    SCRIPT_1 = "launch_gemini_chrome.py"
-    script_path = Path(__file__).resolve().with_name(SCRIPT_1)
-    result = subprocess.run(
-        [sys.executable, str(script_path)],
-        check=True
-    )
+    backend = os.environ.get("MICROGEN_NARRATION_BACKEND", "browser").strip().lower()
+    if backend not in {"browser", "api"}:
+        raise ValueError("MICROGEN_NARRATION_BACKEND must be browser or api")
+    if backend == "browser":
+        SCRIPT_1 = "launch_gemini_chrome.py"
+        script_path = Path(__file__).resolve().with_name(SCRIPT_1)
+        result = subprocess.run(
+            [sys.executable, str(script_path)],
+            check=True
+        )
     ##
 
     missing = [p for p in [SLIDES_PDF, SOURCE_PDF, PROMPT_FILE] if not p.exists()]
@@ -1006,13 +1049,19 @@ def main() -> int:
         log(f"Could not render prompt or title metadata: {e}", "ERR")
         return 1
 
-    gemsel = _load_local_gemini_selenium_module()
-    cfg = gemsel.Config(root=Path.cwd())
-    client = gemsel.GeminiSeleniumClient(cfg)
+    gemsel = None
+    client = None
+    if backend == "browser":
+        gemsel = _load_local_gemini_selenium_module()
+        cfg = gemsel.Config(root=Path.cwd())
+        client = gemsel.GeminiSeleniumClient(cfg)
+    else:
+        log("Using bounded Gemini Flash API for complete narration; no Chrome UI", "INFO")
     instruction = build_instruction(RENDERED_PROMPT_FILE.name, slide_count)
 
     try:
-        client.start(ensure_gemini_on_launch=True)
+        if client is not None:
+            client.start(ensure_gemini_on_launch=True)
 
         attempts = RETRY_COUNT + 1
         last_warnings: list[str] = []
@@ -1022,7 +1071,14 @@ def main() -> int:
                 log(f"Regeneration attempt {attempt} of {attempts}", "WARN")
 
             #response = request_script_once(client, gemsel, instruction)
-            response = request_script_once(client, gemsel, retry_instruction(instruction, last_warnings), slide_count)
+            if backend == "api":
+                response = _request_script_via_api(
+                    retry_instruction(instruction, last_warnings), attempt,
+                )
+            else:
+                response = request_script_once(
+                    client, gemsel, retry_instruction(instruction, last_warnings), slide_count,
+                )
             
             if not response:
                 continue
@@ -1064,12 +1120,12 @@ def main() -> int:
         return 1
 
     finally:
-        try:
-            client.shutdown()
-            #pass
-        except Exception:
-            pass
-        log("Selenium session finished.", "OK")
+        if client is not None:
+            try:
+                client.shutdown()
+            except Exception:
+                pass
+            log("Selenium session finished.", "OK")
 
 
 if __name__ == "__main__":
