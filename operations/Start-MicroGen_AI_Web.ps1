@@ -23,6 +23,9 @@ param(
 
     [switch]$DryRun,
 
+    [ValidateSet('selenium','api','fallback')]
+    [string]$CommunicationMode = '',
+
     [string]$ConfigurationFile = ''
 )
 Set-StrictMode -Version Latest
@@ -87,8 +90,16 @@ New-Item -ItemType Directory -Path $work -Force | Out-Null
 
 $env:MICROGEN_GEMINI_UI_MODE = 'flash'
 $env:MICROGEN_LLM_MODEL = 'gemini-3.8-flash'
-$env:MICROGEN_FIGURE_MAPPING_BACKEND = 'api'
-$env:MICROGEN_NARRATION_BACKEND = 'api'
+# One mode for figures/captions, slides and narration. Explicit invocation
+# overrides inherited environment, otherwise Selenium is the default.
+$selectedMode = if ($CommunicationMode) { $CommunicationMode } elseif ($env:MICROGEN_COMMUNICATION_MODE) { $env:MICROGEN_COMMUNICATION_MODE.Trim().ToLowerInvariant() } else { 'selenium' }
+if ($selectedMode -notin @('selenium','api','fallback')) {
+    throw "Invalid MICROGEN_COMMUNICATION_MODE '$selectedMode'; choose selenium, api or fallback"
+}
+$env:MICROGEN_COMMUNICATION_MODE = $selectedMode
+# The old per-stage backend values cannot override the common mode.
+Remove-Item Env:MICROGEN_FIGURE_MAPPING_BACKEND -ErrorAction SilentlyContinue
+Remove-Item Env:MICROGEN_NARRATION_BACKEND -ErrorAction SilentlyContinue
 $env:MICROGEN_PIPELINE_PYTHON = [string]$config.pipeline_python
 $env:MICROGEN_TTS_PYTHON = [string]$config.runtime_python
 $env:PYTHONNOUSERSITE = '1'
@@ -100,7 +111,8 @@ $pipelineArgs = @(
     '--subchapter', $Subchapter,
     '--work-root', $work,
     '--from-stage', $FromStage,
-    '--through-stage', $ThroughStage
+    '--through-stage', $ThroughStage,
+    '--communication-mode', $selectedMode
 )
 if ($ForceFrom) {
     $pipelineArgs += @('--force-from', $ForceFrom)
@@ -108,7 +120,7 @@ if ($ForceFrom) {
 if ($DryRun) {
     $pipelineArgs += '--dry-run'
 }
-Write-Output "[MicroGen_AI_Web] release=$release subchapter=$Subchapter root=$source work=$work flash=enabled dry_run=$DryRun"
+Write-Output "[MicroGen_AI_Web] release=$release subchapter=$Subchapter root=$source work=$work flash=enabled communication=$selectedMode dry_run=$DryRun"
 Push-Location $repo
 try {
     & ([string]$config.runtime_python) @pipelineArgs
