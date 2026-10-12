@@ -59,7 +59,7 @@ def test_api_includes_both_pdfs_and_exact_rendered_prompt(tmp_path):
 
     with patch("gemini_keys.call_with_client_failover", side_effect=fake_failover):
         result = narration_api.request_narration(slide, source, prompt, "Do the narration.")
-    assert result == response.text
+    assert result == response.text.strip()
     assert recorded["model"] == "gemini-3.8-flash"
     parts = recorded["contents"]
     assert len(parts) == 4
