@@ -251,6 +251,8 @@ def valid(stage: str, folder: Path) -> bool:
                                     (folder / name).stat().st_size > 0 for name in OUTPUTS[stage]):
         return False
     if stage == "slides":
+        from .latex_footer import enforce_correct_page_totals
+        enforce_correct_page_totals(folder / "slides.pdf")
         return slide_pages(folder) > 0
     if stage == "narration":
         return len(blocks((folder / "script.txt").read_text(encoding="utf-8"))) == slide_pages(folder)
