@@ -1639,6 +1639,41 @@ def map_and_rename_single_step(
         local_crop_name = fig_files[i].name
         resolved_triples.append((local_crop_name, label, target))
 
+    # Never publish a partial panel as its entire parent figure, or
+    # horizontally concatenate crops without proven source-space geometry.
+    # Perform this preflight BEFORE copying/overwriting any image.
+    from selenium_pipeline.figure_composites import (
+        FigureCompositeReviewRequired, validate_and_prepare_mappings,
+        require_non_destructive_destination,
+    )
+    try:
+        resolved_triples = validate_and_prepare_mappings(resolved_triples)
+        # Preflight *all* original crops and destinations before first copy.
+        for crop_name, _label, target in resolved_triples:
+            require_non_destructive_destination(crops_dir / crop_name, crops_dir / target)
+    except FigureCompositeReviewRequired as exc:
+        import hashlib
+        evidence = {
+            "status": "review_required",
+            "reason": "figure_composite_mapping_unsafe",
+            "published_images_modified": False,
+            "page_image_sha256": hashlib.sha256(page_png.read_bytes()).hexdigest(),
+            "crops": [
+                {"file": p.name, "sha256": hashlib.sha256(p.read_bytes()).hexdigest()}
+                for p in fig_files if p.is_file()
+            ],
+            "issues": exc.issues,
+        }
+        source_pdf = CFG.root / "source.pdf"
+        if source_pdf.is_file():
+            evidence["source_pdf_sha256"] = hashlib.sha256(source_pdf.read_bytes()).hexdigest()
+        report = page_png.with_name(page_png.stem + "_composite_review.json")
+        pending = report.with_suffix(".json.pending")
+        pending.write_text(json.dumps(evidence, indent=2), encoding="utf-8")
+        pending.replace(report)
+        log(f"[FIGURE REVIEW] Unsafe multipart mapping for {page_png.name}: {report}", "ERR")
+        raise
+
     # Save resolved mapping text, not raw Gemini text
     resolved_lines = [
         f'{crop_name} : "{label}" : {target}'
@@ -1647,50 +1682,34 @@ def map_and_rename_single_step(
     mapping_txt.write_text("\n".join(resolved_lines) + "\n", encoding="utf-8")
     log(f"[WRITE] Resolved mapping saved to {mapping_txt.name}")
 
-    # Copy under mapped names; group for merge
+    # Copy only source-grounded, collision-free figure assets
     mapped: Dict[Path, List[Path]] = {}
     rename_count = 0
 
     for crop_name, _label, target in resolved_triples:
         src = crops_dir / crop_name
-        if not src.exists():
-            log(f"[WARN] Missing crop referenced after order resolution: {src}", "WARN")
-            continue
+        if not src.is_file():
+            # Do not count an incomplete copy set as successfully mapped.
+            raise FileNotFoundError(f"Original mapped crop disappeared: {src}")
 
-        rawname = str(target).translate(SMART_TO_ASCII)
-        rawname = re.sub(r'[\\/*?:"<>|]', '-', rawname)
-        rawname = re.sub(r'[\s\-]+', ' ', rawname)
-        rawname = re.sub(r"\s+", " ", rawname).strip()
-        rawname = re.sub(r"\.(png)\b.*$", ".png", rawname, flags=re.IGNORECASE)
-
-        if not re.search(r"\.png$", rawname, flags=re.IGNORECASE):
-            rawname += ".png"
-        rawname = re.sub(r"\.png$", ".png", rawname, flags=re.IGNORECASE)
-
-        base = re.sub(r"[^A-Za-z0-9 ._\-\(\)]", "", rawname).strip()
-        if not base:
-            base = "Figure_unnamed.png"
-        elif not base.lower().endswith(".png"):
-            base += ".png"
-
-        dst = crops_dir / base
+        # Preflight produced the final normalized name. Reusing it here
+        # prevents a later sanitization collision from bypassing the gate.
+        dst = crops_dir / target
         try:
-            if OVERWRITE_ALWAYS and dst.exists():
-                dst.unlink()
-            shutil.copy2(src, dst)
+            if dst.exists():
+                log(f"[REUSE] Identical figure already present: {dst.name}")
+            else:
+                shutil.copy2(src, dst)
+                log(f"[COPY] {src.name} -> {dst.name}")
             mapped.setdefault(dst, []).append(src)
             rename_count += 1
-            log(f"[COPY] {src.name} -> {dst.name}")
-        except Exception as e:
-            log(f"[WARN] Copy failed {src.name} -> {dst.name}: {e}", "WARN")
+        except Exception:
+            # A partial mapping must not be accepted as a successful page.
+            log(f"[ERROR] Figure copy failed: {src.name} -> {dst.name}", "ERR")
+            raise
 
-    if mapped and Image is not None:
-        for dst, srcs in mapped.items():
-            if len(srcs) > 1:
-                try:
-                    merge_images_horizontally(srcs, dst)
-                except Exception as e:
-                    log(f"[WARN] Merge failed for {dst.name}: {e}", "WARN")
+    # Deliberately no auto-concatenation of multi-panel figures:
+    # source layout must be verified before a complete parent figure is made.
 
     produced_targets = sorted(mapped.keys(), key=lambda p: p.name.lower())
     existing = sorted([p.name for p in crops_dir.glob("*.png")], key=natural_sort_key)
@@ -1763,18 +1782,17 @@ def run_mapping(
                 selected.append((idx, d))
 
         if not selected:
-            log("No pages in the requested index range.", "ERR")
-            return
+            raise FileNotFoundError("No source pages found in the requested figure-mapping range")
 
         total = len(selected)
         for k, (idx, page_dir) in enumerate(selected, 1):
             page_png    = page_dir / f"page_{idx}.png"
             crops_dir_i = crops_root / f"page_{idx}"
             log(f"[{k}/{total}] Processing {page_png}")
-            if not page_png.exists():
-                log(f"Missing {page_png} -- skipping.", "WARN"); continue
-            if not crops_dir_i.exists():
-                log(f"Missing crops dir {crops_dir_i} -- skipping.", "WARN"); continue
+            if not page_png.is_file():
+                raise FileNotFoundError(f"Required source-page image missing: {page_png}")
+            if not crops_dir_i.is_dir():
+                raise FileNotFoundError(f"Required crop workspace missing: {crops_dir_i}")
 
             try:
                 _mapping_txt = None
@@ -1858,17 +1876,24 @@ def run_mapping(
                     ) from final_error
 
                 if copy_to_root:
+                    from selenium_pipeline.figure_composites import require_non_destructive_destination
                     root = Path(".").resolve()
-                    for p in new_pngs:
-                        if p.exists():
-                            dst = root / p.name
-                            try:
-                                if dst.exists():
-                                    dst.unlink()
+                    # Check *every* target for collisions before the first copy,
+                    # so an unsafe later panel cannot leave a partly published set.
+                    publication_plan = [
+                        (p, root / p.name, require_non_destructive_destination(p, root / p.name))
+                        for p in new_pngs
+                    ]
+                    for p, dst, identical in publication_plan:
+                        try:
+                            if identical:
+                                log(f"[REUSE] Existing identical root figure: {dst.name}")
+                            else:
                                 shutil.copy2(str(p), str(dst))
                                 log(f"[STATUS] Generated: {p} | Copied to Root: {dst.name}")
-                            except Exception as e:
-                                log(f"[WARN] Failed to copy {p.name} to root: {e}", "WARN")
+                        except Exception:
+                            log(f"[ERROR] Root figure publish rejected: {p.name}", "ERR")
+                            raise
 
             except Exception as e:
                 log(f"[ERROR] Failed to process page {idx}: {e}", "ERR")
