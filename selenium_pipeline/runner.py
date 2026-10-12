@@ -66,6 +66,8 @@ def _needs_browser(stage: str) -> bool:
         return os.getenv("MICROGEN_FIGURE_MAPPING_BACKEND", "api").strip().lower() == "browser"
     if stage == "slides":
         return os.getenv("MICROGEN_SLIDES_BACKEND", "browser").strip().lower() != "api"
+    if stage == "narration":
+        return os.getenv("MICROGEN_NARRATION_BACKEND", "browser").strip().lower() != "api"
     return stage in CHROME_STAGES
 
 SCRIPTS = {
@@ -610,9 +612,12 @@ def _execute_unlocked(s: Settings) -> Path:
             "MICROGEN_FIGURE_MAPPING_BACKEND", "api").strip().lower(),
         "MICROGEN_SLIDES_BACKEND": os.getenv(
             "MICROGEN_SLIDES_BACKEND", "browser").strip().lower(),
+        "MICROGEN_NARRATION_BACKEND": os.getenv(
+            "MICROGEN_NARRATION_BACKEND", "browser").strip().lower(),
     })
     if (("figures" in planned and not _needs_browser("figures"))
-            or ("slides" in planned and not _needs_browser("slides"))):
+            or ("slides" in planned and not _needs_browser("slides"))
+            or ("narration" in planned and not _needs_browser("narration"))):
         # Docling environments often lack google-genai. Use the independent
         # Gemini/TTS interpreter for bounded API figure or slide requests.
         env["MICROGEN_TTS_PYTHON"] = tts_python_executable()
