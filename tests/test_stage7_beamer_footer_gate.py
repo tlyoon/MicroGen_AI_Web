@@ -10,7 +10,7 @@ def _deck(path, n, wrong=False):
         for i in range(1, n+1):
             page=d.new_page()
             total=1 if wrong else n
-            page.insert_text((72, 72), f"{i} / {total}")
+            page.insert_text((page.rect.width - 52, 10), f"{i} / {total}")
             page.insert_text((72, 100), "Physics example with angular acceleration.")
         d.save(path)
 
@@ -28,6 +28,7 @@ def test_rejects_single_pass_footer_but_accepts_correct_page_count(tmp_path):
     else:
         raise AssertionError("Must block PDF with incorrect total frame count")
 
+    (tmp_path / "slides.tex").write_text(r"\documentclass{beamer}")
     assert not check_valid("slides",tmp_path)
     file.unlink()
     _deck(file, 4, wrong=False)
