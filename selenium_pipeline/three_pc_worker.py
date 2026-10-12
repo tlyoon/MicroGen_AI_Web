@@ -84,7 +84,9 @@ def validate_manifest(path: Path, worker: str, chapters: list[int], root: Path |
         if not isinstance(manifest.get("source_root"), str):
             raise ValueError("Manifest lacks source_root or source_roots")
         assigned_root = Path(manifest["source_root"])
-    if os.path.normcase(os.path.abspath(str(assigned_root))) != os.path.normcase(os.path.abspath(str(local_root))):
+    # Resolve Windows short/long path aliases and symlinks consistently before
+    # comparing the actual source tree; keep the fail-closed manifest guard.
+    if os.path.normcase(str(assigned_root.expanduser().resolve())) != os.path.normcase(str(local_root.expanduser().resolve())):
         raise ValueError("Manifest source root differs from worker's actual root")
 
 
