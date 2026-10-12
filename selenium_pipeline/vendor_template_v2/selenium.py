@@ -1006,6 +1006,43 @@ def _wait_for_gemini_document_upload_ready(
     )
 
 
+def _rotate_owned_gemini_tab(driver, previous: Optional[str]) -> str:
+    """Create a replacement tab *before* closing any previous owned tab.
+
+    ChromeDriver is tied to a current browsing context. Closing its currently
+    selected owned tab before calling NEW_WINDOW leaves a dead target and
+    raises NoSuchWindowException on the next slide-generation attempt.
+    Keep borrowed tabs, and never close a tab that we did not create.
+    """
+    handles = list(driver.window_handles)
+    if not handles:
+        raise RuntimeError(
+            "Gemini browser has no live tab: reconnect to an authenticated Chrome session"
+        )
+    # Recover if our earlier owned tab vanished asynchronously. Explicitly
+    # switch to a known live target before attempting NEW_WINDOW.
+    anchor = previous if previous in handles else handles[0]
+    try:
+        current = driver.current_window_handle
+    except Exception:
+        current = None
+    if current != anchor:
+        driver.switch_to.window(anchor)
+    driver.switch_to.new_window("tab")
+    fresh = driver.current_window_handle
+    if not fresh or fresh == previous:
+        raise RuntimeError("Chrome failed to create a distinct owned Gemini tab")
+    if previous and previous in handles:
+        try:
+            driver.switch_to.window(previous)
+            driver.close()
+        finally:
+            # Closing the selected old tab makes it invalid. Explicitly
+            # reactivate the new live tab even if cleanup has failed.
+            driver.switch_to.window(fresh)
+    return fresh
+
+
 class GeminiSeleniumClient:
     """
     Reusable Gemini UI automation layer:
@@ -1200,16 +1237,7 @@ class GeminiSeleniumClient:
         # nonreactive Send buttons and even another conversation's prompt history.
         # Preserve all borrowed tabs and close only the previous owned one.
         previous = self._automation_tab
-        if previous is not None:
-            try:
-                if previous in self.driver.window_handles:
-                    self.driver.switch_to.window(previous)
-                    self.driver.close()
-            except Exception:
-                pass
-            self._automation_tab = None
-        self.driver.switch_to.new_window("tab")
-        self._automation_tab = self.driver.current_window_handle
+        self._automation_tab = _rotate_owned_gemini_tab(self.driver, previous)
         self.driver.get(self.cfg.gemini_url)
 
         # Verify the Gemini model in our own tab, never a different conversation.
