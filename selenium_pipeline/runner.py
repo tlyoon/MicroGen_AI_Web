@@ -64,6 +64,8 @@ def _needs_browser(stage: str) -> bool:
     """Figure API mapping never touches Gemini Chrome; other Gemini stages do."""
     if stage == "figures":
         return os.getenv("MICROGEN_FIGURE_MAPPING_BACKEND", "api").strip().lower() == "browser"
+    if stage == "slides":
+        return os.getenv("MICROGEN_SLIDES_BACKEND", "api").strip().lower() == "browser"
     return stage in CHROME_STAGES
 
 SCRIPTS = {
@@ -606,10 +608,12 @@ def _execute_unlocked(s: Settings) -> Path:
         "MICROGEN_PACKAGE_ROOT": str(REPO),
         "MICROGEN_FIGURE_MAPPING_BACKEND": os.getenv(
             "MICROGEN_FIGURE_MAPPING_BACKEND", "api").strip().lower(),
+        "MICROGEN_SLIDES_BACKEND": os.getenv(
+            "MICROGEN_SLIDES_BACKEND", "api").strip().lower(),
     })
-    if "figures" in planned and not _needs_browser("figures"):
-        # Docling environments often lack google-genai; use the independently
-        # validated Gemini/TTS Python for a bounded figure API child process.
+    if any(stage in planned and not _needs_browser(stage) for stage in ("figures", "slides")):
+        # Docling environments lack google-genai; run API work in the
+        # independently validated Gemini/TTS interpreter.
         env["MICROGEN_TTS_PYTHON"] = tts_python_executable()
     changed_upstream = False
     for stage in planned:
