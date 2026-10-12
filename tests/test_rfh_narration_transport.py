@@ -10,7 +10,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from selenium_pipeline.runner import _needs_api_python_for_stages, _needs_browser
+from selenium_pipeline.runner import _needs_api_python_for_stages, _needs_browser, _may_use_browser
 
 VENDOR = (Path(__file__).resolve().parents[1] /
           "selenium_pipeline/vendor_template_v2/gen_script_selenium_v15.py")
@@ -172,3 +172,14 @@ def test_production_launcher_has_override_and_no_forced_api_default():
     assert "$env:MICROGEN_COMMUNICATION_MODE = 'selenium'" in script
     assert "$env:MICROGEN_NARRATION_BACKEND = 'api'" not in script
     assert "--communication-mode" in runner
+
+
+def test_fallback_browsers_are_excluded_from_concurrent_local_use(monkeypatch):
+    # Fallback initializes the browser lazily, but it *can* use Selenium,
+    # so the local port lock must still be acquired by the runner.
+    for mode, expected in (("selenium", True), ("fallback", True), ("api", False)):
+        monkeypatch.setenv("MICROGEN_COMMUNICATION_MODE", mode)
+        for stage in ("figures", "slides", "narration"):
+            assert _may_use_browser(stage) is expected
+        for stage in ("script_qa", "tts", "tts_qa", "video"):
+            assert not _may_use_browser(stage)
