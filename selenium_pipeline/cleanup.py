@@ -63,6 +63,26 @@ def _final_hashes(folder: Path) -> dict[str, str]:
     return result
 
 
+def _assert_structural_sync_if_present(folder: Path) -> str | None:
+    """Reject drift in a published slide/script/WAV alignment record.
+
+    Older successful lectures may not have this auxiliary record. When one
+    exists, however, it must match the exact current PDF, script and WAVs.
+    Never silently skip an invalid approval or discard the old MP4.
+    """
+    record = folder / "slide_narration_sync.json"
+    if not record.exists():
+        return None
+    if not record.is_file() or record.is_symlink():
+        raise ValueError(f"Invalid structural synchronization record: {record}")
+    try:
+        from .slide_narration_sync import verify
+        verify(folder)
+    except Exception as exc:
+        raise ValueError(f"Structural slide/narration synchronization requires review: {exc}") from exc
+    return _sha256(record)
+
+
 def completed_lecture(source_pdf: Path) -> bool:
     """True only for a fully published lecture with a matching receipt.
 
@@ -78,6 +98,10 @@ def completed_lecture(source_pdf: Path) -> bool:
                 or data.get("final_sha256") != _final_hashes(source_pdf.parent)):
             return False
         _ensure_latex_graphics(source_pdf.parent, None)
+        alignment_hash = _assert_structural_sync_if_present(source_pdf.parent)
+        if data.get("structural_sync_sha256") is not None:
+            if alignment_hash != data["structural_sync_sha256"]:
+                return False
         return True
     except (OSError, ValueError, TypeError, AttributeError, json.JSONDecodeError):
         return False
@@ -222,6 +246,7 @@ def cleanup_completed_lecture(
     # Check/copy graphics before pruning. Missing figures must never lead to
     # destructive cleanup, but the already-published video remains successful.
     _ensure_latex_graphics(folder, owned_work)
+    sync_sha256 = _assert_structural_sync_if_present(folder)
 
     receipt = {
         "pipeline": pipeline,
@@ -230,6 +255,8 @@ def cleanup_completed_lecture(
         "final_sha256": hashes,
         "cleanup": "pending",
     }
+    if sync_sha256 is not None:
+        receipt["structural_sync_sha256"] = sync_sha256
     _write_receipt(source_pdf, receipt)
     removed: list[str] = []
     try:
