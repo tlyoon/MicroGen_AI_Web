@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Read-only MicroGen source PDF scan v1",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "source_pdf": {
+      "const": "source.pdf"
+    },
+    "source_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "page_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "pages": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "text_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "char_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "image_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "text_preview": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "text_extraction_warning": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "page",
+          "text_sha256",
+          "char_count",
+          "image_count",
+          "text_preview",
+          "text_extraction_warning"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "coverage_status": {
+      "const": "unreviewed"
+    }
+  },
+  "required": [
+    "schema_version",
+    "source_pdf",
+    "source_sha256",
+    "page_count",
+    "pages",
+    "coverage_status"
+  ],
+  "additionalProperties": false
+}
