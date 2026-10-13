@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MicroGen immutable source inventory v1",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "source_pdf": {
+      "type": "string",
+      "const": "source.pdf"
+    },
+    "source_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "domain_hint": {
+      "type": "string",
+      "minLength": 1
+    },
+    "concepts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "concept_id": {
+            "type": "string",
+            "pattern": "^[a-zA-Z][a-zA-Z0-9_.-]{0,95}$"
+          },
+          "source_pages": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "summary": {
+            "type": "string",
+            "minLength": 1
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "prerequisites": {
+            "type": "array",
+            "minItems": 0,
+            "items": {
+              "type": "string",
+              "pattern": "^[a-zA-Z][a-zA-Z0-9_.-]{0,95}$"
+            }
+          }
+        },
+        "required": [
+          "concept_id",
+          "source_pages",
+          "summary",
+          "required",
+          "prerequisites"
+        ]
+      }
+    },
+    "figures": {
+      "type": "array",
+      "minItems": 0,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "figure_id": {
+            "type": "string",
+            "pattern": "^[a-zA-Z][a-zA-Z0-9_.-]{0,95}$"
+          },
+          "source_page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "caption_text": {
+            "type": "string"
+          },
+          "panel_ids": {
+            "type": "array",
+            "minItems": 0,
+            "items": {
+              "type": "string",
+              "pattern": "^[a-zA-Z][a-zA-Z0-9_.-]{0,95}$"
+            }
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        },
+        "required": [
+          "figure_id",
+          "source_page",
+          "caption_text",
+          "panel_ids",
+          "sha256"
+        ]
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "source_pdf",
+    "source_sha256",
+    "domain_hint",
+    "concepts",
+    "figures"
+  ]
+}

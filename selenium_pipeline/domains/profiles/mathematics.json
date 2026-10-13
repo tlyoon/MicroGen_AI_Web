@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "id": "mathematics",
+  "profile_version": "1.0.0",
+  "display_name": "Mathematics",
+  "maturity": "development",
+  "content_types": [
+    "equations",
+    "proofs",
+    "graphs",
+    "worked_examples",
+    "figures"
+  ],
+  "review_checks": [
+    "source_traceability",
+    "proof_step_review",
+    "notation_integrity",
+    "domain_assumptions",
+    "figure_completeness",
+    "speech_variable_disambiguation"
+  ],
+  "prompt_sections": {
+    "source_analysis": [
+      "List definitions, theorem assumptions, proofs, methods and example dependencies, retaining source references."
+    ],
+    "lesson_planning": [
+      "Keep multistep proofs and worked examples coherent across planned lesson parts; allow extra time for nontrivial reasoning."
+    ],
+    "slides": [
+      "Preserve exact notation and hypotheses; show complete, legible derivation steps and avoid splitting a single essential equation."
+    ],
+    "narration": [
+      "Explain what each mathematical expression means in ordinary speech, disambiguate letters and never assert an unproved step."
+    ],
+    "highlighting": [
+      "Highlight the whole relevant equation, transformation or proof line at the time it is explained, not an unrelated nearby symbol."
+    ],
+    "quality_review": [
+      "Flag invalid inferences, missing assumptions, incorrect identities and dropped proof steps for review."
+    ]
+  }
+}

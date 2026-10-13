@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MicroGen joint slides–narration storyboard v1",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "part_id": {
+      "type": "string",
+      "pattern": "^[a-zA-Z][a-zA-Z0-9_.-]{0,95}$"
+    },
+    "plan_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "slides": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "slide_id": {
+            "type": "string",
+            "pattern": "^[a-zA-Z][a-zA-Z0-9_.-]{0,95}$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "elements": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "element_id": {
+                  "type": "string",
+                  "pattern": "^[a-zA-Z][a-zA-Z0-9_.-]{0,95}$"
+                },
+                "kind": {
+                  "enum": [
+                    "text",
+                    "equation",
+                    "figure",
+                    "figure_panel",
+                    "diagram_region",
+                    "graph_region",
+                    "timeline_event",
+                    "map_region"
+                  ]
+                },
+                "source_concept_ids": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[a-zA-Z][a-zA-Z0-9_.-]{0,95}$"
+                  }
+                },
+                "source_page": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              },
+              "required": [
+                "element_id",
+                "kind",
+                "source_concept_ids",
+                "source_page"
+              ]
+            }
+          }
+        },
+        "required": [
+          "slide_id",
+          "title",
+          "elements"
+        ]
+      }
+    },
+    "narration_segments": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "segment_id": {
+            "type": "string",
+            "pattern": "^[a-zA-Z][a-zA-Z0-9_.-]{0,95}$"
+          },
+          "slide_id": {
+            "type": "string",
+            "pattern": "^[a-zA-Z][a-zA-Z0-9_.-]{0,95}$"
+          },
+          "element_ids": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "pattern": "^[a-zA-Z][a-zA-Z0-9_.-]{0,95}$"
+            }
+          },
+          "spoken_text": {
+            "type": "string",
+            "minLength": 1
+          },
+          "estimated_duration_s": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "segment_id",
+          "slide_id",
+          "element_ids",
+          "spoken_text",
+          "estimated_duration_s"
+        ]
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "part_id",
+    "plan_sha256",
+    "slides",
+    "narration_segments"
+  ]
+}

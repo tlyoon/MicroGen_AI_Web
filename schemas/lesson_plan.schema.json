@@ -1,0 +1,180 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MicroGen top-down instructional series plan v1",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "source_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        }
+      },
+      "required": [
+        "id",
+        "version"
+      ]
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "required_concept_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-zA-Z][a-zA-Z0-9_.-]{0,95}$"
+          }
+        },
+        "assigned_concept_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-zA-Z][a-zA-Z0-9_.-]{0,95}$"
+          }
+        },
+        "review_required_concept_ids": {
+          "type": "array",
+          "minItems": 0,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-zA-Z][a-zA-Z0-9_.-]{0,95}$"
+          }
+        }
+      },
+      "required": [
+        "required_concept_ids",
+        "assigned_concept_ids",
+        "review_required_concept_ids"
+      ]
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "parts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "part_id": {
+            "type": "string",
+            "pattern": "^[a-zA-Z][a-zA-Z0-9_.-]{0,95}$"
+          },
+          "index": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "part_count": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "concept_ids": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "pattern": "^[a-zA-Z][a-zA-Z0-9_.-]{0,95}$"
+            }
+          },
+          "source_pages": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "estimated_duration_s": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "min": {
+                "type": "number",
+                "minimum": 0
+              },
+              "max": {
+                "type": "number",
+                "exclusiveMaximum": 630,
+                "minimum": 0
+              }
+            },
+            "required": [
+              "min",
+              "max"
+            ]
+          },
+          "speech_budget_s": {
+            "type": "number",
+            "minimum": 0
+          },
+          "continuity_intro": {
+            "type": "string",
+            "minLength": 1
+          },
+          "continuity_outro": {
+            "type": "string",
+            "minLength": 1
+          },
+          "boundary_rationale": {
+            "type": "string",
+            "minLength": 1
+          },
+          "planned_slide_count": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "part_id",
+          "index",
+          "part_count",
+          "title",
+          "concept_ids",
+          "source_pages",
+          "estimated_duration_s",
+          "speech_budget_s",
+          "continuity_intro",
+          "continuity_outro",
+          "boundary_rationale",
+          "planned_slide_count"
+        ]
+      }
+    },
+    "planner_version": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "required": [
+    "schema_version",
+    "source_sha256",
+    "profile",
+    "coverage",
+    "title",
+    "parts",
+    "planner_version"
+  ]
+}

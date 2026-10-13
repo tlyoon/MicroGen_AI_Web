@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "id": "physics",
+  "profile_version": "1.0.0",
+  "display_name": "Physics",
+  "maturity": "development",
+  "content_types": [
+    "equations",
+    "plots",
+    "experiments",
+    "figures",
+    "units"
+  ],
+  "review_checks": [
+    "source_traceability",
+    "dimensional_consistency_review",
+    "physical_quantity_meaning",
+    "diagram_axis_units",
+    "mathematical_step_review",
+    "speech_variable_disambiguation"
+  ],
+  "prompt_sections": {
+    "source_analysis": [
+      "Identify physical quantities, units, derivations, conceptual assumptions, experiments and figures with source locations."
+    ],
+    "lesson_planning": [
+      "Build concept intuition before formal equations; allocate time to unit interpretation, physical examples and relevant misconceptions."
+    ],
+    "slides": [
+      "Keep vectors, signs, units, graph axes and scientific notation correct; use readable and complete plots or multipart figures."
+    ],
+    "narration": [
+      "Define physical variables and units on first use, explain equations in natural spoken English and distinguish variable names from ordinary words."
+    ],
+    "highlighting": [
+      "Anchor narration to the relevant equation line, graph region, physical vector or experiment diagram without obscuring notation."
+    ],
+    "quality_review": [
+      "Flag unsupported physical claims, incorrect dimensional reasoning, ambiguous symbols or missing assumptions for review."
+    ]
+  }
+}
