@@ -8,7 +8,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from typing import Sequence
 
 SCHEMA_VERSION = 1
@@ -101,7 +101,7 @@ def assess_actual_duration(
     if actual < EXCEPTION_MAX_SECONDS:
         if explicit_exception_approved:
             return DurationAssessment(
-                "passed_exception", actual, True,
+                "passed", actual, True,
                 "Under 10:30; explicit overshoot approval is required and recorded",
             )
         return DurationAssessment(
@@ -119,6 +119,7 @@ def _validate_scenes(scenes: Sequence[Scene]) -> tuple[Scene, ...]:
         raise LessonPlanError("Cannot plan a lecture without source-grounded scenes")
     validated = tuple(scenes)
     seen: set[str] = set()
+    normalised: list[Scene] = []
     for number, scene in enumerate(validated, start=1):
         if not isinstance(scene, Scene):
             raise LessonPlanError(f"Scene {number} must be a Scene")
@@ -138,7 +139,14 @@ def _validate_scenes(scenes: Sequence[Scene]) -> tuple[Scene, ...]:
                          f"{scene.scene_id}.estimated_narration_seconds")
         if not isinstance(scene.natural_break_after, bool):
             raise LessonPlanError(f"{scene.scene_id}.natural_break_after must be boolean")
-    return validated
+        # Freeze caller-owned page lists so a later mutation cannot change
+        # a previously accepted source reference or its content hash.
+        normalised.append(replace(
+            scene,
+            source_pages=tuple(scene.source_pages),
+            estimated_narration_seconds=float(scene.estimated_narration_seconds),
+        ))
+    return tuple(normalised)
 
 
 def plan_lesson(
