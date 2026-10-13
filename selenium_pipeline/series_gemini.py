@@ -91,8 +91,28 @@ def _browser_request(instruction: str,attachments: list[Path],
                 min_chars=200,retries=4,accept_fn=_looks_complete,
             )
             if not response:
+                from .gemini_response_recovery import (
+                    latest_owned_response, quarantine_snapshot,
+                )
+                # Snapshot before client.shutdown closes its owned browser tab.
+                # Do not capture the composer, uploads or unrelated browser tabs.
+                snapshot = latest_owned_response(
+                    client.driver, getattr(client, "_automation_tab", None),
+                )
+                try:
+                    receipt = quarantine_snapshot(
+                        snapshot, reason="strict_json_capture_timeout",
+                    )
+                except OSError as exc:
+                    raise SeriesBridgeError(
+                        "Gemini JSON capture failed and recovery quarantine "
+                        "could not be written; inspect the live browser"
+                    ) from exc
                 raise SeriesBridgeError(
-                    "No stable complete Gemini JSON before wait deadline"
+                    "No stable complete Gemini JSON; untrusted response "
+                    f"quarantined at {receipt['raw_path']}. "
+                    "Use offline recover-candidate after checking the receipt; "
+                    "do not automatically resubmit source files."
                 )
             return response
         finally:

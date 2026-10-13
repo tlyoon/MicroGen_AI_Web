@@ -46,7 +46,8 @@ jobs:
             tests.test_real_beamer_geometry \
             tests.test_highlight_video_preview \
             tests.test_series_bridge \
-            tests.test_gemini_send_recovery
+            tests.test_gemini_send_recovery \
+            tests.test_gemini_response_recovery
       - name: Syntax-check updated Python entry points
         run: |
           python -m py_compile \
@@ -77,6 +78,7 @@ jobs:
             selenium_pipeline/highlight_video_preview.py \
             selenium_pipeline/series_bridge.py \
             selenium_pipeline/series_gemini.py \
+            selenium_pipeline/gemini_response_recovery.py \
             selenium_pipeline/series_cli.py \
             selenium_pipeline/vendor_template_v2/selenium.py
 

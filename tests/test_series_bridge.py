@@ -300,6 +300,87 @@ class LiveBridgeOfflineTests(unittest.TestCase):
         self.assertEqual(proc.returncode,0,proc.stderr)
         self.assertIsInstance(json.loads(segments.read_text()),list)
 
+    def test_recover_candidate_offline_uses_quarantine_without_live_flag(self):
+        import subprocess
+        import sys
+        from selenium_pipeline.gemini_response_recovery import quarantine_snapshot
+
+        authoring = self.root / "prepared_bundle"
+        prepare_authoring_bundle(**self.kw, output_dir=authoring)
+        outline_file = self.root / "outline.json"
+        plan_file = self.root / "plan.json"
+        outline_file.write_text(json.dumps(self.outline), encoding="utf-8")
+        plan_file.write_text(json.dumps(self.plan), encoding="utf-8")
+        record = quarantine_snapshot(
+            {"text": json.dumps(self.board), "generating": False,
+             "capture_status": "visible_model_response"},
+            directory=self.root / "quarantine",
+        )
+        candidate = self.root / "recovered_candidate.json"
+        args = [
+            sys.executable, "-m", "selenium_pipeline.series_cli",
+            "recover-candidate",
+            "--source-root", str(self.source_root),
+            "--source-pdf", str(self.source),
+            "--outline", str(outline_file),
+            "--plan", str(plan_file),
+            "--domain", "mathematics",
+            "--part", "part_01",
+            "--authoring-folder", str(authoring),
+            "--quarantine-file", str(record["raw_path"]),
+            "--output", str(candidate),
+        ]
+        first = subprocess.run(
+            args, cwd=Path(__file__).resolve().parents[1],
+            text=True, capture_output=True, timeout=40,
+        )
+        self.assertEqual(first.returncode, 0, first.stderr)
+        self.assertEqual(read_json(candidate), self.board)
+        # No live --confirm-live required; existing output cannot be overwritten.
+        second = subprocess.run(
+            args, cwd=Path(__file__).resolve().parents[1],
+            text=True, capture_output=True, timeout=40,
+        )
+        self.assertEqual(second.returncode, 2)
+        self.assertIn("Candidate", second.stderr)
+
+    def test_recover_partial_quarantine_cannot_create_approved_candidate(self):
+        import subprocess
+        import sys
+        from selenium_pipeline.gemini_response_recovery import quarantine_snapshot
+
+        authoring = self.root / "prepared_bundle"
+        prepare_authoring_bundle(**self.kw, output_dir=authoring)
+        outline_file = self.root / "outline.json"
+        plan_file = self.root / "plan.json"
+        outline_file.write_text(json.dumps(self.outline), encoding="utf-8")
+        plan_file.write_text(json.dumps(self.plan), encoding="utf-8")
+        record = quarantine_snapshot(
+            {"text": '{"truncated":', "generating": True,
+             "capture_status": "visible_model_response"},
+            directory=self.root / "quarantine",
+        )
+        candidate = self.root / "should_not_exist.json"
+        result = subprocess.run(
+            [
+                sys.executable, "-m", "selenium_pipeline.series_cli",
+                "recover-candidate",
+                "--source-root", str(self.source_root),
+                "--source-pdf", str(self.source),
+                "--outline", str(outline_file),
+                "--plan", str(plan_file),
+                "--domain", "mathematics",
+                "--part", "part_01",
+                "--authoring-folder", str(authoring),
+                "--quarantine-file", str(record["raw_path"]),
+                "--output", str(candidate),
+            ],
+            cwd=Path(__file__).resolve().parents[1],
+            text=True, capture_output=True, timeout=40,
+        )
+        self.assertEqual(result.returncode, 2)
+        self.assertFalse(candidate.exists())
+
     def test_live_flags_never_call_provider_by_accident(self):
         import subprocess
         import sys
