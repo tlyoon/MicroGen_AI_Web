@@ -833,7 +833,10 @@ def capture_gemini_response_like_manual_copy(
         driver,
         preset="short",
         overrides={
-            "max_wait": 60,
+            # A long structured teaching storyboard can take far beyond 60s.
+            # Preserve the caller's bounded request budget during DOM fallback;
+            # a hardcoded short timeout falsely reports stalled generation.
+            "max_wait": min(900, max(60, int(wait_cap))),
             "min_chars": max(int(min_chars), 80),
             "stable_rounds": 4,
             "poll": 1.0,
@@ -1245,7 +1248,14 @@ class GeminiSeleniumClient:
         selected = False
         selected_mode = ""
         picker = None
-        select_deadline = time.time() + 12.0
+        # A persistent Chrome tab can take >12 seconds to hydrate on slower
+        # Windows hosts (notably Dell-115), despite an authenticated session.
+        # Wait for the actual picker in our *owned* tab; never borrow an
+        # unverified tab or assume Flash was selected from the URL alone.
+        picker_wait = max(12.0, min(90.0, float(os.getenv(
+            "MICROGEN_GEMINI_PICKER_WAIT_SECONDS", "45"
+        ))))
+        select_deadline = time.time() + picker_wait
         while time.time() < select_deadline and not selected:
             for handle in (self._automation_tab,):
                 try:
@@ -1267,7 +1277,7 @@ class GeminiSeleniumClient:
                 time.sleep(0.25)
         if not selected or picker is None:
             raise RuntimeError(
-                "Authenticated Gemini tab with a mode picker was not found after 12s; "
+                f"Authenticated Gemini tab with a mode picker was not found after {picker_wait:.0f}s; "
                 "refusing to use an unknown fallback tab."
             )
 
@@ -1695,6 +1705,34 @@ class GeminiSeleniumClient:
                         "WARN",
                     )
 
+                # Gemini's current Angular UI can expose a visible enabled
+                # Send button to DOM querySelectorAll while XPath locators
+                # miss it. Click only the exact accessible Send message
+                # control, then require a freshly registered user turn.
+                if btn is None:
+                    clicked = self.driver.execute_script(
+                        """
+                        const vis=e=>!!(e&&(e.offsetWidth||e.offsetHeight||e.getClientRects().length));
+                        const editors=[...document.querySelectorAll(
+                          '[contenteditable="true"][role="textbox"],textarea'
+                        )].filter(vis);
+                        const editor=editors[0];
+                        const text=(editor?.value||editor?.innerText||'').trim();
+                        if(!text) return false;
+                        const buttons=[...document.querySelectorAll('button')]
+                          .filter(e=>vis(e)&&e.getAttribute('aria-label')==='Send message'
+                                    && !e.disabled && e.getAttribute('aria-disabled')!=='true');
+                        if(buttons.length!==1) return false;
+                        buttons[0].click();
+                        return true;
+                        """
+                    )
+                    if clicked:
+                        if _wait_registered(5.0):
+                            log("[SEND-VERIFY] exact DOM Send message click registered.", "INFO")
+                            return True
+                        log("[SEND-VERIFY] DOM Send button click did not register.", "WARN")
+
                 ed = self._get_prompt_editable()
                 if ed is None:
                     raise RuntimeError("Gemini prompt editor unavailable for submit")
@@ -1753,7 +1791,7 @@ class GeminiSeleniumClient:
 
             log("[SEND-VERIFY] native Windows Enter did not achieve durable submission.", "WARN")
         except Exception as e:
-            log(f"[SEND-VERIFY] native Windows Enter fallback failed: {e}", "WARN")
+            log(f"[SEND-VERIFY] optional pywinauto fallback unavailable: {e}", "WARN")
         finally:
             if old_title:
                 try:
