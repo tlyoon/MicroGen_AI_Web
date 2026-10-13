@@ -309,8 +309,24 @@ def valid(stage: str, folder: Path) -> bool:
                         dst.startswith(".") or ".." in dst or
                         any(bad in dst for bad in ('<', '>', ':', '|', '?', '*', "\\"))):
                     return False
-                named_in_page = page_crop_dir / dst
-                named_in_root = folder / dst
+                # The mapper collapses hyphens/whitespace and punctuation
+                # before publication. Validate the mapped *actual* filename,
+                # not the unsanitized target suggested by Gemini.
+                mapped_name = dst.translate(str.maketrans({
+                    "\u201c": '"', "\u201d": '"', "\u2019": "'",
+                    "\u2018": "'", "\u2010": "-", "\u2013": "-", "\u2014": "-",
+                }))
+                mapped_name = re.sub(r'[\\/*?:"<>|]', '-', mapped_name)
+                mapped_name = re.sub(r'[\s\-]+', ' ', mapped_name)
+                mapped_name = re.sub(r"\s+", " ", mapped_name).strip()
+                mapped_name = re.sub(r"\.(png)\b.*$", ".png", mapped_name, flags=re.I)
+                if not mapped_name.lower().endswith(".png"):
+                    mapped_name += ".png"
+                mapped_name = re.sub(r"[^A-Za-z0-9 ._\-\(\)]", "", mapped_name).strip()
+                if not mapped_name:
+                    return False
+                named_in_page = page_crop_dir / mapped_name
+                named_in_root = folder / mapped_name
                 if not (named_in_page.is_file() and named_in_root.is_file()):
                     return False
                 source_hash = hashlib.sha256(original_crops[src].read_bytes()).digest()

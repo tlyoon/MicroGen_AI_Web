@@ -30,6 +30,18 @@ class FigureReceiptValidation(unittest.TestCase):
 
     def test_descriptive_names_are_valid_when_mappings_match_bytes(self):
         self.assertTrue(valid("figures",self.work))
+    def test_hyphenated_model_name_matches_sanitized_published_image(self):
+        proposed = "graph of y equals 3x - x power 2.png"
+        published = "graph of y equals 3x x power 2.png"
+        blob = (self.crop / "fig_1.png").read_bytes()
+        (self.crop / published).write_bytes(blob)
+        (self.work / published).write_bytes(blob)
+        self.record.write_text(
+            f'fig_1.png : "Unlabeled image" : {proposed}\n'
+            f'fig_2.png : "Unlabeled image" : {self.names[1]}',
+            encoding="utf-8"
+        )
+        self.assertTrue(valid("figures", self.work))
     def test_mapping_receipt_missing_is_rejected(self):
         self.record.unlink()
         self.assertFalse(valid("figures",self.work))
