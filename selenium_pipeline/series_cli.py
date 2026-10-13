@@ -19,7 +19,7 @@ from .series_gemini import request_storyboard_candidate
 
 def main(argv=None):
     p=argparse.ArgumentParser(description="Isolated physics/math multipart Gemini+TTS integration")
-    p.add_argument("action",choices=("prepare","candidate","stage-tts","run-tts","accept-wavs"))
+    p.add_argument("action",choices=("prepare","candidate","recover-candidate","stage-tts","run-tts","accept-wavs"))
     p.add_argument("--source-root",type=Path)
     p.add_argument("--source-pdf",type=Path)
     p.add_argument("--outline",type=Path)
@@ -28,6 +28,8 @@ def main(argv=None):
     p.add_argument("--profile-file",type=Path)
     p.add_argument("--part",help="Approved video part, e.g. part_01")
     p.add_argument("--authoring-folder",type=Path)
+    p.add_argument("--quarantine-file",type=Path,
+                   help="Saved local .raw.txt snapshot; recover without browser/network calls")
     p.add_argument("--storyboard",type=Path)
     p.add_argument("--review-receipt",type=Path)
     p.add_argument("--tts-folder",type=Path)
@@ -46,7 +48,7 @@ def main(argv=None):
             raise SeriesBridgeError("Live transport requires explicit --confirm-live")
         if args.action in ("run-tts","accept-wavs") and args.output and args.output.exists():
             raise SeriesBridgeError("Refusing to overwrite existing WAV manifest")
-        if args.action in ("prepare","candidate","stage-tts"):
+        if args.action in ("prepare","candidate","recover-candidate","stage-tts"):
             essential=(args.source_root,args.source_pdf,args.outline,
                        args.plan,args.domain,args.part)
             if any(x is None for x in essential):
@@ -62,12 +64,21 @@ def main(argv=None):
             if not args.output:
                 raise SeriesBridgeError("Prepare requires --output NEW folder")
             result=prepare_authoring_bundle(**kw,output_dir=args.output)
-        elif args.action=="candidate":
+        elif args.action in ("candidate","recover-candidate"):
             if not args.authoring_folder or not args.output:
-                raise SeriesBridgeError("Candidate requires authoring-folder and output JSON")
+                raise SeriesBridgeError("Candidate requires authoring-folder and new output JSON")
+            recovery_transport = None
+            if args.action == "recover-candidate":
+                if not args.quarantine_file:
+                    raise SeriesBridgeError("Recovery requires --quarantine-file")
+                from .gemini_response_recovery import read_quarantined_response
+                raw = read_quarantined_response(args.quarantine_file)
+                # Never access Gemini or re-upload PDFs in offline recovery.
+                recovery_transport = lambda instruction, files: raw
             result=request_storyboard_candidate(
                 **kw,authoring_folder=args.authoring_folder,
                 candidate_path=args.output,chrome_port=args.chrome_port,
+                transport=recovery_transport,
             )
         elif args.action=="stage-tts":
             if not all((args.storyboard,args.review_receipt,args.output)):
