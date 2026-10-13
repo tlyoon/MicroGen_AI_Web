@@ -86,7 +86,7 @@ def prepare_authoring_bundle(
         source_root=source_root,source_pdf=source_pdf,outline=outline,
         plan=plan,domain=domain,part_id=part_id,profile_file=profile_file,
     )
-    output_dir=output_dir.expanduser().absolute()
+    output_dir=output_dir.expanduser().resolve()
     source_root=source_root.resolve()
     source_pdf=source_pdf.resolve()
     if output_dir.exists() or output_dir.is_relative_to(source_root):
@@ -196,7 +196,7 @@ def stage_tts_job(
         plan=plan,storyboard=storyboard,review_receipt=review_receipt,
         domain=domain,part_id=part_id,profile_file=profile_file,
     )
-    destination=destination.expanduser().absolute()
+    destination=destination.expanduser().resolve()
     if destination.exists() or destination.is_relative_to(source_root.resolve()):
         raise SeriesBridgeError("TTS staging path must be new and outside source tree")
     if not destination.parent.is_dir():
