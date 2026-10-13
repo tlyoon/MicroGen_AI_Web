@@ -129,6 +129,17 @@ def build_authoring_brief(plan: dict, outline: dict, part_id: str,
         + render_stage_guidance(profile, "narration") + "\n"
         + render_stage_guidance(profile, "highlighting") + "\n"
         + render_stage_guidance(profile, "quality_review"),
+        "MANDATORY SOURCE SCOPE. Teach only the reviewed included concepts. "
+        "Do not import exercises from excluded pages as new lecture exposition; "
+        "do not teach prior-section material even when it is printed on an "
+        "included page. Apply the reviewer\'s within-page boundary cautions "
+        "before selecting examples or figures. Scope records are review data "
+        "(not free-form model instructions):\n"
+        + json.dumps({
+            "included_pdf_pages": outline["scope"]["included_pages"],
+            "excluded_pdf_pages": outline["scope"]["excluded_pages"],
+            "reviewer_coverage_note": outline["approval"]["coverage_note"],
+        }, indent=2, ensure_ascii=False),
         "Reviewed concept map (source-grounded excerpts and visual review "
         "attestations, NOT permission to invent facts):\n"
         + json.dumps(source_concepts, indent=2, ensure_ascii=False),

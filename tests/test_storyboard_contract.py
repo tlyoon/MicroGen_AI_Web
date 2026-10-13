@@ -204,6 +204,19 @@ class StoryboardContractTests(unittest.TestCase):
         self.assertIn("Part 1 of 1", prompt)
         self.assertIn("before any TTS work", prompt)
 
+    def test_authoring_brief_preserves_source_scope_and_within_page_cautions(self):
+        reviewed = copy.deepcopy(self.outline)
+        warning = ("PDF page 1 contains the previous section\'s final exercise "
+                   "above this section\'s heading; do not teach it as this lesson.")
+        reviewed["approval"]["coverage_note"] = warning
+        prompt = build_authoring_brief(self.plan, reviewed,
+                                       self.part_id, self.profile)
+        self.assertIn(warning, prompt)
+        self.assertIn("included_pdf_pages", prompt)
+        self.assertIn("excluded_pdf_pages", prompt)
+        self.assertIn("reviewer_coverage_note", prompt)
+        self.assertIn("within-page boundary cautions", prompt)
+
     def test_custom_future_profile_uses_same_contract(self):
         history = load_profile(
             "history", profile_file=ROOT/"examples/history_profile.example.json"
