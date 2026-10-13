@@ -1,5 +1,9 @@
 # MicroGen_AI
 
+## Integrated multidisciplinary lecture-series architecture (design proposal)
+
+The proposed next-generation architecture is defined in the [Integrated Architecture and Implementation Blueprint v1](docs/MicroGen_AI_Web_Integrated_Architecture_and_Implementation_Blueprint_v1.md). It covers discipline-aware teaching profiles (physics, mathematics, chemistry, biology, history and interdisciplinary sources), **top-down** multipart video planning (target 8–9 minutes per video; hard publication cap below 10 minutes 30 seconds), serial lecture continuity, speech-synchronized slide highlighting, source-fidelity QA, restart/receipt invalidation and staged three-PC acceptance. **These capabilities are not yet implemented or certified; the existing pipeline remains the legacy generation path until the new release gates pass.**
+
 ## Reliability hardening and future campaigns
 
 Before a large multi-PC run, consult the [hardening acceptance report](docs/MicroGen_Hardening_Acceptance_Report_20261012.md),
