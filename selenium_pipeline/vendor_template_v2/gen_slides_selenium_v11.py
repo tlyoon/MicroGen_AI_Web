@@ -1112,6 +1112,7 @@ def generate_slides_tex(
     """
     last_latex = ""
     last_preview = ""
+    legibility_feedback = ""
 
     #for attempt in range(1, 4):
     #    log(f"Slides generation attempt {attempt}/3", "INFO")
@@ -1152,7 +1153,9 @@ def generate_slides_tex(
             "Keep literal commands such as \\alpha, \\beta, \\theta, \\Delta, \\Omega, \\mu, \\frac{...}{...}, \\vec{E}, and \\times inside the fenced source. "
             "The fenced block must contain the full document from \\documentclass through \\end{document}."
         )
-        
+        if legibility_feedback:
+            instruction += legibility_feedback
+
         ###
         try:
             if response_provider is None:
@@ -1189,6 +1192,32 @@ def generate_slides_tex(
         latex = sanitize_gemini_latex_response(response_text)
         latex = normalize_unicode_to_latex(latex)
         
+        from selenium_pipeline.latex_graphics_bounds import bound_beamer_graphics
+        latex, bounded_count = bound_beamer_graphics(latex)
+        if bounded_count:
+            log(f"Bounded {bounded_count} Beamer image(s) before sanity compilation.")
+
+        from selenium_pipeline.figure_legibility import (
+            audit_wide_figure_legibility, legibility_retry_instruction,
+        )
+        legibility_issues = audit_wide_figure_legibility(latex, out_tex.parent)
+        if legibility_issues:
+            import json as _json
+            rejected = out_tex.with_name(f"slides_attempt_{attempt}_failed_legibility.tex")
+            rejected.write_text(latex + "\n", encoding="utf-8")
+            report = out_tex.with_name(f"slides_attempt_{attempt}_failed_legibility.json")
+            report.write_text(_json.dumps({
+                "status": "review_required",
+                "reason": "wide_figure_in_narrow_column",
+                "issues": legibility_issues,
+                "published_slides_modified": False,
+            }, indent=2), encoding="utf-8")
+            legibility_feedback = legibility_retry_instruction(legibility_issues)
+            log(f"Attempt {attempt}: rejected unreadably small wide figure(s); "
+                "require a separate full-width frame.", "WARN")
+            continue
+        legibility_feedback = ""
+
         last_latex = latex
         last_preview = latex[:500].replace("\n", "\\n")
         
