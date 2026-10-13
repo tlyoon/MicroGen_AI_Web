@@ -121,6 +121,15 @@ class LessonPlanningTests(unittest.TestCase):
         self.assertNotEqual(a.canonical_sha256(), c.canonical_sha256())
         self.assertEqual(a.canonical_sha256(), plan(scenes).canonical_sha256())
 
+    def test_caller_mutation_cannot_alter_approved_source_pages(self):
+        pages = [1]
+        scene = replace(make_scene(1), source_pages=pages)
+        result = plan([scene])
+        original_hash = result.canonical_sha256()
+        pages[0] = 99
+        self.assertEqual(result.scenes[0].source_pages, (1,))
+        self.assertEqual(result.canonical_sha256(), original_hash)
+
     def test_plan_json_serialization(self):
         result = plan([make_scene(1), make_scene(2)])
         decoded = json.loads(json.dumps(result.as_dict(), ensure_ascii=False))
@@ -135,7 +144,7 @@ class LessonPlanningTests(unittest.TestCase):
     def test_exception_requires_explicit_approval(self):
         self.assertEqual(assess_actual_duration(625).status, "review_required")
         approved = assess_actual_duration(625, explicit_exception_approved=True)
-        self.assertEqual(approved.status, "passed_exception")
+        self.assertEqual(approved.status, "passed")
         self.assertTrue(approved.explicit_exception_approved)
         self.assertEqual(assess_actual_duration(629.999).status, "review_required")
 
