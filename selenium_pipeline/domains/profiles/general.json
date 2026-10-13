@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "id": "general",
+  "profile_version": "1.0.0",
+  "display_name": "General educational content",
+  "maturity": "development",
+  "content_types": [
+    "text",
+    "tables",
+    "figures"
+  ],
+  "review_checks": [
+    "source_traceability",
+    "fact_grounding",
+    "figure_label_fidelity",
+    "readability",
+    "narration_element_alignment"
+  ],
+  "prompt_sections": {
+    "source_analysis": [
+      "Record the textbook's subject, central questions, concept boundaries, examples, figures and source page references; do not invent unsupported content."
+    ],
+    "lesson_planning": [
+      "Plan the whole subchapter before slides, preserving source order when pedagogically relevant and complete coverage."
+    ],
+    "slides": [
+      "Prefer short, readable slides with accurate original images and labels."
+    ],
+    "narration": [
+      "Use natural, clear spoken explanations grounded in the supplied source and displayed slide; do not invent facts."
+    ],
+    "highlighting": [
+      "Link each narrated concept to an unambiguous on-screen element before speech generation."
+    ],
+    "quality_review": [
+      "Review missing concepts, misleading diagrams, unsupported claims and mismatched narration."
+    ]
+  }
+}

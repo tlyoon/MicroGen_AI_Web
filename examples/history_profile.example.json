@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "id": "history",
+  "profile_version": "1.0.0",
+  "display_name": "History (example profile; not validated)",
+  "maturity": "experimental",
+  "content_types": [
+    "chronology",
+    "timelines",
+    "maps",
+    "source_excerpts",
+    "figures"
+  ],
+  "review_checks": [
+    "source_traceability",
+    "chronology_review",
+    "attribution_review",
+    "evidence_vs_interpretation_review",
+    "map_location_review"
+  ],
+  "prompt_sections": {
+    "source_analysis": [
+      "Extract historical dates, people, places, sources and debates with original page references; distinguish records from interpretations."
+    ],
+    "lesson_planning": [
+      "Arrange material in coherent historical sequences and explain causes, consequences and competing explanations without fictional continuity."
+    ],
+    "slides": [
+      "Favor accurate timelines, source excerpts and legible original maps; do not invent quotations, locations or dates."
+    ],
+    "narration": [
+      "Explain historical context and source attribution; distinguish documented evidence, inference and contested interpretations."
+    ],
+    "highlighting": [
+      "Highlight a sourced event on a timeline, a correctly mapped place or the exact quoted passage being discussed."
+    ],
+    "quality_review": [
+      "Flag chronology reversals, unsupported claims, unattributed quotations and invented certainty."
+    ]
+  }
+}

@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/tlyoon/MicroGen_AI_Web/schemas/domain_profile.schema.json",
+  "title": "MicroGen domain teaching profile v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "profile_version",
+    "display_name",
+    "maturity",
+    "content_types",
+    "review_checks",
+    "prompt_sections"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+    },
+    "profile_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "display_name": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 96
+    },
+    "maturity": {
+      "enum": [
+        "development",
+        "experimental"
+      ]
+    },
+    "content_types": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]{0,63}$"
+      }
+    },
+    "review_checks": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]{0,63}$"
+      }
+    },
+    "prompt_sections": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_analysis",
+        "lesson_planning",
+        "slides",
+        "narration",
+        "highlighting",
+        "quality_review"
+      ],
+      "properties": {
+        "source_analysis": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 900
+          }
+        },
+        "lesson_planning": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 900
+          }
+        },
+        "slides": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 900
+          }
+        },
+        "narration": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 900
+          }
+        },
+        "highlighting": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 900
+          }
+        },
+        "quality_review": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 900
+          }
+        }
+      }
+    }
+  }
+}
