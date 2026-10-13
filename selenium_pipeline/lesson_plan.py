@@ -55,6 +55,7 @@ class LessonPlan:
     max_planned_seconds: float
     intro_reserve_seconds: float
     outro_reserve_seconds: float
+    scenes: tuple[Scene, ...]
     parts: tuple[Part, ...]
 
     def as_dict(self) -> dict:
@@ -254,5 +255,6 @@ def plan_lesson(
         max_planned_seconds=ceiling,
         intro_reserve_seconds=intro,
         outro_reserve_seconds=outro,
+        scenes=items,
         parts=tuple(parts),
     )
