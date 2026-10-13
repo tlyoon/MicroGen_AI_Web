@@ -36,7 +36,8 @@ jobs:
             tests.test_video_ffmpeg_assembly \
             tests.test_stage2_video_recovery \
             tests.test_stage3_fault_injection \
-            tests.test_source_aware_lesson_planner
+            tests.test_source_aware_lesson_planner \
+            tests.test_storyboard_contract
       - name: Syntax-check updated Python entry points
         run: |
           python -m py_compile \
@@ -52,7 +53,11 @@ jobs:
             selenium_pipeline/planning/source_scan.py \
             selenium_pipeline/planning/lesson_planner.py \
             selenium_pipeline/planning/draft_outline.py \
-            selenium_pipeline/planning/__main__.py
+            selenium_pipeline/planning/__main__.py \
+            selenium_pipeline/storyboard_gate.py \
+            selenium_pipeline/storyboard_authoring.py \
+            selenium_pipeline/storyboard_cli.py \
+            selenium_pipeline/beamer_anchor_contract.py
 
   full-regressions:
     name: Full offline suite (${{ matrix.os }}, Python ${{ matrix.python-version }})
