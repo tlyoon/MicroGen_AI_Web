@@ -41,7 +41,9 @@ jobs:
             tests.test_rfh_composite_figure_guard \
             tests.test_rfh_beamer_graphic_bounds \
             tests.test_rfh_figure_legibility \
-            tests.test_rfh_figure_pipeline_integration
+            tests.test_rfh_figure_pipeline_integration \
+            tests.test_pdf_geometry_and_timing \
+            tests.test_real_beamer_geometry
       - name: Syntax-check updated Python entry points
         run: |
           python -m py_compile \
@@ -64,7 +66,11 @@ jobs:
             selenium_pipeline/beamer_anchor_contract.py \
             selenium_pipeline/figure_composites.py \
             selenium_pipeline/latex_graphics_bounds.py \
-            selenium_pipeline/figure_legibility.py
+            selenium_pipeline/figure_legibility.py \
+            selenium_pipeline/pdf_element_geometry.py \
+            selenium_pipeline/speech_segment_timing.py \
+            selenium_pipeline/highlight_frames.py \
+            selenium_pipeline/geometry_cli.py
 
   full-regressions:
     name: Full offline suite (${{ matrix.os }}, Python ${{ matrix.python-version }})
