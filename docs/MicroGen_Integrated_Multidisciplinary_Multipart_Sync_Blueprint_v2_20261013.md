@@ -2,7 +2,7 @@
 
 **Date:** 13 October 2026 (MYT)  
 **Status:** Implementation blueprint / acceptance contract. **Not an implemented feature or production release.**  
-**Applies to:** \`tlyoon/MicroGen_AI_Web\` only; do not modify the separate \`tlyoon/MicroGen_AI\` repository.  
+**Applies to:** `tlyoon/MicroGen_AI_Web` only; do not modify the separate `tlyoon/MicroGen_AI` repository.  
 **First acceptance subject:** Thomas' Calculus, 13th edition. Design must remain useful for physics, mathematics, chemistry, engineering, biology, and other textbook subjects.
 
 ## 1. Decision and release boundary
@@ -20,11 +20,11 @@ This v2 document extends [RFH v1](MicroGen_AI_Web_Reliability_Fidelity_Hardening
 
 ## 2. Existing architecture and incompatibilities
 
-The current maintained \`selenium_pipeline.runner\` uses seven ordered stages:
+The current maintained `selenium_pipeline.runner` uses seven ordered stages:
 
-\`figures -> slides -> narration -> script_qa -> tts -> tts_qa -> video\`
+`figures -> slides -> narration -> script_qa -> tts -> tts_qa -> video`
 
-Existing primary output is \`slides.mp4\`, a **single video per subchapter**, generated from \`slideN.pdf\` / \`slideN.wav\`; \`slide_narration_sync.py\` binds slide/PDF/script/WAV hashes and counts but does **not** verify semantic matching or word-level audiovisual timing. \`video_ffmpeg.py\` provides resumable static-slide encoding, actual media-progress watchdogs, source-adjacent atomic publication and existing-output preservation. These are valuable foundations, **not** proof that multipart planning or synchronized highlighting already works.
+Existing primary output is `slides.mp4`, a **single video per subchapter**, generated from `slideN.pdf` / `slideN.wav`; `slide_narration_sync.py` binds slide/PDF/script/WAV hashes and counts but does **not** verify semantic matching or word-level audiovisual timing. `video_ffmpeg.py` provides resumable static-slide encoding, actual media-progress watchdogs, source-adjacent atomic publication and existing-output preservation. These are valuable foundations, **not** proof that multipart planning or synchronized highlighting already works.
 
 The existing RFH figure PRs form separate, unmerged safety work:
 - [#56](https://github.com/tlyoon/MicroGen_AI_Web/pull/56): fail-closed multipart figure mapping.
@@ -35,13 +35,13 @@ Do **not** mistake bounding a three-panel diagram into a half-column for legibil
 
 ## 3. Portable directory, identity and ownership contract
 
-The **code root** is the local, pinned Git checkout, separate from the **source root** holding \`<chapter>/<subchapter>/source.pdf\`. Resolve the source root explicitly per PC (\`--source-root\` / \`MICROGEN_SOURCE_ROOT\`), check readability and write permission, and never infer it from the code checkout. Output artifacts belong **beside the subchapter source PDF**; compute-heavy work, FFmpeg caching, transient renders, alignment and temporary files stay on a **machine-local** disk. Google Drive is an output and shared coordination location, not the FFmpeg working scratchpad.
+The **code root** is the local, pinned Git checkout, separate from the **source root** holding `<chapter>/<subchapter>/source.pdf`. Resolve the source root explicitly per PC (`--source-root` / `MICROGEN_SOURCE_ROOT`), check readability and write permission, and never infer it from the code checkout. Output artifacts belong **beside the subchapter source PDF**; compute-heavy work, FFmpeg caching, transient renders, alignment and temporary files stay on a **machine-local** disk. Google Drive is an output and shared coordination location, not the FFmpeg working scratchpad.
 
 Honor the user's single designated Thomas Calculus source/output tree on all authorised PCs. The former Thomas 2.2 test folders are historical reference material only; never use them as live production destinations. Use deterministic source hashes, a disjoint subchapter owner/lease across machines, and atomic publish operations. Credentials remain in user-local secret storage; neither secrets nor copyrighted textbook assets belong in the public repository.
 
 ### Proposed deliverables (not currently emitted)
 
-\`\`\`text
+```text
 <source-root>/<chapter>/<subchapter>/
   source.pdf
   slides.tex                       # Full editable source, if a global deck is retained
@@ -62,13 +62,13 @@ Honor the user's single designated Thomas Calculus source/output tree on all aut
   part_02/ ...
   lecture_completion.json          # References every accepted part receipt
   .microgen_work/                  # Managed, resumable staging metadata; not a success signal
-\`\`\`
+```
 
-The exact artifact names and directory layout are **proposed** and must be finalized with migration tests before production. Legacy complete \`slides.mp4\` and \`.microgen_completion.json\` must remain readable and untouched; older receipts cannot claim compliance with these **new** multipart/highlight gates without revalidation. Do not delete the global slide deck or original narration solely to introduce parts.
+The exact artifact names and directory layout are **proposed** and must be finalized with migration tests before production. Legacy complete `slides.mp4` and `.microgen_completion.json` must remain readable and untouched; older receipts cannot claim compliance with these **new** multipart/highlight gates without revalidation. Do not delete the global slide deck or original narration solely to introduce parts.
 
 ## 4. Subject-neutral instructional plan
 
-Build an explicit, versioned **\`DisciplineProfile\`** with fields for subject, notation conventions, learning level, prerequisite assumptions, slide-layout needs, pronunciation rules, equation reading, acceptable illustration types, units, source citation style and pedagogical checks.
+Build an explicit, versioned **`DisciplineProfile`** with fields for subject, notation conventions, learning level, prerequisite assumptions, slide-layout needs, pronunciation rules, equation reading, acceptable illustration types, units, source citation style and pedagogical checks.
 
 **Shared teaching behaviours:** State the goal, explain intuition, introduce definitions, develop ideas in an appropriate order, interpret equations in words, work through source-grounded examples, acknowledge common misunderstandings, conclude each part and connect it to the next. Keep the user's preference for simple, direct English. Do not pad with sweeping claims.
 
@@ -79,7 +79,7 @@ Build an explicit, versioned **\`DisciplineProfile\`** with fields for subject, 
 - **Biology:** mechanisms, diagrams, labels and careful distinction between observation and inference.
 - **Engineering:** assumptions, constraints, failure modes and worked quantitative designs.
 
-Profiles influence prompts and QA rules without changing the source-document fidelity requirement. A subject classifier can **suggest** a profile; uncertain classification must be explicitly configured or placed in \`review_required\`, not guessed. Calculus test materials must never receive physics-only prompts.
+Profiles influence prompts and QA rules without changing the source-document fidelity requirement. A subject classifier can **suggest** a profile; uncertain classification must be explicitly configured or placed in `review_required`, not guessed. Calculus test materials must never receive physics-only prompts.
 
 ## 5. Top-down multipart planning before slide generation
 
@@ -91,15 +91,15 @@ Define each **scene** as a teachable visual focus with one or more narration seg
 
 ### 5.2 Duration allocation and boundaries
 
-Generate a \`lecture_plan.json\` containing ordered **parts**, each with a topic title, source span, pedagogical objective, prerequisite/continuity note, ordered scenes, nominal narration-time budget, introduction, conclusion and transition. At planning time:
+Generate a `lecture_plan.json` containing ordered **parts**, each with a topic title, source span, pedagogical objective, prerequisite/continuity note, ordered scenes, nominal narration-time budget, introduction, conclusion and transition. At planning time:
 - **Preferred actual final duration:** 480–540 s per part (8–9 min).
 - **Normal maximum:** actual MP4 duration **strictly < 600.0 s**.
-- **Conditional narrow overshoot:** \`600.0 <= duration < 630.0 s\` may be retained **only as \`review_required\`**, with an explicit justification and user acceptance. It is never silently certified or queued as fully complete.
+- **Conditional narrow overshoot:** `600.0 <= duration < 630.0 s` may be retained **only as `review_required`**, with an explicit justification and user acceptance. It is never silently certified or queued as fully complete.
 - **At or above 630.0 s:** **blocked**; rewrite/replan upstream and regenerate only impacted parts.
 - Reserve time for part introductions, summaries, transitions and measured TTS drift. Do not use a nominal 600-second script target.
 - For short subchapters, one coherent shorter part is valid; do not artificially stretch it.
 
-Plan several parts **before** generating the first final slide so the sequence is globally coherent. Avoid splitting a finished long MP4 with \`-ss\`, \`-t\`, or mechanical equal-duration chopping as a substitute for intellectual partitioning. If true TTS duration exceeds the budget, revise script/scene boundaries and regenerate the affected part; preserve the source explanation, meanings and required figures.
+Plan several parts **before** generating the first final slide so the sequence is globally coherent. Avoid splitting a finished long MP4 with `-ss`, `-t`, or mechanical equal-duration chopping as a substitute for intellectual partitioning. If true TTS duration exceeds the budget, revise script/scene boundaries and regenerate the affected part; preserve the source explanation, meanings and required figures.
 
 ### 5.3 Continuity across videos
 
@@ -112,28 +112,28 @@ Every part has a short, natural introduction saying what it covers and how it fo
 At slide creation, require every highlightable element to have a **stable target ID**, semantic type and verified location:
 - slide title / heading / bullet / sentence span;
 - displayed equation, selected equation term and worked calculation step;
-- figure, caption, labelled subpanel \`(a)/(b)/(c)\`, labelled curve/axis or diagram region;
+- figure, caption, labelled subpanel `(a)/(b)/(c)`, labelled curve/axis or diagram region;
 - tables, rows and source-authorised symbols.
 
 Preferred mapping is from **structured Beamer/LaTeX source** to a generated slide element manifest plus verified PDF bounding boxes or named graphic anchors. For rasterized figures, accept explicit source-backed coordinates/regions only. Do not guess equation-term bounding boxes from raw rendered pixels and then assert certainty. If a needed label/region cannot be located confidently, request review or choose a safe full-element emphasis **only when it does not misrepresent what was said**.
 
 ### 6.2 Audio timing is authoritative
 
-Preserve \`script.txt\` and create separate \`speech_ready\` text with an auditable transformation map. Synthesize final WAV first, including any selective TTS replacements. Derive a **time-stamped token/phrase sequence** from the final audio with a supported alignment method (for example verified TTS marks or forced alignment checked against the final speech). Never use raw character-count, equal-time, script-only predictions, or generic subtitle timestamps as a claimed exact audio alignment.
+Preserve `script.txt` and create separate `speech_ready` text with an auditable transformation map. Synthesize final WAV first, including any selective TTS replacements. Derive a **time-stamped token/phrase sequence** from the final audio with a supported alignment method (for example verified TTS marks or forced alignment checked against the final speech). Never use raw character-count, equal-time, script-only predictions, or generic subtitle timestamps as a claimed exact audio alignment.
 
 Link aligned speech spans to semantic target IDs, with timing offsets in seconds relative to the part. Enforce:
-- ordered, nonnegative, monotonic onset/offset; \`start < end\`;
-- \`end <= measured final WAV duration\` (allow only documented encoder tolerance);
+- ordered, nonnegative, monotonic onset/offset; `start < end`;
+- `end <= measured final WAV duration` (allow only documented encoder tolerance);
 - exact source-to-speech mapping for mathematical symbols, units and variable names, with ambiguity sent to review;
 - no highlights of the next item while the current item is still being discussed;
 - stable visual state during pauses and safe fade timing;
 - missing targets, drift or low-confidence alignments = no false successful highlight receipt.
 
-Structural slide/WAV count verification from \`slide_narration_sync.py\` stays required but is **insufficient** for synchronized highlight certification.
+Structural slide/WAV count verification from `slide_narration_sync.py` stays required but is **insufficient** for synchronized highlight certification.
 
 ### 6.3 Visual rendering
 
-Render a synchronized overlay/reveal track from \`visual_cues.json\` over the approved static slide images or a compatible Beamer export, with a **single deterministic clock based on final WAV samples**. Choose a consistent, restrained style: underline, translucent non-obscuring outline, contrast-preserving pointer/spotlight or controlled reveal. Never conceal essential symbols, axis labels or diagram panels. Avoid flashing, rapid motion, unintended slide jumps or cropped panels. Timing must survive segment concatenation and any audio re-encoding.
+Render a synchronized overlay/reveal track from `visual_cues.json` over the approved static slide images or a compatible Beamer export, with a **single deterministic clock based on final WAV samples**. Choose a consistent, restrained style: underline, translucent non-obscuring outline, contrast-preserving pointer/spotlight or controlled reveal. Never conceal essential symbols, axis labels or diagram panels. Avoid flashing, rapid motion, unintended slide jumps or cropped panels. Timing must survive segment concatenation and any audio re-encoding.
 
 For complex mathematics, make cues refer to the **specific term or step** being spoken, not only the entire formula. For composite figures, cue the complete figure when necessary and its source-identified panels individually when discussed. Preserve a non-highlighted static export for inspection and compare the highlighted frames with it to rule out loss of content.
 
@@ -141,7 +141,7 @@ For complex mathematics, make cues refer to the **specific term or step** being 
 
 Use the accepted narration content as the semantic source of truth. Each scene should explain its actual visual objects and figure relationships. A figure insertion or split changes slide counts and/or order; invalidate impacted narration, speech, TTS QA, alignment, visual cues, media and completion receipts. **Do not** reuse old WAV numbers or timing against a changed deck just because the script resembles the previous version.
 
-Use contextual mathematical pronunciation rules and a separate voice-ready file; preserve article \`a\` versus variable \`A\`, mathematical \`c\` versus “circa”, \`u\` versus “us”, subscripts, powers, Greek letters and units. Keep unchanged, approved per-slide WAV files when their exact upstream inputs and QA version hashes match. Require a pronunciation QA path distinct from text similarity; unresolved acoustics remain \`review_required\`.
+Use contextual mathematical pronunciation rules and a separate voice-ready file; preserve article `a` versus variable `A`, mathematical `c` versus “circa”, `u` versus “us”, subscripts, powers, Greek letters and units. Keep unchanged, approved per-slide WAV files when their exact upstream inputs and QA version hashes match. Require a pronunciation QA path distinct from text similarity; unresolved acoustics remain `review_required`.
 
 ## 8. FFmpeg, slide conversion and crash-safe recovery
 
@@ -158,7 +158,7 @@ Re-use and extend the hardening in [Portable Video and Cleanup](../PORTABLE_VIDE
 
 Version all schemas and QA policies. Proposed DAG:
 
-\`\`\`text
+```text
 source.pdf + captions -> source inventory -> discipline profile -> lecture_plan
                                                    |
                            figure mapping -> slide source and element targets
@@ -172,11 +172,11 @@ source.pdf + captions -> source inventory -> discipline profile -> lecture_plan
                                   per-part MP4 / probe / part_receipt
                                                    |
                                    all-part completion_manifest
-\`\`\`
+```
 
 A changed accepted source or figure invalidates every *dependent* node, not unrelated finished parts. A changed final WAV invalidates alignment, timed cues and video for that segment. A modified Beamer deck invalidates affected narration/audio even if slide count is unchanged. Every part receipt binds the source hash, plan hash, approved slide/figure hashes, narration/speech/audio hashes, cue-map hash, MP4 SHA-256, duration and QA version; no final subchapter completion until **every required part** passes.
 
-Record statuses \`passed\`, \`repaired\`, \`review_required\`, \`blocked\` and \`in_progress\`. Keep transport/stall/refusal/quota errors distinct from invalid scientific output. A process heartbeat, PDF compile exit 0, TTS response, or existing MP4 is **not** sufficient proof. Preserve a human-readable explanation and machine-readable defect code when something fails.
+Record statuses `passed`, `repaired`, `review_required`, `blocked` and `in_progress`. Keep transport/stall/refusal/quota errors distinct from invalid scientific output. A process heartbeat, PDF compile exit 0, TTS response, or existing MP4 is **not** sufficient proof. Preserve a human-readable explanation and machine-readable defect code when something fails.
 
 ## 10. Acceptance matrix and implementation order
 
@@ -196,22 +196,22 @@ Every acceptance report must include exact code SHA, source/output acceptance lo
 
 ## 11. Suggested code seams (planning, not claims of implementation)
 
-- \`selenium_pipeline/discipline_profiles.py\`: explicit subject-neutral and subject-specific settings.
-- \`selenium_pipeline/lesson_plan.py\`: source-grounded ordered scenes and part planning with duration budgets.
-- \`selenium_pipeline/element_targets.py\`: LaTeX/PDF element identifier and bounding-box evidence.
-- \`selenium_pipeline/audio_alignment.py\`: verified final-WAV phrase alignment and confidence checks.
-- \`selenium_pipeline/visual_cues.py\`: speech-span to highlight-target mapping and coordinate QA.
-- \`selenium_pipeline/highlight_render.py\`: reproducible cue-aware scene render.
-- \`selenium_pipeline/multipart_video.py\`: part-level FFmpeg assembler, probing, reuse and publisher.
-- \`selenium_pipeline/lecture_receipts.py\`: manifest and dependency invalidation; keep \`slide_narration_sync.py\` backward-compatible.
-- Extend \`selenium_pipeline/runner.py\` only after module-level tests pass: introduce \`source_inventory\`, \`lesson_plan\`, \`target_map\`, \`audio_alignment\`, \`highlight_video\` and \`multipart_verify\` as **explicit, individually resumable gates**, without silently breaking existing \`STAGES\`.
+- `selenium_pipeline/discipline_profiles.py`: explicit subject-neutral and subject-specific settings.
+- `selenium_pipeline/lesson_plan.py`: source-grounded ordered scenes and part planning with duration budgets.
+- `selenium_pipeline/element_targets.py`: LaTeX/PDF element identifier and bounding-box evidence.
+- `selenium_pipeline/audio_alignment.py`: verified final-WAV phrase alignment and confidence checks.
+- `selenium_pipeline/visual_cues.py`: speech-span to highlight-target mapping and coordinate QA.
+- `selenium_pipeline/highlight_render.py`: reproducible cue-aware scene render.
+- `selenium_pipeline/multipart_video.py`: part-level FFmpeg assembler, probing, reuse and publisher.
+- `selenium_pipeline/lecture_receipts.py`: manifest and dependency invalidation; keep `slide_narration_sync.py` backward-compatible.
+- Extend `selenium_pipeline/runner.py` only after module-level tests pass: introduce `source_inventory`, `lesson_plan`, `target_map`, `audio_alignment`, `highlight_video` and `multipart_verify` as **explicit, individually resumable gates**, without silently breaking existing `STAGES`.
 
-New functions should integrate with the existing \`MICROGEN_COMMUNICATION_MODE\` contract (Selenium, API, bounded Selenium-first fallback) when a Gemini call is truly required. **TTS stays an API task** and should not be made dependent on Chrome. Under current development settings, keep Gemini Flash as the default; a future model switch requires an explicit validated release, not incidental environment drift.
+New functions should integrate with the existing `MICROGEN_COMMUNICATION_MODE` contract (Selenium, API, bounded Selenium-first fallback) when a Gemini call is truly required. **TTS stays an API task** and should not be made dependent on Chrome. Under current development settings, keep Gemini Flash as the default; a future model switch requires an explicit validated release, not incidental environment drift.
 
 ## 12. Rollout checklist and next immediate action
 
 1. Review this design as **requirements**, not a completed implementation.
-2. Reconcile outstanding draft figure PRs #56–#58 and the merged receipt fixes #59–#60 against the current \`main\`, avoiding blind conflict resolution.
+2. Reconcile outstanding draft figure PRs #56–#58 and the merged receipt fixes #59–#60 against the current `main`, avoiding blind conflict resolution.
 3. Implement isolated, unit-tested schemas and top-down planning before the audio alignment/highlight renderer.
 4. Only then authorize a **controlled** Thomas 13th-edition test-copy pilot, compare the real PDF/pages, narration and timed video, and record failures.
 5. If validated, deploy a pinned release at safe worker boundaries on the available PCs, preserve existing checked outputs, and resume only unfinished subchapters.
