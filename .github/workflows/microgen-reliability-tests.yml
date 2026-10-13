@@ -43,7 +43,8 @@ jobs:
             tests.test_rfh_figure_legibility \
             tests.test_rfh_figure_pipeline_integration \
             tests.test_pdf_geometry_and_timing \
-            tests.test_real_beamer_geometry
+            tests.test_real_beamer_geometry \
+            tests.test_highlight_video_preview
       - name: Syntax-check updated Python entry points
         run: |
           python -m py_compile \
@@ -70,7 +71,8 @@ jobs:
             selenium_pipeline/pdf_element_geometry.py \
             selenium_pipeline/speech_segment_timing.py \
             selenium_pipeline/highlight_frames.py \
-            selenium_pipeline/geometry_cli.py
+            selenium_pipeline/geometry_cli.py \
+            selenium_pipeline/highlight_video_preview.py
 
   full-regressions:
     name: Full offline suite (${{ matrix.os }}, Python ${{ matrix.python-version }})
