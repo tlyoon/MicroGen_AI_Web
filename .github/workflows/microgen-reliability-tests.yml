@@ -20,7 +20,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install minimal offline test dependencies
-        run: python -m pip install selenium pymupdf pypdf imageio-ffmpeg jsonschema 'google-genai>=2.25,<3'
+        run: python -m pip install selenium pymupdf pypdf pillow imageio-ffmpeg jsonschema 'google-genai>=2.25,<3'
       - name: Verify known historical failure protections
         run: |
           python -m unittest -v \
