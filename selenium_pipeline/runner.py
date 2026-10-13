@@ -1,4 +1,4 @@
-﻿"""Selenium-first MicroGen pipeline using the validated template_v2 scripts.
+"""Selenium-first MicroGen pipeline using the validated template_v2 scripts.
 
 The vendored scripts are invoked in isolated working folders. This module does
 not import the legacy selenium.py, which would shadow the Selenium distribution.
@@ -276,7 +276,51 @@ def valid(stage: str, folder: Path) -> bool:
                      and p.stem.lower() == p.parent.name.lower())
             for p in crops.rglob("*")
         )
-        return not extracted or any(folder.glob("Figure*.png"))
+        if not extracted:
+            return True
+        # Gemini can give descriptive crop filenames (e.g. "graph of y ..."
+        # instead of "Figure...").  Require the actual source->target mapping
+        # receipts and byte-identical published copies, not a name prefix.
+        verified_source_crops = 0
+        for page_crop_dir in sorted(crops.glob("page_*")):
+            if not page_crop_dir.is_dir():
+                continue
+            original_crops = {
+                p.name: p for p in page_crop_dir.iterdir()
+                if p.is_file() and re.fullmatch(r"fig_[0-9]+\.png", p.name, re.I)
+            }
+            if not original_crops:
+                continue
+            verified_source_crops += len(original_crops)
+            page_map = pages / page_crop_dir.name / (page_crop_dir.name + "_mapping.txt")
+            if not page_map.is_file():
+                return False
+            validated = set()
+            for line in page_map.read_text(encoding="utf-8-sig").splitlines():
+                if not line.strip():
+                    continue
+                parts = line.split(" : ", 2)
+                if len(parts) != 3:
+                    return False
+                src, _label, dst = (part.strip() for part in parts)
+                if (src not in original_crops or src in validated or
+                        not dst.lower().endswith(".png") or
+                        not dst or dst != Path(dst).name or
+                        dst.startswith(".") or ".." in dst or
+                        any(bad in dst for bad in ('<', '>', ':', '|', '?', '*', "\\"))):
+                    return False
+                named_in_page = page_crop_dir / dst
+                named_in_root = folder / dst
+                if not (named_in_page.is_file() and named_in_root.is_file()):
+                    return False
+                source_hash = hashlib.sha256(original_crops[src].read_bytes()).digest()
+                if (hashlib.sha256(named_in_page.read_bytes()).digest() != source_hash
+                        or hashlib.sha256(named_in_root.read_bytes()).digest() != source_hash):
+                    return False
+                validated.add(src)
+            if validated != set(original_crops):
+                return False
+        return verified_source_crops > 0 or any(folder.glob("Figure*.png"))
     if stage in OUTPUTS and not all((folder / name).is_file() and
                                     (folder / name).stat().st_size > 0 for name in OUTPUTS[stage]):
         return False
