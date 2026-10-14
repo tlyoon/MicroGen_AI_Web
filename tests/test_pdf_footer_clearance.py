@@ -27,7 +27,7 @@ class FooterClearanceTests(unittest.TestCase):
         p.insert_link({"kind":pymupdf.LINK_URI,
                        "uri":"microgen-element:part_03.s001.diagram",
                        "from":pymupdf.Rect(35,75,280,anchor_bottom)})
-        if footer:p.insert_text((295,265),"3 / 11",fontsize=9)
+        if footer:p.insert_text((295,268),"3 / 11",fontsize=8)
         pdf.save(f);pdf.close()
         return f
     def test_footline_collision_fails_before_audio(self):

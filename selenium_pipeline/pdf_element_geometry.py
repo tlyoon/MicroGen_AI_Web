@@ -81,14 +81,17 @@ def extract_element_geometry(pdf_path: str | Path, storyboard: dict) -> dict:
                 "height_pt": round(rect.height, 3), "rotation": page.rotation,
             })
             # Beamer footlines may display a date/page number in the final
-            # ~16 PDF points. Source-content anchors must stay ABOVE that
+            # ~14 PDF points. Source-content anchors must stay ABOVE that
             # actual rendered text band. This is narrower and safer than
             # reserving a hard-coded bottom margin for every document.
             footer_text_tops = [
-                float(b[1]) for b in page.get_text("blocks")
-                if len(b) >= 7 and b[6] == 0
-                and isinstance(b[4], str) and b[4].strip()
-                and rect.height - 16.0 <= b[1] < rect.height
+                float(span["bbox"][1])
+                for block in page.get_text("dict")["blocks"]
+                if block.get("type") == 0
+                for line in block["lines"]
+                for span in line["spans"]
+                if span["text"].strip()
+                and rect.height - 14.0 <= float(span["bbox"][1]) < rect.height
             ]
             footer_top = min(footer_text_tops) if footer_text_tops else None
             for link in page.get_links():
