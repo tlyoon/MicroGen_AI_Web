@@ -86,34 +86,48 @@ def _browser_request(instruction: str,attachments: list[Path],
                 raise SeriesBridgeError("Could not type Gemini storyboard instruction")
             if not client.click_send_with_fallbacks(retries=3):
                 raise SeriesBridgeError("Could not submit Gemini storyboard instruction")
-            response=vendor.capture_gemini_response_like_manual_copy(
-                client.driver,wait_cap=wait_cap_s,prefer_latex_doc=False,
-                min_chars=200,retries=4,accept_fn=_looks_complete,
-            )
+            # Long Gemini replies may time out or raise before the strict
+            # JSON acceptance callback runs. Capture even exception paths.
+            capture_error = None
+            response = ""
+            try:
+                response = vendor.capture_gemini_response_like_manual_copy(
+                    client.driver,wait_cap=wait_cap_s,prefer_latex_doc=False,
+                    min_chars=200,retries=4,accept_fn=_looks_complete,
+                )
+            except (TimeoutError, RuntimeError) as exc:
+                capture_error = exc
             if not response:
                 from .gemini_response_recovery import (
-                    latest_owned_response, quarantine_snapshot,
+                    response_snapshot_with_scoped_copy, quarantine_snapshot,
                 )
-                # Snapshot before client.shutdown closes its owned browser tab.
-                # Do not capture the composer, uploads or unrelated browser tabs.
-                snapshot = latest_owned_response(
+                # This vendor helper verifies the Copy button belongs
+                # to the latest MODEL response, not a user prompt.
+                # Never use unrestricted clipboard or another Chrome tab.
+                verified_copy = getattr(
+                    vendor, "_copy_via_toolbar_copy_button", None
+                )
+                snapshot = response_snapshot_with_scoped_copy(
                     client.driver, getattr(client, "_automation_tab", None),
+                    copy_response=verified_copy,
+                )
+                reason = (
+                    "strict_json_capture_exception" if capture_error is not None
+                    else "strict_json_capture_timeout"
                 )
                 try:
-                    receipt = quarantine_snapshot(
-                        snapshot, reason="strict_json_capture_timeout",
-                    )
+                    receipt = quarantine_snapshot(snapshot, reason=reason)
                 except OSError as exc:
                     raise SeriesBridgeError(
                         "Gemini JSON capture failed and recovery quarantine "
-                        "could not be written; inspect the live browser"
+                        "could not be written; inspect the owned browser tab"
                     ) from exc
                 raise SeriesBridgeError(
                     "No stable complete Gemini JSON; untrusted response "
                     f"quarantined at {receipt['raw_path']}. "
-                    "Use offline recover-candidate after checking the receipt; "
+                    "Use offline recover-candidate after verifying content; "
                     "do not automatically resubmit source files."
-                )
+                ) from capture_error
             return response
         finally:
             try:
