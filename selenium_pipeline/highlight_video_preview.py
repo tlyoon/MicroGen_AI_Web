@@ -207,6 +207,11 @@ def compose_highlight_preview(
          "-f","concat","-safe","0","-i",str(manifest),
          "-i",str(wav),"-map","0:v:0","-map","1:a:0",
          "-c:v","libx264","-preset","veryfast","-crf","22",
+         # Beamer page point dimensions are often fractional: rendering at
+         # valid scales can yield odd pixel width/height (e.g. 681x383).
+         # H.264 yuv420p requires both dimensions divisible by two. Pad by
+         # at most one pixel; never rescale or crop source figure panels.
+         "-vf","pad=ceil(iw/2)*2:ceil(ih/2)*2",
          "-pix_fmt","yuv420p","-fps_mode","vfr",
          "-c:a","aac","-b:a","160k",
          "-movflags","+faststart","-t",f"{wav_length:.6f}",
