@@ -8,7 +8,7 @@ On Dell-115 a Gemini source/outline audit submitted successfully, and the browse
 
 ## New safety behavior
 
-The opt-in series Gemini transport attempts one **bounded, same-tab DOM snapshot** of the latest visible `model-response` after strict JSON capture fails. This happens **before** the owned tab is closed. It never reads user-query elements, composer contents, unrelated tabs, screenshots, cookies or browser credentials.
+The opt-in series Gemini transport attempts one **bounded, same-tab DOM snapshot** of the latest visible `model-response` after strict JSON capture fails. If that DOM contains only a short placeholder (observed in live Dell-115 testing), it also attempts the existing vendor **response-scoped, response-attributed toolbar Copy** helper before saving the quarantine; unrestricted clipboard reads are forbidden. Strict-capture timeout exceptions are also quarantined rather than bypassing recovery. This happens **before** the owned tab is closed. It never reads user-query elements, composer contents, unrelated tabs, screenshots, cookies or browser credentials.
 
 The snapshot and hash-bound metadata are stored under the Windows user's own local AppData directory (or their local cache on other systems):
 

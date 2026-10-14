@@ -56,6 +56,43 @@ def latest_owned_response(driver, owned_handle: str | None) -> dict:
         return empty
 
 
+def response_snapshot_with_scoped_copy(
+    driver, owned_handle: str | None, *, copy_response=None,
+) -> dict:
+    """Prefer the longer vendor-verified response over a short DOM placeholder.
+
+    The callback MUST be the vendor's response-scoped Copy helper, which
+    validates response attribution. Never use a general clipboard paste
+    or scan arbitrary page text.
+    """
+    snapshot = latest_owned_response(driver, owned_handle)
+    if not owned_handle:
+        return snapshot
+    try:
+        # Refuse Copy if user navigated away or our owned tab changed.
+        if driver.current_window_handle != owned_handle:
+            return snapshot
+        if not str(driver.current_url).startswith("https://gemini.google.com/"):
+            return snapshot
+    except Exception:
+        return snapshot
+    if len(snapshot["text"].strip()) >= 120 or not callable(copy_response):
+        return snapshot
+    try:
+        copied = copy_response(driver)
+    except Exception:
+        return snapshot
+    if isinstance(copied, str) and len(copied.strip()) > max(
+        len(snapshot["text"].strip()), 60
+    ):
+        return {
+            "text": copied[:MAX_CAPTURE_CHARS],
+            "generating": snapshot["generating"],
+            "capture_status": "vendor_verified_response_copy",
+        }
+    return snapshot
+
+
 def default_quarantine_dir() -> Path:
     """A per-user local directory, never the textbook or cloned repo."""
     return Path(os.getenv("LOCALAPPDATA") or (Path.home() / ".cache")) / "Microvid" / "gemini_quarantine"
