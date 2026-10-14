@@ -46,6 +46,7 @@ jobs:
             tests.test_real_beamer_geometry \
             tests.test_highlight_video_preview \
             tests.test_pdf_visual_clearance \
+            tests.test_pdf_footer_clearance \
             tests.test_series_bridge \
             tests.test_gemini_send_recovery \
             tests.test_gemini_response_recovery \
