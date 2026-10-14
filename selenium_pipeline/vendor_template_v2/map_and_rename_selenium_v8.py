@@ -1768,6 +1768,7 @@ def run_mapping(
     from selenium_pipeline.figure_mapping_checkpoints import (
         checkpoint_can_resume, save_checkpoint,
     )
+    from selenium_pipeline.figure_practice_disposition import practice_page_excluded
     policy = policy_from_configuration(
         selenium_attempts=int(os.getenv("MICROGEN_SELENIUM_ATTEMPTS", "3")),
         api_attempts=int(os.getenv("MICROGEN_API_ATTEMPTS", "2")),
@@ -1809,6 +1810,10 @@ def run_mapping(
             # mapping text alone, or skip a changed crop/source page.
             if checkpoint_can_resume(CFG.root, idx, copy_to_root=copy_to_root):
                 log(f"[RESUME] source/page/crop hashes verified for page {idx}; skipping Gemini")
+                continue
+            if practice_page_excluded(CFG.root, idx):
+                log(f"[PRACTICE] page {idx} explicitly preserved as unreviewed exercise "
+                    "graphics; skipping numbered-figure caption mapping")
                 continue
 
             try:

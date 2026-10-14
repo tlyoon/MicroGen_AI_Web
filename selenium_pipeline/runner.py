@@ -282,6 +282,7 @@ def valid(stage: str, folder: Path) -> bool:
         # instead of "Figure...").  Require the actual source->target mapping
         # receipts and byte-identical published copies, not a name prefix.
         verified_source_crops = 0
+        explicit_exercise_crops = 0
         for page_crop_dir in sorted(crops.glob("page_*")):
             if not page_crop_dir.is_dir():
                 continue
@@ -290,6 +291,14 @@ def valid(stage: str, folder: Path) -> bool:
                 if p.is_file() and re.fullmatch(r"fig_[0-9]+\.png", p.name, re.I)
             }
             if not original_crops:
+                continue
+            # Exercise-only unnumbered graphs remain as source crops, never
+            # invented Figure identifiers. Explicit experimental disposition
+            # checks the source PDF heading and all image hashes. Production
+            # users get no implicit exception.
+            from .figure_practice_disposition import practice_page_excluded
+            if practice_page_excluded(folder, int(page_crop_dir.name.split('_')[1])):
+                explicit_exercise_crops += len(original_crops)
                 continue
             verified_source_crops += len(original_crops)
             page_map = pages / page_crop_dir.name / (page_crop_dir.name + "_mapping.txt")
@@ -336,7 +345,8 @@ def valid(stage: str, folder: Path) -> bool:
                 validated.add(src)
             if validated != set(original_crops):
                 return False
-        return verified_source_crops > 0 or any(folder.glob("Figure*.png"))
+        return (verified_source_crops > 0 or explicit_exercise_crops > 0
+                or any(folder.glob("Figure*.png")))
     if stage in OUTPUTS and not all((folder / name).is_file() and
                                     (folder / name).stat().st_size > 0 for name in OUTPUTS[stage]):
         return False
