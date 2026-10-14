@@ -13,6 +13,7 @@ from pathlib import Path
 import pymupdf
 
 from .storyboard_gate import StoryboardError, canonical_sha256
+from .pdf_visual_clearance import audit_raster_image_text_clearance
 
 URI_PREFIX = "microgen-element:"
 VERSION = 1
@@ -53,6 +54,17 @@ def extract_element_geometry(pdf_path: str | Path, storyboard: dict) -> dict:
     pdf_path = Path(pdf_path)
     if not pdf_path.is_file():
         raise ElementGeometryError("Compiled PDF is missing")
+    # Fail early before TTS or video: a valid element URI does not prove that
+    # printed source-figure labels are separated from an adjacent text block.
+    problems = audit_raster_image_text_clearance(pdf_path)
+    if problems:
+        first = problems[0]
+        raise ElementGeometryError(
+            "Figure/body text clearance failed on PDF page "
+            f"{first['page']}: {first['gap_pt']} pt (requires "
+            f"{first['required_gap_pt']} pt). Review layout and recompile; "
+            "never crop original figure panels."
+        )
     expected = _expected(storyboard)
     actual = {}
     page_sizes = []
