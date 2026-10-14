@@ -48,6 +48,7 @@ jobs:
             tests.test_pdf_visual_clearance \
             tests.test_pdf_footer_clearance \
             tests.test_spoken_math_review \
+            tests.test_tts_duration_preflight \
             tests.test_series_bridge \
             tests.test_gemini_send_recovery \
             tests.test_gemini_response_recovery \
@@ -82,6 +83,7 @@ jobs:
             selenium_pipeline/figure_legibility.py \
             selenium_pipeline/pdf_element_geometry.py \
             selenium_pipeline/spoken_math_review.py \
+            selenium_pipeline/tts_duration_preflight.py \
             selenium_pipeline/pdf_visual_clearance.py \
             selenium_pipeline/speech_segment_timing.py \
             selenium_pipeline/highlight_frames.py \
