@@ -45,6 +45,7 @@ jobs:
             tests.test_pdf_geometry_and_timing \
             tests.test_real_beamer_geometry \
             tests.test_highlight_video_preview \
+            tests.test_pdf_visual_clearance \
             tests.test_series_bridge \
             tests.test_gemini_send_recovery \
             tests.test_gemini_response_recovery \
@@ -78,6 +79,7 @@ jobs:
             selenium_pipeline/latex_graphics_bounds.py \
             selenium_pipeline/figure_legibility.py \
             selenium_pipeline/pdf_element_geometry.py \
+            selenium_pipeline/pdf_visual_clearance.py \
             selenium_pipeline/speech_segment_timing.py \
             selenium_pipeline/highlight_frames.py \
             selenium_pipeline/geometry_cli.py \
