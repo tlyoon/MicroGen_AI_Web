@@ -6,6 +6,8 @@ An isolated Thomas Calculus §2.2 test on Yoga 6 mapped figures through PDF page
 
 This module saves a **per-page checkpoint only after a fully validated page mapping** has been published to the isolated work root. Each receipt is pinned to the actual original `source.pdf` SHA-256, rendered page PNG SHA-256, exact Gemini mapping file SHA-256, transport success record SHA-256, every original `fig_N.png` crop SHA-256 and its identically copied mapped target. When source-work figures are published to the work root, their bytes must match too. The status is `validated_source_mapping_not_visual_approval`—no scientific or artistic judgment is inferred.
 
+**Composite safety:** The legacy mapper's post-run `merge_lettered_figs_v3.main([])` call was removed. Filename-based horizontal merges lack source-space panel geometry and can silently corrupt scientific layouts. Original lettered crops stay separate; a complete parent figure must come from the original source or a separately reviewed reconstruction.
+
 The mapper checks every receipt before contacting Gemini. If source/page/crop/mapping/transport/target contents do not match, or no completed receipt exists, it reruns normal mapping. Empty-crop pages require no Gemini call and are not checkpointed. A partial failure does not create a valid checkpoint.
 
 ## One-time adoption for the preexisting pilot

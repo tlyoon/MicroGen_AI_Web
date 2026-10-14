@@ -100,6 +100,13 @@ class FigurePageCheckpointTests(unittest.TestCase):
         (self.crop/"fig_2.png").write_bytes(b"another source crop")
         self.assertFalse(checkpoint_can_resume(self.r,3))
 
+    def test_vendor_does_not_auto_merge_unverified_lettered_panels(self):
+        source=(Path(__file__).resolve().parents[1]
+                /"selenium_pipeline"/"vendor_template_v2"/"map_and_rename_selenium_v8.py")
+        txt=source.read_text(encoding="utf-8")
+        self.assertNotIn("merge_lettered_figs_v3.main([])",txt)
+        self.assertIn("Automatic lettered-panel merging disabled",txt)
+
     def test_only_int_page_and_only_allowed_root(self):
         self.assertFalse(checkpoint_can_resume(self.r,-1))
         self.assertFalse(checkpoint_can_resume(self.r,1.5))

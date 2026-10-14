@@ -1974,10 +1974,13 @@ try:
         copy_to_root=bool(args.copy_to_root),
     )
 
-    # ----- LAST TASK -----
-    import merge_lettered_figs_v3
-    # Do not let the merge helper reparse this mapper's --start/--end/etc.
-    merge_lettered_figs_v3.main([])
+    # Never merge letter-suffixed figures by filename alone. Their original
+    # source-space panel layout is unknown here: arbitrary horizontal
+    # concatenation can manufacture an incorrect teaching illustration.
+    # Keep verified original crops and require separate visual/source-layout
+    # review for any parent figure composite. The standalone legacy merge
+    # helper remains available for explicit/manual QA, not automatic jobs.
+    log("[FIGURE QA] Automatic lettered-panel merging disabled; source crops preserved.")
 
 finally:
     # Nothing to do here: run_mapping() already shuts down the automation Chrome.
