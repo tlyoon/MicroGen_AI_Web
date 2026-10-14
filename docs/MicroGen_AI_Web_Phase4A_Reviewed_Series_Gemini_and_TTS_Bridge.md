@@ -12,6 +12,10 @@
 5. `accept_legacy_tts_batch` rechecks numbered WAV files and the existing `tts_input_manifest.json` against every approved spoken segment, and **rejects incomplete files, wrong text and mixed provider/model/voice output**. It generates the exact ordered per-segment WAV manifest accepted by Phase 3B `speech_segment_timing.build_segment_timeline`.
 6. `selenium_pipeline/series_cli.py` exposes separated local `prepare`, `candidate`, `stage-tts`, `run-tts`, and `accept-wavs` commands. Live browser/TTS actions require explicit `--confirm-live`; ordinary commands cannot consume credits. All output paths are no-overwrite and reside in staging, not next to `source.pdf`.
 
+## Optional offline duration calibration before TTS
+
+The experimental pilot can be checked with the nonapproving tts_duration_preflight tool; it verifies exact pilot narration hashes against real WAV frames and predicts draft voice duration with a conservative slowdown scenario. See docs/MicroGen_Offline_TTS_Duration_Preflight.md. This is NOT a substitute for approved scientific outline, actual WAV word listening, final FFprobe duration or release QA.
+
 ## Advisory mathematical narration preflight
 
 Before requesting the human storyboard approval receipt, generate a source/element/spoken-segment review packet with the offline selenium_pipeline.spoken_math_review tool. See docs/MicroGen_PreTTS_Spoken_Math_Review.md for examples. It never grants approval, replaces independent mathematical review, calls an LLM or performs TTS. The exact reviewed storyboard hash is still mandatory before stage-tts.
