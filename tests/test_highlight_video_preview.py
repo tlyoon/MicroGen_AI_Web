@@ -111,6 +111,32 @@ class PreviewEncoderTests(unittest.TestCase):
         with self.assertRaisesRegex(HighlightVideoError,"output already exists"):
             self.compose()
 
+    def test_odd_frame_dimensions_are_padded_without_losing_audio(self):
+        # At scale 1.5 this Beamer-format PDF may render to odd width/height.
+        # FFmpeg H.264 yuv420p must pad to even dimensions, not reject MP4.
+        result=compose_highlight_preview(
+            clean_pdf=self.clean,clean_receipt=self.cleaned,
+            storyboard=self.board,geometry=self.geometry,
+            timeline=self.timeline,wav_file=self.wav,
+            workspace=self.sandbox,output_mp4=self.output,scale=1.5,
+        )
+        self.assertTrue(self.output.is_file())
+        self.assertAlmostEqual(result["audio_duration_s"],3.8,delta=0.04)
+        ffmpeg=ffmpeg_path()
+        frame=self.root/"odd_scale_first_frame.png"
+        process=subprocess.run([
+            ffmpeg,"-hide_banner","-loglevel","error",
+            "-i",str(self.output),"-frames:v","1",str(frame)
+        ],capture_output=True,text=True,timeout=35)
+        self.assertEqual(process.returncode,0,process.stderr)
+        with Image.open(frame) as im:
+            width,height=im.size
+            self.assertEqual(width%2,0)
+            self.assertEqual(height%2,0)
+        self.assertLessEqual(
+            result["encoded_transition_qa"]["max_encoded_frame_drift_s"],0.15
+        )
+
     def test_input_mutation_blocks_encoding_before_workspace_changes(self):
         altered=copy.deepcopy(self.timeline)
         altered["audio_sha256"]="0"*64
