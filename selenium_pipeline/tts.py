@@ -1084,6 +1084,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--model", default="gemini-3.8-flash-lite-tts")
     parser.add_argument("--voice", default="Kore")
     args = parser.parse_args(argv)
+    # A direct `python -m selenium_pipeline.tts` subprocess must load the
+    # same per-user AppData Microvid settings as the main pipeline runner.
+    # Otherwise Gemini/Cloud credentials may exist but be unavailable to
+    # this interpreter, causing a false 'No Gemini API key is loaded' error.
+    # The loader never overwrites explicitly exported environment variables.
+    from .runner import load_microvid_env
+    load_microvid_env()
     synthesize_folder(args.folder, args.provider, args.model, args.voice)
     return 0
 

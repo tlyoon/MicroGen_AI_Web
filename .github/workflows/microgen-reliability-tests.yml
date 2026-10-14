@@ -51,11 +51,13 @@ jobs:
             tests.test_runner_doctor_gates \
             tests.test_figure_mapping_source_only_prompt \
             tests.test_figure_mapping_checkpoints \
-            tests.test_figure_practice_disposition
+            tests.test_figure_practice_disposition \
+            tests.test_tts_cli_bootstrap
       - name: Syntax-check updated Python entry points
         run: |
           python -m py_compile \
             selenium_pipeline/runner.py \
+            selenium_pipeline/tts.py \
             selenium_pipeline/three_pc_worker.py \
             selenium_pipeline/gemini_model.py \
             selenium_pipeline/figure_recovery_candidates.py \
