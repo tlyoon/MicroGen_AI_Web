@@ -49,7 +49,8 @@ jobs:
             tests.test_gemini_send_recovery \
             tests.test_gemini_response_recovery \
             tests.test_runner_doctor_gates \
-            tests.test_figure_mapping_source_only_prompt
+            tests.test_figure_mapping_source_only_prompt \
+            tests.test_figure_mapping_checkpoints
       - name: Syntax-check updated Python entry points
         run: |
           python -m py_compile \
@@ -81,6 +82,7 @@ jobs:
             selenium_pipeline/series_bridge.py \
             selenium_pipeline/series_gemini.py \
             selenium_pipeline/gemini_response_recovery.py \
+            selenium_pipeline/figure_mapping_checkpoints.py \
             selenium_pipeline/series_cli.py \
             selenium_pipeline/vendor_template_v2/selenium.py
 

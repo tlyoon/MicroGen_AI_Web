@@ -1765,6 +1765,9 @@ def run_mapping(
     if str(package_root) not in sys.path:
         sys.path.insert(0, str(package_root))
     from selenium_pipeline.communication_policy import policy_from_configuration
+    from selenium_pipeline.figure_mapping_checkpoints import (
+        checkpoint_can_resume, save_checkpoint,
+    )
     policy = policy_from_configuration(
         selenium_attempts=int(os.getenv("MICROGEN_SELENIUM_ATTEMPTS", "3")),
         api_attempts=int(os.getenv("MICROGEN_API_ATTEMPTS", "2")),
@@ -1801,6 +1804,12 @@ def run_mapping(
                 raise FileNotFoundError(f"Required source-page image missing: {page_png}")
             if not crops_dir_i.is_dir():
                 raise FileNotFoundError(f"Required crop workspace missing: {crops_dir_i}")
+            # Before touching Gemini, check a source-hash-bound, fully
+            # byte-verified successful checkpoint. Never trust an unverified
+            # mapping text alone, or skip a changed crop/source page.
+            if checkpoint_can_resume(CFG.root, idx, copy_to_root=copy_to_root):
+                log(f"[RESUME] source/page/crop hashes verified for page {idx}; skipping Gemini")
+                continue
 
             try:
                 _mapping_txt = None
@@ -1903,6 +1912,13 @@ def run_mapping(
                             log(f"[ERROR] Root figure publish rejected: {p.name}", "ERR")
                             raise
 
+                # Mark a page complete only after all mappings and root
+                # publication copies match the original crops byte-for-byte.
+                # A mid-page failure leaves no reusable successful receipt.
+                if new_pngs:
+                    saved = save_checkpoint(CFG.root, idx, copy_to_root=copy_to_root)
+                    log(f"[CHECKPOINT] source-bound verified mapping: {saved}")
+
             except Exception as e:
                 log(f"[ERROR] Failed to process page {idx}: {e}", "ERR")
                 # A browser/UI failure invalidates this page's figure mapping
@@ -1958,10 +1974,13 @@ try:
         copy_to_root=bool(args.copy_to_root),
     )
 
-    # ----- LAST TASK -----
-    import merge_lettered_figs_v3
-    # Do not let the merge helper reparse this mapper's --start/--end/etc.
-    merge_lettered_figs_v3.main([])
+    # Never merge letter-suffixed figures by filename alone. Their original
+    # source-space panel layout is unknown here: arbitrary horizontal
+    # concatenation can manufacture an incorrect teaching illustration.
+    # Keep verified original crops and require separate visual/source-layout
+    # review for any parent figure composite. The standalone legacy merge
+    # helper remains available for explicit/manual QA, not automatic jobs.
+    log("[FIGURE QA] Automatic lettered-panel merging disabled; source crops preserved.")
 
 finally:
     # Nothing to do here: run_mapping() already shuts down the automation Chrome.
