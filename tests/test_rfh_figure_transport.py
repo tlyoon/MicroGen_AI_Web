@@ -43,6 +43,9 @@ def make_runner(tmp_path: Path, monkeypatch, fake_mapper):
     crop.mkdir(parents=True)
     (page / "page_1.png").write_bytes(b"PNG")
     (crop / "fig_1.png").write_bytes(b"PNG")
+    # A completed mocked mapping must produce the same files a real
+    # source-verified Gemini mapper produces, not just return a filename.
+    (tmp_path / "source.pdf").write_bytes(b"unchanged synthetic PDF")
 
     source = ast.parse(VENDOR.read_text(encoding="utf-8-sig"))
     node = next(n for n in source.body
@@ -69,6 +72,23 @@ def make_runner(tmp_path: Path, monkeypatch, fake_mapper):
     monkeypatch.setattr(time, "sleep", lambda _: None)
     monkeypatch.setattr("selenium_pipeline.gemini_model.ensure_mode",
                         lambda *args, **kwargs: "flash")
+    def materializing_mapper(client, original_page, original_folder, **kwargs):
+        result = fake_mapper(client, original_page, original_folder, **kwargs)
+        if result is None:
+            return None
+        returned_mapping, targets = result
+        if targets:
+            expected = original_page.with_name(original_page.stem + "_mapping.txt")
+            originals = sorted(original_folder.glob("fig_[0-9]*.png"))
+            assert len(originals) == len(targets), "Fixture must map every original crop"
+            for orig, target in zip(originals, targets):
+                target.write_bytes(orig.read_bytes())
+            expected.write_text("\n".join(
+                f'{orig.name} : "{target.stem}" : {target.name}'
+                for orig, target in zip(originals, targets)
+            ) + "\n", encoding="utf-8")
+        return returned_mapping, targets
+
     namespace = {
         "Path": Path, "sys": sys, "os": os, "time": time,
         "subprocess": subprocess, "shutil": shutil,
@@ -79,7 +99,7 @@ def make_runner(tmp_path: Path, monkeypatch, fake_mapper):
         "log": lambda *args, **kwargs: None,
         "stop_generation_if_present": lambda c: False,
         "GeminiGenerationStalled": type("GeminiGenerationStalled", (RuntimeError,), {}),
-        "map_and_rename_single_step": fake_mapper,
+        "map_and_rename_single_step": materializing_mapper,
     }
     exec(code, namespace)
     return namespace["run_mapping"], created, crop
