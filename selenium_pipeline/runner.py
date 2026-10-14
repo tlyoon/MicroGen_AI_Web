@@ -906,20 +906,54 @@ def _execute_unlocked(s: Settings) -> Path:
     return folder
 
 
-def doctor() -> None:
+def doctor() -> bool:
+    """Validate runtime imports and stage interpreters, not just module names.
+
+    A successful importlib.find_spec() CALL can return None; earlier doctor
+    incorrectly reported Selenium available on HP while webdriver was missing.
+    """
+    import importlib
     import importlib.util
-    for name in ("selenium", "pypdf", "google.genai", "google.cloud.texttospeech"):
+
+    ready = True
+    required = ("selenium.webdriver", "pypdf")
+    optional = ("google.cloud.texttospeech",)
+    for name in (*required, *optional):
         try:
-            importlib.util.find_spec(name)
+            spec = importlib.util.find_spec(name)
+            if spec is None:
+                raise ModuleNotFoundError(name)
+            importlib.import_module(name)
             outcome = "available"
-        except (ModuleNotFoundError, ValueError):
+        except (ImportError, ModuleNotFoundError, ValueError, AttributeError):
             outcome = "missing"
+            if name in required:
+                ready = False
         print(f"[doctor] {name}: {outcome}")
+
+    for key, resolver in (
+        ("pipeline Python (docling + selenium + pypdf)", pipeline_python_executable),
+        ("Gemini TTS Python (google.genai)", tts_python_executable),
+    ):
+        try:
+            interpreter = resolver()
+            print(f"[doctor] {key}: {interpreter}")
+        except (RuntimeError, OSError) as exc:
+            ready = False
+            print(f"[doctor] {key}: missing ({exc})")
+
     for command in ("pdflatex", "ffmpeg"):
-        print(f"[doctor] {command}: {shutil.which(command) or 'missing'}")
-    print(f"[doctor] vendored template: {'available' if VENDOR.exists() else 'missing'}")
+        executable = shutil.which(command)
+        print(f"[doctor] {command}: {executable or 'missing'}")
+        if not executable:
+            ready = False
+    has_vendor = VENDOR.exists()
+    print(f"[doctor] vendored template: {'available' if has_vendor else 'missing'}")
+    ready &= has_vendor
     print(f"[doctor] model phase: {MODEL_PHASE}")
     print(f"[doctor] required Gemini browser mode: {DEFAULT_BROWSER_UI_MODE}")
+    print(f"[doctor] full-pipeline readiness: {'PASS' if ready else 'FAIL'}")
+    return bool(ready)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -952,8 +986,7 @@ def main(argv: list[str] | None = None) -> int:
     from .communication_policy import resolve_mode
     os.environ["MICROGEN_COMMUNICATION_MODE"] = resolve_mode(args.communication_mode).value
     if args.doctor:
-        doctor()
-        return 0
+        return 0 if doctor() else 2
     if not args.subchapter and not args.chapter:
         p.error("--subchapter or --chapter is required unless --doctor")
     try:

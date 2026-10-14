@@ -47,7 +47,8 @@ jobs:
             tests.test_highlight_video_preview \
             tests.test_series_bridge \
             tests.test_gemini_send_recovery \
-            tests.test_gemini_response_recovery
+            tests.test_gemini_response_recovery \
+            tests.test_runner_doctor_gates
       - name: Syntax-check updated Python entry points
         run: |
           python -m py_compile \
