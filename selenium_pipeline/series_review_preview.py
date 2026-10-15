@@ -12,6 +12,7 @@ import re
 from pathlib import Path
 
 from .highlight_video_preview import compose_highlight_preview
+from .encoded_highlight_pixels import verify_encoded_highlight_pixels
 from .pdf_element_geometry import extract_element_geometry, strip_instrumentation_links
 from .speech_segment_timing import build_segment_timeline
 from .storyboard_gate import canonical_sha256
@@ -158,6 +159,13 @@ def render_review_series(*, source_pdf: Path, inputs_root: Path,
         )
         _require(0 < encoded["duration_s"] < 600,
                  f"{part_id}: final preview exceeds strict <600 seconds")
+        pixel_qa = verify_encoded_highlight_pixels(
+            mp4=video, frames_dir=workspace,
+            geometry=geometry, timeline=timeline,
+        )
+        _require(pixel_qa["count_events"] == encoded["highlight_segments"],
+                 f"{part_id}: encoded pixels do not cover all spoken events")
+        _write_new(target/"encoded_pixel_qa.json", pixel_qa)
         result = {
             "part_id":part_id,
             "status":"review_only_not_approved",
@@ -171,11 +179,12 @@ def render_review_series(*, source_pdf: Path, inputs_root: Path,
             "encoded_mp4_seconds":encoded["duration_s"],
             "highlight_segments":encoded["highlight_segments"],
             "encoded_transition_qa":encoded["encoded_transition_qa"],
+            "decoded_pixel_qa_sha256":_sha(target/"encoded_pixel_qa.json"),
+            "decoded_pixel_verified_events":pixel_qa["count_events"],
             "unverified": [
                 "actual_tts_spoken_words_match_script",
                 "mathematical_pedagogical_approval",
                 "semantic_highlight_correctness",
-                "decoded_frame_content_audit",
             ],
         }
         _write_new(target/"review_receipt.json", result)

@@ -98,6 +98,7 @@ jobs:
             selenium_pipeline/highlight_video_preview.py \
             selenium_pipeline/production_video_contract.py \
             selenium_pipeline/series_review_preview.py \
+            selenium_pipeline/encoded_highlight_pixels.py \
             selenium_pipeline/series_review_cli.py \
             selenium_pipeline/series_bridge.py \
             selenium_pipeline/series_gemini.py \

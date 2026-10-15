@@ -6,6 +6,7 @@ import hashlib
 import json
 import math
 import struct
+import subprocess
 import tempfile
 import unittest
 import wave
@@ -16,6 +17,10 @@ import pymupdf
 from selenium_pipeline.series_review_preview import (
     PreviewSeriesError, render_review_series,
 )
+from selenium_pipeline.encoded_highlight_pixels import (
+    EncodedPixelQAError, verify_encoded_highlight_pixels,
+)
+from selenium_pipeline.highlight_video_preview import ffmpeg_path
 from selenium_pipeline.production_video_contract import (
     VideoContractError, verify_series,
 )
@@ -111,14 +116,42 @@ class MultiPartPreviewTests(unittest.TestCase):
         self.assertEqual([x["part_id"] for x in manifest["parts"]],self.parts)
         for record in manifest["parts"]:
             self.assertGreater(record["highlight_segments"],0)
+            self.assertEqual(record["decoded_pixel_verified_events"],
+                             record["highlight_segments"])
             self.assertLess(record["encoded_mp4_seconds"],600)
             part=self.output/record["part_id"]
             self.assertEqual(_sha(part/(record["part_id"]+"_review.mp4")),
                              record["mp4_sha256"])
             self.assertEqual(record["status"],"review_only_not_approved")
+            self.assertEqual(_sha(part/"encoded_pixel_qa.json"),
+                             record["decoded_pixel_qa_sha256"])
         self.assertFalse((self.output/"lecture_completion.json").exists())
         with self.assertRaisesRegex(VideoContractError,"Required receipt missing"):
             verify_series(self.output)
+
+    def test_static_mp4_cannot_claim_speech_timed_highlights(self):
+        render_review_series(source_pdf=self.source,
+            inputs_root=self.staged,output_root=self.output)
+        part=self.output/"part_01"
+        fake=part/"static_impostor.mp4"
+        exe=ffmpeg_path()
+        encoded=subprocess.run([
+            exe,"-hide_banner","-loglevel","error",
+            "-loop","1","-framerate","2",
+            "-i",str(part/"scratch_frames"/"base_0001.png"),
+            "-i",str(part/"narration.wav"),
+            "-c:v","libx264","-preset","veryfast",
+            "-pix_fmt","yuv420p","-c:a","aac",
+            "-shortest","-t","2.3",str(fake)
+        ],capture_output=True,text=True,timeout=40)
+        self.assertEqual(encoded.returncode,0,encoded.stderr)
+        geometry=json.loads((part/"element_geometry.json").read_text())
+        timeline=json.loads((part/"narration_timeline.json").read_text())
+        with self.assertRaisesRegex(
+            EncodedPixelQAError,"no verified target highlight"):
+            verify_encoded_highlight_pixels(mp4=fake,
+                frames_dir=part/"scratch_frames",
+                geometry=geometry,timeline=timeline)
 
     def test_changed_source_prevents_any_output(self):
         self.source.write_bytes(self.source.read_bytes()+b"modified")
