@@ -56,16 +56,16 @@ class WorkerTests(unittest.TestCase):
                     self.root / "lane", 10, 60, data, lambda: None
                 )
         self.assertFalse(ok)
-        self.assertEqual(stages, ["figures", "slides"])
+        self.assertEqual(stages, [])  # no expensive work before contract readiness
         self.assertEqual(data["8.1"]["status"], "deferred")
-        self.assertEqual(data["8.1"]["stage"], "slides")
+        self.assertEqual(data["8.1"]["stage"], "video")
 
     def test_second_pass_labels_unfinished(self):
         data = {}
         with patch("selenium_pipeline.three_pc_worker.run_stage", return_value=(False, "blocked")):
             process_job(self.root, "8.2", 9222, 2, self.root / "logs",
                         self.root / "lane", 10, 60, data, lambda: None)
-        self.assertEqual(data["8.2"]["status"], "unfinished")
+        self.assertEqual(data["8.2"]["status"], "deferred")
         self.assertEqual(data["8.2"]["round"], 2)
 
     def test_published_video_without_receipt_is_preserved_on_both_passes(self):
@@ -73,7 +73,7 @@ class WorkerTests(unittest.TestCase):
         video = source_dir / "slides.mp4"
         contents = b"previously published video - do not overwrite"
         video.write_bytes(contents)
-        for attempt, expected in ((1, "deferred"), (2, "unfinished")):
+        for attempt, expected in ((1, "deferred"), (2, "deferred")):
             report = {}
             with patch("selenium_pipeline.three_pc_worker.run_stage",
                        side_effect=AssertionError("must never regenerate published media")):
@@ -84,7 +84,7 @@ class WorkerTests(unittest.TestCase):
             self.assertFalse(result)
             self.assertEqual(report["8.1"]["status"], expected)
             self.assertEqual(report["8.1"]["stage"], "video")
-            self.assertIn("completion receipt", report["8.1"]["error"])
+            self.assertIn("compliant renderer", report["8.1"]["error"])
             self.assertEqual(video.read_bytes(), contents)
 
     def test_valid_completion_receipt_skips_every_stage(self):
@@ -92,11 +92,12 @@ class WorkerTests(unittest.TestCase):
         with patch("selenium_pipeline.three_pc_worker.completed_lecture", return_value=True):
             with patch("selenium_pipeline.three_pc_worker.run_stage",
                        side_effect=AssertionError("must skip completed lecture")):
-                self.assertTrue(process_job(
+                self.assertFalse(process_job(
                     self.root, "8.2", 9222, 1, self.root / "logs",
                     self.root / "lane", 900, 3600, report, lambda: None
                 ))
-        self.assertEqual(report["8.2"]["status"], "complete")
+        self.assertEqual(report["8.2"]["status"], "deferred")
+        self.assertIn("Historical video completion", report["8.2"]["error"])
 
     def test_figure_stage_accepts_legitimate_no_figure_pdf(self):
         from selenium_pipeline.runner import valid

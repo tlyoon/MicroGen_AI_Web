@@ -46,6 +46,7 @@ jobs:
             tests.test_pdf_geometry_and_timing \
             tests.test_real_beamer_geometry \
             tests.test_highlight_video_preview \
+            tests.test_production_video_contract \
             tests.test_pdf_visual_clearance \
             tests.test_pdf_footer_clearance \
             tests.test_spoken_math_review \
@@ -94,6 +95,7 @@ jobs:
             selenium_pipeline/highlight_frames.py \
             selenium_pipeline/geometry_cli.py \
             selenium_pipeline/highlight_video_preview.py \
+            selenium_pipeline/production_video_contract.py \
             selenium_pipeline/series_bridge.py \
             selenium_pipeline/series_gemini.py \
             selenium_pipeline/vendor_template_v2/selenium.py \

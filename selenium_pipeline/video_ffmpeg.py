@@ -184,6 +184,7 @@ def validate_video(exe: str, file: Path, min_seconds: float) -> None:
         raise RuntimeError(f"MP4 unexpectedly short: {seconds:.1f}s; expected >= {min_seconds * 0.95:.1f}s")
     print(f"[video] validated {file.name}: {seconds:.2f}s, "
           f"{file.stat().st_size:,} bytes, video+audio present", flush=True)
+    return seconds
 
 
 def _sha256(file: Path) -> str:
@@ -248,8 +249,16 @@ def assemble(folder: Path, *, output: str = "slides.mp4", fps: int = 2,
         raise ValueError("fps and even output dimensions must be positive")
     entries = check_inputs(folder)
     import fitz  # only required for uncached PDF page rasterization
-    ffmpeg = ffmpeg_executable()
     total = sum(row[3] for row in entries)
+    # Refuse known-overlong single-file encodes before spending FFmpeg time.
+    # Planning coherent parts is a separate upstream requirement; never
+    # repair an overlong talk by trimming the final MP4.
+    if total >= 599.5:
+        raise ValueError(
+            f"Single-video narration is {total:.2f}s, too long for a strict "
+            "<600s final MP4. Plan separate coherent highlighted parts."
+        )
+    ffmpeg = ffmpeg_executable()
     print(f"[video] {len(entries)} complete PDF/WAV slide pairs; "
           f"total narration {total:.1f}s; static-slide fps={fps}; "
           f"encoder={ffmpeg}", flush=True)
@@ -319,7 +328,12 @@ def assemble(folder: Path, *, output: str = "slides.mp4", fps: int = 2,
         "-y", "-f", "concat", "-safe", "0", "-i", str(listing),
         "-c", "copy", "-movflags", "+faststart", str(candidate)
     ], step="concat")
-    validate_video(ffmpeg, candidate, total)
+    finished_seconds = validate_video(ffmpeg, candidate, total)
+    if finished_seconds >= 600.0:
+        raise RuntimeError(
+            f"Encoded MP4 duration {finished_seconds:.2f}s violates the "
+            "strict <600s contract; no video has been published."
+        )
     dest = folder / output
     if dest.exists():
         archival = folder / ".history" / (

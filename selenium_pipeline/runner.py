@@ -110,7 +110,7 @@ OUTPUTS = {
     "narration": ("script.txt",),
     "script_qa": ("script_risk_report.json", "script_risk_report.md"),
     "tts_qa": ("tts_fidelity_report.json", "tts_fidelity_report.md"),
-    "video": ("slides.mp4",),
+    "video": ("lecture_completion.json",),
 }
 
 
@@ -374,7 +374,8 @@ def valid(stage: str, folder: Path) -> bool:
             >= float(report.get("threshold_percent", 99.0))
         )
     if stage == "video":
-        return (folder / "slides.mp4").stat().st_size > 0
+        from .production_video_contract import verify_series
+        return verify_series(folder)["status"] == "accepted_synchronized_series"
     return False
 
 
@@ -632,10 +633,12 @@ def _execute_unlocked(s: Settings) -> Path:
     if (s.from_stage == "figures" and s.through_stage == "video"
             and not s.force_from and completed_lecture(source)):
         verify_source_tree(s.source_root, source)
-        removed = cleanup_completed_lecture(
-            source, workspace=folder if folder.exists() else None, pipeline="selenium"
-        )
-        print(f"[microgen] completed lecture already published; cleaned {len(removed)} transient item(s)")
+        if not check_valid("video", source.parent):
+            raise RuntimeError(
+                "Legacy receipt-verified slides.mp4 is preserved but is NOT a "
+                "contract-compliant multipart highlighted lesson."
+            )
+        print("[microgen] already accepted compliant multipart series; no changes")
         return folder
     # Direct CLI runs need the same preservation guard as the three-PC worker.
     # An old MP4 without a verified receipt may be the only usable lecture;
@@ -655,6 +658,13 @@ def _execute_unlocked(s: Settings) -> Path:
     # Check the independently configured PDF root and this subchapter before
     # launching Chrome or consuming paid model/API calls.
     verify_source_tree(s.source_root, source)
+    if "video" in planned:
+        raise RuntimeError(
+            "The static-slide video backend cannot fulfill the mandatory "
+            "multipart <600s and audio-timed visual highlighting contract. "
+            "Replan using reviewed scene boundaries and the approved "
+            "synchronized part renderer; preserving all existing output."
+        )
     if any(_needs_browser(x) for x in planned):
         from .launch_gemini import launch
         requested_port = s.chrome_port
