@@ -112,8 +112,8 @@ def build_segment_timeline(
         frame_clock = end + pad
     if len(voices) != 1:
         raise AudioAlignmentError("Mixed TTS voices in a single video part")
-    if frame_clock / specs[2] >= 630:
-        raise AudioAlignmentError("Audio alone exceeds the video hard cap (<630 s)")
+    if frame_clock / specs[2] >= 600:
+        raise AudioAlignmentError("Audio alone exceeds the strict video hard cap (<600 s)")
     if any(e["end_ms"] <= e["start_ms"] for e in events):
         raise AudioAlignmentError("WAV timing collapsed to zero-duration emphasis")
 

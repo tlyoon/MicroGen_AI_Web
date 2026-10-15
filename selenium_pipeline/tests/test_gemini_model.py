@@ -1,5 +1,6 @@
 import unittest
 from unittest.mock import MagicMock, patch
+from selenium import webdriver as selenium_webdriver
 
 from selenium_pipeline.gemini_model import (
     GeminiModelError,
@@ -41,7 +42,7 @@ class ModelSelectorTests(unittest.TestCase):
     def test_explicit_override_can_select_pro(self):
         self.assertEqual(configured_ui_mode(), "pro")
 
-    @patch("selenium.webdriver.Chrome")
+    @patch.object(selenium_webdriver, "Chrome")
     def test_already_flash(self, chrome):
         driver, picker = self.setup_driver("Open mode picker, currently Gemini Flash")
         chrome.return_value = driver
@@ -49,7 +50,7 @@ class ModelSelectorTests(unittest.TestCase):
         picker.click.assert_not_called()
         driver.quit.assert_called_once()
 
-    @patch("selenium.webdriver.Chrome")
+    @patch.object(selenium_webdriver, "Chrome")
     def test_selects_flash_menu_item(self, chrome):
         item = MagicMock()
         item.text = "3.8 Flash\nAll-around help"
@@ -67,7 +68,7 @@ class ModelSelectorTests(unittest.TestCase):
         item.click.assert_called_once()
         driver.quit.assert_called_once()
 
-    @patch("selenium.webdriver.Chrome")
+    @patch.object(selenium_webdriver, "Chrome")
     def test_explicit_pro_compatibility(self, chrome):
         driver, picker = self.setup_driver("Open mode picker, currently Gemini Pro")
         chrome.return_value = driver
@@ -75,7 +76,7 @@ class ModelSelectorTests(unittest.TestCase):
         picker.click.assert_not_called()
         driver.quit.assert_called_once()
 
-    @patch("selenium.webdriver.Chrome")
+    @patch.object(selenium_webdriver, "Chrome")
     def test_missing_target_fails_closed(self, chrome):
         driver, _picker = self.setup_driver(
             "Open mode picker, currently Gemini Pro", items=[]
