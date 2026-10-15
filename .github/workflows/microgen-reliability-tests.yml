@@ -41,6 +41,7 @@ jobs:
             tests.test_rfh_composite_figure_guard \
             tests.test_rfh_beamer_graphic_bounds \
             tests.test_rfh_figure_legibility \
+            tests.test_tall_figure_legibility \
             tests.test_rfh_figure_pipeline_integration \
             tests.test_pdf_geometry_and_timing \
             tests.test_real_beamer_geometry \

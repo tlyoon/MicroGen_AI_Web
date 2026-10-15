@@ -1208,13 +1208,13 @@ def generate_slides_tex(
             report = out_tex.with_name(f"slides_attempt_{attempt}_failed_legibility.json")
             report.write_text(_json.dumps({
                 "status": "review_required",
-                "reason": "wide_figure_in_narrow_column",
+                "reason": "figure_geometric_legibility_failure",
                 "issues": legibility_issues,
                 "published_slides_modified": False,
             }, indent=2), encoding="utf-8")
             legibility_feedback = legibility_retry_instruction(legibility_issues)
-            log(f"Attempt {attempt}: rejected unreadably small wide figure(s); "
-                "require a separate full-width frame.", "WARN")
+            log(f"Attempt {attempt}: rejected unreadably small figure(s); "
+                "require a legible, source-complete panel layout.", "WARN")
             continue
         legibility_feedback = ""
 
