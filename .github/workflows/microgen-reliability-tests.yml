@@ -52,6 +52,7 @@ jobs:
             tests.test_runtime_doctor \
             tests.test_series_bridge \
             tests.test_gemini_send_recovery \
+            tests.test_gemini_hidden_send_guard \
             tests.test_gemini_response_recovery \
             tests.test_runner_doctor_gates \
             tests.test_figure_mapping_source_only_prompt \
@@ -93,6 +94,7 @@ jobs:
             selenium_pipeline/highlight_video_preview.py \
             selenium_pipeline/series_bridge.py \
             selenium_pipeline/series_gemini.py \
+            selenium_pipeline/vendor_template_v2/selenium.py \
             selenium_pipeline/gemini_response_recovery.py \
             selenium_pipeline/figure_mapping_checkpoints.py \
             selenium_pipeline/figure_practice_disposition.py \
