@@ -1550,9 +1550,86 @@ class GeminiSeleniumClient:
             time.sleep(0.25)
         return False
 
+    def _hidden_send_button_preflight(self) -> bool:
+        """Fail closed when typed text exists but Gemini hides its Send control.
+
+        Gemini's Quill editor can contain the exact typed prompt while its
+        Angular submission state still marks the Send wrapper opacity:0.
+        Browser DOM bounds alone report such a button as visible, even
+        though Selenium refuses a native click. Do not force a JS click
+        or dispatch synthetic Enter to that hidden state: neither proves
+        user-turn submission. No prompt content is copied or logged.
+
+        Only blocks two consecutive, stable observations of this exact
+        condition. An unknown layout or transient opacity is left to the
+        existing evidence-bound send methods.
+        """
+        if self.driver is None:
+            return False
+
+        js = """
+        // MICROGEN_SEND_VISIBILITY_GUARD_V1
+        const editors=[...document.querySelectorAll(
+          '[role="textbox"][contenteditable="true"],textarea'
+        )].filter(e=>e.getBoundingClientRect().width>100 &&
+                     e.getBoundingClientRect().height>10);
+        const editor=editors[0];
+        const text=(editor?.value||editor?.innerText||editor?.textContent||'').trim();
+        const buttons=[...document.querySelectorAll(
+          'button[aria-label="Send message"]'
+        )].filter(b=>b.getBoundingClientRect().width>0 &&
+                    b.getBoundingClientRect().height>0);
+        let hidden=0;
+        for(const b of buttons){
+          let cur=b, isHidden=false;
+          while(cur && cur.nodeType===1){
+            const st=getComputedStyle(cur);
+            if(st.display==='none'||st.visibility==='hidden'||
+               Number(st.opacity)<=0.01){
+               isHidden=true;break;
+            }
+            cur=cur.parentElement;
+          }
+          if(isHidden)hidden++;
+        }
+        return {composer_chars:text.length,send_count:buttons.length,
+                hidden_count:hidden};
+        """
+
+        def blocked() -> bool:
+            try:
+                state=self.driver.execute_script(js)
+                if not isinstance(state,dict):
+                    return False
+                count=state.get("send_count")
+                hidden=state.get("hidden_count")
+                chars=state.get("composer_chars")
+                return (
+                    type(count) is int and count>=1 and
+                    type(hidden) is int and hidden==count and
+                    type(chars) is int and chars>0
+                )
+            except Exception:
+                return False
+
+        if not blocked():
+            return False
+        time.sleep(0.35)
+        return blocked()
+
     def click_send_with_fallbacks(self, retries: int = 3) -> bool:
         """Submit only when Gemini shows positive evidence of a new user turn."""
         assert self.driver is not None
+        if self._hidden_send_button_preflight():
+            log(
+                "[SEND-VERIFY] Gemini editor contains text but every exact "
+                "Send message control has a hidden ancestor (opacity 0 or "
+                "display/visibility hidden) in two stable observations. "
+                "Do not force DOM click or Enter. Inspect browser state and "
+                "editor integration before retrying.",
+                "WARN",
+            )
+            return False
 
         def _snapshot_submission_state() -> tuple[int, int, bool, str]:
             try:
