@@ -362,6 +362,23 @@ def preflight(main_py: str, docling_py: str) -> None:
 
 def process_one(args, subchapter: str, report: list[dict]) -> None:
     src = source_for(args.source_root, subchapter)
+    # Legacy batch scripts render one static slides.mp4 and cannot produce
+    # speech-bound highlights or coherent sub-600s parts. Fail before model
+    # requests or output mutation; historical output remains untouched.
+    from selenium_pipeline.production_video_contract import verify_series, VideoContractError
+    try:
+        result = verify_series(src.parent)
+    except (VideoContractError, OSError, ValueError) as exc:
+        raise RuntimeError(
+            "Legacy MicroGen batch generation is disabled: no verified "
+            "multipart, audio-timed highlighted lesson. Preserve existing "
+            "lecture files; use the reviewed next-generation renderer."
+        ) from exc
+    report.append({"subchapter": subchapter, "status": "success",
+                   "resumed": True, "verified": True,
+                   "contract": result["status"]})
+    return
+
     if completed_lecture(src):
         verify_source_tree(args.source_root, src)
         cleaned = cleanup_completed_lecture(src, pipeline="batch")

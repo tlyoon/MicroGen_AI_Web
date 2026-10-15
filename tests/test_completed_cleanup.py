@@ -171,7 +171,8 @@ class CompletedCleanupTests(unittest.TestCase):
         settings = Settings(source_root=self.root, work_root=None, subchapter="8.1")
         with patch("selenium_pipeline.runner.prepare", side_effect=AssertionError("should not prepare")):
             with patch("selenium_pipeline.launch_gemini.launch", side_effect=AssertionError("should not launch")):
-                execute(settings)
+                with self.assertRaisesRegex(RuntimeError, "Legacy receipt-verified"):
+                    execute(settings)
         self.assertFalse(settings.directory().exists())
         self.assertTrue(completed_lecture(self.source))
 
@@ -181,8 +182,9 @@ class CompletedCleanupTests(unittest.TestCase):
         args = SimpleNamespace(source_root=self.root)
         report = []
         with patch("microgen_batch.prepare_stage", side_effect=AssertionError("should not prepare")):
-            microgen_batch.process_one(args, "8.1", report)
-        self.assertEqual(report[0]["status"], "success")
+            with self.assertRaisesRegex(RuntimeError, "Legacy MicroGen batch generation is disabled"):
+                microgen_batch.process_one(args, "8.1", report)
+        self.assertEqual(report, [])
         self.assertFalse((self.folder / ".microgen_batch_work").exists())
 
     def test_batch_completed_folder_cleans_owned_stage(self):

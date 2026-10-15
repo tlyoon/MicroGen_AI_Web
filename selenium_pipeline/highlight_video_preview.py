@@ -58,8 +58,8 @@ def probe_mp4(filename: Path, *, exe: str) -> dict:
     if not match or "Video:" not in details or "Audio:" not in details:
         raise HighlightVideoError("MP4 lacks measured duration or video/audio stream")
     duration=int(match[1])*3600+int(match[2])*60+float(match[3])
-    if not math.isfinite(duration) or not 0<duration<630:
-        raise HighlightVideoError("Encoded MP4 exceeds strict <630-second duration limit")
+    if not math.isfinite(duration) or not 0<duration<600:
+        raise HighlightVideoError("Encoded MP4 violates strict <600-second duration limit")
     return {"duration_s":round(duration,3),"video":True,"audio":True}
 
 
@@ -150,7 +150,7 @@ def compose_highlight_preview(
         raise HighlightVideoError("Timeline references another PDF generation")
     with wave.open(str(wav),"rb") as stream:
         wav_length=stream.getnframes()/stream.getframerate()
-    if wav_length>=630 or wav_length<=0:
+    if wav_length>=600 or wav_length<=0:
         raise HighlightVideoError("Actual WAV does not fit strict video limit")
     audio_ms=timeline["duration_ms"]
     if abs(audio_ms/1000-wav_length)>0.002:

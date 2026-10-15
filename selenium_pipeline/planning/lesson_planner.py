@@ -19,7 +19,7 @@ INTRO_OUTRO_SECONDS = 24.0
 SPEECH_TRANSITION_SECONDS = 18.0
 TIME_UNCERTAINTY = 1.05
 PREFERRED_PLANNED_MAX_SECONDS = 600.0
-ABSOLUTE_FINAL_CAP_SECONDS = 630.0
+ABSOLUTE_FINAL_CAP_SECONDS = 600.0
 MAX_CONCEPTS = 500
 MAX_PARTS = 40
 _ID = re.compile(r"^[A-Za-z][A-Za-z0-9_.-]{0,95}$")
@@ -150,7 +150,7 @@ def _partition(concepts: list[dict], *, max_upper: float) -> list[tuple[int, int
                 continue
             expected = prefix[end] - prefix[start] + INTRO_OUTRO_SECONDS
             upper = expected * TIME_UNCERTAINTY
-            if upper > max_upper:
+            if upper >= max_upper:
                 break
             child = dp[end]
             if child is None:
@@ -194,7 +194,7 @@ def plan_series(outline: dict, scan: dict, profile: DomainProfile, *,
         teaching = sum(float(c["estimated_teaching_s"]) for c in group)
         expected = teaching + INTRO_OUTRO_SECONDS
         low, high = round(expected * 0.94, 2), round(expected * TIME_UNCERTAINTY, 2)
-        _require(high <= PREFERRED_PLANNED_MAX_SECONDS and high < ABSOLUTE_FINAL_CAP_SECONDS,
+        _require(high < PREFERRED_PLANNED_MAX_SECONDS and high < ABSOLUTE_FINAL_CAP_SECONDS,
                  "Internal planning duration invariant failed")
         if n == 1:
             label = group[0]["title"] if len(group) == 1 else (
