@@ -14,6 +14,10 @@ After Selenium was installed in a separate isolated pilot virtual environment, t
 
 An end-to-end job still needs a usable Chrome persistent authentication session, writable staging and source permissions, Gemini model selection and sufficient disk space. The preflight does not claim to verify those external conditions.
 
+## Safe bootstrap command (15 October 2026)
+
+When default system Python differs from the configured MicroGen pipeline interpreter, run python -m selenium_pipeline.runtime_doctor. This offline standard-library launcher reads only the configured MICROGEN_PIPELINE_PYTHON path from the process environment or the user-local Microvid .env; it invokes the unchanged full doctor with that interpreter and preserves the real exit code. See docs/MicroGen_Portable_Runtime_Doctor_20261015.md. It does not start any content generation or grant approval.
+
 ## Portable, user-controlled environment choices
 
 Avoid forcibly installing Docling in every system Python. Use an existing compatible dedicated Python environment where possible and supply it through `MICROGEN_PIPELINE_PYTHON`. A separate Python with `google.genai` may be supplied via `MICROGEN_TTS_PYTHON`. The launcher must be able to import `selenium.webdriver` for its own browser mode preflight.
