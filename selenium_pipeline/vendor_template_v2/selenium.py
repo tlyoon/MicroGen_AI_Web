@@ -1064,6 +1064,7 @@ class GeminiSeleniumClient:
         # This handle is created by MicroGen, unlike the user's existing Gemini tabs.
         # Only owned tabs may be closed/reset between requests.
         self._automation_tab: Optional[str] = None
+        self._owned_tab_focus_emulated = False
 
     # ---------- Chrome lifecycle ----------
     def start(self, ensure_gemini_on_launch: bool = True) -> None:
@@ -1167,10 +1168,19 @@ class GeminiSeleniumClient:
             try:
                 if self._automation_tab in self.driver.window_handles:
                     self.driver.switch_to.window(self._automation_tab)
+                    if getattr(self, "_owned_tab_focus_emulated", False):
+                        try:
+                            self.driver.execute_cdp_cmd(
+                                "Emulation.setFocusEmulationEnabled",
+                                {"enabled": False},
+                            )
+                        except Exception:
+                            pass  # Closing the owned tab clears its CDP state.
                     self.driver.close()
             except Exception:
                 pass
             self._automation_tab = None
+            self._owned_tab_focus_emulated = False
         # Quit selenium driver
         try:
             if self.driver is not None:
@@ -1219,6 +1229,72 @@ class GeminiSeleniumClient:
                 break
             time.sleep(0.2)
 
+    def _ensure_owned_tab_visible(self, *, wait_s: float = 4.0) -> str:
+        """Restore normal page-lifecycle activity only for the owned Gemini tab.
+
+        ChromeDriver-attached *new* tabs can stay document.visibilityState
+        = hidden even when Chrome itself is foreground. Angular's 250 ms
+        Send-button entrance animation then stays at currentTime 0 and
+        leaves the control at opacity 0. A supported CDP focus emulation
+        restores the tab's own visibility lifecycle; do not force-click
+        the hidden element, override CSS, or borrow another user's tab.
+
+        Fails closed if visibility cannot be proven before attempting send.
+        """
+        if self.driver is None or not self._automation_tab:
+            raise RuntimeError("Gemini owned-tab visibility check has no owned tab")
+        if self.driver.current_window_handle != self._automation_tab:
+            raise RuntimeError(
+                "Gemini owned-tab visibility check refuses an unowned browser tab"
+            )
+        try:
+            visibility = self.driver.execute_script(
+                "return document.visibilityState"
+            )
+        except Exception as exc:
+            raise RuntimeError(
+                "Unable to verify Gemini owned-tab page visibility"
+            ) from exc
+        if visibility == "visible":
+            return "already_visible"
+        if visibility != "hidden":
+            raise RuntimeError(
+                "Unexpected Gemini owned-tab visibility state; refusing submission"
+            )
+        try:
+            self.driver.execute_cdp_cmd(
+                "Emulation.setFocusEmulationEnabled", {"enabled": True}
+            )
+            self._owned_tab_focus_emulated = True
+        except Exception as exc:
+            raise RuntimeError(
+                "Gemini owned tab is hidden and Chrome focus emulation failed"
+            ) from exc
+
+        deadline = time.monotonic() + max(0.0, min(float(wait_s), 8.0))
+        while True:
+            if self.driver.current_window_handle != self._automation_tab:
+                raise RuntimeError(
+                    "Gemini focus emulation changed away from the owned tab"
+                )
+            try:
+                visibility = self.driver.execute_script(
+                    "return document.visibilityState"
+                )
+            except Exception as exc:
+                raise RuntimeError(
+                    "Could not verify Gemini visibility after CDP focus recovery"
+                ) from exc
+            if visibility == "visible":
+                return "focused_owned_tab"
+            if time.monotonic() >= deadline:
+                break
+            time.sleep(0.12)
+        raise RuntimeError(
+            "Gemini owned tab remained background-hidden after CDP focus "
+            "recovery; refusing model selection, upload and submission"
+        )
+
     # ---------- Gemini UI helpers ----------
     def open_clean_gemini_chat(self) -> None:
         self.ensure_driver_is_alive()
@@ -1241,7 +1317,10 @@ class GeminiSeleniumClient:
         # Preserve all borrowed tabs and close only the previous owned one.
         previous = self._automation_tab
         self._automation_tab = _rotate_owned_gemini_tab(self.driver, previous)
+        self._owned_tab_focus_emulated = False
         self.driver.get(self.cfg.gemini_url)
+        visibility_status = self._ensure_owned_tab_visible()
+        log(f"Gemini owned tab lifecycle: {visibility_status}", "INFO")
 
         # Verify the Gemini model in our own tab, never a different conversation.
         # Then actively select the configured target inside that same tab.

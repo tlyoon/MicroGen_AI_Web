@@ -69,6 +69,16 @@ class FakeDriver:
     def get(self, url):
         self.navigated.append((self.current_window_handle, url))
 
+    def execute_script(self, script, *args):
+        # The real client now verifies the lifecycle state of its owned
+        # tab before model selection; an already-visible fake page needs
+        # no CDP focus emulation or browser-global effects.
+        if script == "return document.visibilityState":
+            if not self.current_window_handle.startswith("owned-"):
+                raise AssertionError("Visibility queried on borrowed browser tab")
+            return "visible"
+        raise AssertionError("Unexpected Selenium script")
+
     def find_elements(self, by, selector):
         if 'Open mode picker' in selector:
             return [FakePicker()] if self.mode_picker else []
