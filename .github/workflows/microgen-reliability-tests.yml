@@ -53,6 +53,7 @@ jobs:
             tests.test_series_bridge \
             tests.test_gemini_send_recovery \
             tests.test_gemini_hidden_send_guard \
+            tests.test_gemini_owned_tab_focus \
             tests.test_gemini_response_recovery \
             tests.test_runner_doctor_gates \
             tests.test_figure_mapping_source_only_prompt \
