@@ -158,6 +158,33 @@ class ElementSpeechStageTests(unittest.TestCase):
             self.stage()
         self.assertEqual(keep.read_text(),"preserve")
 
+    def test_whole_figure_anchor_preserves_uncropped_image(self):
+        el=self.plan["parts"][0]["slides"][0]["elements"][1]
+        el["anchor"]={"type":"image_whole","index":0}
+        self.write()
+        self.stage()
+        bundle=self.staged/"part_01"/"instrumented.pdf"
+        with pymupdf.open(bundle) as pdf:
+            images=pdf[0].get_images(full=True)
+            self.assertEqual(len(images),1)
+            placements=pdf[0].get_image_rects(images[0][0])
+            self.assertEqual(len(placements),1)
+            self.assertGreaterEqual(placements[0].width,295)
+            links=pdf[0].get_links()
+            self.assertEqual(len(links),2)
+            fig=next(x for x in links
+                     if x["uri"].endswith(".e02"))
+            self.assertAlmostEqual(fig["from"].width,placements[0].width,
+                                   delta=1.0)
+
+    def test_whole_figure_anchor_rejects_nonexistent_image(self):
+        self.plan["parts"][0]["slides"][0]["elements"][1]["anchor"]={
+            "type":"image_whole","index":99}
+        self.write()
+        with self.assertRaisesRegex(ElementStageError,"Missing full-figure image"):
+            self.stage()
+        self.assertFalse(self.staged.exists())
+
     def test_composite_panel_rejects_impossible_index(self):
         self.plan["parts"][0]["slides"][0]["elements"][1]["anchor"]["panel"]=4
         self.write()
