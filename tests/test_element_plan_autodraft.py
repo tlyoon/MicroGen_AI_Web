@@ -11,6 +11,7 @@ import pymupdf
 
 from selenium_pipeline.element_plan_autodraft import (
     AutoDraftError, utterances, propose, similarity, stable_recommendations,
+    math_markers,
 )
 from selenium_pipeline.element_plan_review_bridge import (
     PlanPromotionError, promoted, template,
@@ -138,6 +139,22 @@ class CandidateAuthoringTests(unittest.TestCase):
         raw="Section 8.4 includes 3.14. Then we evaluate the integral."
         self.assertEqual("".join(utterances(raw)),raw)
         self.assertEqual(len(utterances(raw)),2)
+
+    def test_math_markers_improve_review_hints_without_auto_approval(self):
+        self.assertIn("sine",math_markers("sine squared theta"))
+        self.assertIn("sine",math_markers("sin² theta"))
+        self.assertIn("square_root",math_markers("√x"))
+        refs=[
+            {"draft_element_id":"a","kind":"text_block","anchor":{"type":"text_block"},
+             "visible_text":"sin² theta and an integral"},
+            {"draft_element_id":"b","kind":"text_block","anchor":{"type":"text_block"},
+             "visible_text":"cos² theta and an integral"},
+        ]
+        ranked=stable_recommendations("sine squared theta in the integral",refs)
+        self.assertEqual(ranked[0]["draft_element_id"],"a")
+        self.assertTrue(any(x["possible_trig_mismatch_review"] for x in ranked[1:]))
+        self.assertGreater(ranked[0]["mathematical_term_coverage_hint"],0)
+        self.assertFalse(any("approved" in x for x in ranked))
 
     def test_lexical_ranking_does_not_claim_figure_understanding(self):
         self.assertEqual(similarity("mathematical substitution",

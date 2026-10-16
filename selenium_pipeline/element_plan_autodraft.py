@@ -63,16 +63,61 @@ def similarity(a: str, b: str) -> float:
     return round(matched / max(1, sum(left.values())), 4)
 
 
+# This is a deterministic *review aid* (never a mathematical semantic
+# verifier). Spoken names and PDF-extracted glyphs have different spelling.
+MATH_PATTERNS={
+    "sine": r"(?<![a-z])(?:sine|sin)(?![a-z])",
+    "cosine": r"(?<![a-z])(?:cosine|cos)(?![a-z])",
+    "tangent": r"(?<![a-z])(?:tangent|tan)(?![a-z])",
+    "secant": r"(?<![a-z])(?:secant|sec)(?![a-z])",
+    "pi": r"(?:\bpi\b|π)",
+    "squared": r"(?:\bsquared\b|\bsquare\b|[²]|\^\s*2\b)",
+    "cubed": r"(?:\bcubed\b|[³]|\^\s*3\b)",
+    "square_root": r"(?:\bsquare\s+root\b|√|\bsqrt\b)",
+    "integral": r"(?:\bintegral\b|∫)",
+    "logarithm": r"(?:\blogarithm\b|\blog\b|\bln\b)",
+    "infinity": r"(?:\binfinity\b|∞)",
+}
+TRIG_TERMS={"sine","cosine","tangent","secant"}
+
+
+def math_markers(text: str) -> set[str]:
+    text=unicodedata.normalize("NFKC",text).casefold()
+    return {key for key,pattern in MATH_PATTERNS.items()
+            if re.search(pattern,text)}
+
+
 def stable_recommendations(speech: str, candidates: list[dict]) -> list[dict]:
+    spoken_math=math_markers(speech)
     ranked=[]
     for target in candidates:
-        if target.get("kind") == "text_block":
-            score=similarity(speech,target.get("visible_text",""))
-        else:
-            score=0.0  # Never infer figure meaning from file/position alone.
-        if score > 0:
+        if target.get("kind") != "text_block":
+            # Figure meanings and subfigure labels require actual visual review.
+            continue
+        visible=target.get("visible_text","") or ""
+        lexical=similarity(speech,visible)
+        target_math=math_markers(visible)
+        math_coverage=(len(spoken_math & target_math)/len(spoken_math)
+                       if spoken_math else 0.0)
+        speech_trig=spoken_math & TRIG_TERMS
+        visible_trig=target_math & TRIG_TERMS
+        trig_conflict=(len(speech_trig)==len(visible_trig)==1
+                       and speech_trig.isdisjoint(visible_trig))
+        # Math keywords provide a separate visible hint; they cannot
+        # approve figure meaning, equation equivalence, or narration.
+        score=(.65*lexical+.35*math_coverage
+               if spoken_math and target_math else lexical)
+        if trig_conflict:
+            score*=.35
+        score=round(score,4)
+        if score>0:
             ranked.append({"draft_element_id":target["draft_element_id"],
                            "overlap_hint":score,
+                           "lexical_hint":lexical,
+                           "mathematical_term_coverage_hint":round(math_coverage,4),
+                           "math_terms_in_both_unverified":
+                               sorted(spoken_math & target_math),
+                           "possible_trig_mismatch_review":trig_conflict,
                            "anchor":target["anchor"]})
     return sorted(ranked,key=lambda x:(-x["overlap_hint"],x["draft_element_id"]))[:3]
 

@@ -56,10 +56,15 @@ def template(draft: dict) -> dict:
 
 
 def promoted(*,source:Path,slides:Path,script:Path,
-             draft_path:Path,selection:Path,audio:Path)->dict:
-    source,slides,script,draft_path,selection,audio=(Path(x).resolve() for x in
-                 (source,slides,script,draft_path,selection,audio))
-    check(audio.is_dir() and not audio.is_symlink(),"Frozen audio folder required")
+             draft_path:Path,selection:Path,audio:Path|None=None,
+             prepare_tts:bool=False,tts_request:Path|None=None)->dict:
+    source,slides,script,draft_path,selection=(Path(x).resolve() for x in
+                 (source,slides,script,draft_path,selection))
+    audio=Path(audio).resolve() if audio is not None else None
+    check(prepare_tts == (audio is None),
+          "Exactly one phase: TTS request without WAVs or final staging with WAVs")
+    if not prepare_tts:
+        check(audio.is_dir() and not audio.is_symlink(),"Frozen audio folder required")
     draft=load(draft_path)
     decision=load(selection)
     check(draft.get("status")=="REVIEW_REQUIRED_NOT_TTS_READY"
@@ -181,28 +186,27 @@ def promoted(*,source:Path,slides:Path,script:Path,
                       and filename not in used_wavs,
                       f"Slide {number}: missing/duplicate WAV name")
                 used_wavs.add(filename)
-                wav=audio/filename
-                check(wav.is_file() and not wav.is_symlink(),
-                      f"Slide {number}: requested final audio does not exist")
-                with wave.open(str(wav),"rb") as f:
-                    seconds=f.getnframes()/f.getframerate()
-                    check(f.getcomptype()=="NONE" and 0.2<=seconds<=120,
-                          f"Slide {number}: invalid/unbounded PCM narration")
                 spoken="".join(fragments[i]["verbatim_script_fragment"] for i in ids).strip()
                 check(len(spoken.split())>=4 and len(spoken)<2000,
                       f"Slide {number}: narration too short/long for valid stage")
-                # Never accept merely matching filenames or a reviewer claim
-                # of voice consistency. Require byte-bound prior Gemini TTS
-                # provenance for the exact *new* element narration text.
-                proof_file=audio/(filename+".verified.json")
-                proof=load(proof_file)
-                check(proof.get("filename")==filename
-                      and proof.get("wav_sha256")==file_hash(wav)
-                      and proof.get("spoken_text_sha256")==hashlib.sha256(
-                          spoken.encode("utf8")).hexdigest()
-                      and proof.get("model")==declared_model
-                      and proof.get("voice")==declared_voice,
-                      f"Slide {number}: missing or mismatched Gemini TTS provenance")
+                if not prepare_tts:
+                    wav=audio/filename
+                    check(wav.is_file() and not wav.is_symlink(),
+                          f"Slide {number}: requested final audio does not exist")
+                    with wave.open(str(wav),"rb") as f:
+                        seconds=f.getnframes()/f.getframerate()
+                        check(f.getcomptype()=="NONE" and 0.2<=seconds<=120,
+                              f"Slide {number}: invalid/unbounded PCM narration")
+                    # A matching filename is not evidence of voice or words.
+                    proof_file=audio/(filename+".verified.json")
+                    proof=load(proof_file)
+                    check(proof.get("filename")==filename
+                          and proof.get("wav_sha256")==file_hash(wav)
+                          and proof.get("spoken_text_sha256")==hashlib.sha256(
+                              spoken.encode("utf8")).hexdigest()
+                          and proof.get("model")==declared_model
+                          and proof.get("voice")==declared_voice,
+                          f"Slide {number}: missing or mismatched Gemini TTS provenance")
                 selections.append({"anchor":selected_anchor,"spoken_text":spoken,
                                    "wav":filename})
             check(used==required_ids,
@@ -219,19 +223,61 @@ def promoted(*,source:Path,slides:Path,script:Path,
         seconds=0
         for scene in block:
             for row in scene["elements"]:
-                with wave.open(str(audio/row["wav"]),"rb") as wav:
-                    seconds+=wav.getnframes()/wav.getframerate()
-        check(0<seconds<590,"Part exceeds safe ten-minute preview budget")
+                if prepare_tts:
+                    # Conservative planning estimate, not recorded duration.
+                    # Even an estimated sub-10m part MUST pass the later
+                    # actual-WAV and decoded MP4 <600s gates.
+                    seconds+=len(row["spoken_text"].split())*60/70
+                else:
+                    with wave.open(str(audio/row["wav"]),"rb") as wav:
+                        seconds+=wav.getnframes()/wav.getframerate()
+        check(0<seconds<(540 if prepare_tts else 590),
+              "Part exceeds conservative TTS request or final video budget")
         groups.append({"part_id":f"part_{len(groups)+1:02d}","slides":block})
         start=ending
     # The stage contract deliberately does not represent semantic or
     # human-academic approval. The decision is only processing authorization.
-    return {"schema_version":1,
-            "status":"author_specified_unapproved_element_narration",
+    result={"schema_version":1,
+            "status":("reviewed_element_tts_request_unapproved" if prepare_tts
+                      else "author_specified_unapproved_element_narration"),
             "source_sha256":file_hash(source),
             "slides_sha256":file_hash(slides),
             "voice_id":voice,
             "parts":groups}
+    if prepare_tts:
+        result["tts_model"]=declared_model
+        result["tts_voice"]=declared_voice
+        result["script_sha256"]=file_hash(script)
+        result["draft_sha256"]=file_hash(draft_path)
+        result["review_selection_sha256"]=file_hash(selection)
+        result["api_execution_authorized"]=False
+        result["academic_approval"]=False
+        result["student_publication"]=False
+    elif tts_request is not None:
+        from .element_narration_gemini import plan_hash
+        req=load(Path(tts_request).resolve())
+        check(req.get("status")=="reviewed_element_tts_request_unapproved"
+              and req.get("tts_model")==declared_model
+              and req.get("tts_voice")==declared_voice
+              and req.get("script_sha256")==file_hash(script)
+              and req.get("draft_sha256")==file_hash(draft_path)
+              and req.get("review_selection_sha256")==file_hash(selection),
+              "Prepared per-element TTS request differs from reviewed sources")
+        expected=promoted(source=source,slides=slides,script=script,
+            draft_path=draft_path,selection=selection,prepare_tts=True)
+        check(req==expected,"Review-to-TTS request was edited or stale")
+        identity=load(audio/"tts_job_identity.json")
+        check(identity.get("plan_sha256")==plan_hash(req)
+              and identity.get("model")==declared_model
+              and identity.get("voice")==declared_voice
+              and identity.get("segments")==[
+                  e["wav"] for p in groups for sl in p["slides"] for e in sl["elements"]],
+              "TTS synthesis job is not bound to exact reviewed element request")
+        for item in (e for p in groups for sl in p["slides"] for e in sl["elements"]):
+            proof=load(audio/(item["wav"]+".verified.json"))
+            check(proof.get("plan_sha256")==plan_hash(req),
+                  "Per-element TTS receipt refers to a different reviewed request")
+    return result
 
 
 def main(argv=None)->int:
@@ -240,9 +286,14 @@ def main(argv=None)->int:
     t=sub.add_parser("template")
     t.add_argument("--draft",required=True,type=Path)
     t.add_argument("--out",required=True,type=Path)
+    r=sub.add_parser("prepare-tts")
+    for n in ("source","slides","script","draft","selection","out"):
+        r.add_argument("--"+n,required=True,type=Path)
     v=sub.add_parser("promote-reviewed")
     for n in ("source","slides","script","draft","selection","audio","out"):
         v.add_argument("--"+n,required=True,type=Path)
+    v.add_argument("--tts-request",type=Path,
+                   help="Verify real Gemini WAVs against exact pre-synthesis request")
     args=p.parse_args(argv)
     out=args.out.resolve()
     check(not out.exists() and out.parent.is_dir(),"Output must be new and isolated")
@@ -255,7 +306,10 @@ def main(argv=None)->int:
                       for n in ("source","slides","script")),
               "Do not store candidate plans beside textbook source")
         proposal=promoted(source=args.source,slides=args.slides,script=args.script,
-                 draft_path=args.draft,selection=args.selection,audio=args.audio)
+                 draft_path=args.draft,selection=args.selection,
+                 audio=args.audio if args.action=="promote-reviewed" else None,
+                 prepare_tts=args.action=="prepare-tts",
+                 tts_request=args.tts_request if args.action=="promote-reviewed" else None)
     with out.open("x",encoding="utf8") as f:
         json.dump(proposal,f,indent=2,ensure_ascii=False);f.write("\n")
     print(json.dumps({"status":proposal["status"],
@@ -263,7 +317,7 @@ def main(argv=None)->int:
                         if args.action=="template" else
                         sum(len(x["slides"]) for x in proposal["parts"]),
                       "stageable_only_if_frozen_wavs_are_verified":
-                        args.action!="template",
+                        args.action=="promote-reviewed",
                       "academic_approved":False}))
     return 0
 
