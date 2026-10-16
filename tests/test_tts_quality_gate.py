@@ -8,6 +8,7 @@ import tempfile
 import unittest
 import wave
 
+from selenium_pipeline.element_series_audit import check_tts_quality
 from selenium_pipeline.tts_quality_gate import (
     acoustic_check, math_marks, screen, word_error_rate,
 )
@@ -141,6 +142,30 @@ class TtsQualityGateTests(unittest.TestCase):
         self.run_screen()
         with self.assertRaises(ValueError):
             self.run_screen()
+
+    def test_integrated_strict_gate_refuses_missing_asr(self):
+        self.run_screen()
+        plan = json.loads(self.plan.read_text(encoding="utf-8"))
+        report = check_tts_quality(plan, self.audio, self.output,
+                                   authored_sha256=sha(self.plan))
+        self.assertFalse(report["machine_complete"])
+        with self.assertRaisesRegex(ValueError, "incomplete/flagged"):
+            check_tts_quality(plan, self.audio, self.output, required=True,
+                              authored_sha256=sha(self.plan))
+
+    def test_integrated_screen_gates_and_audio_digest(self):
+        self.receipt()
+        self.run_screen()
+        plan = json.loads(self.plan.read_text(encoding="utf-8"))
+        report = check_tts_quality(plan, self.audio, self.output, required=True,
+                                   authored_sha256=sha(self.plan))
+        self.assertTrue(report["machine_complete"])
+        self.assertFalse(report["human_certified"])
+        self.make_wav(amplitude=6800)
+        with self.assertRaisesRegex(ValueError, "mismatched audio"):
+            check_tts_quality(plan, self.audio, self.output,
+                              authored_sha256=sha(self.plan))
+
 
 
 if __name__ == "__main__":
