@@ -85,16 +85,22 @@ def browser_snapshot(*, port:int=9222, timeout_s:int=25)->dict:
     """Only open/close an owned tab; never click Run or add a key."""
     if not 1<=port<=65535 or not 8<=timeout_s<=60:
         raise ValueError("Invalid bounded Chrome settings")
-    from selenium import webdriver
-    from selenium.webdriver.chrome.options import Options
-    from selenium.webdriver.common.by import By
+    try:
+        from selenium import webdriver
+        from selenium.webdriver.chrome.options import Options
+        from selenium.webdriver.common.by import By
+    except ImportError as exc:
+        raise BrowserTTSBlocked("selenium_python_dependency_unavailable") from exc
     from .three_pc_worker import LocalInstanceLock
     opts=Options()
     opts.add_experimental_option("debuggerAddress",f"127.0.0.1:{port}")
     cache=Path(os.environ.get("LOCALAPPDATA") or Path.home()/".cache")
     with LocalInstanceLock(f"gemini_port_{port}",
                            cache/"Microvid"/"browser_locks"):
-        driver=webdriver.Chrome(options=opts)
+        try:
+            driver=webdriver.Chrome(options=opts)
+        except Exception as exc:
+            raise BrowserTTSBlocked("authenticated_chrome_debugger_unavailable") from exc
         prior=driver.current_window_handle
         owned=None
         try:
@@ -148,9 +154,43 @@ def preflight(*,requested_model:str,requested_voice:str,output:Path,
         raise ValueError("Preflight receipt must be a new isolated file")
     if source_root is not None and output.is_relative_to(Path(source_root).resolve()):
         raise ValueError("Never create a browser probe inside the textbook source")
-    snapshot=(transport or browser_snapshot)(port=port,timeout_s=timeout_s)
-    report=evaluate(snapshot,requested_model=requested_model,
-                    requested_voice=requested_voice)
+    try:
+        snapshot=(transport or browser_snapshot)(port=port,timeout_s=timeout_s)
+    except BrowserTTSBlocked as exc:
+        reason=str(exc)
+        if reason not in ("selenium_python_dependency_unavailable",
+                          "authenticated_chrome_debugger_unavailable",
+                          "browser_ui_unavailable"):
+            reason="browser_ui_unavailable"
+        # Unlike a capability probe, an environment failure cannot attest
+        # which model/voice/key is selected. Never invent UI observations.
+        report={
+            "schema_version":1,
+            "status":"BROWSER_TTS_PREFLIGHT_UNAVAILABLE",
+            "provider":"google_ai_studio_browser_ui",
+            "requested_model":requested_model,
+            "requested_voice":requested_voice,
+            "observed_surface":None,
+            "visible_model_ids":[],
+            "exact_model_visible":False,
+            "voice_visible":False,
+            "no_api_key_selected_visible":False,
+            "speech_editor_available":False,
+            "downloadable_wav_verified":False,
+            "billing_free_generation_verified":False,
+            "submitted_generation_request":False,
+            "api_called_by_microgen":False,
+            "usable_for_automatic_element_tts":False,
+            "source_content_uploaded":False,
+            "source_audio_or_slides_modified":False,
+            "requires_independent_browser_audio_proof":True,
+            "human_academic_approval":False,
+            "student_publication":False,
+            "blockers":[reason],
+        }
+    else:
+        report=evaluate(snapshot,requested_model=requested_model,
+                        requested_voice=requested_voice)
     with output.open("x",encoding="utf8") as f:
         json.dump(report,f,indent=2,sort_keys=True)
         f.write("\n")

@@ -114,6 +114,26 @@ class WebTTSPreflightTests(unittest.TestCase):
                         requested_voice="Kore")
         self.assertFalse(result["voice_visible"])
 
+    def test_missing_selenium_has_a_persisted_fail_closed_receipt(self):
+        def broken(**_):
+            raise BrowserTTSBlocked("selenium_python_dependency_unavailable")
+        report=preflight(requested_model="gemini-3.8-flash-lite-tts",
+                         requested_voice="Kore",output=self.out,transport=broken)
+        self.assertEqual(report["status"],"BROWSER_TTS_PREFLIGHT_UNAVAILABLE")
+        self.assertEqual(report["blockers"],["selenium_python_dependency_unavailable"])
+        self.assertEqual(report["visible_model_ids"],[])
+        self.assertFalse(report["no_api_key_selected_visible"])
+        self.assertFalse(report["usable_for_automatic_element_tts"])
+        self.assertEqual(json.loads(self.out.read_text()),report)
+
+    def test_unavailable_browser_does_not_leak_exception_text(self):
+        def broken(**_):
+            raise BrowserTTSBlocked("untrusted personal details secret@example.com")
+        report=preflight(requested_model="gemini-3.8-flash-lite-tts",
+                         requested_voice="Kore",output=self.out,transport=broken)
+        self.assertEqual(report["blockers"],["browser_ui_unavailable"])
+        self.assertNotIn("secret@example.com",json.dumps(report))
+
     def test_fake_free_claim_cannot_override_generation_proof(self):
         fake=self.snapshot(control_labels=[
             "Gemini 3.8 Flash-Lite TTS",

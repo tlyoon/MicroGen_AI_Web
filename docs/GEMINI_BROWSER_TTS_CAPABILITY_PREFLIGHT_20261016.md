@@ -99,3 +99,15 @@ treating hypothetical browser WAVs as real verified audio.
 No Whisper, Google Cloud fallback, hidden Gemini API call, student
 publication, merge or original teaching-file overwrite is permitted by
 this capability probe.
+
+## Multi-PC Python environment caveat
+
+The default `python` on HP and Yoga6 can run the core offline validation
+tests, but initially has **no installed Selenium package**, even when a
+separate MicroGen environment or already-open Chrome browser may exist.
+This is not evidence about Google's model availability. The read-only
+preflight now emits a distinct `BROWSER_TTS_PREFLIGHT_UNAVAILABLE`
+receipt with `selenium_python_dependency_unavailable`, leaving all
+model/voice/key observations unknown and every production permission
+false. A future run must use an already-configured approved Selenium
+environment for that machine; this code installs nothing automatically.
