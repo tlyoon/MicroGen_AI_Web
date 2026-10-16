@@ -80,7 +80,9 @@ def check_independent_asr(plan: dict, audio: Path, directory: Path | None,
 
 def check_tts_quality(plan: dict, audio: Path, quality_report: Path | None,
                       *, required: bool = False,
-                      authored_sha256: str | None = None) -> dict:
+                      authored_sha256: str | None = None,
+                      authored_path: Path | None = None,
+                      asr_dir: Path | None = None) -> dict:
     """Verify a complete immutable screening report without approving speech."""
     elements = [el for part in plan["parts"] for slide in part["slides"]
                 for el in slide["elements"]]
@@ -99,6 +101,16 @@ def check_tts_quality(plan: dict, audio: Path, quality_report: Path | None,
     rows = report.get("clips")
     require(isinstance(rows, list) and len(rows) == len(elements),
             "TTS quality coverage incomplete")
+    require(authored_path is not None and
+            H(Path(authored_path).resolve()) == authored_sha256,
+            "Audited TTS quality plan path or hash missing")
+    # Re-evaluate every acoustic sample and ASR/math flag from original
+    # inputs. A forged JSON status cannot authorize machine QA.
+    from .tts_quality_gate import screen
+    regenerated = screen(plan=Path(authored_path), audio=audio,
+                         asr_dir=asr_dir, output=None)
+    require(regenerated == report,
+            "TTS quality evidence differs from independent recomputation")
     flagged = 0
     for el, row in zip(elements, rows):
         wav = audio / el["wav"]
@@ -291,7 +303,8 @@ def audit(*,source,slides,authored,audio,staged,rendered,report,
     asr=check_independent_asr(original,audio,asr_dir,required=require_asr,
                               authored_sha256=H(authored))
     quality=check_tts_quality(original,audio,quality_report,required=require_quality,
-                              authored_sha256=H(authored))
+                              authored_sha256=H(authored),authored_path=authored,
+                              asr_dir=asr_dir)
     result={
         "status":"FULL_SLIDE_COVERAGE_TECHNICAL_REVIEW_PASS_NOT_PRODUCTION_APPROVAL",
         "independent_model_speech_audit":asr,

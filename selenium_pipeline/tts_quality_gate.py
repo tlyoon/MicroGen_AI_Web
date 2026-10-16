@@ -75,9 +75,15 @@ def math_marks(text: str) -> Counter:
     normalized = normalized.replace("÷", " divided ")
     normalized = re.sub(r"(?<=\w)\s*/\s*(?=\w)", " over ", normalized)
     normalized = re.sub(r"(?<=\d)\+(?=\d)", " plus ", normalized)
-    normalized = re.sub(r"\b0\b", " zero ", normalized)
-    normalized = re.sub(r"\b1\b", " one ", normalized)
-    normalized = re.sub(r"\b2\b", " two ", normalized)
+    # Digit glyphs in an ASR transcript ("Section 8.4") are often
+    # equivalent to an explicitly spoken numeral ("section eight point
+    # four"). Normalize single digits only; never discard signs, fractions,
+    # or operators, whose absence can change mathematical meaning.
+    numerals = ("zero", "one", "two", "three", "four", "five",
+                "six", "seven", "eight", "nine")
+    normalized = re.sub(r"\b[0-9]\b",
+                        lambda match: " " + numerals[int(match.group())] + " ",
+                        normalized)
     words = tokens(normalized)
     aliases = {"sin": "sine", "cos": "cosine", "tan": "tangent",
                "eq": "equals", "equal": "equals"}
@@ -174,10 +180,13 @@ def acoustic_check(path: Path, spoken_text: str) -> dict:
 
 def screen(*, plan: Path, audio: Path, output: Path,
            asr_dir: Path | None = None) -> dict:
-    plan, audio, output = Path(plan).resolve(), Path(audio).resolve(), Path(output).resolve()
-    if not plan.is_file() or not audio.is_dir() or output.exists():
+    plan, audio = Path(plan).resolve(), Path(audio).resolve()
+    output = Path(output).resolve() if output is not None else None
+    if not plan.is_file() or not audio.is_dir() or (
+            output is not None and output.exists()):
         raise ValueError("Plan/audio missing or output report already exists")
-    if not output.parent.is_dir() or output.is_relative_to(audio):
+    if output is not None and (not output.parent.is_dir() or
+                               output.is_relative_to(audio)):
         raise ValueError("Unsafe report destination")
     authored = json.loads(plan.read_text(encoding="utf-8"))
     if authored.get("status") != "author_specified_unapproved_element_narration":
@@ -276,9 +285,10 @@ def screen(*, plan: Path, audio: Path, output: Path,
         ),
         "clips": rows,
     }
-    with output.open("x", encoding="utf-8") as dest:
-        json.dump(summary, dest, ensure_ascii=False, indent=2)
-        dest.write("\n")
+    if output is not None:
+        with output.open("x", encoding="utf-8") as dest:
+            json.dump(summary, dest, ensure_ascii=False, indent=2)
+            dest.write("\n")
     return summary
 
 
