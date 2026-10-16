@@ -38,9 +38,20 @@ def check_independent_asr(plan: dict, audio: Path, directory: Path | None,
     require(authored_sha256 is not None and
             job.get("plan_sha256")==authored_sha256,
             "ASR job plan SHA mismatch")
-    require(job["model"] in ("gemini-3.1-flash-lite","gemini-3.5-flash")
-            and job["source_model"]=="gemini-3.8-flash-lite-tts",
-            "ASR model not distinct from TTS")
+    is_offline=job.get("backend")=="offline_faster_whisper"
+    if is_offline:
+        require(job.get("model")=="faster-whisper-small.en-cpu-int8"
+                and isinstance(job.get("model_sha256"),str)
+                and len(job["model_sha256"])==64
+                and job.get("tts_synthesis_receipt_sha256")==
+                    H(audio/"tts_synthesis_receipt.json")
+                and job.get("status")=="offline_machine_asr_review_only"
+                and job.get("source_model")=="gemini-3.8-flash-lite-tts",
+                "Independent offline ASR model/weight or TTS provenance mismatch")
+    else:
+        require(job["model"] in ("gemini-3.1-flash-lite","gemini-3.5-flash")
+                and job["source_model"]=="gemini-3.8-flash-lite-tts",
+                "ASR model not distinct from TTS")
     require(len(job["clips"])==len(events)
             and job["clips"]==[el["wav"] for el in events],
             "ASR job covers a different scene")
@@ -62,6 +73,14 @@ def check_independent_asr(plan: dict, audio: Path, directory: Path | None,
                 and data["transcript_sha256"]==
                     hashlib.sha256(data["transcript"].encode("utf8")).hexdigest(),
                 "Tampered or mismatched ASR model transcript")
+        if is_offline:
+            require(data.get("backend")=="offline_faster_whisper"
+                    and data.get("model_sha256")==job["model_sha256"]
+                    and data.get("same_vendor_not_human_independent") is False
+                    and data.get("model_distinct_from_tts") is True
+                    and data.get("audible_word_fidelity_certified") is False
+                    and data.get("academic_approval") is False,
+                    "Offline model attestation misbound or improperly approved")
         checked+=1
         if data["metrics"]["machine_asr_consistent"]:
             matched+=1
@@ -72,6 +91,9 @@ def check_independent_asr(plan: dict, audio: Path, directory: Path | None,
         raise ValueError("Independent ASR incomplete or mismatched; block acceptance")
     return {"status":("machine_consistent_not_certified" if complete and not flagged
                else "partial_or_flagged_requires_review"),
+            "backend":("offline_faster_whisper" if is_offline else "gemini"),
+            "distinct_provider":bool(is_offline),
+            "model_sha256":job.get("model_sha256"),
             "checked":checked,"total":len(events),
             "matched":matched,"flagged":flagged,
             "human_certified":False}
