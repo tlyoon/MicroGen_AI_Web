@@ -39,7 +39,9 @@ def check_independent_asr(plan: dict, audio: Path, directory: Path | None,
             job.get("plan_sha256")==authored_sha256,
             "ASR job plan SHA mismatch")
     require(job["model"] in ("gemini-3.1-flash-lite","gemini-3.5-flash",
-                              "gemini-flash-web-ui")
+                              "gemini-flash-web-ui",
+                              "faster-whisper-base.en-cpu-int8",
+                              "faster-whisper-small.en-cpu-int8")
             and job["source_model"]=="gemini-3.8-flash-lite-tts",
             "ASR model not distinct from TTS")
     require(len(job["clips"])==len(events)
@@ -67,6 +69,19 @@ def check_independent_asr(plan: dict, audio: Path, directory: Path | None,
             require(data.get("backend")=="selenium_flash_browser"
                     and data.get("exact_web_model_version_unverified") is True,
                     "Cannot accept unauthenticated browser-mode ASR provenance")
+        if job["model"].startswith("faster-whisper-"):
+            fileproof=job.get("model_file_hashes")
+            local_digest=(hashlib.sha256(json.dumps(fileproof,sort_keys=True)
+                      .encode("utf8")).hexdigest()
+                      if isinstance(fileproof,dict) else None)
+            require(job.get("backend")=="local_cpu_ctranslate2_no_network"
+                    and isinstance(fileproof,dict)
+                    and set(fileproof)==set(("model.bin","config.json","tokenizer.json"))
+                    and job.get("model_sha256")==local_digest
+                    and data.get("backend")=="local_cpu_ctranslate2_no_network"
+                    and data.get("model_sha256")==local_digest
+                    and data.get("academic_approval") is False,
+                    "Local ASR model identity or provenance missing")
         checked+=1
         if data["metrics"]["machine_asr_consistent"]:
             matched+=1

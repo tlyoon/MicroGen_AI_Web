@@ -218,7 +218,9 @@ def screen(*, plan: Path, audio: Path, output: Path,
                 job.get("source_model") != "gemini-3.8-flash-lite-tts" or
                 job.get("model") not in (
                     "gemini-3.1-flash-lite", "gemini-3.5-flash",
-                    "gemini-flash-web-ui")):
+                    "gemini-flash-web-ui",
+                    "faster-whisper-base.en-cpu-int8",
+                    "faster-whisper-small.en-cpu-int8")):
             raise ValueError("Wrong or stale independent-ASR job")
     rows = []
     for item in events:
@@ -249,6 +251,19 @@ def screen(*, plan: Path, audio: Path, output: Path,
                         entry.get("backend") != "selenium_flash_browser" or
                         entry.get("exact_web_model_version_unverified") is not True):
                     raise ValueError("Unverifiable Gemini web audio receipt")
+                if str(job.get("model","")).startswith("faster-whisper-"):
+                    model_files=job.get("model_file_hashes")
+                    expected_digest=sha_text(json.dumps(
+                        model_files,sort_keys=True)) if isinstance(model_files,dict) else None
+                    if (job.get("backend")!="local_cpu_ctranslate2_no_network"
+                        or not isinstance(model_files,dict)
+                        or set(model_files)!=set(("model.bin","config.json","tokenizer.json"))
+                        or job.get("model_sha256")!=expected_digest
+                        or entry.get("backend")!="local_cpu_ctranslate2_no_network"
+                        or entry.get("model_sha256")!=expected_digest
+                        or entry.get("academic_approval") is not False
+                        or entry.get("audible_word_fidelity_certified") is not False):
+                        raise ValueError("Unverifiable local ASR model identity")
                 wer = word_error_rate(script, recognized)
                 target = math_marks(script)
                 heard = math_marks(recognized)
