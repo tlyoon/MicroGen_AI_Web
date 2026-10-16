@@ -110,11 +110,28 @@ def main(argv=None):
         filename=record["wav"]
         target=folder/filename
         words=record["spoken_text"]
+        receipt_path=folder/(filename+".verified.json")
+        receipt_expected={
+            "plan_sha256":identity["plan_sha256"],
+            "filename":filename,
+            "spoken_text_sha256":digest(words.encode("utf8")),
+            "model":args.model,"voice":args.voice,
+        }
         if target.exists():
             if not args.resume or not target.is_file() or target.is_symlink():
                 raise RuntimeError("Cannot overwrite existing audio: "+filename)
-            print(f"REUSE validated existing {filename}",flush=True)
+            if not receipt_path.is_file() or receipt_path.is_symlink():
+                raise RuntimeError("Unverified existing WAV; refuse resume: "+filename)
+            prior=json.loads(receipt_path.read_text(encoding="utf8"))
+            for key,value in receipt_expected.items():
+                if prior.get(key)!=value:
+                    raise RuntimeError("Resumed WAV provenance mismatch: "+filename)
+            if prior.get("wav_sha256")!=digest(target.read_bytes()):
+                raise RuntimeError("Resumed WAV byte hash mismatch: "+filename)
+            print(f"REUSE cryptographically verified {filename}",flush=True)
         else:
+            if receipt_path.exists():
+                raise RuntimeError("Orphaned WAV receipt present: "+filename)
             print(f"Gemini TTS element {index}/{len(all_rows)} {filename}",flush=True)
             payload=_gemini_say_with_watchdog(
                 words,index,args.model,args.voice,
@@ -133,6 +150,11 @@ def main(argv=None):
             duration=wav.getnframes()/wav.getframerate()
         if fmt[3]!="NONE" or fmt[0] not in (1,2) or fmt[1]!=2 or not .2<duration<120:
             raise RuntimeError("Invalid provider WAV spec: "+filename)
+        if not receipt_path.exists():
+            emit(receipt_path,{**receipt_expected,
+                "wav_sha256":digest(target.read_bytes()),
+                "sample_rate":fmt[2],"channels":fmt[0],
+                "duration_s":round(duration,3)})
         if fmt_reference is None:fmt_reference=fmt
         elif fmt!=fmt_reference:
             raise RuntimeError("Inconsistent TTS audio format, refusing mixed media")

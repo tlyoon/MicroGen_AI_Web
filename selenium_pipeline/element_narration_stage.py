@@ -63,6 +63,17 @@ def rectangle(page, anchor: dict):
              "Text evidence not present at anchored rendered block")
         rect=pymupdf.Rect(block[:4])
         category="text"
+    elif anchor.get("type")=="image_whole":
+        index=anchor.get("index")
+        images=page.get_images(full=True)
+        need(type(index) is int and 0<=index<len(images),
+             "Missing full-figure image on slide")
+        locations=page.get_image_rects(images[index][0])
+        need(len(locations)==1, "Image placement is ambiguous")
+        rect=locations[0]
+        need(rect.width>=45 and rect.height>=35,
+             "Full figure is illegibly small")
+        category="figure"
     elif anchor.get("type")=="image_panel":
         index=anchor.get("index")
         panels=anchor.get("panels")

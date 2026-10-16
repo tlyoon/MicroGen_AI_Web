@@ -89,5 +89,45 @@ class ElementTTSCommandTests(unittest.TestCase):
             main(self.args+["--model","unsafe-model","--confirm-live"])
 
 
+    def test_resume_rejects_tampered_completed_element(self):
+        with patch("selenium_pipeline.runner.load_microvid_env"), \
+             patch("gemini_keys.get_gemini_api_keys",return_value=["dummy"]), \
+             patch("selenium_pipeline.tts._gemini_say_with_watchdog",
+                   return_value=mock_wav()):
+            self.assertEqual(main(self.args+["--confirm-live"]),0)
+        (self.out/"tts_synthesis_receipt.json").unlink()
+        (self.out/"gemini_test_voice_plan.json").unlink()
+        (self.out/"b.wav").unlink()
+        (self.out/"b.wav.verified.json").unlink()
+        with (self.out/"a.wav").open("ab") as stream:
+            stream.write(b"tamper")
+        with patch("selenium_pipeline.runner.load_microvid_env"), \
+             patch("gemini_keys.get_gemini_api_keys",return_value=["dummy"]), \
+             patch("selenium_pipeline.tts._gemini_say_with_watchdog") as request:
+            with self.assertRaisesRegex(RuntimeError,"byte hash mismatch"):
+                main(self.args+["--confirm-live","--resume"])
+            request.assert_not_called()
+
+    def test_resume_reuses_hash_verified_element_only(self):
+        with patch("selenium_pipeline.runner.load_microvid_env"), \
+             patch("gemini_keys.get_gemini_api_keys",return_value=["dummy"]), \
+             patch("selenium_pipeline.tts._gemini_say_with_watchdog",
+                   return_value=mock_wav()):
+            self.assertEqual(main(self.args+["--confirm-live"]),0)
+        original=(self.out/"a.wav").read_bytes()
+        (self.out/"tts_synthesis_receipt.json").unlink()
+        (self.out/"gemini_test_voice_plan.json").unlink()
+        (self.out/"b.wav").unlink()
+        (self.out/"b.wav.verified.json").unlink()
+        with patch("selenium_pipeline.runner.load_microvid_env"), \
+             patch("gemini_keys.get_gemini_api_keys",return_value=["dummy"]), \
+             patch("selenium_pipeline.tts._gemini_say_with_watchdog",
+                   return_value=mock_wav()) as request:
+            self.assertEqual(main(self.args+["--confirm-live","--resume"]),0)
+            self.assertEqual(request.call_count,1)
+        self.assertEqual((self.out/"a.wav").read_bytes(),original)
+        self.assertTrue((self.out/"tts_synthesis_receipt.json").is_file())
+
+
 if __name__=="__main__":
     unittest.main()
