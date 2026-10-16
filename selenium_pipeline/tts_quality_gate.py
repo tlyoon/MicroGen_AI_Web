@@ -68,11 +68,18 @@ MATH_TERMS = frozenset((
 ))
 
 
-def math_marks(text: str) -> Counter:
+def math_token_order(text: str) -> list[str]:
+    """Ordered math-token review signature; never a mathematical proof.
+
+    Detects swaps that have identical term bags, e.g. two-minus-three versus
+    three-minus-two. Alternative legitimate paraphrases may trigger review.
+    """
     normalized = unicodedata.normalize("NFKC", text).casefold()
     normalized = normalized.replace("π", " pi ").replace("θ", " theta ")
     normalized = normalized.replace("−", " minus ").replace("×", " times ")
     normalized = normalized.replace("÷", " divided ")
+    normalized = normalized.replace("-", " minus ")
+    normalized = normalized.replace("+", " plus ")
     normalized = re.sub(r"(?<=\w)\s*/\s*(?=\w)", " over ", normalized)
     normalized = re.sub(r"(?<=\d)\+(?=\d)", " plus ", normalized)
     # Digit glyphs in an ASR transcript ("Section 8.4") are often
@@ -87,8 +94,12 @@ def math_marks(text: str) -> Counter:
     words = tokens(normalized)
     aliases = {"sin": "sine", "cos": "cosine", "tan": "tangent",
                "eq": "equals", "equal": "equals"}
-    return Counter(aliases.get(t, t) for t in words
-                   if aliases.get(t, t) in MATH_TERMS)
+    return [aliases.get(t, t) for t in words
+            if aliases.get(t, t) in MATH_TERMS]
+
+
+def math_marks(text: str) -> Counter:
+    return Counter(math_token_order(text))
 
 
 def acoustic_check(path: Path, spoken_text: str) -> dict:
@@ -205,7 +216,9 @@ def screen(*, plan: Path, audio: Path, output: Path,
         if (job.get("plan_sha256") != digest(plan) or
                 job.get("clips") != names or
                 job.get("source_model") != "gemini-3.8-flash-lite-tts" or
-                job.get("model") not in ("gemini-3.1-flash-lite", "gemini-3.5-flash")):
+                job.get("model") not in (
+                    "gemini-3.1-flash-lite", "gemini-3.5-flash",
+                    "gemini-flash-web-ui")):
             raise ValueError("Wrong or stale independent-ASR job")
     rows = []
     for item in events:
@@ -232,12 +245,18 @@ def screen(*, plan: Path, audio: Path, output: Path,
                         entry.get("transcript_sha256") != sha_text(recognized) or
                         entry.get("asr_model") != job["model"]):
                     raise ValueError("Tampered, stale or unrelated ASR evidence: " + name)
+                if job.get("model") == "gemini-flash-web-ui" and (
+                        entry.get("backend") != "selenium_flash_browser" or
+                        entry.get("exact_web_model_version_unverified") is not True):
+                    raise ValueError("Unverifiable Gemini web audio receipt")
                 wer = word_error_rate(script, recognized)
                 target = math_marks(script)
                 heard = math_marks(recognized)
                 math_diff = {
                     "missing": dict(target - heard),
                     "extra": dict(heard - target),
+                    "order_changed": (not (target - heard or heard - target)
+                        and math_token_order(script) != math_token_order(recognized)),
                 }
                 evidence_state = ("machine_transcript_consistent" if wer <= .20
                                   else "transcript_mismatch")
