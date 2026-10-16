@@ -73,7 +73,7 @@ def math_marks(text: str) -> Counter:
     normalized = normalized.replace("π", " pi ").replace("θ", " theta ")
     normalized = normalized.replace("−", " minus ").replace("×", " times ")
     normalized = normalized.replace("÷", " divided ")
-    normalized = re.sub(r"(?<=\d)/(?=\d)", " over ", normalized)
+    normalized = re.sub(r"(?<=\w)/(?=\w)", " over ", normalized)
     normalized = re.sub(r"(?<=\d)\+(?=\d)", " plus ", normalized)
     normalized = re.sub(r"\b0\b", " zero ", normalized)
     normalized = re.sub(r"\b1\b", " one ", normalized)
