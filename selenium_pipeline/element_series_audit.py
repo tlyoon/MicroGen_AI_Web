@@ -77,6 +77,53 @@ def check_independent_asr(plan: dict, audio: Path, directory: Path | None,
             "human_certified":False}
 
 
+
+def check_tts_quality(plan: dict, audio: Path, quality_report: Path | None,
+                      *, required: bool = False,
+                      authored_sha256: str | None = None) -> dict:
+    """Verify a complete immutable screening report without approving speech."""
+    elements = [el for part in plan["parts"] for slide in part["slides"]
+                for el in slide["elements"]]
+    if quality_report is None:
+        if required:
+            raise ValueError("Three-layer TTS quality evidence missing")
+        return {"status": "not_run", "checked": 0, "total": len(elements),
+                "machine_complete": False, "human_certified": False}
+    quality_report = Path(quality_report).resolve()
+    report = load(quality_report)
+    require(report.get("schema_version") == 1
+            and report.get("status") == "QUALITY_SCREEN_REVIEW_ONLY"
+            and report.get("plan_sha256") == authored_sha256
+            and report.get("total_clips") == len(elements),
+            "Stale or invalid TTS quality report")
+    rows = report.get("clips")
+    require(isinstance(rows, list) and len(rows) == len(elements),
+            "TTS quality coverage incomplete")
+    flagged = 0
+    for el, row in zip(elements, rows):
+        wav = audio / el["wav"]
+        require(row.get("wav") == el["wav"]
+                and row.get("wav_sha256") == H(wav)
+                and row.get("reference_sha256") ==
+                    hashlib.sha256(el["spoken_text"].encode("utf8")).hexdigest(),
+                "TTS quality report mismatched audio or script")
+        require(row.get("human_listening_approved") is False,
+                "Machine quality report cannot certify human listening")
+        if row.get("quality_state") != "machine_screen_consistent_not_certified":
+            flagged += 1
+    complete = flagged == 0 and report.get("all_machine_checks_passed") is True
+    require(report.get("production_approved") is False
+            and report.get("human_listening_complete") is False,
+            "Review-only quality report claims unauthorized approval")
+    if required and not complete:
+        raise ValueError("TTS quality screen incomplete/flagged; block acceptance")
+    return {"status": ("machine_screen_consistent_not_certified" if complete
+                       else "partial_or_flagged_requires_listening"),
+            "checked": len(rows), "total": len(elements),
+            "flagged": flagged, "machine_complete": complete,
+            "human_certified": False}
+
+
 def verify_layout_only_rebind(*,current:dict, source:Path, slides:Path,
             audio:Path, old_slides:Path | None,
             previous_voice_plan:Path | None, rebind_receipt:Path | None,
@@ -133,7 +180,8 @@ def verify_layout_only_rebind(*,current:dict, source:Path, slides:Path,
 
 def audit(*,source,slides,authored,audio,staged,rendered,report,
           asr_dir=None,require_asr=False,old_slides=None,
-          previous_voice_plan=None,rebind_receipt=None,figure_resize_receipt=None):
+          previous_voice_plan=None,rebind_receipt=None,figure_resize_receipt=None,
+          quality_report=None,require_quality=False):
     source,slides,authored,audio,staged,rendered,report=map(
        lambda x:Path(x).resolve(),(source,slides,authored,audio,staged,rendered,report))
     require(not report.exists() and report.parent.is_dir(),
@@ -242,9 +290,12 @@ def audit(*,source,slides,authored,audio,staged,rendered,report,
             "mp4_sha256":rec["mp4_sha256"],"video_path":str(video)})
     asr=check_independent_asr(original,audio,asr_dir,required=require_asr,
                               authored_sha256=H(authored))
+    quality=check_tts_quality(original,audio,quality_report,required=require_quality,
+                              authored_sha256=H(authored))
     result={
         "status":"FULL_SLIDE_COVERAGE_TECHNICAL_REVIEW_PASS_NOT_PRODUCTION_APPROVAL",
         "independent_model_speech_audit":asr,
+        "three_layer_tts_quality_screen":quality,
         "production_eligible":False,
         "layout_only_narration_rebind":layout_rebind,
         "source_sha256":H(source),"slides_sha256":H(slides),
@@ -272,6 +323,8 @@ if __name__=="__main__":
         p.add_argument("--"+name,required=True,type=Path)
     p.add_argument("--asr-dir",type=Path)
     p.add_argument("--require-asr",action="store_true")
+    p.add_argument("--quality-report",type=Path)
+    p.add_argument("--require-quality",action="store_true")
     p.add_argument("--old-slides",type=Path)
     p.add_argument("--previous-voice-plan",type=Path)
     p.add_argument("--rebind-receipt",type=Path)
