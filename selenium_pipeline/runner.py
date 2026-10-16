@@ -544,6 +544,12 @@ class Settings:
     force_from: str | None = None
     from_stage: str = "figures"
     through_stage: str = "video"
+    # This opt-in route NEVER publishes a student-facing video. Original
+    # source/old MP4 bytes are read-only; academic release remains separate.
+    element_plan: Path | None = None
+    element_audio: Path | None = None
+    element_slides: Path | None = None
+    element_review_root: Path | None = None
 
     def directory(self) -> Path:
         # Default staging stays inside this source subchapter, never inside
@@ -627,6 +633,26 @@ def _execute_unlocked(s: Settings) -> Path:
         print(f"[microgen] stage: {stage}")
     if s.dry_run:
         return folder
+    selected=(s.element_plan,s.element_audio,s.element_review_root)
+    if any(value is not None for value in
+           (s.element_plan,s.element_audio,s.element_slides,s.element_review_root)):
+        if (not all(value is not None for value in selected)
+                or s.from_stage!="video" or s.through_stage!="video"
+                or s.force_from is not None):
+            raise ValueError(
+                "Element-highlight review requires all plan/audio/output paths, "
+                "--from-stage video --through-stage video, and no --force-from")
+        # Dedicated safe path: no legacy renderer, publication, checkpoints,
+        # Drive edits, or TTS backend calls; even old accepted MP4s are preserved.
+        verify_source_tree(s.source_root, source)
+        from .element_highlight_workflow import review
+        slides=s.element_slides or (source.parent/"slides.pdf")
+        report=review(source=source,slides=slides,authored=s.element_plan,
+                      audio=s.element_audio,output_root=s.element_review_root)
+        print("[microgen] verified REVIEW-ONLY synchronized highlighted parts:"
+              f" {report['covered_slides']} slides; "
+              f"{report['covered_elements']} elements. NOT student published.")
+        return Path(s.element_review_root)
     # A completed lecture has already had its staging/checkpoints removed.
     # Trust only a source-and-output-matched completion receipt: otherwise
     # missing staging files would trigger an expensive, unnecessary rerun.
@@ -998,6 +1024,14 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--from-stage", choices=STAGES, default="figures")
     p.add_argument("--through-stage", choices=STAGES, default="video")
     p.add_argument("--force-from", choices=STAGES)
+    p.add_argument("--element-plan",type=Path,
+                   help="Explicit source/slide-bound narrated element plan (review-only video)")
+    p.add_argument("--element-audio",type=Path,
+                   help="Frozen original separate WAVs for every source-bound element")
+    p.add_argument("--element-slides",type=Path,
+                   help="Optional slide PDF; defaults to existing slides.pdf beside source.pdf")
+    p.add_argument("--element-review-root",type=Path,
+                   help="New isolated output directory; never published to source tree")
     p.add_argument("--confirm-pro", action="store_true", help="Deprecated compatibility flag; browser model selection is now automatic")
     p.add_argument("--dry-run", action="store_true", help="Print plan; do not write files or call Gemini")
     p.add_argument("--doctor", action="store_true", help="Inspect local dependencies")
@@ -1038,7 +1072,11 @@ def main(argv: list[str] | None = None) -> int:
                          chrome_port=args.chrome_port, alternate_gemini_user=args.alternate_gemini_user,
                          from_stage=args.from_stage,
                          through_stage=args.through_stage, force_from=args.force_from,
-                         confirm_pro=args.confirm_pro, dry_run=args.dry_run))
+                         confirm_pro=args.confirm_pro, dry_run=args.dry_run,
+                         element_plan=args.element_plan,
+                         element_audio=args.element_audio,
+                         element_slides=args.element_slides,
+                         element_review_root=args.element_review_root))
     return 0
 
 
