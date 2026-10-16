@@ -109,6 +109,12 @@ class TtsQualityGateTests(unittest.TestCase):
         self.assertEqual(math_marks("pi over two"),
                          math_marks("π/2"))
 
+    def test_mathematical_section_number_digit_notation(self):
+        self.assertEqual(math_marks("Section eight point four"),
+                         math_marks("Section 8.4"))
+        self.assertNotEqual(math_marks("negative pi over two"),
+                            math_marks("positive pi over two"))
+
     def test_clipping_is_technical_rejection(self):
         self.make_wav(amplitude=32767)
         result = self.run_screen(False)
@@ -137,6 +143,21 @@ class TtsQualityGateTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Tampered"):
             self.run_screen()
 
+    def test_reject_edited_machine_pass_labels_in_audit(self):
+        result = self.run_screen()
+        result["clips"][0]["quality_state"] = "machine_screen_consistent_not_certified"
+        result["clips"][0]["review_flags"] = []
+        result["machine_screen_passed"] = 1
+        result["manual_review_required"] = 0
+        result["pending_asr"] = 0
+        result["all_machine_checks_passed"] = True
+        save_json(self.output, result)
+        with self.assertRaisesRegex(ValueError, "recomputation"):
+            check_tts_quality(json.loads(self.plan.read_text()), self.audio,
+                              self.output, required=True,
+                              authored_sha256=sha(self.plan),
+                              authored_path=self.plan, asr_dir=self.asr)
+
     def test_refuses_report_overwrite(self):
         self.receipt()
         self.run_screen()
@@ -147,24 +168,24 @@ class TtsQualityGateTests(unittest.TestCase):
         self.run_screen()
         plan = json.loads(self.plan.read_text(encoding="utf-8"))
         report = check_tts_quality(plan, self.audio, self.output,
-                                   authored_sha256=sha(self.plan))
+                                   authored_sha256=sha(self.plan), authored_path=self.plan, asr_dir=self.asr)
         self.assertFalse(report["machine_complete"])
         with self.assertRaisesRegex(ValueError, "incomplete/flagged"):
             check_tts_quality(plan, self.audio, self.output, required=True,
-                              authored_sha256=sha(self.plan))
+                              authored_sha256=sha(self.plan), authored_path=self.plan, asr_dir=self.asr)
 
     def test_integrated_screen_gates_and_audio_digest(self):
         self.receipt()
         self.run_screen()
         plan = json.loads(self.plan.read_text(encoding="utf-8"))
         report = check_tts_quality(plan, self.audio, self.output, required=True,
-                                   authored_sha256=sha(self.plan))
+                                   authored_sha256=sha(self.plan), authored_path=self.plan, asr_dir=self.asr)
         self.assertTrue(report["machine_complete"])
         self.assertFalse(report["human_certified"])
         self.make_wav(amplitude=6800)
-        with self.assertRaisesRegex(ValueError, "mismatched audio"):
+        with self.assertRaisesRegex(ValueError, "mismatched audio|Tampered"):
             check_tts_quality(plan, self.audio, self.output,
-                              authored_sha256=sha(self.plan))
+                              authored_sha256=sha(self.plan), authored_path=self.plan, asr_dir=self.asr)
 
 
 
