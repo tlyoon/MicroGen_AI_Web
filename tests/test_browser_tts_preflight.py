@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from selenium_pipeline.browser_tts_preflight import (
-    evaluate,preflight,BrowserTTSBlocked,SURFACE,
+    evaluate,preflight,BrowserTTSBlocked,SURFACE,local_configuration_presence,
 )
 
 
@@ -59,6 +59,36 @@ class WebTTSPreflightTests(unittest.TestCase):
         self.assertFalse(result["usable_for_automatic_element_tts"])
         self.assertFalse(result["billing_free_generation_verified"])
         self.assertFalse(result["submitted_generation_request"])
+
+    def test_local_config_exists_despite_ai_studio_no_key_selection(self):
+        local=self.root/"AppData"/"Local"
+        micro=local/"Microvid"
+        micro.mkdir(parents=True)
+        for name in (".env","google_cloud_credentials.json",
+                     "drive-oauth-client.json"):
+            (micro/name).write_text("DO_NOT_READ_THIS_FIXTURE")
+        (local/"gemini_automation_TEST").mkdir()
+        (local/"Google"/"Chrome"/"User Data").mkdir(parents=True)
+        evidence=local_configuration_presence({"LOCALAPPDATA":str(local)})
+        self.assertTrue(evidence["local_microvid_config_present"])
+        self.assertTrue(evidence["local_persistent_gemini_profile_present"])
+        self.assertFalse(evidence["local_credential_contents_read"])
+        receipt=preflight(
+            requested_model="gemini-3.8-flash-lite-tts",
+            requested_voice="Kore",output=self.out,
+            transport=lambda **_:self.snapshot(),
+            local_environ={"LOCALAPPDATA":str(local)})
+        self.assertTrue(receipt["local_microvid_config_present"])
+        self.assertTrue(receipt["no_api_key_selected_visible"])
+        self.assertFalse(receipt["usable_for_automatic_element_tts"])
+        self.assertFalse(receipt["api_called_by_microgen"])
+        self.assertNotIn("DO_NOT_READ_THIS_FIXTURE",self.out.read_text())
+
+    def test_no_localappdata_does_not_search_repository_for_credentials(self):
+        result=local_configuration_presence({})
+        self.assertFalse(result["local_microvid_config_present"])
+        self.assertFalse(result["local_credential_contents_read"])
+        self.assertTrue(result["local_credentials_not_browser_key_selection"])
 
     def test_original_flash_not_mistaken_for_flash_lite(self):
         r=evaluate(self.snapshot(),requested_model="gemini-3.8-flash-tts",

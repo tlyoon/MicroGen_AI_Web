@@ -25,6 +25,42 @@ def digest(data:bytes)->str:
     return hashlib.sha256(data).hexdigest()
 
 
+def local_configuration_presence(environ:dict[str,str]|None=None)->dict:
+    """Inspect ONLY directory/file existence, never credential values.
+
+    Local settings and authenticated Chrome profiles are separate from a
+    Google AI Studio page displaying "No API key selected". They are not
+    proofs that browser voice generation is usable or cost-free.
+    """
+    env=os.environ if environ is None else environ
+    raw=str(env.get("LOCALAPPDATA","")).strip()
+    base=Path(raw).expanduser() if raw else None
+    if base is None or not base.is_dir():
+        return {
+            "local_microvid_config_present":False,
+            "local_google_cloud_credential_file_present":False,
+            "local_drive_oauth_config_present":False,
+            "local_persistent_gemini_profile_present":False,
+            "local_chrome_profile_present":False,
+            "local_credential_contents_read":False,
+            "local_credentials_not_browser_key_selection":True,
+        }
+    microvid=base/"Microvid"
+    return {
+        "local_microvid_config_present":(microvid/".env").is_file(),
+        "local_google_cloud_credential_file_present":
+            (microvid/"google_cloud_credentials.json").is_file(),
+        "local_drive_oauth_config_present":
+            (microvid/"drive-oauth-client.json").is_file(),
+        "local_persistent_gemini_profile_present":
+            any(p.is_dir() for p in base.glob("gemini_automation_*")),
+        "local_chrome_profile_present":
+            (base/"Google"/"Chrome"/"User Data").is_dir(),
+        "local_credential_contents_read":False,
+        "local_credentials_not_browser_key_selection":True,
+    }
+
+
 def evaluate(snapshot:dict, *, requested_model:str,
              requested_voice:str)->dict:
     """Conservative summary of UI support. No dynamic JavaScript calls."""
@@ -148,7 +184,8 @@ def browser_snapshot(*, port:int=9222, timeout_s:int=25)->dict:
 
 def preflight(*,requested_model:str,requested_voice:str,output:Path,
               transport=None,port:int=9222,timeout_s:int=25,
-              source_root:Path|None=None)->dict:
+              source_root:Path|None=None,
+              local_environ:dict[str,str]|None=None)->dict:
     output=Path(output).resolve()
     if output.exists() or not output.parent.is_dir() or output.is_symlink():
         raise ValueError("Preflight receipt must be a new isolated file")
@@ -191,6 +228,9 @@ def preflight(*,requested_model:str,requested_voice:str,output:Path,
     else:
         report=evaluate(snapshot,requested_model=requested_model,
                         requested_voice=requested_voice)
+    # Presence-only local configuration evidence. Do not infer browser
+    # billing, model availability, key selection, or an authorized API call.
+    report.update(local_configuration_presence(local_environ))
     with output.open("x",encoding="utf8") as f:
         json.dump(report,f,indent=2,sort_keys=True)
         f.write("\n")

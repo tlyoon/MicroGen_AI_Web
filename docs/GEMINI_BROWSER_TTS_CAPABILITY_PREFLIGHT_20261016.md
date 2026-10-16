@@ -111,3 +111,35 @@ receipt with `selenium_python_dependency_unavailable`, leaving all
 model/voice/key observations unknown and every production permission
 false. A future run must use an already-configured approved Selenium
 environment for that machine; this code installs nothing automatically.
+
+## Existing per-PC Google credentials (clarification)
+
+The project already stores each Windows user's **local configuration**
+under `%LOCALAPPDATA%\Microvid\.env`, with other Google configuration
+files alongside it, and reuses persistent Gemini Chrome profile data
+under that machine's own `%LOCALAPPDATA%`. This pre-existing local
+layout is correct and should not be migrated to the GitHub checkout,
+copied across PCs, or replaced with new secrets.
+
+A presence-only check on **Dell-115, HP, and Yoga6** verified that
+`Microvid\.env`, Google Cloud credentials, Drive OAuth configuration
+and a persistent Gemini browser profile exist on all three machines.
+The check used file-existence operations only: **no secret file content,
+token, credential value, account identity or raw Chrome profile was read
+or displayed**.
+
+Important distinction: Google AI Studio displaying **"No API key
+selected"** reports the web playground's own selected-key state.
+It does **not** establish that MicroGen's separate locally stored
+Google credentials are missing, expired or invalid. Conversely,
+the mere presence of files in `%LOCALAPPDATA%` does **not** establish
+that a browser can generate free Flash-Lite TTS audio or authorize
+metered API calls.
+
+The preflight now emits separate local file-presence booleans together
+with the observed browser-state booleans. It explicitly records that
+no secret contents were read and never converts local configuration
+presence into `usable_for_automatic_element_tts=true`. No Google
+login, key selection, API mode change or new credential provision is
+required for running this presence check. API TTS still requires
+independent explicit paid-API permission, as defined in PR #108.
