@@ -77,8 +77,63 @@ def check_independent_asr(plan: dict, audio: Path, directory: Path | None,
             "human_certified":False}
 
 
+def verify_layout_only_rebind(*,current:dict, source:Path, slides:Path,
+            audio:Path, old_slides:Path | None,
+            previous_voice_plan:Path | None, rebind_receipt:Path | None,
+            figure_resize_receipt:Path | None)->dict:
+    required=(
+        "layout_only_rebind_from_voice_plan_sha256" in current or
+        any(x is not None for x in
+            (old_slides,previous_voice_plan,rebind_receipt,figure_resize_receipt))
+    )
+    if not required:
+        return {"status":"not_required"}
+    require(all(x is not None for x in
+        (old_slides,previous_voice_plan,rebind_receipt,figure_resize_receipt)),
+        "Layout-only narration rebind requires all four origin evidence files")
+    old_slides,previous_voice_plan,rebind_receipt,figure_resize_receipt=(
+        Path(x).resolve() for x in
+        (old_slides,previous_voice_plan,rebind_receipt,figure_resize_receipt))
+    old=load(previous_voice_plan)
+    reb=load(rebind_receipt)
+    resized=load(figure_resize_receipt)
+    rebuilt=dict(old)
+    rebuilt["slides_sha256"]=H(slides)
+    rebuilt["layout_only_rebind_from_voice_plan_sha256"]=H(previous_voice_plan)
+    rebuilt["layout_only_rebind_receipt_sha256"]=H(figure_resize_receipt)
+    require(rebuilt==current,
+        "Rebound narration plan modifies content beyond the approved PDF SHA and provenance fields")
+    require(reb["status"]=="REVIEW_ONLY_LAYOUT_REBIND_SAME_NARRATION_NOT_CERTIFIED"
+            and reb["old_voice_bound_plan_sha256"]==H(previous_voice_plan)
+            and reb["old_slides_sha256"]==H(old_slides)
+            and reb["new_slides_sha256"]==H(slides)
+            and reb["source_sha256"]==H(source)
+            and reb["figure_resize_receipt_sha256"]==H(figure_resize_receipt)
+            and reb["tts_synthesis_receipt_sha256"]==H(audio/"tts_synthesis_receipt.json")
+            and reb["all_original_wav_bytes_and_text_hashes_verified"] is True
+            and reb["academic_approval"] is False
+            and reb["production_approved"] is False,
+            "Rebind provenance invalid, stale or improperly approved")
+    require(resized["status"]=="REVIEW_ONLY_ISOLATED_FIGURE_RESIZE"
+            and resized["source_slides_sha256"]==H(old_slides)
+            and resized["derived_slides_sha256"]==H(slides)
+            and resized["production_approved"] is False
+            and reb["changed_slide_numbers"]==
+                  resized["changed_rendered_slide_numbers"]==
+                      [resized["target_slide"]]
+            and len(reb["changed_element_anchors"])>=1,
+            "Changed-slide or element-anchor correction not independently bounded")
+    return {"status":"review_only_layout_rebind_evidence_pass",
+            "changed_original_slide_numbers":reb["changed_slide_numbers"],
+            "changed_highlight_anchor_count":len(reb["changed_element_anchors"]),
+            "narration_unchanged_sha_verified":True,
+            "independent_speech_complete":False,
+            "production_approved":False}
+
+
 def audit(*,source,slides,authored,audio,staged,rendered,report,
-          asr_dir=None,require_asr=False):
+          asr_dir=None,require_asr=False,old_slides=None,
+          previous_voice_plan=None,rebind_receipt=None,figure_resize_receipt=None):
     source,slides,authored,audio,staged,rendered,report=map(
        lambda x:Path(x).resolve(),(source,slides,authored,audio,staged,rendered,report))
     require(not report.exists() and report.parent.is_dir(),
@@ -109,6 +164,10 @@ def audit(*,source,slides,authored,audio,staged,rendered,report,
             and job["voice"]=="Kore"
             and job["provider"]=="gemini",
             "Inconsistent provider/model/voice")
+    layout_rebind=verify_layout_only_rebind(
+        current=original,source=source,slides=slides,audio=audio,
+        old_slides=old_slides,previous_voice_plan=previous_voice_plan,
+        rebind_receipt=rebind_receipt,figure_resize_receipt=figure_resize_receipt)
     parts=original["parts"]
     require(len(parts)==len(series["parts"])==2,"Two teaching parts required")
     flat=[r for part in parts for slide in part["slides"] for r in slide["elements"]]
@@ -187,6 +246,7 @@ def audit(*,source,slides,authored,audio,staged,rendered,report,
         "status":"FULL_SLIDE_COVERAGE_TECHNICAL_REVIEW_PASS_NOT_PRODUCTION_APPROVAL",
         "independent_model_speech_audit":asr,
         "production_eligible":False,
+        "layout_only_narration_rebind":layout_rebind,
         "source_sha256":H(source),"slides_sha256":H(slides),
         "coverage_slides":ordered,
         "coverage_elements":len(flat),
@@ -212,5 +272,9 @@ if __name__=="__main__":
         p.add_argument("--"+name,required=True,type=Path)
     p.add_argument("--asr-dir",type=Path)
     p.add_argument("--require-asr",action="store_true")
+    p.add_argument("--old-slides",type=Path)
+    p.add_argument("--previous-voice-plan",type=Path)
+    p.add_argument("--rebind-receipt",type=Path)
+    p.add_argument("--figure-resize-receipt",type=Path)
     args=p.parse_args()
     audit(**vars(args))

@@ -28,7 +28,9 @@ def figure_box(page):
 
 def make(*,source:Path,dest:Path,image_name:str,
          old_height:float,new_height:float,slide_number:int,
-         width_threshold:float=.18)->dict:
+         width_threshold:float=.18,
+         compact_after_image_pt:float=0.0,
+         compact_before_image_pt:float=0.0)->dict:
     source,dest=Path(source).resolve(),Path(dest).resolve()
     require(source.is_dir() and (source/"slides.tex").is_file()
             and (source/"slides.pdf").is_file(),"Source LaTeX/PDF missing")
@@ -39,7 +41,10 @@ def make(*,source:Path,dest:Path,image_name:str,
             is not None,"Unsafe image filename")
     require((source/image_name).is_file(),"Figure source asset missing")
     require(0.05<=old_height<new_height<=.60
-            and 0<width_threshold<.5,"Figure sizing parameters invalid")
+            and 0<width_threshold<.5
+            and -12<=compact_after_image_pt<=12
+            and 0<=compact_before_image_pt<=12,
+            "Figure sizing parameters invalid")
     latex=(source/"slides.tex").read_text(encoding="utf8")
     old=f"height={old_height:.2f}\\textheight,keepaspectratio]{{{image_name}}}"
     new=f"height={new_height:.2f}\\textheight,keepaspectratio]{{{image_name}}}"
@@ -50,7 +55,28 @@ def make(*,source:Path,dest:Path,image_name:str,
         for p in source.glob("*"+suffix):
             require(p.is_file() and not p.is_symlink(),"Invalid source image")
             shutil.copy2(p,dest/p.name)
-    (dest/"slides.tex").write_text(latex.replace(old,new),encoding="utf8")
+    updated=latex.replace(old,new)
+    if compact_before_image_pt:
+        marker=rf"\IfFileExists{{{image_name}}}"
+        check_index=updated.index(new)
+        marker_at=updated.rfind(marker,0,check_index)
+        require(marker_at>=0 and updated.count(marker)==1,
+                "Could not uniquely find target image conditional")
+        updated=(updated[:marker_at]+
+                 rf"\vspace{{-{compact_before_image_pt:g}pt}}"+"\n  "+
+                 updated[marker_at:])
+    if compact_after_image_pt:
+        # Avoid globally tightening unrelated itemize blocks; only the first
+        # list which follows the exact target image in this LaTeX frame.
+        position=updated.index(new)+len(new)
+        itemize=updated.find(r"\begin{itemize}",position)
+        frame_end=updated.find(r"\end{frame}",position)
+        require(itemize>=0 and frame_end>itemize,
+                "Target figure has no following in-frame itemize list")
+        updated=(updated[:itemize]
+                 +rf"\vspace{{{-compact_after_image_pt:g}pt}}"+"\n  "
+                 +updated[itemize:])
+    (dest/"slides.tex").write_text(updated,encoding="utf8")
     cmd=["pdflatex","-interaction=nonstopmode","-halt-on-error","slides.tex"]
     try:
         result=subprocess.run(cmd,cwd=str(dest),capture_output=True,
@@ -99,7 +125,9 @@ def make(*,source:Path,dest:Path,image_name:str,
        "changed_rendered_slide_numbers":changed,
        "target_slide":slide_number,"image":image_name,
        "before_width_fraction":round(old_fraction,4),
-       "after_width_fraction":round(new_fraction,4),
+        "after_width_fraction":round(new_fraction,4),
+        "compact_after_image_pt":compact_after_image_pt,
+        "compact_before_image_pt":compact_before_image_pt,
        "technical_pdf_blockers":qa["blocker_count"],
        "human_academic_approval":False,"production_approved":False,
        "narration_and_video_reverification_required":True}
@@ -115,9 +143,13 @@ def main():
     p.add_argument("--old-height",type=float,required=True)
     p.add_argument("--new-height",type=float,required=True)
     p.add_argument("--slide",type=int,required=True)
+    p.add_argument("--compact-after-image-pt",type=float,default=0.0)
+    p.add_argument("--compact-before-image-pt",type=float,default=0.0)
     args=p.parse_args()
     print(json.dumps(make(source=args.source,dest=args.destination,
          image_name=args.image,old_height=args.old_height,
-         new_height=args.new_height,slide_number=args.slide),indent=2))
+         new_height=args.new_height,slide_number=args.slide,
+         compact_after_image_pt=args.compact_after_image_pt,
+         compact_before_image_pt=args.compact_before_image_pt),indent=2))
 
 if __name__=="__main__":main()
