@@ -38,7 +38,8 @@ def check_independent_asr(plan: dict, audio: Path, directory: Path | None,
     require(authored_sha256 is not None and
             job.get("plan_sha256")==authored_sha256,
             "ASR job plan SHA mismatch")
-    require(job["model"] in ("gemini-3.1-flash-lite","gemini-3.5-flash")
+    require(job["model"] in ("gemini-3.1-flash-lite","gemini-3.5-flash",
+                              "gemini-flash-web-ui")
             and job["source_model"]=="gemini-3.8-flash-lite-tts",
             "ASR model not distinct from TTS")
     require(len(job["clips"])==len(events)
@@ -62,6 +63,10 @@ def check_independent_asr(plan: dict, audio: Path, directory: Path | None,
                 and data["transcript_sha256"]==
                     hashlib.sha256(data["transcript"].encode("utf8")).hexdigest(),
                 "Tampered or mismatched ASR model transcript")
+        if job["model"]=="gemini-flash-web-ui":
+            require(data.get("backend")=="selenium_flash_browser"
+                    and data.get("exact_web_model_version_unverified") is True,
+                    "Cannot accept unauthenticated browser-mode ASR provenance")
         checked+=1
         if data["metrics"]["machine_asr_consistent"]:
             matched+=1

@@ -10,7 +10,7 @@ import wave
 
 from selenium_pipeline.element_series_audit import check_tts_quality
 from selenium_pipeline.tts_quality_gate import (
-    acoustic_check, math_marks, screen, word_error_rate,
+    acoustic_check, math_marks, math_token_order, screen, word_error_rate,
 )
 
 
@@ -114,6 +114,32 @@ class TtsQualityGateTests(unittest.TestCase):
                          math_marks("Section 8.4"))
         self.assertNotEqual(math_marks("negative pi over two"),
                             math_marks("positive pi over two"))
+
+    def test_noncommutative_math_order_never_auto_passes(self):
+        self.assertEqual(math_marks("two minus three"),
+                         math_marks("three minus two"))
+        self.assertNotEqual(math_token_order("two minus three"),
+                            math_token_order("three minus two"))
+        self.assertNotEqual(math_token_order("negative pi over two"),
+                            math_token_order("positive pi over two"))
+        self.assertEqual(math_token_order("Section 8.4"),
+                         math_token_order("Section eight point four"))
+
+    def test_swapped_mathematical_operands_are_flagged(self):
+        self.script = "We calculate two minus three in this expression."
+        self.plan.write_text(json.dumps({
+            "status": "author_specified_unapproved_element_narration",
+            "parts": [{"slides": [{"elements": [
+                {"wav": self.wav.name, "spoken_text": self.script}
+            ]}]}]}),encoding="utf-8")
+        job=json.loads((self.asr/"asr_job.json").read_text())
+        job["plan_sha256"]=sha(self.plan)
+        save_json(self.asr/"asr_job.json",job)
+        self.receipt("We calculate three minus two in this expression.")
+        result=self.run_screen()
+        self.assertIn("mathematical_spoken_token_discrepancy",
+                      result["clips"][0]["review_flags"])
+        self.assertTrue(result["clips"][0]["math_token_discrepancy"]["order_changed"])
 
     def test_clipping_is_technical_rejection(self):
         self.make_wav(amplitude=32767)

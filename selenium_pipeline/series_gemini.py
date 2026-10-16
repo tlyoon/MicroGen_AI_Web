@@ -65,7 +65,8 @@ def _vendor_module():
 
 
 def _browser_request(instruction: str,attachments: list[Path],
-                     *,port: int,wait_cap_s: int) -> str:
+                     *,port: int,wait_cap_s: int,
+                     min_chars: int=200,accept_fn=None) -> str:
     from .three_pc_worker import LocalInstanceLock
     from .gemini_model import ensure_mode
 
@@ -93,7 +94,8 @@ def _browser_request(instruction: str,attachments: list[Path],
             try:
                 response = vendor.capture_gemini_response_like_manual_copy(
                     client.driver,wait_cap=wait_cap_s,prefer_latex_doc=False,
-                    min_chars=200,retries=4,accept_fn=_looks_complete,
+                    min_chars=min_chars,retries=4,
+                    accept_fn=(accept_fn or _looks_complete),
                 )
             except (TimeoutError, RuntimeError) as exc:
                 capture_error = exc
