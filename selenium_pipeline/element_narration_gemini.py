@@ -46,6 +46,10 @@ def main(argv=None):
     p.add_argument("--model",default="gemini-3.8-flash-lite-tts")
     p.add_argument("--resume",action="store_true")
     p.add_argument("--confirm-live",action="store_true")
+    p.add_argument("--confirm-reviewed-tts-request",action="store_true",
+        help="Explicitly accept a complete, source-reviewed synthesis request")
+    p.add_argument("--confirm-gemini-api-cost",action="store_true",
+        help="Explicitly authorize the existing paid Gemini API transport; no Selenium TTS fallback")
     args=p.parse_args(argv)
     if not args.confirm_live:
         p.error("No network/TTS request without --confirm-live")
@@ -58,9 +62,28 @@ def main(argv=None):
     if not src.is_file() or src.is_symlink():
         p.error("Missing non-symlink authored plan")
     plan=json.loads(src.read_text(encoding="utf8"))
-    if (plan.get("schema_version")!=1 or
-        plan.get("status")!="author_specified_unapproved_element_narration"):
+    if plan.get("schema_version")!=1 or plan.get("status") not in (
+        "author_specified_unapproved_element_narration",
+        "reviewed_element_tts_request_unapproved"):
         p.error("An explicit unapproved element-level plan is required")
+    if plan["status"]=="reviewed_element_tts_request_unapproved":
+        # Prevent a newly generated review JSON from silently billing the
+        # Gemini API. There is currently NO verified Gemini-web TTS transport.
+        if not args.confirm_reviewed_tts_request or not args.confirm_gemini_api_cost:
+            p.error("Reviewed TTS requests require BOTH explicit reviewer and "
+                    "paid-Gemini-API authorization flags")
+        if (plan.get("tts_model")!=args.model or
+                plan.get("tts_voice")!=args.voice or
+                plan.get("voice_id")!=f"gemini_{args.model}_{args.voice}_REVIEW_ONLY"
+                or plan.get("api_execution_authorized") is not False
+                or plan.get("academic_approval") is not False
+                or plan.get("student_publication") is not False
+                or not all(isinstance(plan.get(k),str)
+                           and len(plan[k])==64
+                           for k in ("source_sha256","slides_sha256",
+                           "script_sha256","draft_sha256",
+                           "review_selection_sha256"))):
+            p.error("Reviewed request/voice/source identities inconsistent")
     all_rows=list(segments(plan))
     if not 1<=len(all_rows)<=300:
         p.error("Invalid segment count")
