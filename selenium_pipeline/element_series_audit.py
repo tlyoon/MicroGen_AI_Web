@@ -23,7 +23,62 @@ def H(p):
 def load(p):return json.loads(p.read_text(encoding="utf8"))
 
 
-def audit(*,source,slides,authored,audio,staged,rendered,report):
+def check_independent_asr(plan: dict, audio: Path, directory: Path | None,
+                          *, required: bool = False,
+                          authored_sha256: str | None = None) -> dict:
+    """ASR evidence never certifies spoken words; incomplete/mismatched clips block."""
+    events=[el for p in plan["parts"] for sl in p["slides"] for el in sl["elements"]]
+    if directory is None:
+        if required:
+            raise ValueError("Independent ASR evidence missing")
+        return {"status":"not_run","checked":0,"total":len(events),
+                "matched":0,"flagged":0,"human_certified":False}
+    directory=Path(directory).resolve()
+    job=load(directory/"asr_job.json")
+    require(authored_sha256 is not None and
+            job.get("plan_sha256")==authored_sha256,
+            "ASR job plan SHA mismatch")
+    require(job["model"] in ("gemini-3.1-flash-lite","gemini-3.5-flash")
+            and job["source_model"]=="gemini-3.8-flash-lite-tts",
+            "ASR model not distinct from TTS")
+    require(len(job["clips"])==len(events)
+            and job["clips"]==[el["wav"] for el in events],
+            "ASR job covers a different scene")
+    checked=0
+    matched=0
+    flagged=0
+    for event in events:
+        row=directory/(event["wav"]+".asr.json")
+        if not row.is_file():
+            continue
+        data=load(row)
+        wav=audio/event["wav"]
+        require(data["wav"]==event["wav"]
+                and data["wav_sha256"]==H(wav)
+                and data["reference_sha256"]==
+                    hashlib.sha256(event["spoken_text"].encode("utf8")).hexdigest(),
+                "Stale independent ASR evidence")
+        require(data["asr_model"]==job["model"]
+                and data["transcript_sha256"]==
+                    hashlib.sha256(data["transcript"].encode("utf8")).hexdigest(),
+                "Tampered or mismatched ASR model transcript")
+        checked+=1
+        if data["metrics"]["machine_asr_consistent"]:
+            matched+=1
+        else:
+            flagged+=1
+    complete=checked==len(events)
+    if required and (not complete or flagged):
+        raise ValueError("Independent ASR incomplete or mismatched; block acceptance")
+    return {"status":("machine_consistent_not_certified" if complete and not flagged
+               else "partial_or_flagged_requires_review"),
+            "checked":checked,"total":len(events),
+            "matched":matched,"flagged":flagged,
+            "human_certified":False}
+
+
+def audit(*,source,slides,authored,audio,staged,rendered,report,
+          asr_dir=None,require_asr=False):
     source,slides,authored,audio,staged,rendered,report=map(
        lambda x:Path(x).resolve(),(source,slides,authored,audio,staged,rendered,report))
     require(not report.exists() and report.parent.is_dir(),
@@ -126,8 +181,12 @@ def audit(*,source,slides,authored,audio,staged,rendered,report):
             "decoded_pixel_checked":rec["decoded_pixel_verified_events"],
             "max_transition_drift_s":rec["encoded_transition_qa"]["max_encoded_frame_drift_s"],
             "mp4_sha256":rec["mp4_sha256"],"video_path":str(video)})
+    asr=check_independent_asr(original,audio,asr_dir,required=require_asr,
+                              authored_sha256=H(authored))
     result={
         "status":"FULL_SLIDE_COVERAGE_TECHNICAL_REVIEW_PASS_NOT_PRODUCTION_APPROVAL",
+        "independent_model_speech_audit":asr,
+        "production_eligible":False,
         "source_sha256":H(source),"slides_sha256":H(slides),
         "coverage_slides":ordered,
         "coverage_elements":len(flat),
@@ -151,5 +210,7 @@ if __name__=="__main__":
     p=argparse.ArgumentParser()
     for name in ("source","slides","authored","audio","staged","rendered","report"):
         p.add_argument("--"+name,required=True,type=Path)
+    p.add_argument("--asr-dir",type=Path)
+    p.add_argument("--require-asr",action="store_true")
     args=p.parse_args()
     audit(**vars(args))
