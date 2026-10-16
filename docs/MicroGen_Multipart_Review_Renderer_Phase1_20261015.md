@@ -53,3 +53,7 @@ Timing proofs alone do not prove which source-linked highlight is visible in an 
 ## Bounded decoding for full-length lessons
 
 The decoded-pixel verifier now parses the real variable-frame-rate presentation timestamps once and uses a single FFmpeg selected-frame batch per video part, even when hundreds of narration events exist. This avoids restarting FFmpeg and re-decoding the MP4 from the beginning for every equation highlight, which could stall 8-9 minute lessons. Frames are staged in a temporary folder and automatically cleaned. Tests verify one batch per part, positive highlighted output, rejection of a plain static impostor, and rejection of a video with a deliberately incorrect claimed highlight target.
+
+## Full-length contract stress test
+
+The standard regression suite includes a real H.264/AAC encode of two separate synthetic video parts of approximately **520.1 seconds each (8m40.1s)**, with verified decoded source-linked highlights. The test exercises long-duration WAV concatenation, strict measured MP4 duration below 600s, correct ordered part receipts and fast batched pixel QA. It uses silent PCM, not teaching narration, and deliberately does not certify academic content or student readiness.

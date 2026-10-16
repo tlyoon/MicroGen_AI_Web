@@ -129,6 +129,31 @@ class MultiPartPreviewTests(unittest.TestCase):
         with self.assertRaisesRegex(VideoContractError,"Required receipt missing"):
             verify_series(self.output)
 
+    def test_two_real_8m40s_videos_stay_under_strict_limit(self):
+        # Regression against the former 10:30 allowance and performance
+        # stalls when verifying hundreds of seconds of encoded VFR video.
+        # Synthetic silence exercises duration and visual timing ONLY:
+        # it is not an intelligible or approved narration test.
+        for part_id in self.parts:
+            audio=self.staged/part_id/"wav"
+            for index in (1,2):
+                with wave.open(str(audio/f"n{index}.wav"),"wb") as wav:
+                    wav.setnchannels(1)
+                    wav.setsampwidth(2)
+                    wav.setframerate(16000)
+                    wav.writeframes(bytes(260*16000*2))
+        manifest=render_review_series(
+            source_pdf=self.source,inputs_root=self.staged,
+            output_root=self.output)
+        self.assertEqual(manifest["status"],"review_only_not_approved")
+        self.assertEqual(len(manifest["parts"]),2)
+        for part in manifest["parts"]:
+            self.assertGreater(part["encoded_mp4_seconds"],519.5)
+            self.assertLess(part["encoded_mp4_seconds"],521)
+            self.assertLess(part["encoded_mp4_seconds"],600)
+            self.assertEqual(part["decoded_pixel_verified_events"],2)
+        self.assertFalse((self.output/"lecture_completion.json").exists())
+
     def test_encoded_pixel_qa_extracts_one_frame_batch_per_part(self):
         from unittest.mock import patch
         from selenium_pipeline import encoded_highlight_pixels as pixels
