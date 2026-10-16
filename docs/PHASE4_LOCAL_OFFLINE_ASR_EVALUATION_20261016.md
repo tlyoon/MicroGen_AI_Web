@@ -91,7 +91,7 @@ listening and lecturer academic signoff.
 
 ## Current accepted facts / blockers
 
-- **10 new offline/fault-injection unit tests** are passing on Dell-115
+- **12 new offline/fault-injection unit tests** are passing on Dell-115
   using artificial *mock* CTranslate2 model files and injected transcript
   callbacks. These are tests of job persistence, isolation and integrity,
   **not proof of actual Whisper recognition accuracy**.
@@ -111,3 +111,26 @@ compare actual ASR WER, operator/sign preservation and execution speed
 against the existing independent Gemini receipts, then decide whether to
 commit to all 48 local transcriptions or seek separate authorization for
 the already working Google Gemini audio API alternative.
+
+### Targeted three-clip mathematical benchmark
+
+Use `--include-wav` repeatedly to evaluate original, authentic WAVs
+with exact authored filenames. For example, after provisioning:
+
+```powershell
+& $py -m selenium_pipeline.phase4_local_asr `
+  --plan PATH_TO_UNCHANGED_AUTHORED_NARRATION_PLAN.json `
+  --audio PATH_TO_ORIGINAL_48_WAVS `
+  --model-dir PATH_TO_PREINSTALLED_MODEL `
+  --model-size base.en `
+  --output NEW_LOCAL_ASR_EVIDENCE_DIRECTORY `
+  --include-wav s01_e01.wav `
+  --include-wav s05_e03.wav `
+  --include-wav s06_e02.wav `
+  --max-new 3
+```
+
+Selected clips remain bound to the *same full 48-clip authored plan and
+single-model ASR job*. Subsequent invocations can resume more clips without
+rewriting earlier evidence. This benchmark has **not** been run on actual
+speech because the real offline model weights are not installed.

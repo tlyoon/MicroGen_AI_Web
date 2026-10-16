@@ -59,7 +59,8 @@ def _engine(model_dir:Path)->Callable[[Path],str]:
     return recognize
 
 def run(*,plan:Path,audio:Path,model_dir:Path,model_size:str,
-        out:Path,max_new:int=2,recognizer=None)->dict:
+        out:Path,max_new:int=2,recognizer=None,
+        include_wavs:list[str]|None=None)->dict:
     if not 1<=max_new<=500:raise ValueError("Invalid bounded max_new")
     plan,audio,out=(Path(x).resolve() for x in (plan,audio,out))
     if (not plan.is_file() or not audio.is_dir() or
@@ -75,6 +76,13 @@ def run(*,plan:Path,audio:Path,model_dir:Path,model_size:str,
     if not 1<=len(names)<=500 or len(set(names))!=len(names) or not all(
             re.fullmatch(r"[A-Za-z0-9_.-]+\.wav",n) for n in names):
         raise ValueError("Unsafe/duplicated filenames or empty plan")
+    # Select a targeted mathematical sample without changing the frozen
+    # full-lecture ASR job identity. The next run can resume other clips.
+    selection=set(include_wavs) if include_wavs is not None else None
+    if selection is not None and (
+            not selection or len(selection)!=len(include_wavs)
+            or not selection.issubset(set(names))):
+        raise ValueError("Requested benchmark clips must be unique WAVs in the plan")
     identity=model_identity(model_dir,model_size)
     signature={"schema_version":1,"status":"independent_model_asr_review_only",
        "plan_sha256":filehash(plan),"model":identity["model_id"],
@@ -95,6 +103,8 @@ def run(*,plan:Path,audio:Path,model_dir:Path,model_size:str,
     new=0; reused=0; failed=None
     recognize=recognizer
     for el in scenes:
+        if selection is not None and el["wav"] not in selection:
+            continue
         name,expected=el["wav"],el["spoken_text"]
         wav=audio/name
         if not wav.is_file() or wav.is_symlink():
@@ -146,7 +156,9 @@ def run(*,plan:Path,audio:Path,model_dir:Path,model_size:str,
                       "OFFLINE_ASR_REVIEW_ONLY"),
             "model":identity["model_id"],
             "model_sha256":identity["model_sha256"],
-            "total_clips":len(scenes),"completed_receipts":completed,
+            "total_clips":len(scenes),
+            "selected_in_this_run":len(selection) if selection is not None else len(scenes),
+            "completed_receipts":completed,
             "remaining":len(scenes)-completed,"new_receipts":new,
             "reused":reused,"error_type":failed,
             "network_model_fetch_performed":False,
@@ -164,10 +176,13 @@ def main():
         p.add_argument("--"+name,required=True,type=Path)
     p.add_argument("--model-size",choices=sorted(MODELS),required=True)
     p.add_argument("--max-new",type=int,default=2)
+    p.add_argument("--include-wav",action="append",
+                   help="Exact authored WAV filename; repeat for targeted sample")
     args=p.parse_args()
     result=run(plan=args.plan,audio=args.audio,
                model_dir=args.model_dir,model_size=args.model_size,
-               out=args.output,max_new=args.max_new)
+               out=args.output,max_new=args.max_new,
+               include_wavs=args.include_wav)
     print(json.dumps(result,indent=2))
     if result["error_type"]:raise SystemExit(2)
 

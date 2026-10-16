@@ -70,6 +70,24 @@ class OfflineASRTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,"stale or tampered"):
             self.run_local(max_new=2)
 
+    def test_targeted_math_clip_selection_preserves_full_job_identity(self):
+        first=self.run_local(max_new=1,include_wavs=["s01_e03.wav"])
+        self.assertEqual(first["selected_in_this_run"],1)
+        self.assertEqual(first["completed_receipts"],1)
+        self.assertEqual(self.calls,["s01_e03.wav"])
+        self.assertEqual(json.loads((self.out/"asr_job.json").read_text())["clips"],
+                         ["s01_e01.wav","s01_e02.wav","s01_e03.wav"])
+        again=self.run_local(max_new=1,include_wavs=["s01_e01.wav"])
+        self.assertEqual(again["completed_receipts"],2)
+        self.assertEqual(self.calls,["s01_e03.wav","s01_e01.wav"])
+
+    def test_targeted_selection_rejects_missing_or_duplicate_wav(self):
+        for clips in (["absent.wav"],["s01_e01.wav","s01_e01.wav"],[]):
+            with self.subTest(clips=clips),self.assertRaisesRegex(
+                 ValueError,"unique WAVs"):
+                self.run_local(max_new=1,include_wavs=clips)
+        self.assertFalse(self.out.exists())
+
     def test_wrong_script_resumption_rejected(self):
         self.run_local(max_new=1)
         job=json.loads(self.plan.read_text())
