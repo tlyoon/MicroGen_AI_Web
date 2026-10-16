@@ -129,6 +129,41 @@ class MultiPartPreviewTests(unittest.TestCase):
         with self.assertRaisesRegex(VideoContractError,"Required receipt missing"):
             verify_series(self.output)
 
+    def test_encoded_pixel_qa_extracts_one_frame_batch_per_part(self):
+        from unittest.mock import patch
+        from selenium_pipeline import encoded_highlight_pixels as pixels
+        with patch.object(pixels, "_decode_selected",
+                          wraps=pixels._decode_selected) as batch:
+            render_review_series(source_pdf=self.source,
+                inputs_root=self.staged,output_root=self.output)
+        self.assertEqual(batch.call_count, 2)  # one FFmpeg batch per part
+        for call in batch.call_args_list:
+            self.assertEqual(sorted(set(call.args[1])),call.args[1])
+            self.assertGreaterEqual(len(call.args[1]),2)
+
+    def test_wrong_highlight_target_rejected_from_decoded_video(self):
+        from selenium_pipeline.encoded_highlight_pixels import (
+            verify_encoded_highlight_pixels, EncodedPixelQAError,
+        )
+        render_review_series(source_pdf=self.source,
+            inputs_root=self.staged,output_root=self.output)
+        part=self.output/"part_01"
+        geometry=json.loads((part/"element_geometry.json").read_text())
+        timeline=json.loads((part/"narration_timeline.json").read_text())
+        # The video shows element one, but a falsified speech alignment
+        # claims that element two was highlighted in that first interval.
+        timeline["events"][0]["element_ids"]=[
+            timeline["events"][1]["element_ids"][0]
+        ]
+        with self.assertRaisesRegex(
+            EncodedPixelQAError,"no verified target highlight"
+        ):
+            verify_encoded_highlight_pixels(
+                mp4=part/"part_01_review.mp4",
+                frames_dir=part/"scratch_frames",
+                geometry=geometry,timeline=timeline,
+            )
+
     def test_static_mp4_cannot_claim_speech_timed_highlights(self):
         render_review_series(source_pdf=self.source,
             inputs_root=self.staged,output_root=self.output)

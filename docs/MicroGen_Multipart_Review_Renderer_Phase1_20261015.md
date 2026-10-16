@@ -49,3 +49,7 @@ Production launchers on HP, Yoga 6 and Dell-115 are not altered by this work. Th
 ## Encoded-pixel verification added
 
 Timing proofs alone do not prove which source-linked highlight is visible in an MP4. The review bridge now decodes the real VFR frame timestamps and selects the last actual encoded frame at or before each measured speech-segment midpoint. It compares target-region pixels against the expected active-emphasis PNG and against the plain slide; if the active highlight does not measurably improve the match, the preview fails rather than producing a review receipt. Each part includes encoded_pixel_qa.json with per-target difference evidence. A negative regression encodes a plain static slide with the same audio and confirms the pixel verifier rejects that impostor. Mathematical meaning and exact spoken-word fidelity remain separate review gates.
+
+## Bounded decoding for full-length lessons
+
+The decoded-pixel verifier now parses the real variable-frame-rate presentation timestamps once and uses a single FFmpeg selected-frame batch per video part, even when hundreds of narration events exist. This avoids restarting FFmpeg and re-decoding the MP4 from the beginning for every equation highlight, which could stall 8-9 minute lessons. Frames are staged in a temporary folder and automatically cleaned. Tests verify one batch per part, positive highlighted output, rejection of a plain static impostor, and rejection of a video with a deliberately incorrect claimed highlight target.

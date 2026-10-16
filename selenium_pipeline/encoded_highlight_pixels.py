@@ -7,10 +7,11 @@ word fidelity still require separate review.
 """
 from __future__ import annotations
 
-import io
+import bisect
 import math
 import re
 import subprocess
+import tempfile
 from pathlib import Path
 
 from PIL import Image, ImageChops, ImageStat
@@ -44,24 +45,29 @@ def _frame_pts(mp4: Path, *, exe: str) -> list[tuple[int,float]]:
     return result
 
 
-def _sample(mp4: Path, frame_index: int, *, exe: str) -> Image.Image:
-    """Select an exact decoded frame, NEVER seek to the next VFR timestamp."""
-    if type(frame_index) is not int or frame_index<0:
-        raise EncodedPixelQAError("Invalid decoded frame index")
-    proc=subprocess.run(
-        [exe,"-hide_banner","-loglevel","error",
-         "-i",str(mp4),"-vf",f"select=eq(n\\,{frame_index})",
-         "-vsync","0","-an","-frames:v","1","-f","image2pipe",
-         "-vcodec","png","-"],
-        capture_output=True,timeout=60,
-    )
-    if proc.returncode or not proc.stdout:
-        raise EncodedPixelQAError("FFmpeg could not decode indexed event frame")
-    try:
-        with Image.open(io.BytesIO(proc.stdout)) as im:
-            return im.convert("RGB")
-    except (OSError,ValueError) as exc:
-        raise EncodedPixelQAError("Invalid decoded MP4 image") from exc
+def _decode_selected(mp4: Path, indices: list[int], *, output_dir: Path,
+                     exe: str) -> dict[int, Path]:
+    """Decode all required speech frames in ONE FFmpeg pass, not per-event."""
+    wanted=sorted(set(indices))
+    if not wanted or any(type(i) is not int or i<0 for i in wanted):
+        raise EncodedPixelQAError("Invalid list of encoded frame indices")
+    # Filter expressions are supplied as a direct argument (never a shell).
+    selection="+".join(f"eq(n\\,{i})" for i in wanted)
+    target=output_dir/"selected_%06d.png"
+    proc=subprocess.run([
+        exe,"-hide_banner","-loglevel","error",
+        "-i",str(mp4),"-vf",f"select={selection}",
+        "-vsync","0","-an","-frames:v",str(len(wanted)),
+        "-f","image2",str(target),
+    ],capture_output=True,text=True,errors="replace",timeout=130)
+    if proc.returncode:
+        raise EncodedPixelQAError("FFmpeg indexed-frame batch extraction failed: "
+                                  +proc.stderr[-320:])
+    mapped={idx:output_dir/f"selected_{i:06d}.png"
+            for i,idx in enumerate(wanted,1)}
+    if not all(path.is_file() for path in mapped.values()):
+        raise EncodedPixelQAError("Decoded frame extraction missed a spoken cue")
+    return mapped
 
 def _fit(image: Image.Image, width: int, height: int) -> Image.Image:
     # Encoder is allowed to pad at most one pixel for H.264 even dimensions.
@@ -103,71 +109,84 @@ def verify_encoded_highlight_pixels(
             raise EncodedPixelQAError("Geometry page index missing")
     ffmpeg=encoder or ffmpeg_path()
     pts=_frame_pts(video,exe=ffmpeg)
-    checks=[]
-    for i,event in enumerate(events,1):
-        sid=event.get("slide_id")
+    timestamps=[time for _idx,time in pts]
+    chosen=[]
+    for event in events:
         start,end=event.get("start_ms"),event.get("end_ms")
-        eids=event.get("element_ids")
-        if (sid not in slide_lookup or type(start) is not int
-            or type(end) is not int or end-start<250
-            or not isinstance(eids,list) or not eids):
-            raise EncodedPixelQAError("Invalid or too-short highlight event")
-        page_index=slide_lookup[sid]
-        ref_base=frames/f"base_{page_index:04d}.png"
-        ref_highlight=frames/f"event_{i:04d}.png"
-        if not (ref_base.is_file() and ref_highlight.is_file()):
-            raise EncodedPixelQAError("Missing generated base or highlight frame")
-        timepoint=(start+end)/2000
-        preceding=[(idx,pt) for idx,pt in pts if pt<=timepoint+0.0001]
-        if not preceding:
+        if type(start) is not int or type(end) is not int or end<=start:
+            raise EncodedPixelQAError("Invalid spoken event sample interval")
+        midpoint=(start+end)/2000
+        offset=bisect.bisect_right(timestamps,midpoint+0.0001)-1
+        if offset<0:
             raise EncodedPixelQAError("No encoded frame preceding speech event")
-        frame_index,frame_time=preceding[-1]
-        decoded=_sample(video,frame_index,exe=ffmpeg)
-        try:
-            with Image.open(ref_base) as base0, Image.open(ref_highlight) as active0:
-                base=_fit(base0.convert("RGB"),*decoded.size)
-                active=_fit(active0.convert("RGB"),*decoded.size)
-            element_checks=[]
-            for eid in eids:
-                region=lookup.get(eid)
-                if not isinstance(region,dict) or region.get("slide_id")!=sid:
-                    raise EncodedPixelQAError("Highlight target has no matching geometry")
-                coords=region.get("rect_pt")
-                if not isinstance(coords,list) or len(coords)!=4:
-                    raise EncodedPixelQAError("Invalid target rectangle")
-                x0,y0,x1,y1=[float(v)*scale for v in coords]
-                margin=8*scale
-                bounds=(max(0,int(x0-margin)),max(0,int(y0-margin)),
-                        min(decoded.width,math.ceil(x1+margin)),
-                        min(decoded.height,math.ceil(y1+margin)))
-                if bounds[0]>=bounds[2] or bounds[1]>=bounds[3]:
-                    raise EncodedPixelQAError("Invalid decoded element bounds")
-                cropped=decoded.crop(bounds)
-                expected=active.crop(bounds)
-                baseline=base.crop(bounds)
-                try:
-                    err_expected=_mae(cropped,expected)
-                    err_base=_mae(cropped,baseline)
-                finally:
-                    cropped.close();expected.close();baseline.close()
-                gain=err_base-err_expected
-                # Error must be measurably LOWER for the active highlight.
-                # This detects flat static-slide videos falsely claiming cues.
-                if gain<1.0:
-                    raise EncodedPixelQAError(
-                        f"Encoded event {i} element {eid} has no verified "
-                        f"target highlight (difference improvement {gain:.3f})"
-                    )
-                element_checks.append({"element_id":eid,
-                         "decoded_active_error":round(err_expected,3),
-                         "decoded_base_error":round(err_base,3),
-                         "highlight_evidence_gain":round(gain,3)})
-            checks.append({"event":i,"slide_id":sid,"sample_time_s":round(timepoint,3),
-                           "encoded_frame_index":frame_index,
-                           "encoded_frame_pts_s":round(frame_time,4),
-                           "target_checks":element_checks})
-        finally:
-            decoded.close()
+        chosen.append(pts[offset])
+    checks=[]
+    with tempfile.TemporaryDirectory(prefix="microgen_pixel_qa_") as temporary:
+        extracted=_decode_selected(video,[idx for idx,_t in chosen],
+             output_dir=Path(temporary),exe=ffmpeg)
+        for i,event in enumerate(events,1):
+            sid=event.get("slide_id")
+            start,end=event.get("start_ms"),event.get("end_ms")
+            eids=event.get("element_ids")
+            if (sid not in slide_lookup or type(start) is not int
+                or type(end) is not int or end-start<250
+                or not isinstance(eids,list) or not eids):
+                raise EncodedPixelQAError("Invalid or too-short highlight event")
+            page_index=slide_lookup[sid]
+            ref_base=frames/f"base_{page_index:04d}.png"
+            ref_highlight=frames/f"event_{i:04d}.png"
+            if not (ref_base.is_file() and ref_highlight.is_file()):
+                raise EncodedPixelQAError("Missing generated base or highlight frame")
+            timepoint=(start+end)/2000
+            frame_index,frame_time=chosen[i-1]
+            sample=extracted[frame_index]
+            with Image.open(sample) as raw:
+                decoded=raw.convert("RGB")
+            try:
+                with Image.open(ref_base) as base0, Image.open(ref_highlight) as active0:
+                    base=_fit(base0.convert("RGB"),*decoded.size)
+                    active=_fit(active0.convert("RGB"),*decoded.size)
+                element_checks=[]
+                for eid in eids:
+                    region=lookup.get(eid)
+                    if not isinstance(region,dict) or region.get("slide_id")!=sid:
+                        raise EncodedPixelQAError("Highlight target has no matching geometry")
+                    coords=region.get("rect_pt")
+                    if not isinstance(coords,list) or len(coords)!=4:
+                        raise EncodedPixelQAError("Invalid target rectangle")
+                    x0,y0,x1,y1=[float(v)*scale for v in coords]
+                    margin=8*scale
+                    bounds=(max(0,int(x0-margin)),max(0,int(y0-margin)),
+                            min(decoded.width,math.ceil(x1+margin)),
+                            min(decoded.height,math.ceil(y1+margin)))
+                    if bounds[0]>=bounds[2] or bounds[1]>=bounds[3]:
+                        raise EncodedPixelQAError("Invalid decoded element bounds")
+                    cropped=decoded.crop(bounds)
+                    expected=active.crop(bounds)
+                    baseline=base.crop(bounds)
+                    try:
+                        err_expected=_mae(cropped,expected)
+                        err_base=_mae(cropped,baseline)
+                    finally:
+                        cropped.close();expected.close();baseline.close()
+                    gain=err_base-err_expected
+                    # Error must be measurably LOWER for the active highlight.
+                    # This detects flat static-slide videos falsely claiming cues.
+                    if gain<1.0:
+                        raise EncodedPixelQAError(
+                            f"Encoded event {i} element {eid} has no verified "
+                            f"target highlight (difference improvement {gain:.3f})"
+                        )
+                    element_checks.append({"element_id":eid,
+                             "decoded_active_error":round(err_expected,3),
+                             "decoded_base_error":round(err_base,3),
+                             "highlight_evidence_gain":round(gain,3)})
+                checks.append({"event":i,"slide_id":sid,"sample_time_s":round(timepoint,3),
+                               "encoded_frame_index":frame_index,
+                               "encoded_frame_pts_s":round(frame_time,4),
+                               "target_checks":element_checks})
+            finally:
+                decoded.close()
     return {
         "status":"encoded_highlight_pixels_checked_semantics_unreviewed",
         "count_events":len(checks),
