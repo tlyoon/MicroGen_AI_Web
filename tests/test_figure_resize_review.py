@@ -58,3 +58,34 @@ class FigureResizeReviewTests(unittest.TestCase):
     with self.assertRaisesRegex(ValueError,'sizing parameters'):
         make(source=self.src,dest=self.dst,image_name='triangle.png',old_height=.22,new_height=.20,slide_number=2)
     self.assertFalse(self.dst.exists())
+ def test_canonical_vertical_spacing_changes_only_selected_figure_frame(self):
+    tex=(r"\begin{frame}{Test}"+"\n"+
+         r"\IfFileExists{triangle.png}{%"+"\n"+
+         r"\begin{figure}"+"\n"+
+         r"\includegraphics[height=0.22\textheight,keepaspectratio]{triangle.png}"+"\n"+
+         r"\end{figure}"+"\n"+
+         r"}{}"+"\n"+
+         r"\begin{itemize}"+"\n"+
+         r"\item Step two"+"\n"+
+         r"\end{itemize}"+"\n"+
+         r"\end{frame}"+"\n")
+    (self.src/"slides.tex").write_text(tex,encoding="utf8")
+    with patch("selenium_pipeline.figure_resize_review.subprocess.run",
+               side_effect=self.simulate(110)):
+        receipt=make(source=self.src,dest=self.dst,image_name="triangle.png",
+                     old_height=.22,new_height=.30,slide_number=2,
+                     compact_before_image_pt=8,compact_after_image_pt=-1.5)
+    derived=(self.dst/"slides.tex").read_text(encoding="utf8")
+    self.assertIn(r"\vspace{-8pt}",derived)
+    self.assertIn(r"\vspace{1.5pt}",derived)
+    self.assertNotIn(r"\vspace{--1.5pt}",derived)
+    self.assertEqual(derived.count(r"\vspace"),2)
+    self.assertEqual(receipt["changed_rendered_slide_numbers"],[2])
+    self.assertFalse(receipt["production_approved"])
+
+ def test_compaction_rejects_missing_procedural_followup(self):
+    with self.assertRaisesRegex(ValueError,"conditional"):
+        make(source=self.src,dest=self.dst,image_name="triangle.png",
+             old_height=.22,new_height=.30,slide_number=2,
+             compact_before_image_pt=8)
+    self.assertFalse((self.dst/"figure_resize_receipt.json").exists())
