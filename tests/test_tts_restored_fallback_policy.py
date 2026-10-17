@@ -106,7 +106,7 @@ class RestoredFallbackTests(unittest.TestCase):
         ):
             with self.subTest(prior=prior):
                 with patch("selenium_pipeline.tts._synthesize_folder_unlocked") as synth:
-                    with self.assertRaisesRegex(RuntimeError,"both Gemini models"):
+                    with self.assertRaisesRegex(RuntimeError,"No verified 3-attempt exhausted|both Gemini models"):
                         _whole_batch_fallback(
                             self.folder,self.items,self.cloud,
                             requested=self.requested,
