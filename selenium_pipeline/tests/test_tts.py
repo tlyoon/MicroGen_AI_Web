@@ -51,6 +51,27 @@ def fake_gemini_keys_module(models=None, keys=None):
     return module
 
 
+def seed_reviewable_candidates(folder, slide_numbers):
+    """Populate old in-progress cache with exact model/text/WAV proof."""
+    import hashlib
+    from selenium_pipeline.runner import blocks
+    from selenium_pipeline.tts_candidate_integrity import (
+        job_identity, prepare, record_one,
+    )
+    script=(folder / "script.txt").read_bytes()
+    identity=job_identity(blocks(script.decode("utf-8")),
+                          provider="gemini",model="gemini-3.8-flash-lite-tts",
+                          voice="Kore",script_sha256=hashlib.sha256(script).hexdigest())
+    candidate=folder / ".tts_candidate"
+    candidate.mkdir()
+    prepare(candidate,identity)
+    for number in slide_numbers:
+        name=f"slide{number}.wav"
+        (candidate / name).write_bytes(WAV)
+        record_one(candidate,name,identity)
+    return candidate
+
+
 class TTSTests(unittest.TestCase):
     def make_folder(self, root):
         folder = Path(root)
@@ -157,10 +178,7 @@ class TTSTests(unittest.TestCase):
                 "**Slide 1 [3 sec]:\nFallback title**\n\n"
                 "**Slide 2 [3 sec]:\nReference two**\n\n"
                 "**Slide 3 [3 sec]:\nReference three**", encoding="utf-8")
-            candidate = folder / ".tts_candidate"
-            candidate.mkdir()
-            (candidate / "slide2.wav").write_bytes(WAV)
-            (candidate / "slide3.wav").write_bytes(WAV)
+            candidate = seed_reviewable_candidates(folder, [2, 3])
 
             class AlwaysFailModels:
                 def generate_content(self, **_kwargs):
@@ -246,10 +264,7 @@ class TTSTests(unittest.TestCase):
                 "**Slide 1 [3 sec]:\nFallback title**\n\n"
                 "**Slide 2 [3 sec]:\nReference two**\n\n"
                 "**Slide 3 [3 sec]:\nReference three**", encoding="utf-8")
-            candidate = folder / ".tts_candidate"
-            candidate.mkdir()
-            (candidate / "slide2.wav").write_bytes(WAV)
-            (candidate / "slide3.wav").write_bytes(WAV)
+            candidate = seed_reviewable_candidates(folder, [2, 3])
 
             class AlwaysFailModels:
                 def generate_content(self, **_kwargs):
