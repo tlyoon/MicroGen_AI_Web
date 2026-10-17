@@ -571,6 +571,10 @@ def _stream_batch_fallback_progress(proc: subprocess.Popen, timeout: float) -> s
     return "\n".join(tail)[-1800:]
 
 
+class TTSFallbackModelExhausted(RuntimeError):
+    """Provider/model retries failed, unlike disk/config/provenance errors."""
+
+
 def _whole_batch_fallback(
     folder: Path,
     items: list[tuple[int, str]],
@@ -608,9 +612,15 @@ def _whole_batch_fallback(
                                      dir=str(folder)) as tmp:
         batch = Path(tmp)
         (batch / "script.txt").write_bytes((folder / "script.txt").read_bytes())
-        _synthesize_folder_unlocked(
-            batch, spec["provider"], spec["model"], spec["voice"],
-            allow_fallback=False)
+        try:
+            _synthesize_folder_unlocked(
+                batch, spec["provider"], spec["model"], spec["voice"],
+                allow_fallback=False)
+        except RuntimeError as exc:
+            if "queue exhausted" in str(exc) and "slide" in str(exc):
+                raise TTSFallbackModelExhausted(
+                    f"{spec['provider']}:{spec['model']} exhausted its retries") from exc
+            raise
         expected = [f"slide{number}.wav" for number, _ in items]
         if sorted(expected) != sorted(p.name for p in batch.glob("slide[0-9]*.wav")):
             raise RuntimeError("Fallback did not render every slide exactly once")
@@ -645,6 +655,8 @@ def _whole_batch_fallback(
         try:
             for name in expected:
                 wav = batch / name
+                from .tts_pcm_contract import verify_pcm
+                verify_pcm(wav.read_bytes(), label=f"fallback {name}")
                 with wav.open("rb") as source, (folder / name).open("xb") as dest:
                     new_files.append(folder / name)
                     shutil.copyfileobj(source, dest)
@@ -866,8 +878,9 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
     # Lite: 3 queue rounds -> Flash: 3 queue rounds -> Cloud Chirp HD.
     # Flash: 3 queue rounds -> Cloud Chirp HD.
     # A failed attempt preserves all verified primary WAV candidates.
-    if unresolved and allow_fallback and provider == "gemini" and (
-            os.environ.get("MICROGEN_TTS_ENABLE_PROVIDER_FALLBACK", "1") != "0"
+    if (unresolved and allow_fallback and provider == "gemini"
+            and all(_is_transient_tts_failure(exc) for _, exc in unresolved)
+            and os.environ.get("MICROGEN_TTS_ENABLE_PROVIDER_FALLBACK", "1") != "0"
             and os.environ.get("MICROGEN_TTS_ENABLE_BATCH_FALLBACK", "1") != "0"):
         requested = {"provider": provider, "model": model, "voice": voice}
         exhausted = [model]
@@ -887,13 +900,20 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
                 _whole_batch_fallback(
                     folder, items, spec, requested=requested,
                     completed_gemini_models=tuple(exhausted))
-            except Exception as exc:
+            except TTSFallbackModelExhausted as exc:
                 errors.append(
                     f"{spec['provider']}:{spec['model']} "
                     f"{type(exc).__name__}: {exc}")
                 if spec["provider"] == "gemini":
                     exhausted.append(spec["model"])
                 continue
+            except Exception as exc:
+                # Never spend Cloud credits because Flash failed for reasons
+                # unrelated to Gemini outages (disk full, credentials,
+                # invalid script, malformed WAV, expired attestation).
+                errors.append(
+                    f"non-provider fallback fault {type(exc).__name__}: {exc}")
+                break
             print(f"[tts] complete single-voice fallback batch accepted: "
                   f"{spec['provider']}:{spec['model']}; "
                   "independent listening still mandatory",flush=True)
