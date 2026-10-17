@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 import tempfile
+import types
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -110,6 +112,36 @@ class ObservedAttemptJournalTests(unittest.TestCase):
                            outcome="transient_failure",error_type="RuntimeError")
         with self.assertRaisesRegex(TTSAttemptEvidenceError,"before Lite retries"):
             self.ledger.verify_before("chirp3",CHIRP)
+
+    def test_actual_tts_queue_observes_three_calls_at_boundary(self):
+        """Synthetic provider exceptions are logged AFTER call outcomes."""
+        fake = types.ModuleType("gemini_keys")
+        fake.get_gemini_api_keys = lambda: ["offline-fake-key"]
+        fake.create_gemini_client = lambda: object()
+        fake.call_with_client_failover = (
+            lambda client_factory, callback, **kwargs: callback(client_factory()))
+        with patch.dict(sys.modules, {"gemini_keys":fake}), \
+             patch.dict(os.environ, {
+                "MICROGEN_TTS_QUEUE_ROUNDS":"1",
+                "MICROGEN_TTS_QUEUE_DELAY_SECONDS":"0",
+                "MICROGEN_TTS_ENABLE_PROVIDER_FALLBACK":"1",
+                "MICROGEN_TTS_ENABLE_BATCH_FALLBACK":"1"}), \
+             patch("selenium_pipeline.tts._gemini_say",
+                   side_effect=RuntimeError("503 synthetic provider failure")) as say, \
+             patch("selenium_pipeline.tts._whole_batch_fallback") as fallback:
+            synthesize_folder(self.folder,"gemini",LITE,"Kore")
+            self.assertEqual(say.call_count,3)
+            fallback.assert_called_once()
+            self.assertIsInstance(
+                fallback.call_args.kwargs["attempt_evidence"], AttemptEvidence)
+        after = AttemptEvidence(self.folder,self.items)
+        observed=after.read()
+        self.assertEqual(len(observed),3)
+        self.assertEqual([e["round"] for e in observed],[1,2,3])
+        self.assertEqual([e["outcome"] for e in observed],
+                         ["transient_failure"]*3)
+        self.assertEqual(after.verify_before("gemini",FLASH)["lite"]["failed_slides"],[1])
+        self.assertFalse((self.folder/"slide1.wav").exists())
 
     def test_extra_partial_event_refuses_escalation(self):
         self.failed(LITE)
