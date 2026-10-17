@@ -1,15 +1,18 @@
-"""Repair only WAVs that fail strict narration fidelity QA.
+"""Non-destructive review of proposed selective TTS QA repairs.
 
-The QA cache is keyed to WAV bytes, so unchanged passing slides are reused.
-Never permit video assembly while a slide remains unverified.
+Never replace an original slide WAV as a side effect of automated QA.
+Repaired WAVs are stored in an isolated review-only snapshot. Real publication
+requires a separate, audited and independently approved handoff.
 """
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
-import tempfile
+import shutil
 import time
+import uuid
 from pathlib import Path
 
 from .runner import blocks, load_microvid_env
@@ -21,59 +24,187 @@ def failing_slides(report: dict) -> list[int]:
     return [int(item["slide"]) for item in report["slides"] if item["status"] != "pass"]
 
 
+def _sha(payload: bytes) -> str:
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _validate_originals(
+    folder: Path, narrations: dict[int, str], *,
+    provider: str, tts_model: str, voice: str,
+) -> tuple[bytes, bytes, dict[str, str]]:
+    """Reject unproven model/voice/text before *any* replacement API request."""
+    script_path = folder / "script.txt"
+    manifest_path = folder / "tts_input_manifest.json"
+    if (script_path.is_symlink() or manifest_path.is_symlink()
+            or not manifest_path.is_file()):
+        raise RuntimeError("Original TTS manifest is missing or unsafe; no repair request")
+    script = script_path.read_bytes()
+    manifest = manifest_path.read_bytes()
+    try:
+        doc = json.loads(manifest)
+        primary = doc["primary"]
+        rows = doc["slides"]
+        bound = {int(row["slide"]): row for row in rows}
+    except (ValueError, KeyError, TypeError, AttributeError) as exc:
+        raise RuntimeError("Original TTS manifest is invalid; no repair request") from exc
+    if (primary != {"provider": provider, "model": tts_model, "voice": voice}
+            or len(bound) != len(rows) or set(bound) != set(narrations)):
+        raise RuntimeError("Original TTS provider/model/voice/slide identity mismatch")
+    originals: dict[str, str] = {}
+    for number, expected in narrations.items():
+        entry = bound[number]
+        if (entry.get("tts_text") != expected
+                or entry.get("provider") != provider
+                or entry.get("model") != tts_model
+                or entry.get("voice") != voice
+                or entry.get("fallback_used") is not False):
+            raise RuntimeError("Original TTS narration or model provenance mismatch")
+        item = folder / f"slide{number}.wav"
+        if not item.is_file() or item.is_symlink():
+            raise RuntimeError(f"Missing/unsafe original audio for slide{number}")
+        wav = item.read_bytes()
+        if len(wav) <= 44 or wav[:4] not in (b"RIFF", b"RF64"):
+            raise RuntimeError(f"Invalid original WAV for slide{number}")
+        originals[item.name] = _sha(wav)
+    return script, manifest, originals
+
+
+def _new_review_snapshot(
+    folder: Path, script: bytes, manifest: bytes, originals: dict[str, str],
+) -> Path:
+    """Create a new, isolated folder. Never write repaired audio to originals."""
+    root = folder / ".tts_qa_review_candidates"
+    if root.is_symlink():
+        raise RuntimeError("Unsafe symlink for TTS QA review root")
+    root.mkdir(exist_ok=True)
+    review = root / uuid.uuid4().hex
+    review.mkdir()
+    with (review / "script.txt").open("xb") as out:
+        out.write(script)
+    with (review / "tts_input_manifest.json").open("xb") as out:
+        out.write(manifest)
+    for filename, digest in originals.items():
+        source = folder / filename
+        if source.is_symlink() or _sha(source.read_bytes()) != digest:
+            raise RuntimeError("Original audio changed during QA snapshot; stop")
+        with (review / filename).open("xb") as out:
+            out.write(source.read_bytes())
+    return review
+
+
 def repair(folder: Path, *, model: str, threshold: float, provider: str,
            tts_model: str, voice: str, max_repairs: int = 2) -> dict:
+    """Propose repairs for review; never auto-promote or overwrite original WAVs."""
     if max_repairs < 0:
         raise ValueError("max_repairs must be nonnegative")
     narrations = dict(blocks((folder / "script.txt").read_text(encoding="utf-8")))
-    report = build_report(folder, model=model, threshold=threshold)
-    write_report(folder, report)
-    for round_number in range(1, max_repairs + 1):
-        failed = failing_slides(report)
-        if not failed:
-            break
-        print(f"[tts-qa-repair] round {round_number}/{max_repairs}: "
-              f"regenerating only slides {failed}", flush=True)
-        with _tts_workspace_lock(folder):
-            for number in failed:
-                if number not in narrations:
-                    raise RuntimeError(f"No narration found for slide{number}")
-                text = narrations[number]
-                try:
-                    if provider == "gemini":
-                        payload = _gemini_say_with_watchdog(text, number, tts_model, voice)
-                    elif provider == "chirp3":
-                        payload = _chirp_say_with_watchdog(text, number, voice)
-                    else:
-                        raise ValueError(f"Unsupported TTS provider: {provider}")
-                    if payload[:4] not in (b"RIFF", b"RF64") or len(payload) <= 44:
-                        raise RuntimeError("TTS returned invalid WAV")
-                    with tempfile.NamedTemporaryFile(
-                        prefix=f".slide{number}.repair_", suffix=".wav",
-                        dir=folder, delete=False
-                    ) as stream:
-                        staged = Path(stream.name)
-                        stream.write(payload)
+    initial_report = build_report(folder, model=model, threshold=threshold)
+    failed = failing_slides(initial_report)
+    if not failed:
+        # No replacement is needed; retain the existing QA-only behavior.
+        write_report(folder, initial_report)
+        print(f"[tts-qa-repair] original audio already passed QA; no replacement")
+        return initial_report
+    if max_repairs == 0:
+        raise RuntimeError(
+            f"TTS QA failed; slides still blocked: {failed}; no repair authorized"
+        )
+    # Before making any new paid request, verify immutable input identity
+    # against the manifest created by the initial TTS stage.
+    script, manifest, originals = _validate_originals(
+        folder, narrations, provider=provider, tts_model=tts_model, voice=voice,
+    )
+    review = _new_review_snapshot(folder, script, manifest, originals)
+    evidence = {
+        "status": "REVIEW_ONLY_UNPUBLISHED",
+        "source_script_sha256": _sha(script),
+        "source_manifest_sha256": _sha(manifest),
+        "original_wav_sha256": originals,
+        "provider": provider, "tts_model": tts_model, "voice": voice,
+        "fidelity_model": model, "threshold": threshold,
+        "proposed_replacements": [],
+        "academic_approved": False,
+        "video_publication_approved": False,
+        "original_audio_modified": False,
+    }
+    report = initial_report
+    try:
+        for round_number in range(1, max_repairs + 1):
+            failed = failing_slides(report)
+            if not failed:
+                break
+            print(
+                f"[tts-qa-repair] review-only round {round_number}/{max_repairs}: "
+                f"slides {failed}", flush=True,
+            )
+            # Serialize against other TTS writers in this local staging area,
+            # but never update the original completed slideN.wav files.
+            with _tts_workspace_lock(folder):
+                for number in failed:
+                    if number not in narrations:
+                        raise RuntimeError(f"No narration for slide{number}")
                     try:
-                        staged.replace(folder / f"slide{number}.wav")
-                    finally:
-                        staged.unlink(missing_ok=True)
-                    print(f"[tts-qa-repair] replaced slide{number}.wav", flush=True)
-                except Exception as exc:
-                    print(f"[tts-qa-repair] slide{number} regeneration failed: {exc}",
-                          flush=True)
-        # QA cache includes audio bytes: passing slides remain cached,
-        # replaced slides must be independently listened to again.
-        report = build_report(folder, model=model, threshold=threshold)
-        write_report(folder, report)
-        if failing_slides(report) and round_number < max_repairs:
-            time.sleep(max(0, float(os.environ.get("MICROGEN_TTS_QA_REPAIR_DELAY_SECONDS", "15"))))
+                        if provider == "gemini":
+                            payload = _gemini_say_with_watchdog(
+                                narrations[number], number, tts_model, voice)
+                        elif provider == "chirp3":
+                            payload = _chirp_say_with_watchdog(
+                                narrations[number], number, voice)
+                        else:
+                            raise ValueError("Unapproved TTS provider")
+                        if len(payload) <= 44 or payload[:4] not in (b"RIFF", b"RF64"):
+                            raise RuntimeError("TTS returned invalid WAV")
+                        # Keep each generated attempt separately; update only
+                        # the copy in the review snapshot, not the source.
+                        attempt = review / f"attempt{round_number}_slide{number}.wav"
+                        with attempt.open("xb") as stream:
+                            stream.write(payload)
+                        target = review / f"slide{number}.wav"
+                        if target.is_symlink():
+                            raise RuntimeError("Unsafe review-only target symlink")
+                        with target.open("wb") as stream:
+                            stream.write(payload)
+                        evidence["proposed_replacements"].append({
+                            "slide": number, "round": round_number,
+                            "wav_sha256": _sha(payload),
+                        })
+                    except Exception as exc:
+                        print(
+                            "[tts-qa-repair] review-only slide"
+                            f"{number} failed: {type(exc).__name__}",
+                            flush=True,
+                        )
+            report = build_report(review, model=model, threshold=threshold)
+            write_report(review, report)
+            if failing_slides(report) and round_number < max_repairs:
+                time.sleep(max(0, float(os.environ.get(
+                    "MICROGEN_TTS_QA_REPAIR_DELAY_SECONDS", "15"))))
+    finally:
+        evidence["proposed_remaining_failures"] = failing_slides(report)
+        evidence["candidate_wav_sha256"] = {
+            name: _sha((review / name).read_bytes()) for name in originals
+        }
+        evidence["original_audio_modified"] = any(
+            not (folder / name).is_file()
+            or (folder / name).is_symlink()
+            or _sha((folder / name).read_bytes()) != digest
+            for name, digest in originals.items()
+        )
+        with (review / "review_only_receipt.json").open("x", encoding="utf-8") as out:
+            json.dump(evidence, out, indent=2, sort_keys=True)
+            out.write("\n")
+    if evidence["original_audio_modified"]:
+        raise RuntimeError("Original TTS audio changed externally during review")
     remaining = failing_slides(report)
     if remaining:
-        raise RuntimeError(f"TTS QA failed after {max_repairs} selective repair round(s); "
-                           f"slides still blocked: {remaining}")
-    print(f"[tts-qa-repair] all {len(report['slides'])} slides passed", flush=True)
-    return report
+        raise RuntimeError(
+            f"TTS QA still blocked: {remaining}; candidate preserved for review at {review}"
+        )
+    # Deliberately fail the runner's TTS QA stage; a passing synthetic or
+    # automated review does not authorize replacing published audio.
+    raise RuntimeError(
+        f"TTS QA repair candidate requires independent review before publication: {review}"
+    )
 
 
 def main(argv=None) -> int:
