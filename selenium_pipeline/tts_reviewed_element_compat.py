@@ -16,6 +16,7 @@ from .tts_pcm_contract import verify_pcm, TTSPCMContractError
 from .tts_effective_identity import (
     verify_effective_identity, TTSEffectiveIdentityError,
 )
+from .tts_attempt_evidence import AttemptEvidence, TTSAttemptEvidenceError
 
 
 class ElementAudioIncompatible(ValueError):
@@ -63,6 +64,17 @@ def check(*, source_pdf: Path, slides_pdf: Path,
         actual = verify_effective_identity(manifest, items)
     except TTSEffectiveIdentityError as exc:
         raise ElementAudioIncompatible(str(exc)) from exc
+    if actual["fallback_used"]:
+        try:
+            AttemptEvidence.verify_saved(
+                audio, items, manifest.get("attempt_evidence"))
+        except TTSAttemptEvidenceError as exc:
+            raise ElementAudioIncompatible(
+                f"Unverified original Gemini retry-attempt evidence: {exc}") from exc
+        required(
+            handoff.get("attempt_evidence_sha256") ==
+                manifest["attempt_evidence"]["sha256"],
+            "Reviewed handoff lacks bound observed retry-attempt digest")
     required(
         handoff.get("provider") == actual["provider"]
         and handoff.get("tts_model") == actual["model"]
