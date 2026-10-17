@@ -216,6 +216,17 @@ class ReviewedAudioHandoffTests(unittest.TestCase):
         with self.assertRaisesRegex(AudioPromotionBlocked,"repeated or out of order"):
             audit(self.source,self.review)
 
+    def test_attestation_inside_source_is_not_independent(self):
+        self.create_external_attestation()
+        internal = self.source / "self_approved.json"
+        internal.write_bytes(self.attestation_path.read_bytes())
+        with self.assertRaisesRegex(AudioPromotionBlocked,"outside the original/review"):
+            export_reviewed(self.source,self.review,self.destination,
+                            attestation_path=internal,
+                            confirm_reviewed_audio=True,
+                            confirm_isolated_export=True)
+        self.assertFalse(self.destination.exists())
+
     def test_invalid_reviewer_is_rejected_without_export(self):
         doc=self.create_external_attestation()
         doc["reviewer"]=42
