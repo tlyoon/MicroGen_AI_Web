@@ -31,7 +31,7 @@ def reject_existing_final_audio(folder: Path) -> None:
     """
     protected = []
     for item in folder.iterdir():
-        if (re.fullmatch(r"slide[0-9]+\\.wav", item.name, re.IGNORECASE)
+        if (re.fullmatch(r"slide[0-9]+\.wav", item.name, re.IGNORECASE)
                 or item.name.lower() == "tts_input_manifest.json"):
             protected.append(item.name)
     if protected:
