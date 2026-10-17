@@ -14,6 +14,7 @@ import tempfile
 from pathlib import Path
 
 from .runner import blocks
+from .tts_pcm_contract import verify_pcm, TTSPCMContractError
 
 
 class AudioPromotionBlocked(RuntimeError):
@@ -116,6 +117,10 @@ def audit(source: Path, review: Path) -> dict:
         if number not in n_to_text or attempt <= 0:
             raise AudioPromotionBlocked("Unrecognized slide or attempt number")
         attempt_wav = _read_file(rev, f"attempt{attempt}_slide{number}.wav")
+        try:
+            verify_pcm(attempt_wav, label=f"attempt{attempt}_slide{number}.wav")
+        except TTSPCMContractError as exc:
+            raise AudioPromotionBlocked(str(exc)) from exc
         if _digest(attempt_wav) != digest:
             raise AudioPromotionBlocked("Attempt WAV digest does not match receipt")
         if number in last_attempt_by_slide and attempt <= last_attempt_by_slide[number][0]:
@@ -126,6 +131,11 @@ def audit(source: Path, review: Path) -> dict:
         name = f"slide{number}.wav"
         source_wav = _read_file(src, name)
         review_wav = _read_file(rev, name)
+        try:
+            verify_pcm(source_wav, label=f"original {name}")
+            verify_pcm(review_wav, label=f"reviewed {name}")
+        except TTSPCMContractError as exc:
+            raise AudioPromotionBlocked(str(exc)) from exc
         if (_digest(source_wav) != orig[name]
                 or _digest(review_wav) != proposed[name]):
             raise AudioPromotionBlocked("Original or proposed WAV digest mismatch")

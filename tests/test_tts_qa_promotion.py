@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import tempfile
+import wave
 import unittest
 from pathlib import Path
 
@@ -14,6 +16,16 @@ from selenium_pipeline.tts_qa_promotion import (
 
 def sha(data):
     return hashlib.sha256(data).hexdigest()
+
+
+def pcm(letter: str, *, rate: int = 24000, channels: int = 1) -> bytes:
+    memory = io.BytesIO()
+    with wave.open(memory, "wb") as wav:
+        wav.setnchannels(channels)
+        wav.setsampwidth(2)
+        wav.setframerate(rate)
+        wav.writeframes(bytes([ord(letter), 0]) * rate * channels)
+    return memory.getvalue()
 
 
 class ReviewedAudioHandoffTests(unittest.TestCase):
@@ -39,10 +51,10 @@ class ReviewedAudioHandoffTests(unittest.TestCase):
                 for i,txt in enumerate(self.narrations,start=1)
             ],
         }
-        self.originals = {"slide1.wav":b"RIFF"+b"A"*100,
-                          "slide2.wav":b"RIFF"+b"B"*100}
+        self.originals = {"slide1.wav":pcm("A"),
+                          "slide2.wav":pcm("B")}
         self.candidates = dict(self.originals)
-        self.candidates["slide2.wav"] = b"RIFF"+b"C"*100
+        self.candidates["slide2.wav"] = pcm("C")
         for directory in (self.source,self.review):
             (directory / "script.txt").write_bytes(self.script)
             (directory / "tts_input_manifest.json").write_text(
@@ -177,14 +189,14 @@ class ReviewedAudioHandoffTests(unittest.TestCase):
                             confirm_reviewed_audio=True,confirm_isolated_export=True)
 
     def test_source_modified_blocks_audit_without_write(self):
-        (self.source/"slide1.wav").write_bytes(b"RIFF"+b"Z"*100)
+        (self.source/"slide1.wav").write_bytes(pcm("Z"))
         with self.assertRaisesRegex(AudioPromotionBlocked,"digest mismatch"):
             audit(self.source,self.review)
         self.assertFalse(self.destination.exists())
 
     def test_review_audio_tamper_blocks_export(self):
         self.create_external_attestation()
-        (self.review/"slide2.wav").write_bytes(b"RIFF"+b"Z"*100)
+        (self.review/"slide2.wav").write_bytes(pcm("Z"))
         with self.assertRaisesRegex(AudioPromotionBlocked,"digest mismatch"):
             export_reviewed(self.source,self.review,self.destination,
                             attestation_path=self.attestation_path,
@@ -193,7 +205,7 @@ class ReviewedAudioHandoffTests(unittest.TestCase):
         self.assert_originals_unchanged()
 
     def test_attempt_history_tamper_blocks_audit(self):
-        (self.review/"attempt1_slide2.wav").write_bytes(b"RIFF"+b"Z"*100)
+        (self.review/"attempt1_slide2.wav").write_bytes(pcm("Z"))
         with self.assertRaisesRegex(AudioPromotionBlocked,"Attempt WAV digest"):
             audit(self.source,self.review)
 
@@ -202,8 +214,8 @@ class ReviewedAudioHandoffTests(unittest.TestCase):
         # final WAV that is not documented as the final replacement.
         self.receipt["proposed_replacements"].append({
             "slide":2,"round":2,
-            "wav_sha256":sha(b"RIFF"+b"D"*100)})
-        (self.review/"attempt2_slide2.wav").write_bytes(b"RIFF"+b"D"*100)
+            "wav_sha256":sha(pcm("D"))})
+        (self.review/"attempt2_slide2.wav").write_bytes(pcm("D"))
         self.persist()
         with self.assertRaisesRegex(AudioPromotionBlocked,"latest recorded attempt"):
             audit(self.source,self.review)
@@ -214,6 +226,37 @@ class ReviewedAudioHandoffTests(unittest.TestCase):
             "wav_sha256":sha(self.candidates["slide2.wav"])})
         self.persist()
         with self.assertRaisesRegex(AudioPromotionBlocked,"repeated or out of order"):
+            audit(self.source,self.review)
+
+    def test_wav_hash_alone_does_not_validate_pcm(self):
+        corrupted = b"RIFF" + b"not_pcm_at_all" * 10
+        self.originals["slide1.wav"] = corrupted
+        (self.source/"slide1.wav").write_bytes(corrupted)
+        (self.review/"slide1.wav").write_bytes(corrupted)
+        self.receipt["original_wav_sha256"]["slide1.wav"]=sha(corrupted)
+        self.receipt["candidate_wav_sha256"]["slide1.wav"]=sha(corrupted)
+        self.persist()
+        with self.assertRaisesRegex(AudioPromotionBlocked,"real RIFF/WAVE PCM"):
+            audit(self.source,self.review)
+
+    def test_wrong_sample_rate_blocks_even_with_correct_sha(self):
+        audio=pcm("A",rate=16000)
+        (self.source/"slide1.wav").write_bytes(audio)
+        (self.review/"slide1.wav").write_bytes(audio)
+        self.receipt["original_wav_sha256"]["slide1.wav"]=sha(audio)
+        self.receipt["candidate_wav_sha256"]["slide1.wav"]=sha(audio)
+        self.persist()
+        with self.assertRaisesRegex(AudioPromotionBlocked,"24kHz 16-bit mono PCM"):
+            audit(self.source,self.review)
+
+    def test_wav_declared_length_tamper_rejected_despite_matching_receipt(self):
+        audio=pcm("A")+b"hidden_trailing_audio"
+        (self.source/"slide1.wav").write_bytes(audio)
+        (self.review/"slide1.wav").write_bytes(audio)
+        self.receipt["original_wav_sha256"]["slide1.wav"]=sha(audio)
+        self.receipt["candidate_wav_sha256"]["slide1.wav"]=sha(audio)
+        self.persist()
+        with self.assertRaisesRegex(AudioPromotionBlocked,"declared byte length"):
             audit(self.source,self.review)
 
     def test_attestation_inside_source_is_not_independent(self):
