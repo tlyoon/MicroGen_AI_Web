@@ -170,12 +170,23 @@ def verify_encoded_highlight_pixels(
                     finally:
                         cropped.close();expected.close();baseline.close()
                     gain=err_base-err_expected
-                    # Error must be measurably LOWER for the active highlight.
-                    # This detects flat static-slide videos falsely claiming cues.
-                    if gain<1.0:
+                    # A RELATIVE improvement alone admits catastrophic
+                    # corruption: a blacked-out video may be marginally
+                    # closer to the active reference than to the base (e.g.
+                    # 219 vs 238 RGB MAE). Require both an absolute match
+                    # and a substantial relative improvement in the actual
+                    # encoded pixels. The 30-point MAE limit is deliberately
+                    # conservative for H.264 re-encoding; quality below that
+                    # level is not suitable for technical lecture release.
+                    if (gain < 1.0 or err_expected > 30.0
+                            or err_expected > 0.80 * err_base):
                         raise EncodedPixelQAError(
                             f"Encoded event {i} element {eid} has no verified "
-                            f"target highlight (difference improvement {gain:.3f})"
+                            "target highlight: insufficient absolute or "
+                            "relative pixel agreement "
+                            f"(active MAE {err_expected:.3f}, "
+                            f"base MAE {err_base:.3f}, "
+                            f"improvement {gain:.3f})"
                         )
                     element_checks.append({"element_id":eid,
                              "decoded_active_error":round(err_expected,3),
