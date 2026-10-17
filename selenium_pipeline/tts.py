@@ -420,17 +420,16 @@ def _named_voice(voice: str) -> str:
 def _fallback_specs(provider: str, model: str, voice: str) -> list[dict[str, str]]:
     """Return same-named-voice fallbacks in preferred quality/compatibility order."""
     named = _named_voice(voice)
-    cloud_voice = f"en-US-Chirp3-HD-{named}"
     if provider == "gemini":
         other = (
             "gemini-3.8-flash-tts"
             if model == "gemini-3.8-flash-lite-tts"
             else "gemini-3.8-flash-lite-tts"
         )
-        return [
-            {"provider": "gemini", "model": other, "voice": named},
-            {"provider": "chirp3", "model": "chirp3-hd", "voice": cloud_voice},
-        ]
+        # Explicit project contract (16 Oct 2026): metered Flash-Lite
+        # may be authorized, but expensive Google Cloud Chirp TTS must
+        # never be an automatic fallback after Gemini failure.
+        return [{"provider": "gemini", "model": other, "voice": named}]
     if provider == "chirp3":
         return [
             {"provider": "gemini", "model": "gemini-3.8-flash-tts", "voice": named},

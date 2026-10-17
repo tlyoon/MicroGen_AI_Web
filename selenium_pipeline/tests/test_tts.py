@@ -258,13 +258,19 @@ class TTSTests(unittest.TestCase):
                     "model": "gemini-3.8-flash-tts",
                     "voice": "Kore",
                 },
-                {
-                    "provider": "chirp3",
-                    "model": "chirp3-hd",
-                    "voice": "en-US-Chirp3-HD-Kore",
-                },
             ],
         )
+
+    def test_gemini_failures_never_auto_select_expensive_cloud_chirp(self):
+        for model in ("gemini-3.8-flash-lite-tts",
+                      "gemini-3.8-flash-tts"):
+            with self.subTest(model=model):
+                specs = _fallback_specs("gemini", model, "Kore")
+                self.assertTrue(specs)
+                self.assertTrue(all(item["provider"] == "gemini"
+                                    for item in specs))
+                self.assertNotIn("chirp3", {item["provider"]
+                                             for item in specs})
 
     def test_voice_mismatch_triggers_whole_batch_fallback(self):
         with tempfile.TemporaryDirectory() as tmp:
