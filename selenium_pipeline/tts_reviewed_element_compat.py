@@ -72,7 +72,7 @@ def check(*, source_pdf: Path, slides_pdf: Path,
             and handoff.get("requested_primary") == actual["requested_primary"]
             and handoff.get("fallback_used") is True
         )),
-        "Reviewed handoff effective model/voice is not source-bound")
+        "Audio review approval/provenance is not source-bound (effective model/voice mismatch)")
     required(handoff.get("source_script_sha256") == digest(audio/"script.txt")
              and handoff.get("source_manifest_sha256") == digest(audio/"tts_input_manifest.json"),
              "Reviewed audio script/manifest changed")
