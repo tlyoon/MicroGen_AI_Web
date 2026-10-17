@@ -143,6 +143,53 @@ class ObservedAttemptJournalTests(unittest.TestCase):
         self.assertEqual(after.verify_before("gemini",FLASH)["lite"]["failed_slides"],[1])
         self.assertFalse((self.folder/"slide1.wav").exists())
 
+    def test_full_mocked_lite_flash_cloud_transition_records_real_path(self):
+        """Zero-network Lite failure x3, Flash failure x3, then one Cloud WAV."""
+        import io
+        import wave
+        fake=types.ModuleType("gemini_keys")
+        fake.get_gemini_api_keys=lambda:["offline-fake-key"]
+        fake.create_gemini_client=lambda:object()
+        fake.call_with_client_failover=(
+            lambda client_factory, callback, **kwargs: callback(client_factory()))
+        out=io.BytesIO()
+        with wave.open(out,"wb") as stream:
+            stream.setnchannels(1)
+            stream.setsampwidth(2)
+            stream.setframerate(24000)
+            stream.writeframes(b"\\x00\\x01"*24000)
+        audio=out.getvalue()
+        with patch.dict(sys.modules,{"gemini_keys":fake}), \
+             patch.dict(os.environ,{
+                "MICROGEN_TTS_QUEUE_ROUNDS":"1",
+                "MICROGEN_TTS_QUEUE_DELAY_SECONDS":"0",
+                "MICROGEN_TTS_ENABLE_PROVIDER_FALLBACK":"1",
+                "MICROGEN_TTS_ENABLE_BATCH_FALLBACK":"1"}), \
+             patch("selenium_pipeline.tts._gemini_say",
+                   side_effect=RuntimeError("503 synthetic provider outage")) as gemini, \
+             patch("selenium_pipeline.tts._chirp_say_with_watchdog",
+                   return_value=audio) as chirp:
+            synthesize_folder(self.folder,"gemini",LITE,"Kore")
+            self.assertEqual(gemini.call_count,6)
+            chirp.assert_called_once()
+        manifest=json.loads((self.folder/"tts_input_manifest.json").read_text())
+        self.assertEqual(manifest["primary"]["provider"],"chirp3")
+        self.assertEqual(manifest["primary"]["model"],CHIRP)
+        self.assertEqual(manifest["primary"]["voice"],"en-US-Chirp3-HD-Corey")
+        self.assertEqual(manifest["fallback_chain"],[LITE,FLASH])
+        self.assertEqual((self.folder/"slide1.wav").read_bytes(),audio)
+        proof=manifest["attempt_evidence"]
+        self.assertEqual(proof["effective_model"],CHIRP)
+        ledger=AttemptEvidence(self.folder,self.items)
+        observed=ledger.read()
+        self.assertEqual(len(observed),7)
+        self.assertEqual([e["outcome"] for e in observed],
+                         ["transient_failure"]*6+["success"])
+        self.assertEqual(ledger.tip(),proof["sha256"])
+        self.assertEqual(
+            AttemptEvidence.verify_saved(self.folder,self.items,proof)["flash"]["failed_slides"],
+            [1])
+
     def test_conditional_cloud_qa_rejects_manifest_only_claim_before_credentials(self):
         from selenium_pipeline.tts_qa_repair import main
         manifest={
