@@ -81,7 +81,7 @@ def check(*, source_pdf: Path, slides_pdf: Path,
              and len({n for n, _ in items}) == len(items)
              and {f"slide{n}.wav" for n, _ in items} == set(expected_hashes),
              "Reviewed audio slide/WAV coverage mismatch")
-     required(isinstance(rows, list) and len(rows) == len(items),
+    required(isinstance(rows, list) and len(rows) == len(items),
              "Manifest is missing or repeating slide audio")
     row_by_number = {}
     for row in rows:
