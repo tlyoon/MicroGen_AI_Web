@@ -50,14 +50,24 @@ def safe_provider_request_id(exc: BaseException) -> str | None:
     Some SDK failures expose no ID. This helper must not log credentials or
     arbitrary exception text; missing IDs remain uncorroborated.
     """
-    candidates = [getattr(exc, "request_id", None),
-                  getattr(exc, "response_id", None)]
-    response = getattr(exc, "response", None)
-    for holder in (getattr(exc, "headers", None),
-                   getattr(response, "headers", None)):
-        if hasattr(holder, "get"):
-            for key in ("x-request-id", "x-goog-request-id", "request-id"):
-                candidates.append(holder.get(key))
+    candidates = []
+    visited = set()
+    current = exc
+    for _ in range(4):
+        if current is None or id(current) in visited:
+            break
+        visited.add(id(current))
+        # A Gemini response_id is a generated response identifier, not
+        # necessarily the HTTP request identifier in provider logs.
+        candidates.append(getattr(current, "request_id", None))
+        response = getattr(current, "response", None)
+        for holder in (getattr(current, "headers", None),
+                       getattr(response, "headers", None)):
+            if hasattr(holder, "get"):
+                for key in ("x-request-id", "x-goog-request-id", "request-id"):
+                    candidates.append(holder.get(key))
+        current = (getattr(current, "__cause__", None) or
+                   getattr(current, "__context__", None))
     for candidate in candidates:
         if (isinstance(candidate, str) and 8 <= len(candidate) <= 128
                 and re.fullmatch(r"[a-zA-Z0-9_.:-]+", candidate)):

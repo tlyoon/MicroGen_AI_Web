@@ -18,10 +18,14 @@ import subprocess
 import sys
 import tempfile
 import time
+from contextvars import ContextVar
 from contextlib import contextmanager
 from pathlib import Path
 
 from .runner import blocks
+
+_LAST_PROVIDER_REQUEST_ID: ContextVar[str | None] = ContextVar(
+    "microgen_tts_actual_provider_request_id", default=None)
 
 STYLE = ("Natural and clear university-level physics teaching narration, "
          "calm pacing, precise mathematical and scientific terminology. "
@@ -100,7 +104,8 @@ def _wav_bytes(response) -> bytes:
     raise RuntimeError("TTS response had no audio; nothing has been published")
 
 
-def _gemini_say(client, text: str, model: str, voice: str) -> bytes:
+def _gemini_say(client, text: str, model: str, voice: str,
+                *, request_observation: dict | None = None) -> bytes:
     response = client.models.generate_content(
         model=model,
         contents=[{"role": "user", "parts": [
@@ -109,14 +114,22 @@ def _gemini_say(client, text: str, model: str, voice: str) -> bytes:
         config={"response_modalities": ["AUDIO"],
                 "speech_config": {"voice_config": {"voice": voice}}},
     )
+    if request_observation is not None:
+        from .tts_attempt_evidence import safe_provider_request_id
+        request_observation["provider_request_id"] = safe_provider_request_id(response)
     return _wav_bytes(response)
 
 
-def _gemini_failover_request(text: str, number: int, model: str, voice: str) -> bytes:
+def _gemini_failover_request(text: str, number: int, model: str, voice: str,
+                             *, request_observation: dict | None = None) -> bytes:
     from gemini_keys import call_with_client_failover, create_gemini_client
     return call_with_client_failover(
         create_gemini_client,
-        lambda client: _gemini_say(client, text, model, voice),
+        lambda client: (
+            _gemini_say(client, text, model, voice)
+            if request_observation is None else
+            _gemini_say(client, text, model, voice,
+                        request_observation=request_observation)),
         label=f"Gemini TTS slide{number}",
     )
 
@@ -251,6 +264,7 @@ def _gemini_say_with_watchdog(
     request_label: str | None = None,
     attempts_override: int | None = None,
 ) -> bytes:
+    _LAST_PROVIDER_REQUEST_ID.set(None)
     timeout_seconds = _tts_timeout_seconds(text)
     attempts = (
         max(1, int(attempts_override))
@@ -264,6 +278,7 @@ def _gemini_say_with_watchdog(
     for attempt in range(1, attempts + 1):
         with tempfile.TemporaryDirectory(prefix=f"microgen_tts_slide{number}_") as tmp:
             output = Path(tmp) / "result.wav"
+            evidence_output = Path(tmp) / "request_observation.json"
             command = [
                 sys.executable,
                 "-m",
@@ -276,6 +291,8 @@ def _gemini_say_with_watchdog(
                 voice,
                 "--number",
                 str(number),
+                "--evidence-output",
+                str(evidence_output),
                 "--confirm-gemini-api-cost",
             ]
             try:
@@ -301,13 +318,24 @@ def _gemini_say_with_watchdog(
             if completed.returncode == 0 and output.is_file():
                 payload = output.read_bytes()
                 if payload:
+                    if evidence_output.is_file() or evidence_output.is_symlink():
+                        from .tts_worker_evidence import read_observation
+                        _LAST_PROVIDER_REQUEST_ID.set(
+                            read_observation(evidence_output, outcome="success"))
                     return payload
 
+            observed_request_id = None
+            if evidence_output.is_file() or evidence_output.is_symlink():
+                from .tts_worker_evidence import read_observation
+                observed_request_id = read_observation(
+                    evidence_output, outcome="exception")
             detail = (completed.stderr or completed.stdout or "").strip()
             last_error = RuntimeError(
                 f"Gemini TTS {label} worker failed on attempt {attempt}/{attempts}"
                 + (f": {detail}" if detail else "")
             )
+            if observed_request_id is not None:
+                last_error.request_id = observed_request_id
             if attempt < attempts:
                 print(f"[tts] {last_error}; retrying", flush=True)
                 continue
@@ -339,6 +367,9 @@ def _gemini_say_with_watchdog(
                         request_label=chunk_label,
                     )
                 )
+            # Multiple chunks are separate provider requests. Their combined
+            # slide WAV has no single provider request ID to claim.
+            _LAST_PROVIDER_REQUEST_ID.set(None)
             return _merge_wav_payloads(payloads)
 
     if last_error is not None:
@@ -447,8 +478,10 @@ def _chirp_say_with_watchdog(
         60.0,
         float(os.environ.get("MICROGEN_CHIRP_TTS_HARD_TIMEOUT_SECONDS", "180")),
     )
+    _LAST_PROVIDER_REQUEST_ID.set(None)
     with tempfile.TemporaryDirectory(prefix=f"microgen_chirp_slide{number}_") as tmp:
         output = Path(tmp) / "result.wav"
+        evidence_output = Path(tmp) / "request_observation.json"
         command = [
             sys.executable,
             "-m",
@@ -463,6 +496,8 @@ def _chirp_say_with_watchdog(
             voice,
             "--number",
             str(number),
+            "--evidence-output",
+            str(evidence_output),
             "--confirm-google-cloud-tts-cost",
         ]
         creationflags = subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
@@ -496,9 +531,21 @@ def _chirp_say_with_watchdog(
                 f"{timeout_seconds:.0f}s"
             )
         if proc.returncode != 0 or not output.is_file():
-            raise RuntimeError(
+            observed_request_id = None
+            if evidence_output.is_file() or evidence_output.is_symlink():
+                from .tts_worker_evidence import read_observation
+                observed_request_id = read_observation(
+                    evidence_output, outcome="exception")
+            error = RuntimeError(
                 f"Chirp3 TTS slide{number} failed: {(worker_output or '')[-1200:]}"
             )
+            if observed_request_id is not None:
+                error.request_id = observed_request_id
+            raise error
+        if evidence_output.is_file() or evidence_output.is_symlink():
+            from .tts_worker_evidence import read_observation
+            _LAST_PROVIDER_REQUEST_ID.set(
+                read_observation(evidence_output, outcome="success"))
         payload = output.read_bytes()
         if not payload.startswith((b"RIFF", b"RF64")):
             raise RuntimeError(f"Chirp3 TTS slide{number} did not return WAV")
@@ -842,6 +889,7 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
             print(f"[tts] requesting slide{number} ({len(narration)} chars)", flush=True)
             try:
                 attempts_by_slide[number] = attempts_by_slide.get(number, 0) + 1
+                _LAST_PROVIDER_REQUEST_ID.set(None)
                 payload = say(
                     narration,
                     number,
@@ -859,7 +907,8 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
                 if attempt_evidence is not None:
                     attempt_evidence.record(
                         provider=provider, model=model, slide=number,
-                        round_number=round_number, outcome="success")
+                        round_number=round_number, outcome="success",
+                        provider_request_id=_LAST_PROVIDER_REQUEST_ID.get())
                 last_failures.pop(number, None)
                 slide_provenance[number] = {**primary_spec, "fallback_used": False}
                 consecutive_transient_failures = 0
