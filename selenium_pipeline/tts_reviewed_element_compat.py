@@ -13,6 +13,9 @@ from pathlib import Path
 from .element_highlight_workflow import source_bound_plan
 from .runner import blocks
 from .tts_pcm_contract import verify_pcm, TTSPCMContractError
+from .tts_effective_identity import (
+    verify_effective_identity, TTSEffectiveIdentityError,
+)
 
 
 class ElementAudioIncompatible(ValueError):
@@ -53,12 +56,23 @@ def check(*, source_pdf: Path, slides_pdf: Path,
     required(handoff.get("status") == "AUDIO_REVIEWED_ISOLATED_COPY"
              and handoff.get("human_review_approved") is True
              and handoff.get("video_publication_approved") is False
-             and handoff.get("provider") == "gemini"
-             and handoff.get("tts_model") == "gemini-3.8-flash-lite-tts"
-             and handoff.get("voice") == "Kore"
              and handoff.get("destination") == str(audio)
              and handoff.get("source") == str(source.parent),
              "Audio review approval/provenance is not source-bound")
+    try:
+        actual = verify_effective_identity(manifest, items)
+    except TTSEffectiveIdentityError as exc:
+        raise ElementAudioIncompatible(str(exc)) from exc
+    required(
+        handoff.get("provider") == actual["provider"]
+        and handoff.get("tts_model") == actual["model"]
+        and handoff.get("voice") == actual["voice"]
+        and (not actual["fallback_used"] or (
+            handoff.get("fallback_chain") == actual["fallback_chain"]
+            and handoff.get("requested_primary") == actual["requested_primary"]
+            and handoff.get("fallback_used") is True
+        )),
+        "Audio review approval/provenance is not source-bound (effective model/voice mismatch)")
     required(handoff.get("source_script_sha256") == digest(audio/"script.txt")
              and handoff.get("source_manifest_sha256") == digest(audio/"tts_input_manifest.json"),
              "Reviewed audio script/manifest changed")
@@ -67,9 +81,6 @@ def check(*, source_pdf: Path, slides_pdf: Path,
              and len({n for n, _ in items}) == len(items)
              and {f"slide{n}.wav" for n, _ in items} == set(expected_hashes),
              "Reviewed audio slide/WAV coverage mismatch")
-    required(manifest.get("primary") == {
-        "provider": "gemini", "model": "gemini-3.8-flash-lite-tts", "voice": "Kore"},
-        "Manifest model/voice differs from attested audio")
     required(isinstance(rows, list) and len(rows) == len(items),
              "Manifest is missing or repeating slide audio")
     row_by_number = {}
@@ -83,10 +94,10 @@ def check(*, source_pdf: Path, slides_pdf: Path,
         required(isinstance(entry, dict)
                  and entry.get("source_text") == spoken
                  and entry.get("tts_text") == spoken
-                 and entry.get("provider") == "gemini"
-                 and entry.get("model") == "gemini-3.8-flash-lite-tts"
-                 and entry.get("voice") == "Kore"
-                 and entry.get("fallback_used") is False,
+                 and entry.get("provider") == actual["provider"]
+                 and entry.get("model") == actual["model"]
+                 and entry.get("voice") == actual["voice"]
+                 and entry.get("fallback_used") is actual["fallback_used"],
                  f"Manifest narration is not bound to slide {n}")
         wav = audio/f"slide{n}.wav"
         required(wav.is_file() and not wav.is_symlink()
@@ -101,8 +112,8 @@ def check(*, source_pdf: Path, slides_pdf: Path,
              and scene.get("source_sha256") == digest(source)
              and scene.get("slides_sha256") == digest(slides)
              and isinstance(scene.get("voice_id"), str)
-             and "gemini-3.8-flash-lite-tts" in scene["voice_id"]
-             and "Kore" in scene["voice_id"],
+             and actual["model"] in scene["voice_id"]
+             and actual["voice"] in scene["voice_id"],
              "Element plan does not refer to the same source/model/voice")
     parts = scene.get("parts")
     required(isinstance(parts, list) and bool(parts), "No scene parts")
@@ -140,6 +151,10 @@ def check(*, source_pdf: Path, slides_pdf: Path,
         "matched_slide_elements": len(covered),
         "parts": plan_check["parts"],
         "human_audio_review_claimed": True,
+        "effective_provider": actual["provider"],
+        "effective_model": actual["model"],
+        "effective_voice": actual["voice"],
+        "fallback_chain": actual["fallback_chain"],
         "scientific_element_mapping_approved": False,
         "student_published": False,
         "production_approved": False,
