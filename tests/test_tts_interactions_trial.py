@@ -26,9 +26,10 @@ def wav_bytes(*, rate=24000, channels=1, width=2, silent=False):
     return bio.getvalue()
 
 
-def interaction(audio):
-    return SimpleNamespace(output_audio=SimpleNamespace(
-        mime_type="audio/wav", data=base64.b64encode(audio).decode("ascii")))
+def interaction(audio, *, model=MODEL, status="completed", mime_type="audio/wav"):
+    return SimpleNamespace(model=model, status=status,
+        output_audio=SimpleNamespace(
+            mime_type=mime_type, data=base64.b64encode(audio).decode("ascii")))
 
 
 class InteractionsTrialTests(unittest.TestCase):
@@ -94,6 +95,8 @@ class InteractionsTrialTests(unittest.TestCase):
         self.assertEqual(c.calls[0],interactions_request())
         self.assertEqual(c.closed,1)
         self.assertTrue(r["real_audio_generated"])
+        self.assertTrue(r["provider_response_model_verified"])
+        self.assertTrue(r["provider_completion_status_verified"])
         self.assertFalse(r["speech_content_verified_by_asr"])
         self.assertFalse(r["voice_identity_acoustically_verified"])
         self.assertFalse(r["production_approved"])
@@ -140,6 +143,40 @@ class InteractionsTrialTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             verify_wav(SimpleNamespace(output_audio=SimpleNamespace(
                 data="% NOT BASE64 %")))
+
+
+    def test_provider_identity_status_and_mime_must_be_verified(self):
+        for model,status,mime in (
+            ("gemini-3.8-flash-tts","completed","audio/wav"),
+            (None,"completed","audio/wav"),
+            (MODEL,"in_progress","audio/wav"),
+            (MODEL,None,"audio/wav"),
+            (MODEL,"completed",None),
+            (MODEL,"completed","audio/l16"),
+        ):
+            with self.subTest(model=model,status=status,mime=mime):
+                with self.assertRaises(ValueError):
+                    verify_wav(interaction(wav_bytes(),
+                          model=model,status=status,mime_type=mime))
+
+    def test_different_model_payload_cannot_produce_accepted_receipt(self):
+        class WrongModel:
+            def __init__(self):
+                self.n=0
+                self.interactions=SimpleNamespace(create=self.send)
+            def send(self, **_):
+                self.n += 1
+                return interaction(wav_bytes(),model="gemini-3.8-flash-tts")
+        client=WrongModel()
+        with self.assertRaisesRegex(RuntimeError,"no retry"):
+            self.call(confirm_live=True,confirm_gemini_api_cost=True,
+                      confirm_synthetic_trial=True,client_factory=lambda:client)
+        self.assertEqual(client.n,1)
+        self.assertFalse((self.dest/"synthetic_kore.wav").exists())
+        self.assertFalse((self.dest/"trial_receipt.json").exists())
+        receipt=json.loads((self.dest/"trial_failed.json").read_text())
+        self.assertFalse(receipt["real_audio_generated"])
+        self.assertFalse(receipt["retry_permitted_automatically"])
 
     def test_old_sdk_fails_before_any_live_request(self):
         with self.assertRaisesRegex(RuntimeError,"2.25.0"):

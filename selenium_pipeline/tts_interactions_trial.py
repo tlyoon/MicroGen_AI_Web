@@ -60,13 +60,21 @@ def interactions_request() -> dict:
 
 
 def verify_wav(response) -> tuple[bytes, dict]:
-    """Never accept a made-up WAV header or decoded raw PCM as complete WAV."""
+    """Fail closed on response identity, status and complete canonical WAV."""
+    provider_model = getattr(response, "model", None)
+    status = getattr(response, "status", None)
+    if hasattr(status, "value"):
+        status = status.value
+    if provider_model != MODEL:
+        raise ValueError("Gemini returned an unexpected or unverified model")
+    if status != "completed":
+        raise ValueError("Gemini interaction did not complete successfully")
     audio = getattr(response, "output_audio", None)
     if audio is None:
         raise ValueError("Gemini Interactions returned no output_audio")
     content_type = getattr(audio, "mime_type", None)
-    if content_type not in (None, "audio/wav"):
-        raise ValueError("Unexpected Gemini audio MIME type")
+    if content_type != "audio/wav":
+        raise ValueError("Unexpected or unverified Gemini audio MIME type")
     raw = getattr(audio, "data", None)
     if not isinstance(raw, (str, bytes)) or not raw:
         raise ValueError("Missing base64 audio data")
@@ -180,6 +188,8 @@ def run_trial(output_dir: Path, *, confirm_live: bool = False,
             out.write(payload)
         report = {**common, "status": "SYNTHETIC_GEMINI_API_WAV_UNREVIEWED",
                   "api_request_started": True, "real_audio_generated": True,
+                  "provider_response_model_verified": True,
+                  "provider_completion_status_verified": True,
                   "speech_content_verified_by_asr": False,
                   "voice_identity_acoustically_verified": False,
                   **metrics}
