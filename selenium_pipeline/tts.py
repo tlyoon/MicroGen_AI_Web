@@ -104,7 +104,8 @@ def _wav_bytes(response) -> bytes:
     raise RuntimeError("TTS response had no audio; nothing has been published")
 
 
-def _gemini_say(client, text: str, model: str, voice: str) -> bytes:
+def _gemini_say(client, text: str, model: str, voice: str,
+                *, request_observation: dict | None = None) -> bytes:
     response = client.models.generate_content(
         model=model,
         contents=[{"role": "user", "parts": [
@@ -113,14 +114,22 @@ def _gemini_say(client, text: str, model: str, voice: str) -> bytes:
         config={"response_modalities": ["AUDIO"],
                 "speech_config": {"voice_config": {"voice": voice}}},
     )
+    if request_observation is not None:
+        from .tts_attempt_evidence import safe_provider_request_id
+        request_observation["provider_request_id"] = safe_provider_request_id(response)
     return _wav_bytes(response)
 
 
-def _gemini_failover_request(text: str, number: int, model: str, voice: str) -> bytes:
+def _gemini_failover_request(text: str, number: int, model: str, voice: str,
+                             *, request_observation: dict | None = None) -> bytes:
     from gemini_keys import call_with_client_failover, create_gemini_client
     return call_with_client_failover(
         create_gemini_client,
-        lambda client: _gemini_say(client, text, model, voice),
+        lambda client: (
+            _gemini_say(client, text, model, voice)
+            if request_observation is None else
+            _gemini_say(client, text, model, voice,
+                        request_observation=request_observation)),
         label=f"Gemini TTS slide{number}",
     )
 
