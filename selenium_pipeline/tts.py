@@ -763,10 +763,16 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
 
     # Never transition to a paid fallback after fewer than three primary
     # attempts. Test-only / explicitly disabled fallback can use shorter runs.
-    queue_rounds = max(3 if allow_fallback else 1,
-                       int(os.environ.get("MICROGEN_TTS_QUEUE_ROUNDS", "3")))
+    automatic_fallback = (
+        allow_fallback and provider == "gemini"
+        and os.environ.get("MICROGEN_TTS_ENABLE_PROVIDER_FALLBACK", "1") != "0"
+        and os.environ.get("MICROGEN_TTS_ENABLE_BATCH_FALLBACK", "1") != "0")
+    queue_rounds = max(
+        3 if (automatic_fallback or not allow_fallback) else 1,
+        int(os.environ.get("MICROGEN_TTS_QUEUE_ROUNDS", "3")))
     pending = [(number, narration) for number, narration in items]
     last_failures: dict[int, BaseException] = {}
+    attempts_by_slide: dict[int, int] = {}
     primary_spec = {"provider": provider, "model": model, "voice": voice}
     slide_provenance: dict[int, dict[str, object]] = {}
 
@@ -778,10 +784,12 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
             break
         next_pending: list[tuple[int, str]] = []
         consecutive_transient_failures = 0
-        circuit_breaker_failures = max(
-            1,
-            int(os.environ.get("MICROGEN_TTS_QUEUE_CIRCUIT_BREAKER_FAILURES", "2")),
-        )
+        # A Cloud escalation must be backed by a *complete* three-attempt
+        # queue for every unresolved slide, not a global circuit-breaker skip.
+        circuit_breaker_failures = (
+            len(pending) + 1 if (automatic_fallback or not allow_fallback)
+            else max(1, int(os.environ.get(
+                "MICROGEN_TTS_QUEUE_CIRCUIT_BREAKER_FAILURES", "2"))))
         print(
             f"[tts] queue round {round_number}/{queue_rounds}: "
             f"{len(pending)} slide(s) pending",
@@ -802,6 +810,7 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
 
             print(f"[tts] requesting slide{number} ({len(narration)} chars)", flush=True)
             try:
+                attempts_by_slide[number] = attempts_by_slide.get(number, 0) + 1
                 payload = say(
                     narration,
                     number,
@@ -878,7 +887,9 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
     # Lite: 3 queue rounds -> Flash: 3 queue rounds -> Cloud Chirp HD.
     # Flash: 3 queue rounds -> Cloud Chirp HD.
     # A failed attempt preserves all verified primary WAV candidates.
-    if (unresolved and allow_fallback and provider == "gemini"
+    if (unresolved and automatic_fallback
+            and all(attempts_by_slide.get(number, 0) >= 3
+                    for number, _ in unresolved)
             and all(_is_transient_tts_failure(exc) for _, exc in unresolved)
             and os.environ.get("MICROGEN_TTS_ENABLE_PROVIDER_FALLBACK", "1") != "0"
             and os.environ.get("MICROGEN_TTS_ENABLE_BATCH_FALLBACK", "1") != "0"):
