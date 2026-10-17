@@ -535,6 +535,10 @@ class Settings:
     tts_provider: str = "gemini"
     tts_model: str = DEFAULT_TTS
     tts_voice: str = "Kore"
+    # Billing decisions are explicit per invocation, not inferred from local
+    # .env API keys or ordinary browser login.
+    confirm_gemini_api_cost: bool = False
+    confirm_google_cloud_tts_cost: bool = False
     tts_qa_model: str = ACTIVE_LLM_MODEL
     tts_qa_threshold: float = 99.0
     chrome_port: int = 9222
@@ -691,6 +695,12 @@ def _execute_unlocked(s: Settings) -> Path:
             "Replan using reviewed scene boundaries and the approved "
             "synchronized part renderer; preserving all existing output."
         )
+    if "tts" in planned or "tts_qa" in planned:
+        from .tts_billing_guard import require_tts_cost_authorization
+        require_tts_cost_authorization(
+            s.tts_provider,
+            gemini_approved=s.confirm_gemini_api_cost,
+            cloud_approved=s.confirm_google_cloud_tts_cost)
     if any(_needs_browser(x) for x in planned):
         from .launch_gemini import launch
         requested_port = s.chrome_port
@@ -845,6 +855,8 @@ def _execute_unlocked(s: Settings) -> Path:
                         s.tts_model,
                         "--voice",
                         s.tts_voice,
+                        ("--confirm-gemini-api-cost" if s.tts_provider == "gemini"
+                         else "--confirm-google-cloud-tts-cost"),
                     ],
                     REPO,
                     log_file,
@@ -872,6 +884,8 @@ def _execute_unlocked(s: Settings) -> Path:
                         s.tts_voice,
                         "--max-repairs",
                         os.environ.get("MICROGEN_TTS_QA_REPAIR_ROUNDS", "2"),
+                        ("--confirm-gemini-api-cost" if s.tts_provider == "gemini"
+                         else "--confirm-google-cloud-tts-cost"),
                     ],
                     REPO,
                     log_file,
@@ -1014,6 +1028,10 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--tts-provider", choices=("gemini", "chirp3"), default="gemini")
     p.add_argument("--tts-model", default=DEFAULT_TTS)
     p.add_argument("--tts-voice", default="Kore")
+    p.add_argument("--confirm-gemini-api-cost", action="store_true",
+                   help="Explicit paid Gemini API TTS authorization for this invocation")
+    p.add_argument("--confirm-google-cloud-tts-cost", action="store_true",
+                   help="Separate explicit paid Google Cloud Chirp TTS authorization")
     p.add_argument("--tts-qa-model", default=ACTIVE_LLM_MODEL)
     p.add_argument("--tts-qa-threshold", type=float, default=99.0)
     p.add_argument("--communication-mode", choices=("selenium", "api", "fallback"),
@@ -1067,6 +1085,8 @@ def main(argv: list[str] | None = None) -> int:
         execute(Settings(source_root=args.source_root, work_root=args.work_root,
                          subchapter=job, tts_provider=args.tts_provider,
                          tts_model=args.tts_model, tts_voice=args.tts_voice,
+                         confirm_gemini_api_cost=args.confirm_gemini_api_cost,
+                         confirm_google_cloud_tts_cost=args.confirm_google_cloud_tts_cost,
                          tts_qa_model=args.tts_qa_model,
                          tts_qa_threshold=args.tts_qa_threshold,
                          chrome_port=args.chrome_port, alternate_gemini_user=args.alternate_gemini_user,

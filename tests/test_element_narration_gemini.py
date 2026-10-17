@@ -48,12 +48,21 @@ class ElementTTSCommandTests(unittest.TestCase):
             main(self.args)
         self.assertFalse(self.out.exists())
 
+    def test_author_specified_plan_never_bills_with_only_live_flag(self):
+        with patch("selenium_pipeline.runner.load_microvid_env") as loader, \
+             patch("selenium_pipeline.tts._gemini_say_with_watchdog") as synth:
+            with self.assertRaises(SystemExit):
+                main(self.args+["--confirm-live"])
+            loader.assert_not_called()
+            synth.assert_not_called()
+        self.assertFalse(self.out.exists())
+
     def test_mocked_live_voice_once_for_each_segment(self):
         with patch("selenium_pipeline.runner.load_microvid_env"), \
              patch("gemini_keys.get_gemini_api_keys",return_value=["test_key_not_real"]), \
              patch("selenium_pipeline.tts._gemini_say_with_watchdog",
                    return_value=mock_wav()) as call:
-            self.assertEqual(main(self.args+["--confirm-live"]),0)
+            self.assertEqual(main(self.args+["--confirm-live","--confirm-gemini-api-cost"]),0)
         self.assertEqual(call.call_count,2)
         meta=json.loads((self.out/"tts_synthesis_receipt.json").read_text())
         self.assertEqual(meta["voice"],"Kore")
@@ -69,24 +78,24 @@ class ElementTTSCommandTests(unittest.TestCase):
         self.out.mkdir()
         (self.out/"keep.txt").write_text("protected")
         with self.assertRaises(SystemExit):
-            main(self.args+["--confirm-live"])
+            main(self.args+["--confirm-live","--confirm-gemini-api-cost"])
         self.assertEqual((self.out/"keep.txt").read_text(),"protected")
 
     def test_mismatched_resume_is_rejected_without_network(self):
         self.out.mkdir()
         (self.out/"tts_job_identity.json").write_text("{}")
         with self.assertRaises(SystemExit):
-            main(self.args+["--confirm-live","--resume"])
+            main(self.args+["--confirm-live","--confirm-gemini-api-cost","--resume"])
 
     def test_reject_duplicate_names_and_nonapproved_model_before_network(self):
         document=json.loads(self.plan.read_text())
         document["parts"][0]["slides"][0]["elements"][1]["wav"]="a.wav"
         self.plan.write_text(json.dumps(document))
         with self.assertRaises(SystemExit):
-            main(self.args+["--confirm-live"])
+            main(self.args+["--confirm-live","--confirm-gemini-api-cost"])
         self.assertFalse(self.out.exists())
         with self.assertRaises(SystemExit):
-            main(self.args+["--model","unsafe-model","--confirm-live"])
+            main(self.args+["--model","unsafe-model","--confirm-live","--confirm-gemini-api-cost"])
 
 
     def test_resume_rejects_tampered_completed_element(self):
@@ -94,7 +103,7 @@ class ElementTTSCommandTests(unittest.TestCase):
              patch("gemini_keys.get_gemini_api_keys",return_value=["dummy"]), \
              patch("selenium_pipeline.tts._gemini_say_with_watchdog",
                    return_value=mock_wav()):
-            self.assertEqual(main(self.args+["--confirm-live"]),0)
+            self.assertEqual(main(self.args+["--confirm-live","--confirm-gemini-api-cost"]),0)
         (self.out/"tts_synthesis_receipt.json").unlink()
         (self.out/"gemini_test_voice_plan.json").unlink()
         (self.out/"b.wav").unlink()
@@ -105,7 +114,7 @@ class ElementTTSCommandTests(unittest.TestCase):
              patch("gemini_keys.get_gemini_api_keys",return_value=["dummy"]), \
              patch("selenium_pipeline.tts._gemini_say_with_watchdog") as request:
             with self.assertRaisesRegex(RuntimeError,"byte hash mismatch"):
-                main(self.args+["--confirm-live","--resume"])
+                main(self.args+["--confirm-live","--confirm-gemini-api-cost","--resume"])
             request.assert_not_called()
 
     def test_resume_reuses_hash_verified_element_only(self):
@@ -113,7 +122,7 @@ class ElementTTSCommandTests(unittest.TestCase):
              patch("gemini_keys.get_gemini_api_keys",return_value=["dummy"]), \
              patch("selenium_pipeline.tts._gemini_say_with_watchdog",
                    return_value=mock_wav()):
-            self.assertEqual(main(self.args+["--confirm-live"]),0)
+            self.assertEqual(main(self.args+["--confirm-live","--confirm-gemini-api-cost"]),0)
         original=(self.out/"a.wav").read_bytes()
         (self.out/"tts_synthesis_receipt.json").unlink()
         (self.out/"gemini_test_voice_plan.json").unlink()
@@ -123,7 +132,7 @@ class ElementTTSCommandTests(unittest.TestCase):
              patch("gemini_keys.get_gemini_api_keys",return_value=["dummy"]), \
              patch("selenium_pipeline.tts._gemini_say_with_watchdog",
                    return_value=mock_wav()) as request:
-            self.assertEqual(main(self.args+["--confirm-live","--resume"]),0)
+            self.assertEqual(main(self.args+["--confirm-live","--confirm-gemini-api-cost","--resume"]),0)
             self.assertEqual(request.call_count,1)
         self.assertEqual((self.out/"a.wav").read_bytes(),original)
         self.assertTrue((self.out/"tts_synthesis_receipt.json").is_file())

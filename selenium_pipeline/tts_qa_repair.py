@@ -85,7 +85,15 @@ def main(argv=None) -> int:
     parser.add_argument("--tts-model", required=True)
     parser.add_argument("--voice", required=True)
     parser.add_argument("--max-repairs", type=int, default=2)
+    parser.add_argument("--confirm-gemini-api-cost", action="store_true")
+    parser.add_argument("--confirm-google-cloud-tts-cost", action="store_true")
     args = parser.parse_args(argv)
+    from .tts_billing_guard import require_tts_cost_authorization
+    # A repair can synthesize NEW audio; provenance checks cannot replace
+    # an explicit provider-specific authorization for that expense.
+    require_tts_cost_authorization(
+        args.provider, gemini_approved=args.confirm_gemini_api_cost,
+        cloud_approved=args.confirm_google_cloud_tts_cost)
     load_microvid_env()
     repair(args.folder, model=args.model, threshold=args.threshold,
            provider=args.provider, tts_model=args.tts_model, voice=args.voice,

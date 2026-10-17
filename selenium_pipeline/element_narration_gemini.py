@@ -53,6 +53,14 @@ def main(argv=None):
     args=p.parse_args(argv)
     if not args.confirm_live:
         p.error("No network/TTS request without --confirm-live")
+    # The historical author-specified plan path was missing this check.
+    # Every paid Gemini TTS path needs explicit, separate cost authorization.
+    from .tts_billing_guard import require_tts_cost_authorization, TTSCostAuthorizationError
+    try:
+        require_tts_cost_authorization("gemini",
+                                       gemini_approved=args.confirm_gemini_api_cost)
+    except TTSCostAuthorizationError as exc:
+        p.error(str(exc))
     if args.model not in {"gemini-3.8-flash-lite-tts","gemini-3.8-flash-tts"}:
         p.error("Only explicitly supported Gemini TTS models allowed")
     if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]{1,30}",args.voice):
@@ -69,9 +77,9 @@ def main(argv=None):
     if plan["status"]=="reviewed_element_tts_request_unapproved":
         # Prevent a newly generated review JSON from silently billing the
         # Gemini API. There is currently NO verified Gemini-web TTS transport.
-        if not args.confirm_reviewed_tts_request or not args.confirm_gemini_api_cost:
-            p.error("Reviewed TTS requests require BOTH explicit reviewer and "
-                    "paid-Gemini-API authorization flags")
+        if not args.confirm_reviewed_tts_request:
+            p.error("Reviewed TTS requests require explicit reviewer confirmation "
+                    "in addition to paid-Gemini-API authorization")
         if (plan.get("tts_model")!=args.model or
                 plan.get("tts_voice")!=args.voice or
                 plan.get("voice_id")!=f"gemini_{args.model}_{args.voice}_REVIEW_ONLY"
