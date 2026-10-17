@@ -117,13 +117,17 @@ class InteractionsTrialTests(unittest.TestCase):
                         self.n+=1
                         return interaction(payload)
                 client=Fake()
-                with self.assertRaises(ValueError):
+                with self.assertRaisesRegex(RuntimeError,"no retry"):
                     self.call(confirm_live=True,confirm_gemini_api_cost=True,
                               confirm_synthetic_trial=True,client_factory=lambda:client)
                 self.assertEqual(client.n,1)
                 self.assertFalse((self.dest/"synthetic_kore.wav").exists())
                 self.assertFalse((self.dest/"trial_receipt.json").exists())
                 self.assertTrue((self.dest/"request_intent.json").exists())
+                failure=json.loads((self.dest/"trial_failed.json").read_text())
+                self.assertTrue(failure["api_request_may_have_started"])
+                self.assertFalse(failure["retry_permitted_automatically"])
+                self.assertNotIn("secret",json.dumps(failure))
                 import shutil
                 shutil.rmtree(self.dest)
 
