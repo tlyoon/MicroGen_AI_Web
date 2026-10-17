@@ -52,6 +52,9 @@ def _validate_originals(
         raise RuntimeError("Original TTS provider/model/voice/slide identity mismatch")
     fallback_used = doc.get("all_slides_one_effective_voice") is True
     if fallback_used:
+        from .tts_attempt_evidence import AttemptEvidence
+        AttemptEvidence.verify_saved(
+            folder, list(narrations.items()), doc.get("attempt_evidence"))
         actual = {"provider": provider, "model": tts_model, "voice": voice}
         requested = doc.get("requested_primary")
         chain = doc.get("fallback_chain")
@@ -265,6 +268,10 @@ def main(argv=None) -> int:
                     "provider": "chirp3", "model": "chirp3-hd",
                     "voice": "en-US-Chirp3-HD-Corey"}):
             raise RuntimeError("Cloud TTS conditional fallback history is not verified")
+        from .tts_attempt_evidence import AttemptEvidence
+        actual_script = (args.folder / "script.txt").read_text(encoding="utf-8")
+        AttemptEvidence.verify_saved(
+            args.folder, blocks(actual_script), history.get("attempt_evidence"))
     load_microvid_env()
     repair(args.folder, model=args.model, threshold=args.threshold,
            provider=args.provider, tts_model=args.tts_model, voice=args.voice,
