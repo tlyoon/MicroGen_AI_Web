@@ -186,6 +186,15 @@ def export_reviewed(source: Path, review: Path, destination: Path, *,
     verification = audit(source, review)
     if attestation_path.is_symlink() or not attestation_path.is_file():
         raise AudioPromotionBlocked("Independent review attestation is missing or unsafe")
+    attestation_location = attestation_path.resolve(strict=True)
+    source_location = source.resolve(strict=True)
+    review_location = review.resolve(strict=True)
+    if (attestation_location == source_location
+            or source_location in attestation_location.parents
+            or attestation_location == review_location
+            or review_location in attestation_location.parents):
+        raise AudioPromotionBlocked(
+            "Attestation must be independently supplied outside the original/review tree")
     try:
         attestation = json.loads(attestation_path.read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, ValueError) as exc:
