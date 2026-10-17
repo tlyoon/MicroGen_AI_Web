@@ -75,7 +75,7 @@ def audit(source: Path, review: Path) -> dict:
         raise AudioPromotionBlocked("Receipt status is not review-only or trustworthy")
     if receipt.get("proposed_remaining_failures") != []:
         raise AudioPromotionBlocked("Audio repair has unresolved QA failures")
-     try:
+    try:
         manifest = json.loads(source_manifest)
         orig = receipt["original_wav_sha256"]
         proposed = receipt["candidate_wav_sha256"]
