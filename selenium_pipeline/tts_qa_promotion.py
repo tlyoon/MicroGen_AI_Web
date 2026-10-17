@@ -15,6 +15,9 @@ from pathlib import Path
 
 from .runner import blocks
 from .tts_pcm_contract import verify_pcm, TTSPCMContractError
+from .tts_effective_identity import (
+    verify_effective_identity, TTSEffectiveIdentityError,
+)
 
 
 class AudioPromotionBlocked(RuntimeError):
@@ -72,11 +75,7 @@ def audit(source: Path, review: Path) -> dict:
         raise AudioPromotionBlocked("Receipt status is not review-only or trustworthy")
     if receipt.get("proposed_remaining_failures") != []:
         raise AudioPromotionBlocked("Audio repair has unresolved QA failures")
-    if (receipt.get("provider") != "gemini"
-            or receipt.get("tts_model") != "gemini-3.8-flash-lite-tts"
-            or receipt.get("voice") != "Kore"):
-        raise AudioPromotionBlocked("Unexpected provider, model or voice")
-    try:
+     try:
         manifest = json.loads(source_manifest)
         orig = receipt["original_wav_sha256"]
         proposed = receipt["candidate_wav_sha256"]
@@ -97,8 +96,13 @@ def audit(source: Path, review: Path) -> dict:
             or len(manifest_rows) != len(items) or len(manifest_by_number) != len(items)
             or len(report_rows) != len(items) or len(row_by_number) != len(items)):
         raise AudioPromotionBlocked("Missing, extra or repeated slide identities")
-    if (manifest.get("primary") != {
-            "provider": "gemini", "model": "gemini-3.8-flash-lite-tts", "voice": "Kore"}
+    try:
+        effective = verify_effective_identity(manifest, items)
+    except TTSEffectiveIdentityError as exc:
+        raise AudioPromotionBlocked(str(exc)) from exc
+    if (any((receipt.get("provider") != effective["provider"],
+             receipt.get("tts_model") != effective["model"],
+             receipt.get("voice") != effective["voice"]))
             or receipt.get("fidelity_model") != report.get("model")
             or threshold < 99.0 or threshold > 100.0
             or float(report.get("threshold_percent", -1)) != threshold):
@@ -140,14 +144,7 @@ def audit(source: Path, review: Path) -> dict:
                 or _digest(review_wav) != proposed[name]):
             raise AudioPromotionBlocked("Original or proposed WAV digest mismatch")
         row = manifest_by_number[number]
-        if (row.get("tts_text") != narration
-                or row.get("source_text") != narration
-                or row.get("provider") != "gemini"
-                or row.get("model") != "gemini-3.8-flash-lite-tts"
-                or row.get("voice") != "Kore"
-                or row.get("fallback_used") is not False):
-            raise AudioPromotionBlocked("Manifest text, model or voice mismatch")
-        qa = row_by_number[number]
+         qa = row_by_number[number]
         if (qa.get("status") != "pass"
                 or qa.get("audio_file") != name
                 or qa.get("ground_truth") != narration
@@ -179,9 +176,13 @@ def audit(source: Path, review: Path) -> dict:
         "source_manifest_sha256": _digest(source_manifest),
         "candidate_wav_sha256": proposed,
         "original_wav_sha256": orig,
-        "provider": "gemini",
-        "tts_model": "gemini-3.8-flash-lite-tts",
-        "voice": "Kore",
+        "provider": effective["provider"],
+        "tts_model": effective["model"],
+        "voice": effective["voice"],
+        "requested_primary": effective["requested_primary"],
+        "fallback_chain": effective["fallback_chain"],
+        "fallback_used": effective["fallback_used"],
+        "voice_listening_field": effective["voice_listening_field"],
         "human_review_approved": False,
         "video_publication_approved": False,
     }
@@ -221,7 +222,9 @@ def export_reviewed(source: Path, review: Path, destination: Path, *,
             or attestation.get("review_scope") != "tts-audio-only"
             or attestation.get("audio_listened") is not True
             or attestation.get("mathematical_pronunciation_reviewed") is not True
-            or attestation.get("voice_kore_listening_verified") is not True
+            or attestation.get(verification["voice_listening_field"]) is not True
+            or (verification["fallback_used"]
+                and attestation.get("fallback_provider_change_reviewed") is not True)
             or not isinstance(attestation.get("reviewed_at_utc"), str)
             or not attestation["reviewed_at_utc"].endswith("Z")):
         raise AudioPromotionBlocked("Independent human listening and voice/maths signoff missing")
