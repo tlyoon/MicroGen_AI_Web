@@ -154,9 +154,9 @@ class TTSTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             folder = Path(tmp)
             (folder / "script.txt").write_text(
-                "**Slide 1 [3 sec]:\\nFallback title**\\n\\n"
-                "**Slide 2 [3 sec]:\\nReference two**\\n\\n"
-                "**Slide 3 [3 sec]:\\nReference three**", encoding="utf-8")
+                "**Slide 1 [3 sec]:\nFallback title**\n\n"
+                "**Slide 2 [3 sec]:\nReference two**\n\n"
+                "**Slide 3 [3 sec]:\nReference three**", encoding="utf-8")
             candidate = folder / ".tts_candidate"
             candidate.mkdir()
             (candidate / "slide2.wav").write_bytes(WAV)
@@ -175,8 +175,8 @@ class TTSTests(unittest.TestCase):
                     "MICROGEN_TTS_ENABLE_PROVIDER_FALLBACK": "1",
                     "MICROGEN_TTS_ENABLE_BATCH_FALLBACK": "1",
                 },
-            ), patch("selenium_pipeline.tts._fallback_payload") as fallback, \\
-                 patch("selenium_pipeline.tts._whole_batch_fallback") as batch, \\
+            ), patch("selenium_pipeline.tts._fallback_payload") as fallback, \
+                 patch("selenium_pipeline.tts._whole_batch_fallback") as batch, \
                  patch("selenium_pipeline.tts_voice_consistency.compare_voice") as compare:
                 with self.assertRaisesRegex(RuntimeError,
                                            "no automatic model/provider substitution"):
@@ -243,9 +243,9 @@ class TTSTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             folder = Path(tmp)
             (folder / "script.txt").write_text(
-                "**Slide 1 [3 sec]:\\nFallback title**\\n\\n"
-                "**Slide 2 [3 sec]:\\nReference two**\\n\\n"
-                "**Slide 3 [3 sec]:\\nReference three**", encoding="utf-8")
+                "**Slide 1 [3 sec]:\nFallback title**\n\n"
+                "**Slide 2 [3 sec]:\nReference two**\n\n"
+                "**Slide 3 [3 sec]:\nReference three**", encoding="utf-8")
             candidate = folder / ".tts_candidate"
             candidate.mkdir()
             (candidate / "slide2.wav").write_bytes(WAV)
@@ -263,7 +263,7 @@ class TTSTests(unittest.TestCase):
                     "MICROGEN_TTS_ENABLE_PROVIDER_FALLBACK": "1",
                     "MICROGEN_TTS_ENABLE_BATCH_FALLBACK": "1",
                 },
-            ), patch("selenium_pipeline.tts._fallback_payload") as fallback, \\
+            ), patch("selenium_pipeline.tts._fallback_payload") as fallback, \
                  patch("selenium_pipeline.tts._whole_batch_fallback") as batch:
                 with self.assertRaisesRegex(RuntimeError,
                                            "no automatic model/provider substitution"):
