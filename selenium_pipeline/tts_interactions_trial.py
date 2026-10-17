@@ -152,13 +152,21 @@ def run_trial(output_dir: Path, *, confirm_live: bool = False,
             # Credentials are not accessed on the offline/preflight path.
             from .runner import load_microvid_env
             load_microvid_env()
-            from gemini_keys import get_gemini_api_keys, create_gemini_client
+            from gemini_keys import get_gemini_api_keys
+            from google import genai
+            from google.genai import types
             keys = get_gemini_api_keys()
             if not keys:
                 raise RuntimeError("Gemini API credential unavailable; no request")
-            # No failover across keys and no manual fallback to Google Cloud.
-            # The installed creator must be independently configured for one SDK attempt.
-            client = create_gemini_client(keys[0])
+            # Exactly one key, one SDK attempt, no automatic retries/failover
+            # and no fallback to another model or Google Cloud Chirp.
+            client = genai.Client(
+                api_key=keys[0],
+                http_options=types.HttpOptions(
+                    timeout=60000,
+                    retry_options=types.HttpRetryOptions(attempts=1),
+                ),
+            )
         else:
             client = client_factory()
         endpoint = getattr(getattr(client, "interactions", None), "create", None)
