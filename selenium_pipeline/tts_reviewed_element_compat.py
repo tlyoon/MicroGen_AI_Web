@@ -30,8 +30,10 @@ def digest(p: Path) -> str:
 
 def check(*, source_pdf: Path, slides_pdf: Path,
           authored_plan: Path, reviewed_audio: Path) -> dict:
-    source, slides, plan, audio = (
-        Path(p).resolve() for p in (source_pdf, slides_pdf, authored_plan, reviewed_audio))
+    raw_paths = tuple(Path(p) for p in (source_pdf, slides_pdf, authored_plan, reviewed_audio))
+    required(not any(p.is_symlink() for p in raw_paths),
+             "No symlinked source, slides, plan or reviewed-audio root permitted")
+    source, slides, plan, audio = (p.resolve() for p in raw_paths)
     required(all(p.is_file() and not p.is_symlink() for p in (source, slides, plan))
              and audio.is_dir() and not audio.is_symlink(), "Missing source/slides/plan/audio")
     names = ("tts_reviewed_handoff.json", "script.txt", "tts_input_manifest.json")
