@@ -14,6 +14,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--model", required=True)
     parser.add_argument("--voice", required=True)
     parser.add_argument("--number", type=int, required=True)
+    parser.add_argument("--evidence-output", type=Path,
+                        help="Optional sanitized request-id observation sidecar")
     parser.add_argument("--confirm-gemini-api-cost", action="store_true")
     parser.add_argument("--confirm-google-cloud-tts-cost", action="store_true")
     args = parser.parse_args(argv)
@@ -27,17 +29,28 @@ def main(argv: list[str] | None = None) -> int:
     if args.output.exists() or args.output.is_symlink():
         raise FileExistsError(
             "Refusing to overwrite an existing TTS worker WAV: " + args.output.name)
+    if args.evidence_output is not None:
+        from .tts_worker_evidence import _assert_safe_paths, write_observation
+        _assert_safe_paths(args.output, args.evidence_output)
     text = sys.stdin.read()
-    if args.provider == "gemini":
-        payload = _gemini_failover_request(text, args.number, args.model, args.voice)
-    else:
-        _configure_cloud_adc_from_microvid()
-        from google.cloud import texttospeech
-        from .tts import _chirp_say
-        client = texttospeech.TextToSpeechClient()
-        payload = _chirp_say(client, text, args.voice)
-    with args.output.open("xb") as out:
-        out.write(payload)
+    try:
+        if args.provider == "gemini":
+            payload = _gemini_failover_request(text, args.number, args.model, args.voice)
+        else:
+            _configure_cloud_adc_from_microvid()
+            from google.cloud import texttospeech
+            from .tts import _chirp_say
+            client = texttospeech.TextToSpeechClient()
+            payload = _chirp_say(client, text, args.voice)
+        with args.output.open("xb") as out:
+            out.write(payload)
+    except Exception as exc:
+        if args.evidence_output is not None:
+            write_observation(args.output, args.evidence_output,
+                              outcome="exception", exception=exc)
+        raise
+    if args.evidence_output is not None:
+        write_observation(args.output, args.evidence_output, outcome="success")
     return 0
 
 
