@@ -106,18 +106,27 @@ def source_bound_plan(*, source: Path, slides: Path, plan: Path,
 
 def verify_rendered(*, source: Path, slides: Path, authored: Path,
                     audio: Path, staged: Path, rendered: Path,
-                    output: Path, recheck_pixels: bool = True) -> dict:
-    """Verify every encoded highlight, not merely video duration or plan text."""
-    source,slides,authored,audio,staged,rendered,output=(
-        Path(x).resolve() for x in
-        (source,slides,authored,audio,staged,rendered,output))
+                    output: Path | None, recheck_pixels: bool = True) -> dict:
+    """Recheck the real encoded MP4. If output=None, NEVER write a report.
+
+    This read-only mode is for existing review bundles and does not give
+    academic, narrator, semantics, video production or student approval.
+    """
+    original_paths = (source, slides, authored, audio, staged, rendered)
+    need(all(not Path(x).is_symlink() for x in original_paths),
+         "Symlinked source or evidence paths are not accepted")
+    source,slides,authored,audio,staged,rendered=(
+        Path(x).resolve() for x in original_paths)
     need(recheck_pixels is True,
          "Fresh decoded MP4 pixel verification is mandatory; no count-only acceptance")
-    need(not output.exists() and output.parent.is_dir(),
-         "Review report must be a fresh file outside published originals")
-    need(not output.is_relative_to(source.parent)
-         and not output.is_relative_to(audio),
-         "Never publish a technical review to the source/audio tree")
+    if output is not None:
+        output=Path(output).absolute()
+        need(not output.exists() and not output.is_symlink()
+             and output.parent.is_dir(),
+             "Review report must be a fresh file outside published originals")
+        need(not output.is_relative_to(source.parent)
+             and not output.is_relative_to(audio),
+             "Never publish a technical review to the source/audio tree")
     before=source_bound_plan(source=source,slides=slides,plan=authored,audio=audio)
     plan=read(authored)
     staged_receipt=read(staged/"element_stage_receipt.json")
@@ -239,9 +248,10 @@ def verify_rendered(*, source: Path, slides: Path, authored: Path,
             "human_listening_approved":False,
             "student_published":False,
             "production_approved":False}
-    with output.open("x",encoding="utf8") as handle:
-        json.dump(report,handle,indent=2,ensure_ascii=False)
-        handle.write("\n")
+    if output is not None:
+        with output.open("x",encoding="utf8") as handle:
+            json.dump(report,handle,indent=2,ensure_ascii=False)
+            handle.write("\n")
     return report
 
 
