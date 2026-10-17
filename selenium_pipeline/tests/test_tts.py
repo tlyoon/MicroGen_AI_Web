@@ -15,6 +15,7 @@ from selenium_pipeline.tts import (
     _configure_cloud_adc_from_microvid, _fallback_specs,
     _gemini_say_with_watchdog, _merge_wav_payloads, _split_tts_text,
     _tts_timeout_seconds, _tts_workspace_lock, synthesize_folder,
+    TTSFallbackModelExhausted,
 )
 
 WAV = b"RIFF" + b"X" * 80
@@ -270,7 +271,7 @@ class TTSTests(unittest.TestCase):
             def fallback(target,items,spec,**kwargs):
                 seen.append((spec["provider"],spec["model"],
                              kwargs["completed_gemini_models"]))
-                raise RuntimeError("provider unavailable")
+                raise TTSFallbackModelExhausted("503 retry queue exhausted")
             fake=fake_gemini_keys_module(models=Fails())
             with patch.dict(sys.modules,{"gemini_keys":fake}),patch.dict(
                 os.environ,{"MICROGEN_TTS_QUEUE_ROUNDS":"3",
