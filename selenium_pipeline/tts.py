@@ -419,23 +419,14 @@ def _named_voice(voice: str) -> str:
 
 
 def _fallback_specs(provider: str, model: str, voice: str) -> list[dict[str, str]]:
-    """Return same-named-voice fallbacks in preferred quality/compatibility order."""
-    named = _named_voice(voice)
-    if provider == "gemini":
-        other = (
-            "gemini-3.8-flash-tts"
-            if model == "gemini-3.8-flash-lite-tts"
-            else "gemini-3.8-flash-lite-tts"
-        )
-        # Explicit project contract (16 Oct 2026): metered Flash-Lite
-        # may be authorized, but expensive Google Cloud Chirp TTS must
-        # never be an automatic fallback after Gemini failure.
-        return [{"provider": "gemini", "model": other, "voice": named}]
-    if provider == "chirp3":
-        return [
-            {"provider": "gemini", "model": "gemini-3.8-flash-tts", "voice": named},
-            {"provider": "gemini", "model": "gemini-3.8-flash-lite-tts", "voice": named},
-        ]
+    """Never substitute an unapproved provider/model/voice after TTS failure.
+
+    A same-named voice on a *different* Gemini model is not the same
+    production identity. The voice-similarity score is not authority to spend
+    money, switch models or re-render a lecture. A different model must be
+    explicitly selected for a new, independently reviewed job. This list
+    remains empty even when legacy provider/batch fallback toggles are set.
+    """
     return []
 
 
@@ -743,17 +734,22 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
     else:
         raise ValueError(f"Unknown TTS provider: {provider}")
 
+    from .tts_candidate_integrity import (
+        job_identity, prepare as prepare_candidate,
+        record_one, verify_one,
+    )
     candidate = folder / ".tts_candidate"
     candidate.mkdir(parents=True, exist_ok=True)
     expected_names = {f"slide{n}.wav" for n, _ in items}
-
-    # Preserve completed candidate WAVs across retries. Remove only incomplete
-    # or stale candidate artifacts so a transient failure does not force all
-    # earlier slides to be synthesized again.
-    for item in list(candidate.iterdir()):
-        if item.name.endswith(".partial") or item.name not in expected_names:
-            if item.is_file():
-                item.unlink()
+    candidate_identity = job_identity(
+        items, provider=provider, model=model, voice=voice,
+        script_sha256=__import__("hashlib").sha256(
+            (folder / "script.txt").read_bytes()).hexdigest(),
+    )
+    # Never trust a RIFF header alone: old Flash, Chirp or changed-script
+    # candidates would otherwise be silently relabeled as Flash-Lite/Kore.
+    # All legacy/partial mismatches are preserved for explicit review.
+    prepare_candidate(candidate, candidate_identity)
 
     queue_rounds = max(1, int(os.environ.get("MICROGEN_TTS_QUEUE_ROUNDS", "3")))
     pending = [(number, narration) for number, narration in items]
@@ -781,19 +777,15 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
 
         for index, (number, narration) in enumerate(pending):
             dest = candidate / f"slide{number}.wav"
-            if dest.is_file() and dest.stat().st_size > 44:
-                try:
-                    magic = dest.read_bytes()[:4]
-                except Exception:
-                    magic = b""
-                if magic in (b"RIFF", b"RF64"):
-                    slide_provenance.setdefault(
-                        number,
-                        {**primary_spec, "fallback_used": False},
-                    )
-                    print(f"[tts] reusing {dest.name} ({dest.stat().st_size} bytes)", flush=True)
-                    continue
-                dest.unlink(missing_ok=True)
+            if dest.exists() or dest.is_symlink():
+                verify_one(candidate, dest.name, candidate_identity)
+                slide_provenance.setdefault(
+                    number,
+                    {**primary_spec, "fallback_used": False},
+                )
+                print(f"[tts] reusing verified {dest.name} ({dest.stat().st_size} bytes)",
+                      flush=True)
+                continue
 
             print(f"[tts] requesting slide{number} ({len(narration)} chars)", flush=True)
             try:
@@ -805,11 +797,12 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
                 if not payload.startswith((b"RIFF", b"RF64")):
                     raise RuntimeError(f"slide{number}: TTS did not return a WAV file")
                 partial = candidate / f"slide{number}.wav.partial"
-                partial.write_bytes(payload)
+                with partial.open("xb") as out:
+                    out.write(payload)
                 if partial.stat().st_size <= 44:
-                    partial.unlink(missing_ok=True)
                     raise RuntimeError(f"slide{number}: audio is empty")
                 partial.replace(dest)
+                record_one(candidate, dest.name, candidate_identity)
                 last_failures.pop(number, None)
                 slide_provenance[number] = {**primary_spec, "fallback_used": False}
                 consecutive_transient_failures = 0
@@ -868,11 +861,12 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
             exc = last_failures.get(number, RuntimeError("no completed WAV"))
             unresolved.append((number, exc))
 
-    # Provider/model fallback is attempted only after the primary queue is
-    # exhausted.  A fallback WAV is accepted only if strict perceptual
-    # continuity says it sounds like the same narrator as multiple primary
-    # reference slides.
-    if unresolved and os.environ.get("MICROGEN_TTS_ENABLE_PROVIDER_FALLBACK", "1") != "0":
+    # Contract: no automatic model/provider substitution. Even explicit
+    # legacy fallback toggles cannot override this; the only permitted choice
+    # is a newly reviewed, separately authorized job.
+    approved_fallbacks = _fallback_specs(provider, model, voice)
+    if (unresolved and approved_fallbacks
+            and os.environ.get("MICROGEN_TTS_ENABLE_PROVIDER_FALLBACK", "1") != "0"):
         from .tts_voice_consistency import compare_voice
 
         reference_paths = [
@@ -889,7 +883,7 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
                 narration = narration_by_slide[number]
                 accepted = False
                 fallback_errors: list[str] = []
-                for spec in _fallback_specs(provider, model, voice):
+                for spec in approved_fallbacks:
                     print(
                         f"[tts] slide{number}: trying same-voice fallback "
                         f"{spec['provider']} / {spec['model']} / {spec['voice']}",
@@ -965,11 +959,11 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
             ]
 
     if (
-        unresolved
+        unresolved and approved_fallbacks
         and os.environ.get("MICROGEN_TTS_ENABLE_BATCH_FALLBACK", "1") != "0"
     ):
         batch_errors: list[str] = []
-        for spec in _fallback_specs(provider, model, voice):
+        for spec in approved_fallbacks:
             print(
                 f"[tts] per-slide same-voice fallback was not acceptable; "
                 f"trying whole-batch fallback {spec['provider']} / "
@@ -1029,8 +1023,20 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
             for number, exc in unresolved
         )
         raise RuntimeError(
-            f"TTS queue/fallback exhausted with {len(unresolved)} unresolved slide(s): {details}"
+            f"TTS queue exhausted with {len(unresolved)} unresolved slide(s); "
+            f"no automatic model/provider substitution is permitted. {details}"
         )
+    # Verify complete frozen candidates BEFORE touching final audio or metadata.
+    for number, narration in items:
+        verify_one(candidate, f"slide{number}.wav", candidate_identity)
+    for wav in candidate.glob("slide*.wav"):
+        published = folder / wav.name
+        if published.exists() or published.is_symlink():
+            if (published.is_symlink() or not published.is_file()
+                    or published.read_bytes() != wav.read_bytes()):
+                raise RuntimeError(
+                    "Existing final WAV differs; preserve output and candidate "
+                    f"for reviewed replacement: {published.name}")
     # All responses have been validated; publish after the complete batch.
     stale = [p for p in folder.glob("slide*.wav") if p.name not in expected_names]
     if stale:
@@ -1039,15 +1045,6 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
         old_dir.mkdir(parents=True, exist_ok=True)
         for item in stale:
             item.replace(old_dir / item.name)
-    for wav in candidate.glob("slide*.wav"):
-        wav.replace(folder / wav.name)
-    try:
-        candidate.rmdir()
-    except OSError as exc:
-        # Google Drive may add metadata or hold a sync file in the candidate
-        # directory. Published WAVs are already in place; cleanup is optional.
-        print(f"[tts] warning: candidate cleanup deferred: {exc}", flush=True)
-
     manifest = {
         "version": 2,
         "primary": {
@@ -1068,10 +1065,28 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
             for number, narration in items
         ],
     }
-    (folder / "tts_input_manifest.json").write_text(
-        json.dumps(manifest, indent=2, ensure_ascii=False),
-        encoding="utf-8",
-    )
+    receipt = folder / "tts_input_manifest.json"
+    encoded_manifest = json.dumps(manifest, indent=2, ensure_ascii=False)
+    if receipt.exists() or receipt.is_symlink():
+        if receipt.is_symlink() or not receipt.is_file() or receipt.read_text(
+                encoding="utf-8") != encoded_manifest:
+            raise RuntimeError(
+                "Existing TTS manifest differs; preserve both outputs for reviewed repair")
+    # Previous WAVs/manifest were checked in advance; never replace distinct
+    # final audio. Once all outputs are published, keep the candidate hashes.
+    for wav in candidate.glob("slide*.wav"):
+        target = folder / wav.name
+        if target.exists():
+            wav.unlink()  # exact byte equality already verified
+        else:
+            wav.replace(target)
+    if not receipt.exists():
+        with receipt.open("x", encoding="utf-8") as out:
+            out.write(encoded_manifest)
+    from uuid import uuid4
+    audit_root = folder / ".tts_candidate_receipts"
+    audit_root.mkdir(exist_ok=True)
+    candidate.rename(audit_root / uuid4().hex)
     print(f"[tts] completed {len(items)} WAV files via {provider}", flush=True)
 
 
