@@ -22,6 +22,11 @@ def main(argv: list[str] | None = None) -> int:
         args.provider, gemini_approved=args.confirm_gemini_api_cost,
         cloud_approved=args.confirm_google_cloud_tts_cost)
 
+    # Worker output is always meant to be a new temporary WAV. Do not
+    # spend credits if a direct invocation targets an existing/symlink file.
+    if args.output.exists() or args.output.is_symlink():
+        raise FileExistsError(
+            "Refusing to overwrite an existing TTS worker WAV: " + args.output.name)
     text = sys.stdin.read()
     if args.provider == "gemini":
         payload = _gemini_failover_request(text, args.number, args.model, args.voice)
@@ -31,7 +36,8 @@ def main(argv: list[str] | None = None) -> int:
         from .tts import _chirp_say
         client = texttospeech.TextToSpeechClient()
         payload = _chirp_say(client, text, args.voice)
-    args.output.write_bytes(payload)
+    with args.output.open("xb") as out:
+        out.write(payload)
     return 0
 
 
