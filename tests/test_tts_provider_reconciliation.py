@@ -181,7 +181,7 @@ class ProviderEvidenceReconciliationTests(unittest.TestCase):
 
     def test_source_text_changed_rejects_existing_attempt_log(self):
         (self.folder / "script.txt").write_text("new words", encoding="utf-8")
-        with self.assertRaisesRegex(TTSExternalEvidenceError, "journal"):
+        with self.assertRaisesRegex(TTSExternalEvidenceError, "narration"):
             audit(self.folder)
 
     def test_read_only_audit_does_not_write_files(self):
