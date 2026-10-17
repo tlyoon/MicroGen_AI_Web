@@ -694,6 +694,11 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
             "Narration contains TTS-ambiguous text. Regenerate or revise the "
             f"narration before synthesis. Findings: {preview}"
         )
+    # No paid requests, credentials, candidate mkdir or repair attempt can
+    # precede this immutable final-output guard. Previously the runner could
+    # synthesize an entire batch before discovering a protected WAV collision.
+    from .tts_candidate_integrity import reject_existing_final_audio
+    reject_existing_final_audio(folder)
     if provider == "gemini":
         if model not in ("gemini-3.8-flash-lite-tts", "gemini-3.8-flash-tts"):
             raise ValueError("Unapproved TTS model; select Gemini 3.8 Flash-Lite or Flash TTS")

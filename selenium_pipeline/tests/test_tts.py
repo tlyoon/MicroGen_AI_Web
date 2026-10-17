@@ -110,10 +110,14 @@ class TTSTests(unittest.TestCase):
                     "MICROGEN_TTS_ENABLE_BATCH_FALLBACK": "0",
                 },
             ):
-                with self.assertRaisesRegex(RuntimeError, "temporary API error"):
+                with self.assertRaisesRegex(
+                    RuntimeError, "Existing final TTS outputs require reviewed reconciliation"
+                ):
                     synthesize_folder(folder, "gemini", "gemini-3.8-flash-tts", "Kore")
+            self.assertEqual(len(models.requests), 0, "Must block before a paid API call")
             self.assertEqual((folder / "slide1.wav").read_bytes(), b"RIFF" + b"A" * 60)
             self.assertFalse((folder / "slide2.wav").exists())
+            self.assertFalse((folder / ".tts_candidate").exists())
             self.assertFalse((folder / ".tts.lock").exists())
 
     def test_transient_failure_is_deferred_while_later_slide_runs(self):

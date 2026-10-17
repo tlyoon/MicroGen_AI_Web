@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+import re
 
 
 class CandidateIntegrityError(RuntimeError):
@@ -18,6 +19,26 @@ class CandidateIntegrityError(RuntimeError):
 def sha(payload: bytes) -> str:
     return hashlib.sha256(payload).hexdigest()
 
+
+
+def reject_existing_final_audio(folder: Path) -> None:
+    """Abort before credentials or paid TTS when any final audio exists.
+
+    Final artifacts can be old, manually repaired, or generated under another
+    model. A matching manifest or RIFF header is *not* proof that a new TTS
+    invocation may reuse or replace them. Preserve every original byte and
+    require a separately reviewed reconciliation in an isolated workspace.
+    """
+    protected = []
+    for item in folder.iterdir():
+        if (re.fullmatch(r"slide[0-9]+\.wav", item.name, re.IGNORECASE)
+                or item.name.lower() == "tts_input_manifest.json"):
+            protected.append(item.name)
+    if protected:
+        raise CandidateIntegrityError(
+            "Existing final TTS outputs require reviewed reconciliation "
+            "before any paid regeneration; preserved: "
+            + ", ".join(sorted(protected)))
 
 def job_identity(items: list[tuple[int, str]], *,
                  provider: str, model: str, voice: str,

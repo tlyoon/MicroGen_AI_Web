@@ -73,6 +73,33 @@ class TTSPaidEntrypointTests(unittest.TestCase):
             req.assert_not_called()
         self.assertFalse((self.root/"trial.wav").exists())
 
+    def test_worker_existing_output_blocks_even_with_cost_approval(self):
+        from selenium_pipeline.tts_worker import main
+        protected=self.root/"trial.wav"
+        protected.write_bytes(b"Original user WAV remains unchanged")
+        args=["--output",str(protected),"--model",
+              "gemini-3.8-flash-lite-tts","--voice","Kore","--number","1",
+              "--provider","gemini","--confirm-gemini-api-cost"]
+        with patch("selenium_pipeline.tts_worker._gemini_failover_request") as req, \
+             patch("sys.stdin",io.StringIO("synthetic narration")):
+            with self.assertRaisesRegex(FileExistsError,"existing TTS worker WAV"):
+                main(args)
+            req.assert_not_called()
+        self.assertEqual(protected.read_bytes(),b"Original user WAV remains unchanged")
+
+    def test_worker_creates_new_output_exclusively(self):
+        from selenium_pipeline.tts_worker import main
+        fresh=self.root/"new_test.wav"
+        args=["--output",str(fresh),"--model",
+              "gemini-3.8-flash-lite-tts","--voice","Kore","--number","1",
+              "--provider","gemini","--confirm-gemini-api-cost"]
+        with patch("selenium_pipeline.tts_worker._gemini_failover_request",
+                   return_value=b"RIFF"+b"M"*64) as req, \
+             patch("sys.stdin",io.StringIO("synthetic narration")):
+            self.assertEqual(main(args),0)
+            req.assert_called_once()
+        self.assertEqual(fresh.read_bytes(),b"RIFF"+b"M"*64)
+
     def test_repair_cannot_bypass_tts_cost_gate(self):
         from selenium_pipeline.tts_qa_repair import main
         args=["--folder",str(self.root),"--model","gemini-3.8-flash",
