@@ -13,10 +13,26 @@ from selenium_pipeline.tts_effective_identity import (
     DEFAULT, GEMINI_FLASH, CLOUD, LITE, FLASH,
     verify_effective_identity, TTSEffectiveIdentityError,
 )
+from selenium_pipeline.tts_attempt_evidence import AttemptEvidence, ROOT as RETRY_ROOT
 
 
 def sha(p):
     return hashlib.sha256(p.read_bytes()).hexdigest()
+
+
+def seed_observed_retry(folder, items, effective, chain):
+    journal = AttemptEvidence(folder, items)
+    for model in chain:
+        for round_number in (1,2,3):
+            journal.record(provider="gemini",model=model,slide=items[0][0],
+                round_number=round_number,outcome="transient_failure",
+                error_type="RuntimeError")
+    for number, _ in items:
+        journal.record(provider=effective["provider"],model=effective["model"],
+                       slide=number,round_number=1,outcome="success")
+    proof = journal.verify_before(effective["provider"],effective["model"])
+    return {"path": RETRY_ROOT, "sha256": journal.tip(),
+            "effective_model": effective["model"], "observed_failed_models": proof}
 
 
 def transform_manifest(doc, effective, chain):
@@ -54,6 +70,10 @@ class FallbackProvenanceEndToEndTests(unittest.TestCase):
 
     def mutate_audio(self, case, effective, chain):
         doc=transform_manifest(case.manifest,effective,chain)
+        if chain:
+            doc["attempt_evidence"]=seed_observed_retry(
+                case.source, [(i, text) for i, text in enumerate(case.narrations,1)],
+                effective, chain)
         for folder in (case.source,case.review):
             (folder/"tts_input_manifest.json").write_text(
                 json.dumps(doc),encoding="utf-8")
@@ -76,6 +96,9 @@ class FallbackProvenanceEndToEndTests(unittest.TestCase):
         manifest_file=case.audio/"tts_input_manifest.json"
         manifest=transform_manifest(json.loads(manifest_file.read_text()),
                                      effective,chain)
+        if chain:
+            manifest["attempt_evidence"]=seed_observed_retry(
+                case.audio,[(i,case.text) for i in range(1,4)],effective,chain)
         manifest_file.write_text(json.dumps(manifest),encoding="utf-8")
         receipt_file=case.audio/"tts_reviewed_handoff.json"
         receipt=json.loads(receipt_file.read_text())
@@ -83,6 +106,9 @@ class FallbackProvenanceEndToEndTests(unittest.TestCase):
                        tts_model=effective["model"],voice=effective["voice"],
                        requested_primary=dict(DEFAULT),fallback_chain=list(chain),
                        fallback_used=bool(chain),
+                       attempt_evidence_sha256=(
+                           manifest.get("attempt_evidence",{}).get("sha256")
+                           if chain else None),
                        source_manifest_sha256=sha(manifest_file))
         receipt_file.write_text(json.dumps(receipt),encoding="utf-8")
         if correct_voice_id:
