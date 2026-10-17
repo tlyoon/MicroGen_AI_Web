@@ -258,11 +258,6 @@ class TTSTests(unittest.TestCase):
                     "model": "gemini-3.8-flash-tts",
                     "voice": "Kore",
                 },
-                {
-                    "provider": "chirp3",
-                    "model": "chirp3-hd",
-                    "voice": "en-US-Chirp3-HD-Kore",
-                },
             ],
         )
 
