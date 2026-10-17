@@ -866,12 +866,14 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
                 print(f"[tts] prepared {dest.name} ({len(payload)} bytes)", flush=True)
             except Exception as exc:
                 if attempt_evidence is not None:
+                    from .tts_attempt_evidence import safe_provider_request_id
                     attempt_evidence.record(
                         provider=provider, model=model, slide=number,
                         round_number=round_number,
                         outcome=("transient_failure" if _is_transient_tts_failure(exc)
                                  else "permanent_failure"),
-                        error_type=type(exc).__name__)
+                        error_type=type(exc).__name__,
+                        provider_request_id=safe_provider_request_id(exc))
                 last_failures[number] = exc
                 if _is_transient_tts_failure(exc) and round_number < queue_rounds:
                     consecutive_transient_failures += 1
