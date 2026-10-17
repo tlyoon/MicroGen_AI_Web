@@ -399,10 +399,14 @@ def _is_transient_tts_failure(exc: BaseException) -> bool:
     permanent_markers = (
         "400 invalid_argument", "401", "403", "permission denied",
         "unauthenticated", "invalid api key", "unapproved tts model",
+        "invalid wav", "not return a wav", "audio is empty",
+        "malformed audio", "pcm format", "invalid audio",
     )
     if any(marker in message for marker in permanent_markers):
         return False
-    return any(marker in message for marker in transient_markers) or isinstance(exc, RuntimeError)
+    # An arbitrary RuntimeError is NOT evidence of a provider outage and
+    # must not trigger separately billable Cloud speech.
+    return any(marker in message for marker in transient_markers)
 
 
 def _tts_queue_delay_seconds(round_number: int) -> float:
