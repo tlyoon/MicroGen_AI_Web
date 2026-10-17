@@ -70,6 +70,12 @@ class AttemptEvidence:
     def read(self) -> list[dict]:
         if self.path.is_symlink() or not self.path.is_dir():
             raise TTSAttemptEvidenceError("Missing or unsafe attempt evidence")
+        ident = self.path / "identity.json"
+        if (ident.is_symlink() or not ident.is_file()
+                or ident.read_bytes() != canonical(self.identity)
+                or sha((self.folder / "script.txt").read_bytes())
+                   != self.identity["script_sha256"]):
+            raise TTSAttemptEvidenceError("TTS attempt journal identity changed")
         allowed = {"identity.json"}
         prev = GENESIS
         entries = []
@@ -115,6 +121,13 @@ class AttemptEvidence:
 
     def record(self, *, provider: str, model: str, slide: int,
                round_number: int, outcome: str, error_type: str = "") -> dict:
+        if (model not in MODELS or
+                (provider == "gemini") != (model in (LITE, FLASH)) or
+                str(slide) not in self.identity["slides"] or
+                type(round_number) is not int or round_number < 1 or
+                outcome not in ("success","transient_failure","permanent_failure") or
+                (outcome == "success") != (error_type == "")):
+            raise TTSAttemptEvidenceError("Invalid provider attempt observation")
         old = self.read()
         value = {
             "sequence": len(old) + 1,
@@ -190,7 +203,8 @@ class AttemptEvidence:
     def verify_saved(cls, folder: Path, items: list[tuple[int, str]],
                      proof: dict) -> dict:
         """Read only existing journal; do not create a missing journal."""
-        if not isinstance(proof, dict) or proof.get("path") != ROOT:
+        if (not isinstance(proof, dict) or proof.get("path") != ROOT
+                or proof.get("effective_model") not in (FLASH, CHIRP)):
             raise TTSAttemptEvidenceError("Missing or unbound attempt journal proof")
         folder = Path(folder)
         if not (folder / ROOT / "identity.json").is_file():
@@ -198,5 +212,19 @@ class AttemptEvidence:
         found = cls(folder, items)
         if found.tip() != proof.get("sha256"):
             raise TTSAttemptEvidenceError("Retry journal changed after TTS publication")
-        return found.verify_before("chirp3", CHIRP) if proof.get(
+        reported = found.verify_before("chirp3", CHIRP) if proof.get(
             "effective_model") == CHIRP else found.verify_before("gemini", FLASH)
+        claims = proof.get("observed_failed_models")
+        if not isinstance(claims, dict) or set(claims) != set(reported):
+            raise TTSAttemptEvidenceError("Observed retry model summaries are incomplete")
+        observed_sha = {event["sha256"] for event in found.read()}
+        for model_key, actual in reported.items():
+            claim = claims.get(model_key)
+            if (not isinstance(claim, dict)
+                    or claim.get("model") != actual["model"]
+                    or claim.get("failed_slides") != actual["failed_slides"]
+                    or claim.get("observed_attempts_by_slide") !=
+                       actual["observed_attempts_by_slide"]
+                    or claim.get("last_sha256") not in observed_sha):
+                raise TTSAttemptEvidenceError("Claimed retry exhaustion does not match journal")
+        return reported
