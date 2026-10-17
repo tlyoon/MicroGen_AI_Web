@@ -197,6 +197,36 @@ class ReviewedAudioHandoffTests(unittest.TestCase):
         with self.assertRaisesRegex(AudioPromotionBlocked,"Attempt WAV digest"):
             audit(self.source,self.review)
 
+    def test_latest_attempt_must_equal_final_candidate(self):
+        # Attempt 1 may pass hash validation but cannot justify a different
+        # final WAV that is not documented as the final replacement.
+        self.receipt["proposed_replacements"].append({
+            "slide":2,"round":2,
+            "wav_sha256":sha(b"RIFF"+b"D"*100)})
+        (self.review/"attempt2_slide2.wav").write_bytes(b"RIFF"+b"D"*100)
+        self.persist()
+        with self.assertRaisesRegex(AudioPromotionBlocked,"latest recorded attempt"):
+            audit(self.source,self.review)
+
+    def test_repeated_or_reordered_attempts_are_rejected(self):
+        self.receipt["proposed_replacements"].append({
+            "slide":2,"round":1,
+            "wav_sha256":sha(self.candidates["slide2.wav"])})
+        self.persist()
+        with self.assertRaisesRegex(AudioPromotionBlocked,"repeated or out of order"):
+            audit(self.source,self.review)
+
+    def test_invalid_reviewer_is_rejected_without_export(self):
+        doc=self.create_external_attestation()
+        doc["reviewer"]=42
+        self.attestation_path.write_text(json.dumps(doc),encoding="utf-8")
+        with self.assertRaisesRegex(AudioPromotionBlocked,"human listening"):
+            export_reviewed(self.source,self.review,self.destination,
+                            attestation_path=self.attestation_path,
+                            confirm_reviewed_audio=True,
+                            confirm_isolated_export=True)
+        self.assertFalse(self.destination.exists())
+
     def test_failed_qa_cannot_be_exported(self):
         self.receipt["proposed_remaining_failures"]=[2]
         self.persist()
