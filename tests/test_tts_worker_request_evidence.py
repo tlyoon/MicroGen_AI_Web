@@ -116,6 +116,37 @@ class WorkerRequestEvidenceTests(unittest.TestCase):
                          "http_failed_request_00001")
         self.assertNotIn("fake-secret",self.meta.read_text())
 
+    def test_gemini_sdk_model_success_captures_true_request_id(self):
+        response=SimpleNamespace(
+            request_id="sdk_http_request_abcdef01",
+            response_id="generated_response_not_request",
+            candidates=[SimpleNamespace(content=SimpleNamespace(
+                parts=[SimpleNamespace(inline_data=SimpleNamespace(
+                    data=wav_bytes()))]))])
+        client=SimpleNamespace(models=SimpleNamespace(
+            generate_content=lambda **kwargs: response))
+        observed={}
+        payload=tts._gemini_say(
+            client,"lecture narration","gemini-3.8-flash-lite-tts","Kore",
+            request_observation=observed)
+        self.assertEqual(payload,wav_bytes())
+        self.assertEqual(observed["provider_request_id"],
+                         "sdk_http_request_abcdef01")
+
+    def test_gemini_sdk_generated_response_id_is_not_http_id(self):
+        response=SimpleNamespace(
+            response_id="interactions_generated_1234567890",
+            candidates=[SimpleNamespace(content=SimpleNamespace(
+                parts=[SimpleNamespace(inline_data=SimpleNamespace(
+                    data=wav_bytes()))]))])
+        client=SimpleNamespace(models=SimpleNamespace(
+            generate_content=lambda **kwargs: response))
+        observed={}
+        self.assertEqual(tts._gemini_say(
+            client,"lecture narration","gemini-3.8-flash-lite-tts","Kore",
+            request_observation=observed),wav_bytes())
+        self.assertIsNone(observed["provider_request_id"])
+
     def test_parent_watchdog_mocked_subprocess_collects_provider_id(self):
         payload=wav_bytes()
         def subprocess_success(cmd,**kwargs):
