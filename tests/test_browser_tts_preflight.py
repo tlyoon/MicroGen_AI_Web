@@ -178,4 +178,60 @@ class WebTTSPreflightTests(unittest.TestCase):
         self.assertFalse(report["usable_for_automatic_element_tts"])
 
 
+    def test_invalid_intent_never_connects_to_browser(self):
+        def forbidden(**_):
+            self.fail("Invalid model/voice must be rejected before browser work")
+        for model,voice in (("unapproved-tts","Kore"),
+                            ("gemini-3.8-flash-lite-tts","bad voice")):
+            with self.subTest(model=model,voice=voice):
+                with self.assertRaises(ValueError):
+                    preflight(requested_model=model,requested_voice=voice,
+                              output=self.out,transport=forbidden)
+        self.assertFalse(self.out.exists())
+
+    def test_exact_https_origin_and_path_required(self):
+        for url in (
+                "https://aistudio.google.com.evil.example/generate-speech",
+                "https://aistudio.google.com/generate-speech.evil",
+                "http://aistudio.google.com/generate-speech",
+                "https://example.org/aistudio.google.com/generate-speech",
+                "https://aistudio.google.com@evil.example/generate-speech",
+                "https://aistudio.google.com:444/generate-speech"):
+            with self.subTest(url=url):
+                with self.assertRaises(BrowserTTSBlocked):
+                    evaluate(self.snapshot(url=url),
+                             requested_model="gemini-3.8-flash-lite-tts",
+                             requested_voice="Kore")
+
+    def test_model_card_and_voice_label_do_not_verify_selection(self):
+        result=evaluate(self.snapshot(control_labels=[
+             "gemini-3.8-flash-lite-tts", "Kore",
+             "No API key selected"],editable_count=1),
+             requested_model="gemini-3.8-flash-lite-tts",
+             requested_voice="Kore")
+        self.assertTrue(result["exact_model_visible"])
+        self.assertTrue(result["voice_visible"])
+        self.assertFalse(result["selected_model_verified"])
+        self.assertFalse(result["selected_voice_verified"])
+        self.assertIn("selected_model_not_verified",result["blockers"])
+        self.assertFalse(result["usable_for_automatic_element_tts"])
+
+    def test_unavailable_browser_marks_selection_unknown(self):
+        result=preflight(requested_model="gemini-3.8-flash-lite-tts",
+                         requested_voice="Kore",output=self.out,
+                         transport=lambda **_: (_ for _ in ()).throw(
+                             BrowserTTSBlocked("browser_ui_unavailable")))
+        self.assertFalse(result["selected_model_verified"])
+        self.assertFalse(result["selected_voice_verified"])
+
+    def test_receipt_path_symlink_is_rejected_before_open(self):
+        target=self.root/"outside_receipt.json"
+        try:
+            self.out.symlink_to(target)
+        except (OSError,NotImplementedError):
+            self.skipTest("Symlink creation unavailable on this computer")
+        with self.assertRaisesRegex(ValueError,"new isolated"):
+            self.probe()
+        self.assertFalse(target.exists())
+
 if __name__=="__main__":unittest.main()
