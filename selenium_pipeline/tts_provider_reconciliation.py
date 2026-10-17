@@ -131,7 +131,10 @@ def audit(folder: Path, *, provider_export: Path | None = None,
         raise TTSExternalEvidenceError("Source folder missing or unsafe")
     folder = folder.resolve(strict=True)
     raw = _bytes(folder / "script.txt")
-    narration = blocks(raw.decode("utf-8"))
+    try:
+        narration = blocks(raw.decode("utf-8"))
+    except (ValueError, UnicodeDecodeError) as exc:
+        raise TTSExternalEvidenceError("Invalid or changed original narration script") from exc
     if not narration:
         raise TTSExternalEvidenceError("No original slide narration")
     if not (folder / ".tts_attempt_evidence" / "identity.json").is_file():
