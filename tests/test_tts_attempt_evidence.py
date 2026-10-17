@@ -143,6 +143,31 @@ class ObservedAttemptJournalTests(unittest.TestCase):
         self.assertEqual(after.verify_before("gemini",FLASH)["lite"]["failed_slides"],[1])
         self.assertFalse((self.folder/"slide1.wav").exists())
 
+    def test_conditional_cloud_qa_rejects_manifest_only_claim_before_credentials(self):
+        from selenium_pipeline.tts_qa_repair import main
+        manifest={
+            "primary":{"provider":"chirp3","model":"chirp3-hd",
+                       "voice":"en-US-Chirp3-HD-Corey"},
+            "all_slides_one_effective_voice":True,
+            "fallback_chain":[LITE,FLASH],
+            "requested_primary":DEFAULT,
+            "slides":[],
+        }
+        (self.folder/"tts_input_manifest.json").write_text(
+            json.dumps(manifest),encoding="utf-8")
+        args=["--folder",str(self.folder),"--model","gemini-3.8-flash",
+              "--threshold","99","--provider","chirp3",
+              "--tts-model","chirp3-hd",
+              "--voice","en-US-Chirp3-HD-Corey",
+              "--conditional-cloud-fallback"]
+        with patch("selenium_pipeline.tts_qa_repair.load_microvid_env") as loader, \
+             patch("selenium_pipeline.tts_qa_repair.repair") as repair:
+            with self.assertRaisesRegex(TTSAttemptEvidenceError,
+                                        "Missing or unbound"):
+                main(args)
+            loader.assert_not_called()
+            repair.assert_not_called()
+
     def test_extra_partial_event_refuses_escalation(self):
         self.failed(LITE)
         (self.ledger.path/"000004.json.partial").write_text("broken",encoding="utf-8")
