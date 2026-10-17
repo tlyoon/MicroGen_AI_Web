@@ -147,6 +147,7 @@ def run_trial(output_dir: Path, *, confirm_live: bool = False,
                {**common, "status": "LIVE_SYNTHETIC_API_REQUEST_INTENDED",
                 "max_requests": 1})
     client = None
+    request_started = False
     try:
         if client_factory is None:
             # Credentials are not accessed on the offline/preflight path.
@@ -172,6 +173,7 @@ def run_trial(output_dir: Path, *, confirm_live: bool = False,
         endpoint = getattr(getattr(client, "interactions", None), "create", None)
         if not callable(endpoint):
             raise RuntimeError("Installed client lacks Gemini Interactions.create")
+        request_started = True
         interaction = endpoint(**request)
         payload, metrics = verify_wav(interaction)
         with (folder / "synthetic_kore.wav").open("xb") as out:
@@ -183,6 +185,19 @@ def run_trial(output_dir: Path, *, confirm_live: bool = False,
                   **metrics}
         _write_new(folder / "trial_receipt.json", report)
         return report
+    except Exception as exc:
+        # Provider exceptions may contain sensitive SDK/server details; never
+        # persist or print the original message or credentials.
+        _write_new(folder / "trial_failed.json", {
+            **common, "status": "SYNTHETIC_TTS_FAILED_REVIEW_ONLY",
+            "api_request_may_have_started": request_started,
+            "real_audio_generated": False,
+            "retry_permitted_automatically": False,
+            "failure_class": type(exc).__name__,
+        })
+        raise RuntimeError(
+            "Synthetic TTS trial failed; no retry or model fallback attempted"
+        ) from None
     finally:
         close = getattr(client, "close", None)
         if callable(close):
