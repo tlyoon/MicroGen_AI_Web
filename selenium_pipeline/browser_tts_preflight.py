@@ -12,6 +12,7 @@ import os
 import re
 import time
 from pathlib import Path
+from urllib.parse import urlsplit
 
 SURFACE="https://aistudio.google.com/generate-speech"
 MODELS=frozenset({"gemini-3.8-flash-lite-tts","gemini-3.8-flash-tts"})
@@ -61,15 +62,24 @@ def local_configuration_presence(environ:dict[str,str]|None=None)->dict:
     }
 
 
+def validate_request(*, requested_model:str, requested_voice:str)->None:
+    """Fail before attaching Chrome or creating a receipt on invalid intent."""
+    if requested_model not in MODELS:
+        raise ValueError("Unapproved Gemini TTS model")
+    if not isinstance(requested_voice,str) or not re.fullmatch(
+            r"[A-Za-z][A-Za-z0-9_-]{1,30}",requested_voice):
+        raise ValueError("Invalid voice")
+
+
 def evaluate(snapshot:dict, *, requested_model:str,
              requested_voice:str)->dict:
     """Conservative summary of UI support. No dynamic JavaScript calls."""
-    if requested_model not in MODELS:
-        raise ValueError("Unapproved Gemini TTS model")
-    if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]{1,30}",requested_voice):
-        raise ValueError("Invalid voice")
+    validate_request(requested_model=requested_model,
+                     requested_voice=requested_voice)
     url=str(snapshot.get("url") or "")
-    if not url.startswith(SURFACE):
+    parsed=urlsplit(url)
+    if (parsed.scheme!="https" or parsed.netloc!="aistudio.google.com"
+            or parsed.path.rstrip("/")!="/generate-speech"):
         raise BrowserTTSBlocked("Wrong site: not the Google AI Studio speech GUI")
     labels=[str(x) for x in snapshot.get("control_labels",[])]
     body=str(snapshot.get("body",""))
@@ -90,6 +100,8 @@ def evaluate(snapshot:dict, *, requested_model:str,
        "requested_voice":requested_voice,
        "visible_model_ids":actual_ids,
        "exact_model_visible":requested_model in actual_ids,
+       "selected_model_verified":False,
+       "selected_voice_verified":False,
        "voice_visible":bool(re.search(r"\b"+re.escape(requested_voice)+r"\b",
                                        evidence,flags=re.I)),
        "no_api_key_selected_visible":no_key,
@@ -111,7 +123,9 @@ def evaluate(snapshot:dict, *, requested_model:str,
         reasons.append("requested_voice_not_confirmed")
     if no_key:reasons.append("no_api_key_selected")
     if not editor_present:reasons.append("speech_editor_not_available")
-    reasons.extend(("downloadable_wav_not_verified",
+    reasons.extend(("selected_model_not_verified",
+                    "selected_voice_not_verified",
+                    "downloadable_wav_not_verified",
                     "billing_free_generation_not_verified"))
     result["blockers"]=reasons
     return result
@@ -186,8 +200,13 @@ def preflight(*,requested_model:str,requested_voice:str,output:Path,
               transport=None,port:int=9222,timeout_s:int=25,
               source_root:Path|None=None,
               local_environ:dict[str,str]|None=None)->dict:
-    output=Path(output).resolve()
-    if output.exists() or not output.parent.is_dir() or output.is_symlink():
+    validate_request(requested_model=requested_model,
+                     requested_voice=requested_voice)
+    proposed=Path(output)
+    if proposed.is_symlink():
+        raise ValueError("Preflight receipt must be a new isolated file")
+    output=proposed.resolve()
+    if output.exists() or not output.parent.is_dir():
         raise ValueError("Preflight receipt must be a new isolated file")
     if source_root is not None and output.is_relative_to(Path(source_root).resolve()):
         raise ValueError("Never create a browser probe inside the textbook source")
@@ -210,6 +229,8 @@ def preflight(*,requested_model:str,requested_voice:str,output:Path,
             "observed_surface":None,
             "visible_model_ids":[],
             "exact_model_visible":False,
+            "selected_model_verified":False,
+            "selected_voice_verified":False,
             "voice_visible":False,
             "no_api_key_selected_visible":False,
             "speech_editor_available":False,
