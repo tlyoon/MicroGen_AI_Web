@@ -234,4 +234,67 @@ class WebTTSPreflightTests(unittest.TestCase):
             self.probe()
         self.assertFalse(target.exists())
 
+
+    def test_official_documentation_deeplink_still_never_attests_model(self):
+        data=self.snapshot(
+            url=SURFACE,
+            control_labels=["gemini-3.8-flash-lite-tts","Kore"],
+            editable_count=1,
+            official_model_link_requested=True,
+            official_link_query_retained=True)
+        result=evaluate(data,requested_model="gemini-3.8-flash-lite-tts",
+                        requested_voice="Kore")
+        self.assertTrue(result["official_model_link_requested"])
+        self.assertTrue(result["official_link_query_retained"])
+        self.assertFalse(result["official_link_is_selection_proof"])
+        self.assertFalse(result["selected_model_verified"])
+        self.assertFalse(result["selected_voice_verified"])
+        self.assertFalse(result["usable_for_automatic_element_tts"])
+
+    def test_official_model_route_is_sanitized_and_safe_to_probe(self):
+        seen=[]
+        def fake_transport(**kwargs):
+            seen.append(kwargs["entrypoint"])
+            return self.snapshot(official_model_link_requested=True,
+                                 official_link_query_retained=False)
+        report=preflight(requested_model="gemini-3.8-flash-lite-tts",
+                         requested_voice="Kore",output=self.out,
+                         entrypoint="official_model_link",
+                         transport=fake_transport)
+        self.assertEqual(seen,["official_model_link"])
+        self.assertTrue(report["official_model_link_requested"])
+        self.assertFalse(report["official_link_query_retained"])
+        self.assertFalse(report["selected_model_verified"])
+        self.assertFalse(report["submitted_generation_request"])
+        self.assertFalse(report["api_called_by_microgen"])
+        self.assertEqual(json.loads(self.out.read_text()),report)
+
+    def test_official_link_rejects_non_flash_lite_without_browser(self):
+        def forbidden(**_):
+            self.fail("Invalid deep-link model must not attach Chrome")
+        with self.assertRaisesRegex(ValueError,"exact Flash-Lite"):
+            preflight(requested_model="gemini-3.8-flash-tts",
+                      requested_voice="Kore",output=self.out,
+                      entrypoint="official_model_link",
+                      transport=forbidden)
+        self.assertFalse(self.out.exists())
+
+    def test_unapproved_entrypoint_rejected_before_browser(self):
+        with self.assertRaisesRegex(ValueError,"entrypoint"):
+            preflight(requested_model="gemini-3.8-flash-lite-tts",
+                      requested_voice="Kore",output=self.out,
+                      entrypoint="https://evil.example",
+                      transport=lambda **_:self.snapshot())
+        self.assertFalse(self.out.exists())
+
+    def test_url_model_parameter_is_not_browser_selection(self):
+        r=evaluate(self.snapshot(
+            url=SURFACE+"?model=gemini-3.8-flash-lite-tts",
+            control_labels=["No API key selected"]),
+            requested_model="gemini-3.8-flash-lite-tts",
+            requested_voice="Kore")
+        self.assertFalse(r["exact_model_visible"])
+        self.assertFalse(r["selected_model_verified"])
+        self.assertFalse(r["usable_for_automatic_element_tts"])
+
 if __name__=="__main__":unittest.main()
