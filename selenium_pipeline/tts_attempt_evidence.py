@@ -9,6 +9,8 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
+from datetime import datetime, timezone
 from pathlib import Path
 
 from .tts_effective_identity import DEFAULT, FLASH, LITE, CHIRP
@@ -30,6 +32,37 @@ def sha(data: bytes) -> str:
 def canonical(value: dict) -> bytes:
     return json.dumps(value, sort_keys=True, ensure_ascii=False,
                       separators=(",", ":")).encode("utf-8")
+
+
+def _utc_timestamp(value: str) -> bool:
+    if not isinstance(value, str) or not value.endswith("Z"):
+        return False
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    return parsed.tzinfo is not None and parsed.utcoffset().total_seconds() == 0
+
+
+def safe_provider_request_id(exc: BaseException) -> str | None:
+    """Read *optional* provider-issued ID, never a locally invented call ID.
+
+    Some SDK failures expose no ID. This helper must not log credentials or
+    arbitrary exception text; missing IDs remain uncorroborated.
+    """
+    candidates = [getattr(exc, "request_id", None),
+                  getattr(exc, "response_id", None)]
+    response = getattr(exc, "response", None)
+    for holder in (getattr(exc, "headers", None),
+                   getattr(response, "headers", None)):
+        if hasattr(holder, "get"):
+            for key in ("x-request-id", "x-goog-request-id", "request-id"):
+                candidates.append(holder.get(key))
+    for candidate in candidates:
+        if (isinstance(candidate, str) and 8 <= len(candidate) <= 128
+                and re.fullmatch(r"[a-zA-Z0-9_.:-]+", candidate)):
+            return candidate
+    return None
 
 
 class AttemptEvidence:
@@ -95,8 +128,16 @@ class AttemptEvidence:
                 raise TTSAttemptEvidenceError("Attempt event is not an object")
             digest = observed.get("sha256")
             raw = {k: v for k, v in observed.items() if k != "sha256"}
-            if (set(raw) != {"sequence", "previous_sha256", "provider", "model",
-                             "slide", "round", "outcome", "error_type"}
+            legacy_keys = {"sequence", "previous_sha256", "provider", "model",
+                           "slide", "round", "outcome", "error_type"}
+            modern_keys = legacy_keys | {"observed_at_utc", "provider_request_id"}
+            if (set(raw) not in (legacy_keys, modern_keys)
+                    or ("observed_at_utc" in raw and (
+                        not _utc_timestamp(raw["observed_at_utc"])
+                        or (raw["provider_request_id"] is not None and (
+                            not isinstance(raw["provider_request_id"], str)
+                            or not re.fullmatch(r"[a-zA-Z0-9_.:-]{8,128}",
+                                                raw["provider_request_id"])))) )
                     or raw["sequence"] != sequence
                     or raw["previous_sha256"] != prev
                     or raw["provider"] not in ("gemini", "chirp3")
@@ -120,13 +161,18 @@ class AttemptEvidence:
         return entries
 
     def record(self, *, provider: str, model: str, slide: int,
-               round_number: int, outcome: str, error_type: str = "") -> dict:
+               round_number: int, outcome: str, error_type: str = "",
+               provider_request_id: str | None = None) -> dict:
         if (model not in MODELS or
                 (provider == "gemini") != (model in (LITE, FLASH)) or
                 str(slide) not in self.identity["slides"] or
                 type(round_number) is not int or round_number < 1 or
                 outcome not in ("success","transient_failure","permanent_failure") or
-                (outcome == "success") != (error_type == "")):
+                (outcome == "success") != (error_type == "") or
+                (provider_request_id is not None and (
+                    not isinstance(provider_request_id, str) or
+                    not re.fullmatch(r"[a-zA-Z0-9_.:-]{8,128}",
+                                     provider_request_id)))):
             raise TTSAttemptEvidenceError("Invalid provider attempt observation")
         old = self.read()
         value = {
@@ -138,6 +184,9 @@ class AttemptEvidence:
             "round": round_number,
             "outcome": outcome,
             "error_type": error_type,
+            "observed_at_utc": datetime.now(timezone.utc).isoformat(
+                timespec="milliseconds").replace("+00:00", "Z"),
+            "provider_request_id": provider_request_id,
         }
         value["sha256"] = sha(canonical(value))
         filename = self.path / f"{value['sequence']:06d}.json"
