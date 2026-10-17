@@ -768,9 +768,10 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
         allow_fallback and provider == "gemini"
         and os.environ.get("MICROGEN_TTS_ENABLE_PROVIDER_FALLBACK", "1") != "0"
         and os.environ.get("MICROGEN_TTS_ENABLE_BATCH_FALLBACK", "1") != "0")
-    queue_rounds = max(
-        3 if (automatic_fallback or not allow_fallback) else 1,
-        int(os.environ.get("MICROGEN_TTS_QUEUE_ROUNDS", "3")))
+    # Preserve the owner's minimum three-round TTS retry contract even if
+    # automatic fallback is explicitly disabled. A disabled circuit breaker
+    # may still defer later slides to the subsequent round.
+    queue_rounds = max(3, int(os.environ.get("MICROGEN_TTS_QUEUE_ROUNDS", "3")))
     pending = [(number, narration) for number, narration in items]
     last_failures: dict[int, BaseException] = {}
     attempts_by_slide: dict[int, int] = {}
