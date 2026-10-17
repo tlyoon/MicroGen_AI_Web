@@ -5,8 +5,8 @@ import hashlib
 import json
 import unittest
 
-from test_tts_qa_promotion import ReviewedAudioHandoffTests
-from test_tts_reviewed_element_compat import ReviewedSlideAudioCompatibilityTests
+import test_tts_qa_promotion as promotion_fixtures
+import test_tts_reviewed_element_compat as element_fixtures
 from selenium_pipeline.tts_qa_promotion import audit, export_reviewed, AudioPromotionBlocked
 from selenium_pipeline.tts_reviewed_element_compat import check, ElementAudioIncompatible
 from selenium_pipeline.tts_effective_identity import (
@@ -47,7 +47,7 @@ def transform_manifest(doc, effective, chain):
 
 class FallbackProvenanceEndToEndTests(unittest.TestCase):
     def new_audio(self):
-        case=ReviewedAudioHandoffTests("test_audit_read_only_and_requires_no_attestation")
+        case=promotion_fixtures.ReviewedAudioHandoffTests("test_audit_read_only_and_requires_no_attestation")
         case.setUp()
         self.addCleanup(case.doCleanups)
         return case
@@ -66,7 +66,7 @@ class FallbackProvenanceEndToEndTests(unittest.TestCase):
             case.source/"tts_input_manifest.json").read_bytes()
 
     def new_element(self):
-        case=ReviewedSlideAudioCompatibilityTests(
+        case=element_fixtures.ReviewedSlideAudioCompatibilityTests(
             "test_single_element_per_slide_can_be_checked_read_only")
         case.setUp()
         self.addCleanup(case.doCleanups)
