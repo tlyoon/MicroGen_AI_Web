@@ -586,6 +586,7 @@ def _whole_batch_fallback(
     *,
     requested: dict[str, str],
     completed_gemini_models: tuple[str, ...],
+    attempt_evidence=None,
 ) -> dict[int, dict[str, object]]:
     """Complete one *entire* fallback batch isolated; keep original candidates.
 
@@ -594,6 +595,17 @@ def _whole_batch_fallback(
     No partial batch gets published to the final lecture folder.
     """
     from .tts_billing_guard import require_tts_cost_authorization
+
+    # The manifest alone cannot authorize fallback: independently inspect
+    # source-linked call outcomes preserved during the original model runs.
+    if attempt_evidence is None:
+        raise RuntimeError("Missing observed retry-attempt evidence; no paid fallback")
+    exhausted_proof = attempt_evidence.verify_before(spec["provider"], spec["model"])
+    if tuple(completed_gemini_models) != (
+            ("gemini-3.8-flash-lite-tts",)
+            if spec["provider"] == "gemini"
+            else ("gemini-3.8-flash-lite-tts", "gemini-3.8-flash-tts")):
+        raise RuntimeError("Claimed fallback chain differs from observed model order")
 
     if spec["provider"] == "chirp3":
         required = {"gemini-3.8-flash-lite-tts", "gemini-3.8-flash-tts"}
@@ -619,7 +631,7 @@ def _whole_batch_fallback(
         try:
             _synthesize_folder_unlocked(
                 batch, spec["provider"], spec["model"], spec["voice"],
-                allow_fallback=False)
+                allow_fallback=False, attempt_evidence=attempt_evidence)
         except RuntimeError as exc:
             if "queue exhausted" in str(exc) and "slide" in str(exc):
                 raise TTSFallbackModelExhausted(
@@ -654,6 +666,12 @@ def _whole_batch_fallback(
         metadata["requested_primary"] = requested
         metadata["fallback_chain"] = list(completed_gemini_models)
         metadata["all_slides_one_effective_voice"] = True
+        metadata["attempt_evidence"] = {
+            "path": ".tts_attempt_evidence",
+            "sha256": attempt_evidence.tip(),
+            "effective_model": spec["model"],
+            "observed_failed_models": exhausted_proof,
+        }
         payload = (json.dumps(metadata, indent=2, ensure_ascii=False) + "\n").encode("utf-8")
         new_files = []
         try:
@@ -682,7 +700,7 @@ def _whole_batch_fallback(
     }
 
 
-def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: str, *, allow_fallback: bool = True) -> None:
+def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: str, *, allow_fallback: bool = True, attempt_evidence=None) -> None:
     text = (folder / "script.txt").read_text(encoding="utf-8")
     items = blocks(text)
 
@@ -766,6 +784,13 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
     # All legacy/partial mismatches are preserved for explicit review.
     prepare_candidate(candidate, candidate_identity)
 
+    # For an original production run, bind immutable observed call outcomes
+    # to the exact source script before the first provider call. An ephemeral
+    # whole-batch fallback passes this SAME root ledger explicitly.
+    if attempt_evidence is None and allow_fallback and provider == "gemini":
+        from .tts_attempt_evidence import AttemptEvidence
+        attempt_evidence = AttemptEvidence(folder, items)
+
     # Never transition to a paid fallback after fewer than three primary
     # attempts. Test-only / explicitly disabled fallback can use shorter runs.
     automatic_fallback = (
@@ -831,11 +856,22 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
                     raise RuntimeError(f"slide{number}: audio is empty")
                 partial.replace(dest)
                 record_one(candidate, dest.name, candidate_identity)
+                if attempt_evidence is not None:
+                    attempt_evidence.record(
+                        provider=provider, model=model, slide=number,
+                        round_number=round_number, outcome="success")
                 last_failures.pop(number, None)
                 slide_provenance[number] = {**primary_spec, "fallback_used": False}
                 consecutive_transient_failures = 0
                 print(f"[tts] prepared {dest.name} ({len(payload)} bytes)", flush=True)
             except Exception as exc:
+                if attempt_evidence is not None:
+                    attempt_evidence.record(
+                        provider=provider, model=model, slide=number,
+                        round_number=round_number,
+                        outcome=("transient_failure" if _is_transient_tts_failure(exc)
+                                 else "permanent_failure"),
+                        error_type=type(exc).__name__)
                 last_failures[number] = exc
                 if _is_transient_tts_failure(exc) and round_number < queue_rounds:
                     consecutive_transient_failures += 1
@@ -916,7 +952,8 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
             try:
                 _whole_batch_fallback(
                     folder, items, spec, requested=requested,
-                    completed_gemini_models=tuple(exhausted))
+                    completed_gemini_models=tuple(exhausted),
+                    attempt_evidence=attempt_evidence)
             except TTSFallbackModelExhausted as exc:
                 errors.append(
                     f"{spec['provider']}:{spec['model']} "
