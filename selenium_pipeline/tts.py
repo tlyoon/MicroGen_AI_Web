@@ -419,23 +419,14 @@ def _named_voice(voice: str) -> str:
 
 
 def _fallback_specs(provider: str, model: str, voice: str) -> list[dict[str, str]]:
-    """Return same-named-voice fallbacks in preferred quality/compatibility order."""
-    named = _named_voice(voice)
-    if provider == "gemini":
-        other = (
-            "gemini-3.8-flash-tts"
-            if model == "gemini-3.8-flash-lite-tts"
-            else "gemini-3.8-flash-lite-tts"
-        )
-        # Explicit project contract (16 Oct 2026): metered Flash-Lite
-        # may be authorized, but expensive Google Cloud Chirp TTS must
-        # never be an automatic fallback after Gemini failure.
-        return [{"provider": "gemini", "model": other, "voice": named}]
-    if provider == "chirp3":
-        return [
-            {"provider": "gemini", "model": "gemini-3.8-flash-tts", "voice": named},
-            {"provider": "gemini", "model": "gemini-3.8-flash-lite-tts", "voice": named},
-        ]
+    """Never substitute an unapproved provider/model/voice after TTS failure.
+
+    A same-named voice on a *different* Gemini model is not the same
+    production identity. The voice-similarity score is not authority to spend
+    money, switch models or re-render a lecture. A different model must be
+    explicitly selected for a new, independently reviewed job. This list
+    remains empty even when legacy provider/batch fallback toggles are set.
+    """
     return []
 
 
@@ -868,11 +859,12 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
             exc = last_failures.get(number, RuntimeError("no completed WAV"))
             unresolved.append((number, exc))
 
-    # Provider/model fallback is attempted only after the primary queue is
-    # exhausted.  A fallback WAV is accepted only if strict perceptual
-    # continuity says it sounds like the same narrator as multiple primary
-    # reference slides.
-    if unresolved and os.environ.get("MICROGEN_TTS_ENABLE_PROVIDER_FALLBACK", "1") != "0":
+    # Contract: no automatic model/provider substitution. Even explicit
+    # legacy fallback toggles cannot override this; the only permitted choice
+    # is a newly reviewed, separately authorized job.
+    approved_fallbacks = _fallback_specs(provider, model, voice)
+    if (unresolved and approved_fallbacks
+            and os.environ.get("MICROGEN_TTS_ENABLE_PROVIDER_FALLBACK", "1") != "0"):
         from .tts_voice_consistency import compare_voice
 
         reference_paths = [
@@ -889,7 +881,7 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
                 narration = narration_by_slide[number]
                 accepted = False
                 fallback_errors: list[str] = []
-                for spec in _fallback_specs(provider, model, voice):
+                for spec in approved_fallbacks:
                     print(
                         f"[tts] slide{number}: trying same-voice fallback "
                         f"{spec['provider']} / {spec['model']} / {spec['voice']}",
@@ -965,11 +957,11 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
             ]
 
     if (
-        unresolved
+        unresolved and approved_fallbacks
         and os.environ.get("MICROGEN_TTS_ENABLE_BATCH_FALLBACK", "1") != "0"
     ):
         batch_errors: list[str] = []
-        for spec in _fallback_specs(provider, model, voice):
+        for spec in approved_fallbacks:
             print(
                 f"[tts] per-slide same-voice fallback was not acceptable; "
                 f"trying whole-batch fallback {spec['provider']} / "
@@ -1029,7 +1021,8 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
             for number, exc in unresolved
         )
         raise RuntimeError(
-            f"TTS queue/fallback exhausted with {len(unresolved)} unresolved slide(s): {details}"
+            f"TTS queue exhausted with {len(unresolved)} unresolved slide(s); "
+            f"no automatic model/provider substitution is permitted. {details}"
         )
     # All responses have been validated; publish after the complete batch.
     stale = [p for p in folder.glob("slide*.wav") if p.name not in expected_names]
