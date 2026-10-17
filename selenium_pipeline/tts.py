@@ -736,11 +736,12 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
                 max_retries=0,
             )
     elif provider == "chirp3":
-        _configure_cloud_adc_from_microvid()
-        from google.cloud import texttospeech
-        client = texttospeech.TextToSpeechClient()  # Use ADC / GOOGLE_APPLICATION_CREDENTIALS
+        # Always isolate Cloud requests behind the bounded process watchdog,
+        # including conditional fallback on slower Dell-115 and Yoga6. Never
+        # launch a Cloud API request in the coordinator process directly.
         chirp_voice = voice if "Chirp3-HD" in voice else f"en-US-Chirp3-HD-{_named_voice(voice)}"
-        say = lambda narration, number, final_round=False: _chirp_say(client, narration, chirp_voice)
+        def say(narration: str, number: int, *, final_round: bool = False) -> bytes:
+            return _chirp_say_with_watchdog(narration, number, chirp_voice)
     else:
         raise ValueError(f"Unknown TTS provider: {provider}")
 
