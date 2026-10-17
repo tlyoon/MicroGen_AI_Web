@@ -700,7 +700,8 @@ def _execute_unlocked(s: Settings) -> Path:
         require_tts_cost_authorization(
             s.tts_provider,
             gemini_approved=s.confirm_gemini_api_cost,
-            cloud_approved=s.confirm_google_cloud_tts_cost)
+            cloud_approved=s.confirm_google_cloud_tts_cost,
+            routine_gemini=(s.tts_provider == "gemini"))
     if any(_needs_browser(x) for x in planned):
         from .launch_gemini import launch
         requested_port = s.chrome_port
@@ -864,6 +865,26 @@ def _execute_unlocked(s: Settings) -> Path:
                 )
             elif stage == "tts_qa":
                 qa_python = tts_python_executable()
+                actual_provider, actual_model, actual_voice = (
+                    s.tts_provider, s.tts_model, s.tts_voice)
+                original_tts_manifest = folder / "tts_input_manifest.json"
+                if original_tts_manifest.is_file() and not original_tts_manifest.is_symlink():
+                    identity = json.loads(original_tts_manifest.read_text(encoding="utf-8"))
+                    actual = identity.get("primary", {})
+                    if isinstance(actual, dict):
+                        actual_provider = actual.get("provider", actual_provider)
+                        actual_model = actual.get("model", actual_model)
+                        actual_voice = actual.get("voice", actual_voice)
+                    if (actual_provider == "chirp3"
+                            and not (identity.get("all_slides_one_effective_voice") is True
+                                     and identity.get("requested_primary") == {
+                                         "provider": "gemini", "model": s.tts_model,
+                                         "voice": s.tts_voice}
+                                     and identity.get("fallback_chain") == [
+                                         "gemini-3.8-flash-lite-tts",
+                                         "gemini-3.8-flash-tts"])):
+                        raise RuntimeError(
+                            "Cloud TTS QA requires complete conditional-fallback provenance")
                 print(f"[microgen] TTS QA Python: {qa_python}")
                 run_cmd(
                     [
@@ -877,15 +898,15 @@ def _execute_unlocked(s: Settings) -> Path:
                         "--threshold",
                         str(s.tts_qa_threshold),
                         "--provider",
-                        s.tts_provider,
+                        actual_provider,
                         "--tts-model",
-                        s.tts_model,
+                        actual_model,
                         "--voice",
-                        s.tts_voice,
+                        actual_voice,
                         "--max-repairs",
                         os.environ.get("MICROGEN_TTS_QA_REPAIR_ROUNDS", "2"),
-                        ("--confirm-gemini-api-cost" if s.tts_provider == "gemini"
-                         else "--confirm-google-cloud-tts-cost"),
+                        ("--routine-production-gemini" if actual_provider == "gemini"
+                         else "--conditional-cloud-fallback"),
                     ],
                     REPO,
                     log_file,
