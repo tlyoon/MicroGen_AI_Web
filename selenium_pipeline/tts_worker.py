@@ -14,7 +14,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--model", required=True)
     parser.add_argument("--voice", required=True)
     parser.add_argument("--number", type=int, required=True)
+    parser.add_argument("--confirm-gemini-api-cost", action="store_true")
+    parser.add_argument("--confirm-google-cloud-tts-cost", action="store_true")
     args = parser.parse_args(argv)
+    from .tts_billing_guard import require_tts_cost_authorization
+    require_tts_cost_authorization(
+        args.provider, gemini_approved=args.confirm_gemini_api_cost,
+        cloud_approved=args.confirm_google_cloud_tts_cost)
 
     text = sys.stdin.read()
     if args.provider == "gemini":
