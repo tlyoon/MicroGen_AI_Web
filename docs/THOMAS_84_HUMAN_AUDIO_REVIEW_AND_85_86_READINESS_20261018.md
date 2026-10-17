@@ -53,3 +53,16 @@ Neither 8.5 nor 8.6 is ready for honest element-highlighted replacement MP4s bec
 ## Remaining release gates
 
 Authentic spoken-word fidelity, correct mathematical pronunciation, review of all equations and complete multipanel figures, full-lecture author signoff, and final student-publication permission are all separate obligations. Successful hash checks, scripted machine transcription, an audio player or technical video pixels do not fulfill them. Do not merge stacked draft PRs or sync dirty production trees until integration and acceptance are separately approved.
+## Refreshed Thomas 8.5 draft comparison — do not confuse algorithm changes with academic approval
+
+The historical 16 October auto-candidate remained **62/78 ambiguous**. Regenerating it from the same source PDF, slides PDF and verbatim script under the current checkout on 18 October yielded **58/78 ambiguous**, with all 20 slides and 78 original narration utterance texts byte-for-byte identical. Exactly four *automated ambiguity booleans* changed from true to false: `s003.utterance.004`, `s008.utterance.003`, `s009.utterance.004` and `s012.utterance.004`. These are heuristic ranking changes, **not** author-approved mappings. The refreshed candidate remains `REVIEW_REQUIRED_NOT_TTS_READY` and `can_stage_or_synthesize_audio=false`.
+
+HP, Dell-115 and Yoga6 reproduced the logical UTF-8 serialized draft hash **`3df6f7ae0292b1017e86fda53ee775aa6491d9716ceed9c4bc1010ae8ce21414`**. The copy written to disk by Windows Python has CRLF newlines and a different raw file digest; raw newline conversion is **not** a semantic or content discrepancy. A new isolated review-only Drive folder `MicroGen_AI_Web_Thomas85_RefreshedAutoCandidates_ReviewOnly_20261018` contains the new JSON, new author mapping-review worklist and explicit comparison of the four flipped heuristics. The historical Oct 16 draft remains untouched.
+
+## New Google Drive review-only deliverables (copied without changing originals)
+
+- Thomas 8.4 48-clip full listening packet: `https://drive.google.com/drive/folders/1rc7SyZ86sitX0TWslSgkG2W1E2szDrdH` — 48 WAVs plus HTML, CSV and JSON (51 files; byte-identical after transfer).
+- Thomas 8.5 refreshed mapping worklist: `https://drive.google.com/drive/folders/1aX-LSJwv7RHmyF_SVlaYU5tw2nPBUjv6` — refreshed JSON, worklist and four-heuristic comparison (3 files).
+- Thomas 8.6 new mapping worklist: `https://drive.google.com/drive/folders/17xZZDVUetP4TWTvuBBEVoSm7TZeO2_jm` — source-bound review-only candidate JSON and worklist (2 files).
+
+All three generated folders are **distinct, newly created review-only outputs**, separate from the production source directory, and every transferred file was checked byte-for-byte. None constitutes student-ready speech or video.
