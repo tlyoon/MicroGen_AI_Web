@@ -33,9 +33,15 @@ def main(argv: list[str] | None = None) -> int:
         from .tts_worker_evidence import _assert_safe_paths, write_observation
         _assert_safe_paths(args.output, args.evidence_output)
     text = sys.stdin.read()
+    response_observation = {}
     try:
         if args.provider == "gemini":
-            payload = _gemini_failover_request(text, args.number, args.model, args.voice)
+            if args.evidence_output is None:
+                payload = _gemini_failover_request(text, args.number, args.model, args.voice)
+            else:
+                payload = _gemini_failover_request(
+                    text, args.number, args.model, args.voice,
+                    request_observation=response_observation)
         else:
             _configure_cloud_adc_from_microvid()
             from google.cloud import texttospeech
@@ -50,7 +56,9 @@ def main(argv: list[str] | None = None) -> int:
                               outcome="exception", exception=exc)
         raise
     if args.evidence_output is not None:
-        write_observation(args.output, args.evidence_output, outcome="success")
+        write_observation(
+            args.output, args.evidence_output, outcome="success",
+            provider_request_id=response_observation.get("provider_request_id"))
     return 0
 
 
