@@ -26,17 +26,24 @@ def _assert_safe_paths(audio_path: Path, evidence_path: Path) -> None:
 
 
 def write_observation(audio_path: Path, evidence_path: Path, *,
-                      outcome: str, exception: BaseException | None = None) -> None:
+                      outcome: str, exception: BaseException | None = None,
+                      provider_request_id: str | None = None) -> None:
     _assert_safe_paths(audio_path, evidence_path)
     if outcome not in ("success", "exception") or (
         outcome == "success" and exception is not None
     ) or (outcome == "exception" and exception is None):
         raise TTSWorkerEvidenceError("Invalid worker event")
+    if exception is not None:
+        provider_request_id = safe_provider_request_id(exception)
+    if provider_request_id is not None:
+        class ProviderObservation:
+            request_id = provider_request_id
+        if safe_provider_request_id(ProviderObservation()) != provider_request_id:
+            raise TTSWorkerEvidenceError("Untrusted worker provider request ID")
     data = {
         "schema_version": 1,
         "outcome": outcome,
-        "provider_request_id": (
-            safe_provider_request_id(exception) if exception else None),
+        "provider_request_id": provider_request_id,
         "error_type": type(exception).__name__ if exception else "",
     }
     with evidence_path.open("x", encoding="utf-8") as stream:
