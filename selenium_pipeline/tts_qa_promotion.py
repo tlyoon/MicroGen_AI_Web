@@ -131,6 +131,7 @@ def audit(source: Path, review: Path) -> dict:
             raise AudioPromotionBlocked("Original or proposed WAV digest mismatch")
         row = manifest_by_number[number]
         if (row.get("tts_text") != narration
+                or row.get("source_text") != narration
                 or row.get("provider") != "gemini"
                 or row.get("model") != "gemini-3.8-flash-lite-tts"
                 or row.get("voice") != "Kore"
