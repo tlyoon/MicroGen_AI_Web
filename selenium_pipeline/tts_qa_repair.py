@@ -50,6 +50,23 @@ def _validate_originals(
     if (primary != {"provider": provider, "model": tts_model, "voice": voice}
             or len(bound) != len(rows) or set(bound) != set(narrations)):
         raise RuntimeError("Original TTS provider/model/voice/slide identity mismatch")
+    fallback_used = doc.get("all_slides_one_effective_voice") is True
+    if fallback_used:
+        actual = {"provider": provider, "model": tts_model, "voice": voice}
+        requested = doc.get("requested_primary")
+        chain = doc.get("fallback_chain")
+        if (not isinstance(requested, dict)
+                or requested.get("provider") != "gemini"
+                or requested.get("model") != "gemini-3.8-flash-lite-tts"
+                or requested.get("voice") != "Kore"
+                or actual not in (
+                    {"provider": "gemini", "model": "gemini-3.8-flash-tts", "voice": "Kore"},
+                    {"provider": "chirp3", "model": "chirp3-hd",
+                     "voice": "en-US-Chirp3-HD-Corey"})):
+            raise RuntimeError("Unrecognized fallback provider, voice or original identity")
+        if chain != (["gemini-3.8-flash-lite-tts"] if provider == "gemini"
+                     else ["gemini-3.8-flash-lite-tts", "gemini-3.8-flash-tts"]):
+            raise RuntimeError("Incomplete Gemini retry/fallback history")
     originals: dict[str, str] = {}
     for number, expected in narrations.items():
         entry = bound[number]
@@ -57,7 +74,10 @@ def _validate_originals(
                 or entry.get("provider") != provider
                 or entry.get("model") != tts_model
                 or entry.get("voice") != voice
-                or entry.get("fallback_used") is not False):
+                or entry.get("fallback_used") is not fallback_used
+                or (fallback_used and
+                    (entry.get("primary_model") != "gemini-3.8-flash-lite-tts"
+                     or entry.get("primary_voice") != "Kore"))):
             raise RuntimeError("Original TTS narration or model provenance mismatch")
         item = folder / f"slide{number}.wav"
         if not item.is_file() or item.is_symlink():
@@ -218,13 +238,33 @@ def main(argv=None) -> int:
     parser.add_argument("--max-repairs", type=int, default=2)
     parser.add_argument("--confirm-gemini-api-cost", action="store_true")
     parser.add_argument("--confirm-google-cloud-tts-cost", action="store_true")
+    parser.add_argument("--routine-production-gemini", action="store_true",
+                        help="Existing standing approval for routine Gemini production")
+    parser.add_argument("--conditional-cloud-fallback", action="store_true",
+                        help="Only the verified Lite->Flash->Chirp production fallback")
     args = parser.parse_args(argv)
     from .tts_billing_guard import require_tts_cost_authorization
     # A repair can synthesize NEW audio; provenance checks cannot replace
     # an explicit provider-specific authorization for that expense.
     require_tts_cost_authorization(
         args.provider, gemini_approved=args.confirm_gemini_api_cost,
-        cloud_approved=args.confirm_google_cloud_tts_cost)
+        cloud_approved=args.confirm_google_cloud_tts_cost,
+        routine_gemini=(args.routine_production_gemini or args.provider == "gemini"),
+        conditional_cloud_fallback=args.conditional_cloud_fallback)
+    if args.conditional_cloud_fallback:
+        if args.provider != "chirp3":
+            raise RuntimeError("Conditional Cloud flag requires Cloud provider")
+        manifest_path = args.folder / "tts_input_manifest.json"
+        if not manifest_path.is_file() or manifest_path.is_symlink():
+            raise RuntimeError("Conditional Cloud requires an original TTS manifest")
+        history = json.loads(manifest_path.read_text(encoding="utf-8"))
+        if (history.get("all_slides_one_effective_voice") is not True
+                or history.get("fallback_chain") != [
+                    "gemini-3.8-flash-lite-tts", "gemini-3.8-flash-tts"]
+                or history.get("primary") != {
+                    "provider": "chirp3", "model": "chirp3-hd",
+                    "voice": "en-US-Chirp3-HD-Corey"}):
+            raise RuntimeError("Cloud TTS conditional fallback history is not verified")
     load_microvid_env()
     repair(args.folder, model=args.model, threshold=args.threshold,
            provider=args.provider, tts_model=args.tts_model, voice=args.voice,

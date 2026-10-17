@@ -399,10 +399,14 @@ def _is_transient_tts_failure(exc: BaseException) -> bool:
     permanent_markers = (
         "400 invalid_argument", "401", "403", "permission denied",
         "unauthenticated", "invalid api key", "unapproved tts model",
+        "invalid wav", "not return a wav", "audio is empty",
+        "malformed audio", "pcm format", "invalid audio",
     )
     if any(marker in message for marker in permanent_markers):
         return False
-    return any(marker in message for marker in transient_markers) or isinstance(exc, RuntimeError)
+    # An arbitrary RuntimeError is NOT evidence of a provider outage and
+    # must not trigger separately billable Cloud speech.
+    return any(marker in message for marker in transient_markers)
 
 
 def _tts_queue_delay_seconds(round_number: int) -> float:
@@ -419,16 +423,17 @@ def _named_voice(voice: str) -> str:
 
 
 def _fallback_specs(provider: str, model: str, voice: str) -> list[dict[str, str]]:
-    """Never substitute an unapproved provider/model/voice after TTS failure.
-
-    A same-named voice on a *different* Gemini model is not the same
-    production identity. The voice-similarity score is not authority to spend
-    money, switch models or re-render a lecture. A different model must be
-    explicitly selected for a new, independently reviewed job. This list
-    remains empty even when legacy provider/batch fallback toggles are set.
-    """
+    """Owner-approved full-batch fallback order; NEVER mix different voices."""
+    chirp = {"provider": "chirp3", "model": "chirp3-hd",
+             "voice": "en-US-Chirp3-HD-Corey"}
+    if provider == "gemini" and model == "gemini-3.8-flash-lite-tts":
+        return [
+            {"provider": "gemini", "model": "gemini-3.8-flash-tts", "voice": voice},
+            chirp,
+        ]
+    if provider == "gemini" and model == "gemini-3.8-flash-tts":
+        return [chirp]
     return []
-
 
 def _chirp_say_with_watchdog(
     text: str,
@@ -570,110 +575,114 @@ def _stream_batch_fallback_progress(proc: subprocess.Popen, timeout: float) -> s
     return "\n".join(tail)[-1800:]
 
 
+class TTSFallbackModelExhausted(RuntimeError):
+    """Provider/model retries failed, unlike disk/config/provenance errors."""
+
+
 def _whole_batch_fallback(
     folder: Path,
     items: list[tuple[int, str]],
     spec: dict[str, str],
+    *,
+    requested: dict[str, str],
+    completed_gemini_models: tuple[str, ...],
 ) -> dict[int, dict[str, object]]:
-    """Regenerate every slide with one fallback engine to guarantee continuity."""
-    timeout = max(
-        300,
-        int(float(os.environ.get("MICROGEN_TTS_BATCH_FALLBACK_TIMEOUT_SECONDS", "3600"))),
-    )
-    with tempfile.TemporaryDirectory(
-        prefix="microgen_tts_batch_fallback_",
-        dir=str(folder),
-    ) as td:
-        batch = Path(td)
-        (batch / "script.txt").write_text(
-            (folder / "script.txt").read_text(encoding="utf-8"),
-            encoding="utf-8",
-        )
-        env = os.environ.copy()
-        env["MICROGEN_TTS_ENABLE_PROVIDER_FALLBACK"] = "0"
-        env["MICROGEN_TTS_ENABLE_BATCH_FALLBACK"] = "0"
-        env["MICROGEN_TTS_QUEUE_ROUNDS"] = os.environ.get(
-            "MICROGEN_TTS_BATCH_QUEUE_ROUNDS",
-            "3",
-        )
-        command = [
-            sys.executable,
-            "-m",
-            "selenium_pipeline.tts",
-            "--folder",
-            str(batch),
-            "--provider",
-            spec["provider"],
-            "--model",
-            spec["model"],
-            "--voice",
-            spec["voice"],
-            ("--confirm-gemini-api-cost" if spec["provider"] == "gemini"
-             else "--confirm-google-cloud-tts-cost"),
-        ]
-        creationflags = subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
-        proc = subprocess.Popen(
-            command,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            env=env,
-            start_new_session=(os.name != "nt"),
-            creationflags=creationflags,
-        )
+    """Complete one *entire* fallback batch isolated; keep original candidates.
+
+    Never delete/replace incomplete primary WAVs or mix Kore/Cloud voices.
+    Cloud is reachable only when both Gemini queues have been exhausted.
+    No partial batch gets published to the final lecture folder.
+    """
+    from .tts_billing_guard import require_tts_cost_authorization
+
+    if spec["provider"] == "chirp3":
+        required = {"gemini-3.8-flash-lite-tts", "gemini-3.8-flash-tts"}
+        if not required.issubset(set(completed_gemini_models)):
+            raise RuntimeError(
+                "Cloud TTS not authorized: both Gemini models must exhaust "
+                "their three-attempt queues first")
+        require_tts_cost_authorization(
+            "chirp3", conditional_cloud_fallback=True)
+    else:
+        if spec["provider"] != "gemini" or spec["model"] != "gemini-3.8-flash-tts":
+            raise RuntimeError("Unapproved TTS fallback provider/model")
+        require_tts_cost_authorization("gemini", routine_gemini=True)
+
+    # No rewriting any final files, even if a downstream owner already put
+    # an unrecognized or partial WAV in the original subchapter.
+    from .tts_candidate_integrity import reject_existing_final_audio
+    reject_existing_final_audio(folder)
+    with tempfile.TemporaryDirectory(prefix="microgen_tts_full_fallback_",
+                                     dir=str(folder)) as tmp:
+        batch = Path(tmp)
+        (batch / "script.txt").write_bytes((folder / "script.txt").read_bytes())
         try:
-            output = _stream_batch_fallback_progress(proc, timeout)
-        except subprocess.TimeoutExpired:
-            if os.name == "nt":
-                subprocess.run(
-                    ["taskkill", "/PID", str(proc.pid), "/T", "/F"],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                    check=False,
-                )
-            else:
-                try:
-                    os.killpg(proc.pid, 9)
-                except Exception:
-                    proc.kill()
-            raise TimeoutError(
-                f"Whole-batch fallback {spec['provider']}:{spec['model']} "
-                f"exceeded {timeout}s"
-            )
-        if proc.returncode != 0:
-            raise RuntimeError(
-                f"Whole-batch fallback {spec['provider']}:{spec['model']} failed: "
-                f"{(output or '')[-1800:]}"
-            )
-
-        expected = [batch / f"slide{number}.wav" for number, _ in items]
-        missing = [p.name for p in expected if not p.is_file() or p.stat().st_size <= 44]
-        if missing:
-            raise RuntimeError(
-                f"Whole-batch fallback did not complete WAVs: {', '.join(missing)}"
-            )
-
-        candidate = folder / ".tts_candidate"
-        candidate.mkdir(exist_ok=True)
-        # Publish the fallback batch into candidate only after every fallback
-        # slide is complete, so the original primary candidates remain intact
-        # if batch fallback fails halfway.
-        for old in candidate.glob("slide*.wav"):
-            old.unlink()
-        for wav in expected:
-            shutil.copy2(wav, candidate / wav.name)
-
+            _synthesize_folder_unlocked(
+                batch, spec["provider"], spec["model"], spec["voice"],
+                allow_fallback=False)
+        except RuntimeError as exc:
+            if "queue exhausted" in str(exc) and "slide" in str(exc):
+                raise TTSFallbackModelExhausted(
+                    f"{spec['provider']}:{spec['model']} exhausted its retries") from exc
+            raise
+        expected = [f"slide{number}.wav" for number, _ in items]
+        if sorted(expected) != sorted(p.name for p in batch.glob("slide[0-9]*.wav")):
+            raise RuntimeError("Fallback did not render every slide exactly once")
+        raw = (batch / "tts_input_manifest.json").read_bytes()
+        metadata = json.loads(raw)
+        if (metadata.get("primary") != spec
+                or len(metadata.get("slides", [])) != len(items)):
+            raise RuntimeError("Fallback audio/manifest identity is incomplete")
+        for row, (number, narration) in zip(metadata["slides"], items):
+            if (row.get("slide") != number
+                    or row.get("tts_text") != narration
+                    or row.get("model") != spec["model"]
+                    or row.get("voice") != spec["voice"]
+                    or row.get("provider") != spec["provider"]):
+                raise RuntimeError("Fallback text, provider, or voice drift")
+            row.update({
+                "fallback_used": True,
+                "primary_provider": requested["provider"],
+                "primary_model": requested["model"],
+                "primary_voice": requested["voice"],
+                "voice_consistency": {
+                    "mode": "full_batch_single_engine_voice",
+                    "cross_model_voice_equivalence_verified": False,
+                    "independent_listening_required": True,
+                },
+            })
+        metadata["requested_primary"] = requested
+        metadata["fallback_chain"] = list(completed_gemini_models)
+        metadata["all_slides_one_effective_voice"] = True
+        payload = (json.dumps(metadata, indent=2, ensure_ascii=False) + "\n").encode("utf-8")
+        new_files = []
+        try:
+            for name in expected:
+                wav = batch / name
+                from .tts_pcm_contract import verify_pcm
+                verify_pcm(wav.read_bytes(), label=f"fallback {name}")
+                with wav.open("rb") as source, (folder / name).open("xb") as dest:
+                    new_files.append(folder / name)
+                    shutil.copyfileobj(source, dest)
+            with (folder / "tts_input_manifest.json").open("xb") as out:
+                new_files.append(folder / "tts_input_manifest.json")
+                out.write(payload)
+        except BaseException:
+            # Roll back only files *this call* created. Never touch any
+            # pre-existing lectures or the partially successful primary cache.
+            for newly_written in reversed(new_files):
+                newly_written.unlink(missing_ok=True)
+            raise
     return {
-        number: {
-            **spec,
-            "fallback_used": True,
-            "batch_fallback": True,
-        }
+        number: {**spec, "fallback_used": True,
+                 "primary_provider": requested["provider"],
+                 "primary_model": requested["model"],
+                 "primary_voice": requested["voice"]}
         for number, _ in items
     }
 
 
-def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: str) -> None:
+def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: str, *, allow_fallback: bool = True) -> None:
     text = (folder / "script.txt").read_text(encoding="utf-8")
     items = blocks(text)
 
@@ -731,11 +740,12 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
                 max_retries=0,
             )
     elif provider == "chirp3":
-        _configure_cloud_adc_from_microvid()
-        from google.cloud import texttospeech
-        client = texttospeech.TextToSpeechClient()  # Use ADC / GOOGLE_APPLICATION_CREDENTIALS
+        # Always isolate Cloud requests behind the bounded process watchdog,
+        # including conditional fallback on slower Dell-115 and Yoga6. Never
+        # launch a Cloud API request in the coordinator process directly.
         chirp_voice = voice if "Chirp3-HD" in voice else f"en-US-Chirp3-HD-{_named_voice(voice)}"
-        say = lambda narration, number, final_round=False: _chirp_say(client, narration, chirp_voice)
+        def say(narration: str, number: int, *, final_round: bool = False) -> bytes:
+            return _chirp_say_with_watchdog(narration, number, chirp_voice)
     else:
         raise ValueError(f"Unknown TTS provider: {provider}")
 
@@ -756,9 +766,19 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
     # All legacy/partial mismatches are preserved for explicit review.
     prepare_candidate(candidate, candidate_identity)
 
-    queue_rounds = max(1, int(os.environ.get("MICROGEN_TTS_QUEUE_ROUNDS", "3")))
+    # Never transition to a paid fallback after fewer than three primary
+    # attempts. Test-only / explicitly disabled fallback can use shorter runs.
+    automatic_fallback = (
+        allow_fallback and provider == "gemini"
+        and os.environ.get("MICROGEN_TTS_ENABLE_PROVIDER_FALLBACK", "1") != "0"
+        and os.environ.get("MICROGEN_TTS_ENABLE_BATCH_FALLBACK", "1") != "0")
+    # Preserve the owner's minimum three-round TTS retry contract even if
+    # automatic fallback is explicitly disabled. A disabled circuit breaker
+    # may still defer later slides to the subsequent round.
+    queue_rounds = max(3, int(os.environ.get("MICROGEN_TTS_QUEUE_ROUNDS", "3")))
     pending = [(number, narration) for number, narration in items]
     last_failures: dict[int, BaseException] = {}
+    attempts_by_slide: dict[int, int] = {}
     primary_spec = {"provider": provider, "model": model, "voice": voice}
     slide_provenance: dict[int, dict[str, object]] = {}
 
@@ -770,10 +790,12 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
             break
         next_pending: list[tuple[int, str]] = []
         consecutive_transient_failures = 0
-        circuit_breaker_failures = max(
-            1,
-            int(os.environ.get("MICROGEN_TTS_QUEUE_CIRCUIT_BREAKER_FAILURES", "2")),
-        )
+        # A Cloud escalation must be backed by a *complete* three-attempt
+        # queue for every unresolved slide, not a global circuit-breaker skip.
+        circuit_breaker_failures = (
+            len(pending) + 1 if (automatic_fallback or not allow_fallback)
+            else max(1, int(os.environ.get(
+                "MICROGEN_TTS_QUEUE_CIRCUIT_BREAKER_FAILURES", "2"))))
         print(
             f"[tts] queue round {round_number}/{queue_rounds}: "
             f"{len(pending)} slide(s) pending",
@@ -794,6 +816,7 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
 
             print(f"[tts] requesting slide{number} ({len(narration)} chars)", flush=True)
             try:
+                attempts_by_slide[number] = attempts_by_slide.get(number, 0) + 1
                 payload = say(
                     narration,
                     number,
@@ -866,170 +889,71 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
             exc = last_failures.get(number, RuntimeError("no completed WAV"))
             unresolved.append((number, exc))
 
-    # Contract: no automatic model/provider substitution. Even explicit
-    # legacy fallback toggles cannot override this; the only permitted choice
-    # is a newly reviewed, separately authorized job.
-    approved_fallbacks = _fallback_specs(provider, model, voice)
-    if (unresolved and approved_fallbacks
-            and os.environ.get("MICROGEN_TTS_ENABLE_PROVIDER_FALLBACK", "1") != "0"):
-        from .tts_voice_consistency import compare_voice
-
-        reference_paths = [
-            candidate / f"slide{n}.wav"
-            for n, _ in items
-            if (
-                slide_provenance.get(n, {}).get("fallback_used") is False
-                and (candidate / f"slide{n}.wav").is_file()
-            )
-        ][:3]
-        if len(reference_paths) >= 2:
-            still_unresolved: list[tuple[int, BaseException]] = []
-            for number, primary_error in unresolved:
-                narration = narration_by_slide[number]
-                accepted = False
-                fallback_errors: list[str] = []
-                for spec in approved_fallbacks:
-                    print(
-                        f"[tts] slide{number}: trying same-voice fallback "
-                        f"{spec['provider']} / {spec['model']} / {spec['voice']}",
-                        flush=True,
-                    )
-                    trial = candidate / f".slide{number}.fallback_trial.wav"
-                    try:
-                        payload = _fallback_payload(narration, number, spec)
-                        trial.write_bytes(payload)
-                        voice_result = compare_voice(
-                            trial,
-                            reference_paths,
-                            model=os.environ.get(
-                                "MICROGEN_TTS_VOICE_QA_MODEL",
-                                "gemini-3.8-flash",
-                            ),
-                        )
-                        print(
-                            f"[tts] slide{number}: fallback voice similarity "
-                            f"{float(voice_result.get('similarity_percent', 0)):.1f}% "
-                            f"accepted={voice_result.get('accepted')}",
-                            flush=True,
-                        )
-                        if not voice_result.get("accepted"):
-                            fallback_errors.append(
-                                f"{spec['provider']}:{spec['model']} voice continuity rejected "
-                                f"({voice_result.get('similarity_percent', 0)}%)"
-                            )
-                            continue
-                        dest = candidate / f"slide{number}.wav"
-                        trial.replace(dest)
-                        slide_provenance[number] = {
-                            **spec,
-                            "fallback_used": True,
-                            "primary_provider": provider,
-                            "primary_model": model,
-                            "primary_voice": voice,
-                            "voice_consistency": voice_result,
-                        }
-                        last_failures.pop(number, None)
-                        accepted = True
-                        print(
-                            f"[tts] slide{number}: accepted same-voice fallback "
-                            f"{spec['provider']} / {spec['model']}",
-                            flush=True,
-                        )
-                        break
-                    except Exception as exc:
-                        fallback_errors.append(
-                            f"{spec['provider']}:{spec['model']} "
-                            f"{type(exc).__name__}: {exc}"
-                        )
-                    finally:
-                        trial.unlink(missing_ok=True)
-
-                if not accepted:
-                    combined = RuntimeError(
-                        f"primary failed ({primary_error}); fallbacks failed/rejected: "
-                        + " | ".join(fallback_errors)
-                    )
-                    still_unresolved.append((number, combined))
-            unresolved = still_unresolved
-        else:
-            unresolved = [
-                (
-                    number,
-                    RuntimeError(
-                        f"{exc}; provider fallback requires at least two successful "
-                        "primary-voice reference WAVs"
-                    ),
-                )
-                for number, exc in unresolved
-            ]
-
-    if (
-        unresolved and approved_fallbacks
-        and os.environ.get("MICROGEN_TTS_ENABLE_BATCH_FALLBACK", "1") != "0"
-    ):
-        batch_errors: list[str] = []
-        for spec in approved_fallbacks:
-            print(
-                f"[tts] per-slide same-voice fallback was not acceptable; "
-                f"trying whole-batch fallback {spec['provider']} / "
-                f"{spec['model']} / {spec['voice']}",
-                flush=True,
-            )
+    # Approved escalation is by WHOLE BATCH, never interleave narrators.
+    # Lite: 3 queue rounds -> Flash: 3 queue rounds -> Cloud Chirp HD.
+    # Flash: 3 queue rounds -> Cloud Chirp HD.
+    # A failed attempt preserves all verified primary WAV candidates.
+    if (unresolved and automatic_fallback
+            and all(attempts_by_slide.get(number, 0) >= 3
+                    for number, _ in unresolved)
+            and all(_is_transient_tts_failure(exc) for _, exc in unresolved)
+            and os.environ.get("MICROGEN_TTS_ENABLE_PROVIDER_FALLBACK", "1") != "0"
+            and os.environ.get("MICROGEN_TTS_ENABLE_BATCH_FALLBACK", "1") != "0"):
+        requested = {"provider": provider, "model": model, "voice": voice}
+        exhausted = [model]
+        errors = []
+        for spec in _fallback_specs(provider, model, voice):
+            if spec["provider"] == "chirp3":
+                # Flash was attempted and exhausted only if it is listed here.
+                # Starting directly on Flash also counts as owner-selected
+                # Flash after its own complete three-round exhaustion; Cloud
+                # still requires documented Lite exhaustion in the same job.
+                if "gemini-3.8-flash-lite-tts" not in exhausted:
+                    errors.append("Cloud blocked: Lite failure not proven in this job")
+                    break
+            print(f"[tts] escalating full batch to "
+                  f"{spec['provider']}:{spec['model']}:{spec['voice']}",flush=True)
             try:
-                batch_provenance = _whole_batch_fallback(folder, items, spec)
-                for number, entry in batch_provenance.items():
-                    entry.update(
-                        {
-                            "primary_provider": provider,
-                            "primary_model": model,
-                            "primary_voice": voice,
-                            "voice_consistency": {
-                                "accepted": True,
-                                "mode": "whole_batch_single_voice",
-                                "note": (
-                                    "All slides regenerated with one fallback "
-                                    "engine/voice; no cross-provider voice mixing."
-                                ),
-                            },
-                        }
-                    )
-                slide_provenance = batch_provenance
-                unresolved = []
-                print(
-                    f"[tts] whole-batch fallback accepted: "
-                    f"{spec['provider']} / {spec['model']} / {spec['voice']}",
-                    flush=True,
-                )
-                break
-            except Exception as exc:
-                batch_errors.append(
+                _whole_batch_fallback(
+                    folder, items, spec, requested=requested,
+                    completed_gemini_models=tuple(exhausted))
+            except TTSFallbackModelExhausted as exc:
+                errors.append(
                     f"{spec['provider']}:{spec['model']} "
-                    f"{type(exc).__name__}: {exc}"
-                )
-                print(
-                    f"[tts] whole-batch fallback failed: {batch_errors[-1]}",
-                    flush=True,
-                )
-        if unresolved and batch_errors:
-            unresolved = [
-                (
-                    number,
-                    RuntimeError(
-                        f"{exc}; whole-batch fallbacks failed: "
-                        + " | ".join(batch_errors)
-                    ),
-                )
-                for number, exc in unresolved
-            ]
+                    f"{type(exc).__name__}: {exc}")
+                if spec["provider"] == "gemini":
+                    exhausted.append(spec["model"])
+                continue
+            except Exception as exc:
+                # Never spend Cloud credits because Flash failed for reasons
+                # unrelated to Gemini outages (disk full, credentials,
+                # invalid script, malformed WAV, expired attestation).
+                errors.append(
+                    f"non-provider fallback fault {type(exc).__name__}: {exc}")
+                break
+            print(f"[tts] complete single-voice fallback batch accepted: "
+                  f"{spec['provider']}:{spec['model']}; "
+                  "independent listening still mandatory",flush=True)
+            return
+        if errors:
+            unresolved = [(n, RuntimeError(
+                f"{err}; whole-batch fallback attempts: " + " | ".join(errors)))
+                for n,err in unresolved]
 
     if unresolved:
         details = "; ".join(
             f"slide{number}: {type(exc).__name__}: {exc}"
             for number, exc in unresolved
         )
+        permanent = any(not _is_transient_tts_failure(exc)
+                        for _, exc in unresolved)
+        if permanent:
+            raise RuntimeError(
+                f"TTS permanent failure with {len(unresolved)} unresolved slide(s); "
+                f"no provider escalation for invalid input/auth: {details}")
         raise RuntimeError(
             f"TTS queue exhausted with {len(unresolved)} unresolved slide(s); "
-            f"no automatic model/provider substitution is permitted. {details}"
+            f"approved fallback exhausted or unavailable. {details}"
         )
     # Verify complete frozen candidates BEFORE touching final audio or metadata.
     for number, narration in items:
@@ -1114,7 +1038,8 @@ def main(argv: list[str] | None = None) -> int:
     from .tts_billing_guard import require_tts_cost_authorization
     require_tts_cost_authorization(
         args.provider, gemini_approved=args.confirm_gemini_api_cost,
-        cloud_approved=args.confirm_google_cloud_tts_cost)
+        cloud_approved=args.confirm_google_cloud_tts_cost,
+        routine_gemini=(args.provider == "gemini"))
     # A direct `python -m selenium_pipeline.tts` subprocess must load the
     # same per-user AppData Microvid settings as the main pipeline runner.
     # Otherwise Gemini/Cloud credentials may exist but be unavailable to
