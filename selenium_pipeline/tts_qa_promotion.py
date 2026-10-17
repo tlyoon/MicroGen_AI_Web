@@ -144,7 +144,7 @@ def audit(source: Path, review: Path) -> dict:
                 or _digest(review_wav) != proposed[name]):
             raise AudioPromotionBlocked("Original or proposed WAV digest mismatch")
         row = manifest_by_number[number]
-         qa = row_by_number[number]
+        qa = row_by_number[number]
         if (qa.get("status") != "pass"
                 or qa.get("audio_file") != name
                 or qa.get("ground_truth") != narration
