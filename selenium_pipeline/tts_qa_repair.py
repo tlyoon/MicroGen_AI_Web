@@ -249,7 +249,7 @@ def main(argv=None) -> int:
     require_tts_cost_authorization(
         args.provider, gemini_approved=args.confirm_gemini_api_cost,
         cloud_approved=args.confirm_google_cloud_tts_cost,
-        routine_gemini=args.routine_production_gemini,
+        routine_gemini=(args.routine_production_gemini or args.provider == "gemini"),
         conditional_cloud_fallback=args.conditional_cloud_fallback)
     if args.conditional_cloud_fallback:
         if args.provider != "chirp3":
