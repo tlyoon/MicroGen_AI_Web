@@ -16,6 +16,7 @@ from selenium_pipeline.tts import (
 from selenium_pipeline.tts_billing_guard import (
     require_tts_cost_authorization, TTSCostAuthorizationError,
 )
+from selenium_pipeline.tts_attempt_evidence import AttemptEvidence
 
 
 def wav_data():
@@ -43,13 +44,26 @@ class RestoredFallbackTests(unittest.TestCase):
                     "voice":"Kore"}
         self.cloud={"provider":"chirp3","model":"chirp3-hd",
                     "voice":"en-US-Chirp3-HD-Corey"}
+        self.evidence=AttemptEvidence(self.folder,self.items)
+
+    def seed_failures(self, *, flash=False):
+        for model in (["gemini-3.8-flash-lite-tts", "gemini-3.8-flash-tts"]
+                      if flash else ["gemini-3.8-flash-lite-tts"]):
+            for round_number in (1,2,3):
+                self.evidence.record(provider="gemini",model=model,slide=1,
+                    round_number=round_number, outcome="transient_failure",
+                    error_type="RuntimeError")
 
     def simulate_full_batch(self, location, provider, model, voice, *,
-                            allow_fallback=False):
+                            allow_fallback=False, attempt_evidence=None):
         self.assertFalse(allow_fallback)
+        self.assertIs(attempt_evidence,self.evidence)
         self.assertEqual(sorted([1,2]),sorted(n for n,_ in self.items))
         for number,text in self.items:
             (location/f"slide{number}.wav").write_bytes(wav_data())
+            attempt_evidence.record(
+                provider=provider,model=model,slide=number,
+                round_number=1,outcome="success")
         manifest={"version":2,"primary":{"provider":provider,"model":model,"voice":voice},
                   "slides":[
                      {"slide":number,"source_text":text,"tts_text":text,
@@ -58,6 +72,7 @@ class RestoredFallbackTests(unittest.TestCase):
         (location/"tts_input_manifest.json").write_text(json.dumps(manifest))
 
     def test_flash_full_batch_leaves_old_primary_candidates_intact(self):
+        self.seed_failures()
         primary=self.folder/".tts_candidate"
         primary.mkdir()
         (primary/"slide1.wav").write_bytes(b"historical PRIMARY partial")
@@ -66,7 +81,8 @@ class RestoredFallbackTests(unittest.TestCase):
             rows=_whole_batch_fallback(
                 self.folder,self.items,self.flash,
                 requested=self.requested,
-                completed_gemini_models=("gemini-3.8-flash-lite-tts",))
+                completed_gemini_models=("gemini-3.8-flash-lite-tts",),
+                    attempt_evidence=self.evidence)
         mocked.assert_called_once()
         self.assertEqual((primary/"slide1.wav").read_bytes(),
                          b"historical PRIMARY partial")
@@ -82,6 +98,7 @@ class RestoredFallbackTests(unittest.TestCase):
             "cross_model_voice_equivalence_verified"] for row in manifest["slides"]))
 
     def test_cloud_requires_both_failed_gemini_models(self):
+        self.seed_failures()
         for prior in (
             (),
             ("gemini-3.8-flash-lite-tts",),
@@ -89,21 +106,24 @@ class RestoredFallbackTests(unittest.TestCase):
         ):
             with self.subTest(prior=prior):
                 with patch("selenium_pipeline.tts._synthesize_folder_unlocked") as synth:
-                    with self.assertRaisesRegex(RuntimeError,"both Gemini models"):
+                    with self.assertRaisesRegex(RuntimeError,"No verified 3-attempt exhausted|both Gemini models"):
                         _whole_batch_fallback(
                             self.folder,self.items,self.cloud,
                             requested=self.requested,
-                            completed_gemini_models=prior)
+                            completed_gemini_models=prior,
+                            attempt_evidence=self.evidence)
                     synth.assert_not_called()
         self.assertFalse((self.folder/"tts_input_manifest.json").exists())
 
     def test_cloud_after_both_failures_produces_one_corey_narrator(self):
+        self.seed_failures(flash=True)
         with patch("selenium_pipeline.tts._synthesize_folder_unlocked",
                    side_effect=self.simulate_full_batch):
             _whole_batch_fallback(self.folder,self.items,self.cloud,
                 requested=self.requested,
                 completed_gemini_models=(
-                    "gemini-3.8-flash-lite-tts", "gemini-3.8-flash-tts"))
+                    "gemini-3.8-flash-lite-tts", "gemini-3.8-flash-tts"),
+                attempt_evidence=self.evidence)
         data=json.loads((self.folder/"tts_input_manifest.json").read_text())
         self.assertEqual(data["primary"],self.cloud)
         self.assertEqual(len(data["fallback_chain"]),2)
@@ -113,6 +133,7 @@ class RestoredFallbackTests(unittest.TestCase):
         self.assertFalse(any(r["voice"]=="Kore" for r in data["slides"]))
 
     def test_failed_flash_batch_preserves_existing_candidates_and_publishes_nothing(self):
+        self.seed_failures()
         candidate=self.folder/".tts_candidate"
         candidate.mkdir()
         (candidate/"slide1.wav").write_bytes(b"do not delete original")
@@ -121,18 +142,21 @@ class RestoredFallbackTests(unittest.TestCase):
             with self.assertRaises(TTSFallbackModelExhausted):
                 _whole_batch_fallback(self.folder,self.items,self.flash,
                     requested=self.requested,
-                    completed_gemini_models=("gemini-3.8-flash-lite-tts",))
+                    completed_gemini_models=("gemini-3.8-flash-lite-tts",),
+                    attempt_evidence=self.evidence)
         self.assertEqual((candidate/"slide1.wav").read_bytes(),b"do not delete original")
         self.assertFalse((self.folder/"slide1.wav").exists())
         self.assertFalse((self.folder/"tts_input_manifest.json").exists())
 
     def test_existing_final_wav_blocks_new_billable_fallback_before_synth(self):
+        self.seed_failures()
         (self.folder/"slide1.wav").write_bytes(b"ORIGINAL WAV REMAINS")
         with patch("selenium_pipeline.tts._synthesize_folder_unlocked") as synth:
             with self.assertRaisesRegex(RuntimeError,"Existing final TTS outputs"):
                 _whole_batch_fallback(self.folder,self.items,self.flash,
                     requested=self.requested,
-                    completed_gemini_models=("gemini-3.8-flash-lite-tts",))
+                    completed_gemini_models=("gemini-3.8-flash-lite-tts",),
+                    attempt_evidence=self.evidence)
             synth.assert_not_called()
         self.assertEqual((self.folder/"slide1.wav").read_bytes(),b"ORIGINAL WAV REMAINS")
 

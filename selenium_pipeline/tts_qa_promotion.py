@@ -18,6 +18,9 @@ from .tts_pcm_contract import verify_pcm, TTSPCMContractError
 from .tts_effective_identity import (
     verify_effective_identity, TTSEffectiveIdentityError,
 )
+from .tts_attempt_evidence import (
+    AttemptEvidence, TTSAttemptEvidenceError, ROOT as ATTEMPT_ROOT,
+)
 
 
 class AudioPromotionBlocked(RuntimeError):
@@ -100,6 +103,15 @@ def audit(source: Path, review: Path) -> dict:
         effective = verify_effective_identity(manifest, items)
     except TTSEffectiveIdentityError as exc:
         raise AudioPromotionBlocked(str(exc)) from exc
+    observed_retry_digest = None
+    if effective["fallback_used"]:
+        try:
+            AttemptEvidence.verify_saved(
+                src, items, manifest.get("attempt_evidence"))
+        except TTSAttemptEvidenceError as exc:
+            raise AudioPromotionBlocked(
+                f"Unverified observed Gemini fallback attempts: {exc}") from exc
+        observed_retry_digest = manifest["attempt_evidence"]["sha256"]
     if (any((receipt.get("provider") != effective["provider"],
              receipt.get("tts_model") != effective["model"],
              receipt.get("voice") != effective["voice"]))
@@ -182,6 +194,7 @@ def audit(source: Path, review: Path) -> dict:
         "requested_primary": effective["requested_primary"],
         "fallback_chain": effective["fallback_chain"],
         "fallback_used": effective["fallback_used"],
+        "attempt_evidence_sha256": observed_retry_digest,
         "voice_listening_field": effective["voice_listening_field"],
         "human_review_approved": False,
         "video_publication_approved": False,
@@ -217,6 +230,11 @@ def export_reviewed(source: Path, review: Path, destination: Path, *,
                 "candidate_wav_sha256"):
         if attestation.get(key) != verification[key]:
             raise AudioPromotionBlocked(f"External reviewer attestation does not match {key}")
+    if (verification["fallback_used"] and
+            attestation.get("attempt_evidence_sha256")
+                != verification["attempt_evidence_sha256"]):
+        raise AudioPromotionBlocked(
+            "Human reviewer did not attest to the actual retry-attempt journal")
     if (not isinstance(attestation.get("reviewer"), str)
             or attestation.get("reviewer", "").strip() in ("", "automated", "ChatGPT")
             or attestation.get("review_scope") != "tts-audio-only"
@@ -257,6 +275,17 @@ def export_reviewed(source: Path, review: Path, destination: Path, *,
                 raise AudioPromotionBlocked("Candidate WAV changed during read")
             with (staged / name).open("xb") as stream:
                 stream.write(payload)
+        if verification["fallback_used"]:
+            items = blocks(source_script.decode("utf-8"))
+            observed = src / ATTEMPT_ROOT
+            if observed.is_symlink() or not observed.is_dir():
+                raise AudioPromotionBlocked("Unsafe fallback attempt journal")
+            shutil.copytree(observed, staged / ATTEMPT_ROOT)
+            try:
+                AttemptEvidence.verify_saved(
+                    staged, items, json.loads(source_manifest)["attempt_evidence"])
+            except TTSAttemptEvidenceError as exc:
+                raise AudioPromotionBlocked("Retry evidence changed during export") from exc
         if audit(source, review) != verification:
             raise AudioPromotionBlocked("Review evidence changed during export")
         # An isolated audio handoff NEVER carries downstream release authority.

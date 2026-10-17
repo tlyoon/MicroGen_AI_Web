@@ -116,6 +116,7 @@ class ReviewedAudioHandoffTests(unittest.TestCase):
             "audio_listened":True,
             "mathematical_pronunciation_reviewed":True,
             "voice_kore_listening_verified":True,
+            "attempt_evidence_sha256":proof.get("attempt_evidence_sha256"),
         }
         self.attestation_path.write_text(json.dumps(doc),encoding="utf-8")
         return doc
