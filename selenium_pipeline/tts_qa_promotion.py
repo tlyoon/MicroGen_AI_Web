@@ -9,6 +9,8 @@ import argparse
 import hashlib
 import json
 import re
+import shutil
+import tempfile
 from pathlib import Path
 
 from .runner import blocks
@@ -101,6 +103,7 @@ def audit(source: Path, review: Path) -> dict:
             or float(report.get("threshold_percent", -1)) != threshold):
         raise AudioPromotionBlocked("TTS provenance or QA threshold mismatch")
     changed = set()
+    last_attempt_by_slide = {}
     if not isinstance(changes, list) or not changes:
         raise AudioPromotionBlocked("No repair was proposed")
     for entry in changes:
@@ -115,6 +118,9 @@ def audit(source: Path, review: Path) -> dict:
         attempt_wav = _read_file(rev, f"attempt{attempt}_slide{number}.wav")
         if _digest(attempt_wav) != digest:
             raise AudioPromotionBlocked("Attempt WAV digest does not match receipt")
+        if number in last_attempt_by_slide and attempt <= last_attempt_by_slide[number][0]:
+            raise AudioPromotionBlocked("Attempt history is repeated or out of order")
+        last_attempt_by_slide[number] = (attempt, digest)
         changed.add(number)
     for number, narration in items:
         name = f"slide{number}.wav"
@@ -144,6 +150,8 @@ def audit(source: Path, review: Path) -> dict:
             raise AudioPromotionBlocked("Unrepaired slide was changed in candidate")
         if number in changed and source_wav == review_wav:
             raise AudioPromotionBlocked("Review claims repair but WAV was unchanged")
+        if number in changed and _digest(review_wav) != last_attempt_by_slide[number][1]:
+            raise AudioPromotionBlocked("Final repair WAV differs from latest recorded attempt")
     if (report.get("summary", {}).get("review") != 0
             or report.get("summary", {}).get("blocking_failures") != 0
             or report.get("summary", {}).get("passed") != len(items)):
@@ -188,7 +196,8 @@ def export_reviewed(source: Path, review: Path, destination: Path, *,
                 "candidate_wav_sha256"):
         if attestation.get(key) != verification[key]:
             raise AudioPromotionBlocked(f"External reviewer attestation does not match {key}")
-    if (attestation.get("reviewer", "").strip() in ("", "automated", "ChatGPT")
+    if (not isinstance(attestation.get("reviewer"), str)
+            or attestation.get("reviewer", "").strip() in ("", "automated", "ChatGPT")
             or attestation.get("review_scope") != "tts-audio-only"
             or attestation.get("audio_listened") is not True
             or attestation.get("mathematical_pronunciation_reviewed") is not True
@@ -208,31 +217,42 @@ def export_reviewed(source: Path, review: Path, destination: Path, *,
     # Re-audit immediately before copying and enforce stable immutable hashes.
     if audit(source, review) != verification:
         raise AudioPromotionBlocked("Evidence changed during export preflight")
-    destination.mkdir()
-    source_script = _read_file(review, "script.txt")
-    source_manifest = _read_file(review, "tts_input_manifest.json")
-    for name, payload in (
-        ("script.txt", source_script), ("tts_input_manifest.json", source_manifest)):
-        with (destination / name).open("xb") as stream:
-            stream.write(payload)
-    for name, expected_hash in verification["candidate_wav_sha256"].items():
-        payload = _read_file(review, name)
-        if _digest(payload) != expected_hash:
-            raise AudioPromotionBlocked("Candidate WAV changed during read")
-        with (destination / name).open("xb") as stream:
-            stream.write(payload)
-    # The copied files are an isolated review-approved AUDIO HANDOFF, never
-    # original assets, a rendered lecture, or permission for student publication.
-    handoff = {
-        **verification, "status": "AUDIO_REVIEWED_ISOLATED_COPY",
-        "destination": str(destination.resolve()),
-        "attestation_sha256": _digest(attestation_path.read_bytes()),
-        "human_review_approved": True,
-        "video_publication_approved": False,
-    }
-    with (destination / "tts_reviewed_handoff.json").open("x", encoding="utf-8") as stream:
-        json.dump(handoff, stream, indent=2, sort_keys=True)
-        stream.write("\n")
+    # Build completely in a temporary sibling and rename only when all WAVs,
+    # hashes, manifest, and handoff receipt are present. An interrupted write
+    # cannot leave a misleadingly named finished reviewed-audio directory.
+    staged = Path(tempfile.mkdtemp(prefix=".microgen_tts_export_", dir=dest_parent))
+    try:
+        source_script = _read_file(review, "script.txt")
+        source_manifest = _read_file(review, "tts_input_manifest.json")
+        for name, payload in (
+            ("script.txt", source_script), ("tts_input_manifest.json", source_manifest)):
+            with (staged / name).open("xb") as stream:
+                stream.write(payload)
+        for name, expected_hash in verification["candidate_wav_sha256"].items():
+            payload = _read_file(review, name)
+            if _digest(payload) != expected_hash:
+                raise AudioPromotionBlocked("Candidate WAV changed during read")
+            with (staged / name).open("xb") as stream:
+                stream.write(payload)
+        if audit(source, review) != verification:
+            raise AudioPromotionBlocked("Review evidence changed during export")
+        # An isolated audio handoff NEVER carries downstream release authority.
+        handoff = {
+            **verification, "status": "AUDIO_REVIEWED_ISOLATED_COPY",
+            "destination": str(destination.absolute()),
+            "attestation_sha256": _digest(attestation_path.read_bytes()),
+            "human_review_approved": True,
+            "video_publication_approved": False,
+        }
+        with (staged / "tts_reviewed_handoff.json").open("x", encoding="utf-8") as stream:
+            json.dump(handoff, stream, indent=2, sort_keys=True)
+            stream.write("\n")
+        if destination.exists() or destination.is_symlink():
+            raise AudioPromotionBlocked("Destination appeared during export; no overwrite permitted")
+        staged.rename(destination)
+    finally:
+        if staged.exists():
+            shutil.rmtree(staged)
     return handoff
 
 
