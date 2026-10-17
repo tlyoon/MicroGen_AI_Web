@@ -12,9 +12,13 @@ import os
 import re
 import time
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 
 SURFACE="https://aistudio.google.com/generate-speech"
+# The official model documentation routes this link to AI Studio; the UI
+# may drop its query parameter. A deep link is NEVER selection evidence.
+OFFICIAL_MODEL_LINK="https://aistudio.google.com/?model=gemini-3.8-flash-lite-tts"
+ENTRYPOINTS=frozenset(("speech_ui","official_model_link"))
 MODELS=frozenset({"gemini-3.8-flash-lite-tts","gemini-3.8-flash-tts"})
 
 
@@ -71,6 +75,13 @@ def validate_request(*, requested_model:str, requested_voice:str)->None:
         raise ValueError("Invalid voice")
 
 
+def validate_entrypoint(entrypoint:str, requested_model:str)->None:
+    if entrypoint not in ENTRYPOINTS:
+        raise ValueError("Unapproved browser TTS entrypoint")
+    if entrypoint=="official_model_link" and requested_model!="gemini-3.8-flash-lite-tts":
+        raise ValueError("Official Flash-Lite model link requires exact Flash-Lite request")
+
+
 def evaluate(snapshot:dict, *, requested_model:str,
              requested_voice:str)->dict:
     """Conservative summary of UI support. No dynamic JavaScript calls."""
@@ -98,6 +109,9 @@ def evaluate(snapshot:dict, *, requested_model:str,
        "source_content_uploaded":False,
        "requested_model":requested_model,
        "requested_voice":requested_voice,
+       "official_model_link_requested":bool(snapshot.get("official_model_link_requested",False)),
+       "official_link_query_retained":bool(snapshot.get("official_link_query_retained",False)),
+       "official_link_is_selection_proof":False,
        "visible_model_ids":actual_ids,
        "exact_model_visible":requested_model in actual_ids,
        "selected_model_verified":False,
@@ -131,8 +145,10 @@ def evaluate(snapshot:dict, *, requested_model:str,
     return result
 
 
-def browser_snapshot(*, port:int=9222, timeout_s:int=25)->dict:
+def browser_snapshot(*, port:int=9222, timeout_s:int=25,
+                     entrypoint:str="speech_ui")->dict:
     """Only open/close an owned tab; never click Run or add a key."""
+    validate_entrypoint(entrypoint,"gemini-3.8-flash-lite-tts")
     if not 1<=port<=65535 or not 8<=timeout_s<=60:
         raise ValueError("Invalid bounded Chrome settings")
     try:
@@ -156,7 +172,7 @@ def browser_snapshot(*, port:int=9222, timeout_s:int=25)->dict:
         try:
             driver.switch_to.new_window("tab")
             owned=driver.current_window_handle
-            driver.get(SURFACE)
+            driver.get(SURFACE if entrypoint=="speech_ui" else OFFICIAL_MODEL_LINK)
             deadline=time.monotonic()+timeout_s
             model_seen=False
             while time.monotonic()<deadline:
@@ -182,9 +198,18 @@ def browser_snapshot(*, port:int=9222, timeout_s:int=25)->dict:
             key_labels=[x for x in controls if "no api key selected" in x.lower()]
             editor_count=sum(1 for e in driver.find_elements(
                 By.CSS_SELECTOR,"textarea,[contenteditable='true']") if e.is_displayed())
+            final_url=urlsplit(driver.current_url)
+            # Do not record arbitrary URL queries: they can contain session
+            # state. Record only a boolean for the official model parameter.
+            query_matches=(final_url.scheme=="https"
+                and final_url.netloc=="aistudio.google.com"
+                and parse_qs(final_url.query).get("model")
+                ==["gemini-3.8-flash-lite-tts"])
             return {"url":driver.current_url.partition("?")[0],
                     "control_labels":model_labels+key_labels,
-                    "body":"", "editable_count":editor_count}
+                    "body":"", "editable_count":editor_count,
+                    "official_model_link_requested":entrypoint=="official_model_link",
+                    "official_link_query_retained":query_matches}
         finally:
             try:
                 if owned:
@@ -198,10 +223,12 @@ def browser_snapshot(*, port:int=9222, timeout_s:int=25)->dict:
 
 def preflight(*,requested_model:str,requested_voice:str,output:Path,
               transport=None,port:int=9222,timeout_s:int=25,
+              entrypoint:str="speech_ui",
               source_root:Path|None=None,
               local_environ:dict[str,str]|None=None)->dict:
     validate_request(requested_model=requested_model,
                      requested_voice=requested_voice)
+    validate_entrypoint(entrypoint,requested_model)
     proposed=Path(output)
     if proposed.is_symlink():
         raise ValueError("Preflight receipt must be a new isolated file")
@@ -211,7 +238,8 @@ def preflight(*,requested_model:str,requested_voice:str,output:Path,
     if source_root is not None and output.is_relative_to(Path(source_root).resolve()):
         raise ValueError("Never create a browser probe inside the textbook source")
     try:
-        snapshot=(transport or browser_snapshot)(port=port,timeout_s=timeout_s)
+        snapshot=(transport or browser_snapshot)(port=port,timeout_s=timeout_s,
+                                                  entrypoint=entrypoint)
     except BrowserTTSBlocked as exc:
         reason=str(exc)
         if reason not in ("selenium_python_dependency_unavailable",
@@ -226,6 +254,9 @@ def preflight(*,requested_model:str,requested_voice:str,output:Path,
             "provider":"google_ai_studio_browser_ui",
             "requested_model":requested_model,
             "requested_voice":requested_voice,
+            "official_model_link_requested":entrypoint=="official_model_link",
+            "official_link_query_retained":False,
+            "official_link_is_selection_proof":False,
             "observed_surface":None,
             "visible_model_ids":[],
             "exact_model_visible":False,
@@ -267,9 +298,13 @@ def main(argv=None):
                    help="Optional protected textbook root (never store receipts here)")
     p.add_argument("--port",type=int,default=9222)
     p.add_argument("--timeout",type=int,default=25)
+    p.add_argument("--check-official-model-link",action="store_true",
+                   help="Read-only official Flash-Lite deep link, never selects a model")
     a=p.parse_args(argv)
     report=preflight(requested_model=a.model,requested_voice=a.voice,
                      output=a.output,port=a.port,timeout_s=a.timeout,
+                     entrypoint=("official_model_link" if a.check_official_model_link
+                                 else "speech_ui"),
                      source_root=a.source_root)
     print(json.dumps(report,indent=2))
     return 0
