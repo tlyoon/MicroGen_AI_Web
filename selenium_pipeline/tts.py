@@ -276,6 +276,7 @@ def _gemini_say_with_watchdog(
                 voice,
                 "--number",
                 str(number),
+                "--confirm-gemini-api-cost",
             ]
             try:
                 completed = subprocess.run(
@@ -466,6 +467,7 @@ def _chirp_say_with_watchdog(
             voice,
             "--number",
             str(number),
+            "--confirm-google-cloud-tts-cost",
         ]
         creationflags = subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
         proc = subprocess.Popen(
@@ -615,6 +617,8 @@ def _whole_batch_fallback(
             spec["model"],
             "--voice",
             spec["voice"],
+            ("--confirm-gemini-api-cost" if spec["provider"] == "gemini"
+             else "--confirm-google-cloud-tts-cost"),
         ]
         creationflags = subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
         proc = subprocess.Popen(
@@ -1082,7 +1086,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--provider", choices=("gemini", "chirp3"), default="gemini")
     parser.add_argument("--model", default="gemini-3.8-flash-lite-tts")
     parser.add_argument("--voice", default="Kore")
+    parser.add_argument("--confirm-gemini-api-cost", action="store_true",
+                        help="Explicit authorization for metered Gemini TTS")
+    parser.add_argument("--confirm-google-cloud-tts-cost", action="store_true",
+                        help="Separate explicit authorization for Google Cloud Chirp TTS")
     args = parser.parse_args(argv)
+    from .tts_billing_guard import require_tts_cost_authorization
+    require_tts_cost_authorization(
+        args.provider, gemini_approved=args.confirm_gemini_api_cost,
+        cloud_approved=args.confirm_google_cloud_tts_cost)
     # A direct `python -m selenium_pipeline.tts` subprocess must load the
     # same per-user AppData Microvid settings as the main pipeline runner.
     # Otherwise Gemini/Cloud credentials may exist but be unavailable to
