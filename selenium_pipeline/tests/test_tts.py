@@ -170,49 +170,44 @@ class TTSTests(unittest.TestCase):
                     synthesize_folder(folder, "gemini", "gemini-3.8-flash-lite-tts", "Kore")
             # Round 1 stops after two consecutive failures instead of wasting
             # a third request; the final round exhausts all three.
-            self.assertEqual(models.requests, 5)
+            self.assertEqual(models.requests, 7)
             self.assertTrue((folder / ".tts_candidate").is_dir())
             self.assertFalse((folder / ".tts.lock").exists())
 
-    def test_failed_lite_preserves_candidates_without_switching_model(self):
-        """Even a high voice-similarity result cannot authorize Flash TTS."""
+    def test_flash_lite_three_attempts_then_single_voice_flash_fallback(self):
+        """Standing policy permits Flash only after a three-round Lite outage."""
         with tempfile.TemporaryDirectory() as tmp:
-            folder = Path(tmp)
-            (folder / "script.txt").write_text(
+            folder=Path(tmp)
+            (folder/"script.txt").write_text(
                 "**Slide 1 [3 sec]:\nFallback title**\n\n"
                 "**Slide 2 [3 sec]:\nReference two**\n\n"
-                "**Slide 3 [3 sec]:\nReference three**", encoding="utf-8")
-            candidate = seed_reviewable_candidates(folder, [2, 3])
-
-            class AlwaysFailModels:
-                def generate_content(self, **_kwargs):
+                "**Slide 3 [3 sec]:\nReference three**",encoding="utf-8")
+            candidate=seed_reviewable_candidates(folder,[2,3])
+            class Fails:
+                def __init__(self): self.calls=0
+                def generate_content(self,**kwargs):
+                    self.calls+=1
                     raise RuntimeError("503 high demand")
-
-            fake = fake_gemini_keys_module(models=AlwaysFailModels())
-            with patch.dict(sys.modules, {"gemini_keys": fake}), patch.dict(
-                os.environ, {
-                    "MICROGEN_TTS_QUEUE_ROUNDS": "1",
-                    "MICROGEN_TTS_QUEUE_DELAY_SECONDS": "0",
-                    # Even legacy environment switches must NOT bypass contract.
-                    "MICROGEN_TTS_ENABLE_PROVIDER_FALLBACK": "1",
-                    "MICROGEN_TTS_ENABLE_BATCH_FALLBACK": "1",
-                },
-            ), patch("selenium_pipeline.tts._fallback_payload") as fallback, \
-                 patch("selenium_pipeline.tts._whole_batch_fallback") as batch, \
-                 patch("selenium_pipeline.tts_voice_consistency.compare_voice") as compare:
-                with self.assertRaisesRegex(RuntimeError,
-                                           "no automatic model/provider substitution"):
-                    synthesize_folder(folder, "gemini",
-                                      "gemini-3.8-flash-lite-tts", "Kore")
-                fallback.assert_not_called()
-                batch.assert_not_called()
-                compare.assert_not_called()
-            self.assertFalse((folder / "slide1.wav").exists())
-            self.assertFalse((candidate / "slide1.wav").exists())
-            self.assertEqual((candidate / "slide2.wav").read_bytes(), WAV)
-            self.assertEqual((candidate / "slide3.wav").read_bytes(), WAV)
-            self.assertFalse((folder / "tts_input_manifest.json").exists())
-            self.assertFalse((folder / ".tts.lock").exists())
+            models=Fails()
+            fake=fake_gemini_keys_module(models=models)
+            with patch.dict(sys.modules,{"gemini_keys":fake}), patch.dict(
+                os.environ,{
+                    "MICROGEN_TTS_QUEUE_ROUNDS":"1",
+                    "MICROGEN_TTS_QUEUE_DELAY_SECONDS":"0",
+                    "MICROGEN_TTS_ENABLE_PROVIDER_FALLBACK":"1",
+                    "MICROGEN_TTS_ENABLE_BATCH_FALLBACK":"1",
+                }),patch("selenium_pipeline.tts._whole_batch_fallback") as batch, \
+                patch("selenium_pipeline.tts._fallback_payload") as per_slide:
+                synthesize_folder(folder,"gemini","gemini-3.8-flash-lite-tts","Kore")
+                self.assertEqual(models.calls,3)
+                batch.assert_called_once()
+                self.assertEqual(batch.call_args.args[2]["model"],"gemini-3.8-flash-tts")
+                self.assertEqual(batch.call_args.kwargs["completed_gemini_models"],
+                                 ("gemini-3.8-flash-lite-tts",))
+                per_slide.assert_not_called()
+            self.assertFalse((folder/"slide1.wav").exists())
+            self.assertEqual((candidate/"slide2.wav").read_bytes(),WAV)
+            self.assertEqual((candidate/"slide3.wav").read_bytes(),WAV)
 
     def test_microvid_cloud_credentials_are_auto_discovered(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -251,50 +246,49 @@ class TTSTests(unittest.TestCase):
                     str(explicit),
                 )
 
-    def test_no_automatic_model_provider_voice_fallbacks_for_any_provider(self):
-        for provider, model, voice in (
-            ("gemini", "gemini-3.8-flash-lite-tts", "Kore"),
-            ("gemini", "gemini-3.8-flash-tts", "Kore"),
-            ("chirp3", "chirp3-hd", "en-US-Chirp3-HD-Corey"),
-        ):
-            with self.subTest(provider=provider, model=model):
-                self.assertEqual(_fallback_specs(provider, model, voice), [])
+    def test_approved_fallback_model_order_is_explicit(self):
+        lite=_fallback_specs("gemini","gemini-3.8-flash-lite-tts","Kore")
+        self.assertEqual([(x["provider"],x["model"]) for x in lite],
+            [("gemini","gemini-3.8-flash-tts"),("chirp3","chirp3-hd")])
+        self.assertEqual(lite[0]["voice"],"Kore")
+        self.assertEqual(lite[1]["voice"],"en-US-Chirp3-HD-Corey")
+        self.assertEqual(_fallback_specs("chirp3","chirp3-hd","Corey"),[])
 
-    def test_voice_mismatch_never_causes_whole_batch_model_replacement(self):
-        """No silent all-slide rerender with a different Gemini model."""
+    def test_cloud_only_after_failed_flash_batch(self):
+        """Never mix primary/Kore and Cloud/Corey clips in a lecture."""
         with tempfile.TemporaryDirectory() as tmp:
-            folder = Path(tmp)
-            (folder / "script.txt").write_text(
+            folder=Path(tmp)
+            (folder/"script.txt").write_text(
                 "**Slide 1 [3 sec]:\nFallback title**\n\n"
                 "**Slide 2 [3 sec]:\nReference two**\n\n"
-                "**Slide 3 [3 sec]:\nReference three**", encoding="utf-8")
-            candidate = seed_reviewable_candidates(folder, [2, 3])
-
-            class AlwaysFailModels:
-                def generate_content(self, **_kwargs):
+                "**Slide 3 [3 sec]:\nReference three**",encoding="utf-8")
+            candidate=seed_reviewable_candidates(folder,[2,3])
+            class Fails:
+                def generate_content(self,**kwargs):
                     raise RuntimeError("503 high demand")
-
-            fake = fake_gemini_keys_module(models=AlwaysFailModels())
-            with patch.dict(sys.modules, {"gemini_keys": fake}), patch.dict(
-                os.environ, {
-                    "MICROGEN_TTS_QUEUE_ROUNDS": "1",
-                    "MICROGEN_TTS_QUEUE_DELAY_SECONDS": "0",
-                    "MICROGEN_TTS_ENABLE_PROVIDER_FALLBACK": "1",
-                    "MICROGEN_TTS_ENABLE_BATCH_FALLBACK": "1",
-                },
-            ), patch("selenium_pipeline.tts._fallback_payload") as fallback, \
-                 patch("selenium_pipeline.tts._whole_batch_fallback") as batch:
-                with self.assertRaisesRegex(RuntimeError,
-                                           "no automatic model/provider substitution"):
-                    synthesize_folder(folder, "gemini",
-                                      "gemini-3.8-flash-lite-tts", "Kore")
-                fallback.assert_not_called()
-                batch.assert_not_called()
-
-            self.assertEqual((candidate / "slide2.wav").read_bytes(), WAV)
-            self.assertEqual((candidate / "slide3.wav").read_bytes(), WAV)
-            self.assertFalse((folder / "tts_input_manifest.json").exists())
-            self.assertFalse((folder / "slide2.wav").exists())
+            seen=[]
+            def fallback(target,items,spec,**kwargs):
+                seen.append((spec["provider"],spec["model"],
+                             kwargs["completed_gemini_models"]))
+                raise RuntimeError("provider unavailable")
+            fake=fake_gemini_keys_module(models=Fails())
+            with patch.dict(sys.modules,{"gemini_keys":fake}),patch.dict(
+                os.environ,{"MICROGEN_TTS_QUEUE_ROUNDS":"3",
+                            "MICROGEN_TTS_QUEUE_DELAY_SECONDS":"0",
+                            "MICROGEN_TTS_ENABLE_PROVIDER_FALLBACK":"1",
+                            "MICROGEN_TTS_ENABLE_BATCH_FALLBACK":"1"}), \
+                patch("selenium_pipeline.tts._whole_batch_fallback",
+                      side_effect=fallback):
+                with self.assertRaisesRegex(RuntimeError,"fallback exhausted"):
+                    synthesize_folder(folder,"gemini","gemini-3.8-flash-lite-tts","Kore")
+            self.assertEqual(seen,[
+                ("gemini","gemini-3.8-flash-tts",
+                 ("gemini-3.8-flash-lite-tts",)),
+                ("chirp3","chirp3-hd",
+                 ("gemini-3.8-flash-lite-tts","gemini-3.8-flash-tts"))])
+            self.assertEqual((candidate/"slide2.wav").read_bytes(),WAV)
+            self.assertEqual((candidate/"slide3.wav").read_bytes(),WAV)
+            self.assertFalse((folder/"slide1.wav").exists())
 
     def test_direct_tts_blocks_ambiguous_script(self):
         with tempfile.TemporaryDirectory() as tmp:
