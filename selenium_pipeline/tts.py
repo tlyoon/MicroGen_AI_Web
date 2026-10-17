@@ -940,6 +940,12 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
             f"slide{number}: {type(exc).__name__}: {exc}"
             for number, exc in unresolved
         )
+        permanent = any(not _is_transient_tts_failure(exc)
+                        for _, exc in unresolved)
+        if permanent:
+            raise RuntimeError(
+                f"TTS permanent failure with {len(unresolved)} unresolved slide(s); "
+                f"no provider escalation for invalid input/auth: {details}")
         raise RuntimeError(
             f"TTS queue exhausted with {len(unresolved)} unresolved slide(s); "
             f"approved fallback exhausted or unavailable. {details}"
