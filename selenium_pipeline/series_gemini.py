@@ -80,8 +80,17 @@ def _browser_request(instruction: str,attachments: list[Path],
         client=vendor.GeminiSeleniumClient(cfg)
         try:
             client.start(ensure_gemini_on_launch=True)
-            ensure_mode(port,os.getenv("MICROGEN_GEMINI_UI_MODE","flash"))
+            selected=os.getenv("MICROGEN_GEMINI_UI_MODE","flash").strip().lower()
+            ensure_mode(port,selected)
             client.open_clean_gemini_chat()
+            # The new conversation may reset the selected UI mode. Re-check
+            # AFTER changing tabs/chat, before sending source attachments.
+            from .gemini_model import browser_model_evidence
+            observed=ensure_mode(port,selected)
+            browser_model_evidence(
+                observed, requested_mode=selected,
+                requested_model_id=os.getenv(
+                    "MICROGEN_LLM_MODEL","gemini-3.8-flash"))
             client.upload_files(attachments)
             if not client.type_prompt_text(instruction,retries=3):
                 raise SeriesBridgeError("Could not type Gemini storyboard instruction")

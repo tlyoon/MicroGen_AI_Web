@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 import time
 
 
@@ -36,8 +37,52 @@ def configured_ui_mode() -> str:
 
 
 def _matches_mode(label: str, mode: str) -> bool:
-    label_l = (label or "").lower()
-    return "currently" in label_l and MODEL_SPECS[mode]["label_token"] in label_l
+    """Match *only* a currently selected UI family, not a token substring.
+
+    In particular, Flash Lite and hybrid "Flash / Pro" selectors must never
+    masquerade as the chosen Flash text-generation family.
+    """
+    if mode not in MODEL_SPECS or not isinstance(label, str):
+        return False
+    actual = re.search(r"\bcurrently\b\s+(.+)$", label, flags=re.I)
+    if not actual:
+        return False
+    selected = actual.group(1).casefold()
+    if mode == "flash":
+        return (bool(re.search(r"\bflash\b", selected))
+                and not re.search(r"\b(?:lite|pro)\b", selected))
+    return (bool(re.search(r"\bpro\b", selected))
+            and not re.search(r"\b(?:flash|lite)\b", selected))
+
+
+def browser_model_evidence(label: str, *, requested_mode: str,
+                           requested_model_id: str) -> dict:
+    """Honest UI-only provenance. No API/provider version claim.
+
+    The authenticated UI mode picker can substantiate the selected *family*.
+    It cannot independently substantiate the actual server model identifier
+    or deployment/version. That needs separate provider-sourced evidence.
+    """
+    if not isinstance(requested_model_id, str) or not requested_model_id.strip():
+        raise GeminiModelError("Missing explicitly requested model ID")
+    named=requested_model_id.strip().casefold()
+    if (requested_mode not in MODEL_SPECS
+            or not re.search(r"\b"+requested_mode+r"\b", named)
+            or (requested_mode == "flash" and re.search(r"\blite\b", named))):
+        raise GeminiModelError("Requested API model ID contradicts selected UI family")
+    if not _matches_mode(label, requested_mode):
+        raise GeminiModelError("Current Gemini UI family does not match requested mode")
+    return {
+        "schema_version": 1,
+        "requested_model_id": requested_model_id,
+        "requested_ui_mode": requested_mode,
+        "observed_ui_picker_label": label,
+        "selected_family_verified": True,
+        "exact_model_id_verified": False,
+        "observed_provider_model_id": None,
+        "verification_scope": "browser_ui_family_only",
+        "student_or_academic_approval": False,
+    }
 
 
 def ensure_mode(port: int = 9222, mode: str | None = None, timeout: float = 15) -> str:

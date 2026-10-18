@@ -209,7 +209,7 @@ class GeminiQuarantineTests(unittest.TestCase):
         with patch.object(series_gemini, "_vendor_module",return_value=vendor), \
              patch("selenium_pipeline.three_pc_worker.LocalInstanceLock",
                    side_effect=lambda *a, **kw: nullcontext()), \
-             patch("selenium_pipeline.gemini_model.ensure_mode"), \
+             patch("selenium_pipeline.gemini_model.ensure_mode", return_value="Open mode picker, currently Gemini Flash"), \
              patch.dict("os.environ",{"LOCALAPPDATA":str(self.dir)}):
             with self.assertRaisesRegex(
                 SeriesBridgeError, "quarantined"

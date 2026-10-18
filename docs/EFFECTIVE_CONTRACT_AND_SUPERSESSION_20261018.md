@@ -2,6 +2,12 @@
 
 **Effective from 18 October 2026.** This document records the latest explicit course-owner decisions and supersedes *conflicting prescriptive statements* in the older October blueprints, trial reports and troubleshooting notes. Historical documents remain intact as evidence of prior designs, not as an alternative production authorization.
 
+**Additional binding development guard:** [Gemini UI model provenance and explicit
+academic/student release gates](GEMINI_UI_MODEL_AND_LECTURE_RELEASE_GATES_20261018.md).
+An authenticated Flash model picker is not independent evidence of the exact
+deployed Gemini 3.8 model; technically verified MP4s are not automatically
+human-approved or student-publishable.
+
 **Applies to:** `tlyoon/MicroGen_AI_Web` only. This document does **not** authorize merging drafts, a new lecture generation campaign, paid experiments, production replacement or student publication. The saved checkpoint is `microgen-checkpoint-2026-10-18`.
 
 ## Non-negotiable production acceptance

@@ -365,18 +365,19 @@ def process_one(args, subchapter: str, report: list[dict]) -> None:
     # Legacy batch scripts render one static slides.mp4 and cannot produce
     # speech-bound highlights or coherent sub-600s parts. Fail before model
     # requests or output mutation; historical output remains untouched.
-    from selenium_pipeline.production_video_contract import verify_series, VideoContractError
+    from selenium_pipeline.lecture_release_gate import verify_academic_lecture
     try:
-        result = verify_series(src.parent)
-    except (VideoContractError, OSError, ValueError) as exc:
+        result = verify_academic_lecture(src.parent)
+    except (OSError, ValueError) as exc:
         raise RuntimeError(
-            "Legacy MicroGen batch generation is disabled: no verified "
-            "multipart, audio-timed highlighted lesson. Preserve existing "
-            "lecture files; use the reviewed next-generation renderer."
+            "Legacy MicroGen batch generation is disabled: technical multipart "
+            "media alone is not independent academic/listening approval. "
+            "Preserve existing files and use the reviewed, source-bound workflow."
         ) from exc
     report.append({"subchapter": subchapter, "status": "success",
                    "resumed": True, "verified": True,
-                   "contract": result["status"]})
+                   "contract": result["status"],
+                   "student_published": False})
     return
 
     if completed_lecture(src):

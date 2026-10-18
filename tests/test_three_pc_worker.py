@@ -99,6 +99,26 @@ class WorkerTests(unittest.TestCase):
         self.assertEqual(report["8.2"]["status"], "deferred")
         self.assertIn("Historical video completion", report["8.2"]["error"])
 
+    def test_technically_verified_video_without_human_review_is_deferred(self):
+        source_dir=self.root/"8"/"8.1"
+        source=(source_dir/"source.pdf")
+        prior=source.read_bytes()
+        log={}
+        with patch("selenium_pipeline.production_video_contract.verify_series",
+                   return_value={"status":"accepted_synchronized_series"}):
+            with patch("selenium_pipeline.lecture_release_gate.verify_series",
+                       return_value={"status":"accepted_synchronized_series"}):
+                with patch("selenium_pipeline.three_pc_worker.run_stage",
+                           side_effect=AssertionError("must not regenerate or publish")):
+                    self.assertFalse(process_job(
+                        self.root,"8.1",9222,1,self.root/"logs",
+                        self.root/"lane",900,3600,log,lambda:None))
+        self.assertEqual(log["8.1"]["stage"],"academic_review")
+        self.assertEqual(log["8.1"]["status"],"deferred")
+        self.assertTrue(log["8.1"]["technical_video_verified"])
+        self.assertEqual(source.read_bytes(),prior)
+        self.assertFalse((source_dir/"lecture_human_approval.json").exists())
+
     def test_figure_stage_accepts_legitimate_no_figure_pdf(self):
         from selenium_pipeline.runner import valid
         workspace = self.root / "empty_figure_workspace"
