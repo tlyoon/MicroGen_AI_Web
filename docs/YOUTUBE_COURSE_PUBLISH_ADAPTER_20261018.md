@@ -1,3 +1,5 @@
+> **LATEST SUPPLEMENT — Video 00 and coordinator (18 October 2026):** The Video 00 source-grounded montage renderer and single-PC full-course completion/watch coordinator are now implemented on a stacked draft branch. Earlier statements here that they do not exist are superseded. See [automatic Video 00 and coordinator](AUTOMATIC_VIDEO00_AND_SINGLE_PUBLISHER_20261018.md). No production publishing has been carried out.
+
 # MicroGen_AI_Web — Automatic YouTube Course Publishing Adapter
 
 **18 October 2026. Draft integration, no live uploads performed.**

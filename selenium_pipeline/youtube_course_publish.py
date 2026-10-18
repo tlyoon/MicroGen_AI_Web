@@ -140,6 +140,14 @@ def plan_course(source_root: Path, *, course_title: str,
                 and _inside(root, promo), "Trailer must be an MP4 under the course source root")
         duration = _mp4_duration(promo)
         require(0 < duration < 59.0, "Promotional Video 00 must be <59 seconds")
+        # An arbitrary user-supplied video is not a technically accepted
+        # source-grounded promotional lecture. Verify independent media/source
+        # hashes and the actual muxed duration before YouTube publication.
+        from .course_video00 import verify_video00
+        verified_trailer=verify_video00(promo, source_root=root)
+        require(verified_trailer.get("plan",{}).get("course_title")
+                ==course_title.strip(),
+                "Trailer title is not bound to this YouTube course")
         items.insert(0, UploadItem(
             key="video_00", title=f"{course_title} | Course introduction",
             mp4=promo, sha256=sha256(promo),

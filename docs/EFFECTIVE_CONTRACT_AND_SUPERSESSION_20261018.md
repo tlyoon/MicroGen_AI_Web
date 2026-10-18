@@ -1,3 +1,5 @@
+> **COURSE COMPLETION INTEGRATION (18 October 2026):** The source-grounded Video 00 trailer plus one designated-Publisher course-wide watcher is implemented in a new draft branch; human review is OPTIONAL and every technical source, audio, figure, multipart and <600s requirement remains. See [Video 00/coordinator](AUTOMATIC_VIDEO00_AND_SINGLE_PUBLISHER_20261018.md). This is not evidence of a live YouTube deployment.
+
 > **ADDITIONAL OWNER-APPROVED YOUTUBE PUBLICATION (18 October 2026):** Automatic posting of technically accepted lecture MP4s to the pinned owner YouTube channel is authorized, without per-lecture human approval. Moodle publication remains prohibited. See [YouTube publisher](YOUTUBE_COURSE_PUBLISH_ADAPTER_20261018.md).
 
 # MicroGen_AI_Web effective contract and supersession index

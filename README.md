@@ -1,4 +1,6 @@
 # MicroGen_AI_Web
+**Draft automatic Video 00 + single-publisher coordinator:** [Source-bound trailer and cross-PC completion guide](docs/AUTOMATIC_VIDEO00_AND_SINGLE_PUBLISHER_20261018.md). This connects the YouTube adapter to real all-worker technical completion evidence, but does not publish anything during tests.
+
 
 > **New draft — automatic YouTube course publishing adapter:** [YouTube publisher and installation guide](docs/YOUTUBE_COURSE_PUBLISH_ADAPTER_20261018.md). Only source-bound, technically accepted multipart parts are eligible; external YouTube publication is owner-authorized, not Moodle, and requires a pinned channel and single publishing PC. This draft does not yet automatically produce the promotional Video 00 or invoke publishing after a distributed run. Human academic approval remains optional for internal stage advancement.
 
