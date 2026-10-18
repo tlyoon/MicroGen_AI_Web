@@ -1,8 +1,9 @@
-"""Reliable, resumable PDF+WAV to MP4 assembly using FFmpeg (no MoviePy).
+"""Legacy still-frame FFmpeg engine, quarantined for isolated offline tests.
 
-Uses per-slide PDF page 1, WAV duration, H.264/AAC fixed-size segments,
-then concatenates them. Existing slides.mp4 is never touched until the
-candidate is encoded and probed successfully.
+This path does not implement the contract's per-element narrated highlighting.
+Normal CLI and API calls fail before inspecting/writing any media. Only an
+explicitly marked synthetic test sandbox may produce a REVIEW_ONLY artifact,
+never slides.mp4 or a source-adjacent production deliverable.
 """
 from __future__ import annotations
 
@@ -239,12 +240,25 @@ def _video_cache(folder: Path) -> Path:
     return target
 
 def assemble(folder: Path, *, output: str = "slides.mp4", fps: int = 2,
-             width: int = 1280, height: int = 720) -> Path:
+             width: int = 1280, height: int = 720,
+             _offline_test_only: bool = False) -> Path:
+    # Guard BEFORE folder traversal, cache creation, external encoder startup
+    # or publication. Any normal call, including the CLI, must fail closed.
+    if not _offline_test_only:
+        raise RuntimeError(
+            "Static-slide video publishing is disabled: the <600-second "
+            "element-synchronized multipart contract requires the reviewed "
+            "highlight renderer."
+        )
     folder = folder.expanduser().resolve()
-    if not folder.is_dir():
-        raise NotADirectoryError(folder)
-    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*\.mp4", output):
-        raise ValueError("Output must be a simple .mp4 filename")
+    if (not folder.is_dir()
+            or not (folder / ".microgen_static_review_sandbox").is_file()
+            or (folder / "source.pdf").exists()):
+        raise ValueError("Isolated marked synthetic review sandbox required")
+    if output != "REVIEW_ONLY_static_slides.mp4":
+        raise ValueError("Only REVIEW_ONLY_static_slides.mp4 is allowed in sandbox")
+    if (folder / output).exists() or (folder / output).is_symlink():
+        raise FileExistsError("Existing review-only output must never be overwritten")
     if fps < 1 or width < 64 or height < 64 or width % 2 or height % 2:
         raise ValueError("fps and even output dimensions must be positive")
     entries = check_inputs(folder)
@@ -335,21 +349,18 @@ def assemble(folder: Path, *, output: str = "slides.mp4", fps: int = 2,
             "strict <600s contract; no video has been published."
         )
     dest = folder / output
-    if dest.exists():
-        archival = folder / ".history" / (
-            "video_" + datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S_%f")
-        )
-        archival.mkdir(parents=True, exist_ok=False)
-        old_copy = archival / output
-        shutil.copy2(dest, old_copy)
-        print(f"[video] archived previous {output} at {old_copy}", flush=True)
-    # Only publish a fully-verified, hash-matched copy. Leave the old final
-    # video untouched if Google Drive becomes unavailable during publication.
+    if dest.exists() or dest.is_symlink():
+        raise FileExistsError("Review-only candidate appeared during encode; refusing overwrite")
+    # Only publish a fully-verified, hash-matched synthetic review copy.
+    # This is never a certified or student-facing media artifact.
     staged = folder / ("." + output + f".pending.{os.getpid()}")
     try:
         _verified_local_input(candidate, staged, _sha256(candidate))
         validate_video(ffmpeg, staged, total)
-        staged.replace(dest)
+        # Explicit exclusive create, never os.replace into existing media.
+        # The candidate is copied by file descriptor to avoid a final race.
+        with staged.open("rb") as source, dest.open("xb") as target:
+            shutil.copyfileobj(source, target)
     finally:
         staged.unlink(missing_ok=True)
 

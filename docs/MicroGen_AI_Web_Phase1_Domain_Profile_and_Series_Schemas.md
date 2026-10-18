@@ -1,3 +1,5 @@
+> **SUPERSEDED FOR NORMATIVE USE — 18 October 2026:** This historical design contains obsolete 600–630-second allowances. Every published MP4 must be **strictly less than 600 seconds, with no exception**. See [the effective contract](EFFECTIVE_CONTRACT_AND_SUPERSESSION_20261018.md). Retained below for historical traceability, not as live authorization.
+
 # MicroGen_AI_Web Phase 1A — domain profile registry and series schemas
 
 **Implementation status:** Proposed infrastructure / PR candidate; **no generation behaviour change**. This phase lays the foundation for the [integrated architecture blueprint](MicroGen_AI_Web_Integrated_Architecture_and_Implementation_Blueprint_v1.md), without replacing the current production `runner.py` or the physics-specific vendor prompts.

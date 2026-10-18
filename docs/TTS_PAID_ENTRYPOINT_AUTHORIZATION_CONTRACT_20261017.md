@@ -1,3 +1,5 @@
+> **SUPERSEDED FOR NORMATIVE USE — 18 October 2026:** Historical cost and Cloud fallback prohibitions were superseded by [the restored owner-approved TTS policy](TTS_RESTORED_OWNER_APPROVED_FALLBACK_POLICY_20261017.md). Routine Gemini Lite/Flash TTS is permitted; Cloud Chirp is conditionally available only with independently observed complete Gemini retry chains and billing protections. See [the effective contract](EFFECTIVE_CONTRACT_AND_SUPERSESSION_20261018.md). Historical assertions below are not the current rules.
+
 # MicroGen_AI_Web — mandatory paid TTS authorization across entry points
 **17 October 2026. REVIEW ONLY — no paid API call was made during this change.**
 

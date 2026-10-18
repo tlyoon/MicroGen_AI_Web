@@ -161,7 +161,7 @@ class ContractAcceptanceTests(unittest.TestCase):
         with patch.object(video_ffmpeg,"check_inputs",return_value=entries):
             with patch.object(video_ffmpeg,"ffmpeg_executable",
                               side_effect=AssertionError("FFmpeg must not launch")):
-                with self.assertRaisesRegex(ValueError,"strict"):
+                with self.assertRaisesRegex(RuntimeError,"disabled"):
                     video_ffmpeg.assemble(self.root)
 
     def test_runner_video_acceptance_uses_new_manifest_gate(self):

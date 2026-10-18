@@ -18,6 +18,8 @@ class VideoRecoveryTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.folder = Path(self.tmp.name)
+        (self.folder / ".microgen_static_review_sandbox").write_text(
+            "SYNTHETIC TEST ONLY", encoding="utf-8")
 
     def write_wav(self, slide: int, seconds: int):
         with wave.open(str(self.folder / f"slide{slide}.wav"), "wb") as sound:
@@ -88,25 +90,35 @@ class VideoRecoveryTests(unittest.TestCase):
 
             with patch.object(video_ffmpeg, "run_ffmpeg", side_effect=inject_interruption):
                 with self.assertRaisesRegex(RuntimeError, "injected interruption"):
-                    video_ffmpeg.assemble(self.folder)
+                    video_ffmpeg.assemble(
+                        self.folder, output="REVIEW_ONLY_static_slides.mp4",
+                        _offline_test_only=True)
             cache = video_ffmpeg._video_cache(self.folder)
             self.assertTrue((cache / "segment0001.mp4").is_file())
-            self.assertFalse((self.folder / "slides.mp4").exists())
+            self.assertFalse((self.folder / "REVIEW_ONLY_static_slides.mp4").exists())
 
             with patch.object(video_ffmpeg, "run_ffmpeg", wraps=original_run) as watched:
-                dest = video_ffmpeg.assemble(self.folder)
+                dest = video_ffmpeg.assemble(
+                    self.folder, output="REVIEW_ONLY_static_slides.mp4",
+                    _offline_test_only=True)
                 self.assertEqual([call.kwargs["step"] for call in watched.call_args_list],
                                  ["slide 2", "concat"])
             self.assertFalse(cache.exists())
             video_ffmpeg.validate_video(video_ffmpeg.ffmpeg_executable(), dest, 5)
             former_sha = hashlib.sha256(dest.read_bytes()).hexdigest()
 
-            self.write_wav(2, 4)  # invalidate only the changed media input
-            video_ffmpeg.assemble(self.folder)
-            video_ffmpeg.validate_video(video_ffmpeg.ffmpeg_executable(), dest, 6)
-            archived = list((self.folder / ".history").rglob("slides.mp4"))
-            self.assertEqual(len(archived), 1)
-            self.assertEqual(hashlib.sha256(archived[0].read_bytes()).hexdigest(), former_sha)
+            self.write_wav(2, 4)  # changed input must not replace prior candidate
+            with self.assertRaises(FileExistsError):
+                video_ffmpeg.assemble(
+                    self.folder, output="REVIEW_ONLY_static_slides.mp4",
+                    _offline_test_only=True)
+            self.assertEqual(hashlib.sha256(dest.read_bytes()).hexdigest(), former_sha)
+            dest.unlink()  # test cleanup only: prepare an entirely fresh candidate
+            rebuilt = video_ffmpeg.assemble(
+                self.folder, output="REVIEW_ONLY_static_slides.mp4",
+                _offline_test_only=True)
+            video_ffmpeg.validate_video(video_ffmpeg.ffmpeg_executable(), rebuilt, 6)
+            self.assertFalse((self.folder / "slides.mp4").exists())
 
 
 if __name__ == "__main__":

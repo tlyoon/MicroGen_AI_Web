@@ -76,8 +76,11 @@ class VideoAssemblyTests(unittest.TestCase):
 
     def test_bad_output_name_rejected(self):
         self.pair(1)
-        with self.assertRaises(ValueError):
+        with self.assertRaisesRegex(RuntimeError, "disabled"):
             assemble(self.root, output="../unsafe.mp4")
+        (self.root / ".microgen_static_review_sandbox").touch()
+        with self.assertRaisesRegex(ValueError, "Only REVIEW_ONLY"):
+            assemble(self.root, output="../unsafe.mp4", _offline_test_only=True)
 
 
 if __name__ == "__main__":

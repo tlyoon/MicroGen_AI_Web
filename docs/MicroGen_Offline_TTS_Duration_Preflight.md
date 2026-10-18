@@ -1,3 +1,5 @@
+> **SUPERSEDED FOR NORMATIVE USE — 18 October 2026:** This historical design contains obsolete 600–630-second allowances. Every published MP4 must be **strictly less than 600 seconds, with no exception**. See [the effective contract](EFFECTIVE_CONTRACT_AND_SUPERSESSION_20261018.md). Retained below for historical traceability, not as live authorization.
+
 # Real-pilot offline TTS duration preflight
 
 This optional tool compares proposed narration scripts with one exact,

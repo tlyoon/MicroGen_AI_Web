@@ -107,13 +107,13 @@ class SchemaTests(unittest.TestCase):
                 Draft202012Validator(schema("domain_profile")).validate(
                     json.loads(f.read_text(encoding="utf-8")))
 
-    def test_630_seconds_excluded_even_at_planning_schema_level(self):
-        for n in (630, 700):
+    def test_600_seconds_excluded_even_at_planning_schema_level(self):
+        for n in (600, 620, 629.9, 630, 700):
             plan = copy.deepcopy(fixtures()["lesson_plan"])
             plan["parts"][0]["estimated_duration_s"]["max"] = n
             with self.subTest(duration=n), self.assertRaises(ValidationError):
                 Draft202012Validator(schema("lesson_plan")).validate(plan)
-        plan["parts"][0]["estimated_duration_s"]["max"] = 629.9
+        plan["parts"][0]["estimated_duration_s"]["max"] = 599.9
         Draft202012Validator(schema("lesson_plan")).validate(plan)
 
     def test_no_unknown_executable_hooks_in_profiles(self):
