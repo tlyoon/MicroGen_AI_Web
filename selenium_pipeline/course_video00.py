@@ -50,6 +50,8 @@ def plan_video00(source_root: Path, *, course_title: str) -> dict:
                     "mp4":str(item.mp4),"source_sha256":item.source_sha256,
                     "video_sha256":item.sha256,
                     "alignment_sha256":sha256(alignment),
+                    "tts_manifest_sha256":sha256(folder/"tts_input_manifest.json"),
+                    "narration_script_sha256":sha256(folder/"script.txt"),
                     "start_ms":start,"end_ms":end,
                     "duration_s":round(seconds,3)})
     require(len(voices)==1, "Video 00 refuses mixed TTS model/voice across lessons")
@@ -93,6 +95,12 @@ def _check(plan: dict, root: Path) -> None:
                 "Source PDF changed after Video 00 selection")
         require(sha256(video.parent/"narration_alignment.json")
                 ==row["alignment_sha256"],"Source timing changed after selection")
+        require(sha256(video.parent.parent/"tts_input_manifest.json")
+                ==row["tts_manifest_sha256"],
+                "Source effective TTS manifest changed after selection")
+        require(sha256(video.parent.parent/"script.txt")
+                ==row["narration_script_sha256"],
+                "Source narration script changed after selection")
         voice=_identity(video.parent.parent)
         require(tuple(plan["voice"][key] for key in ("provider","model","voice"))
                 ==voice,"TTS identity changed after Video 00 selection")

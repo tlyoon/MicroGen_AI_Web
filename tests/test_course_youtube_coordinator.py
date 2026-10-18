@@ -139,7 +139,8 @@ class CoordinatorTests(unittest.TestCase):
                    "selenium_pipeline.course_youtube_coordinator.render_video00",
                    side_effect=lambda *a,**kw:(trailer.parent.mkdir(),trailer.write_bytes(b"FAKE MP4"))),patch(
                    "selenium_pipeline.course_youtube_coordinator.verify_video00",
-                   return_value={"status":"SOURCE_BOUND_VIDEO00_VERIFIED"}) as verified,patch(
+                   return_value={"status":"SOURCE_BOUND_VIDEO00_VERIFIED",
+                                 "plan":{"course_title":"Physics"}}) as verified,patch(
                    "selenium_pipeline.course_youtube_coordinator.publish_course",
                    return_value={"status":"YOUTUBE_COURSE_PUBLISHED",
                                  "playlist_url":"https://youtube.com/playlist?list=TEST",
@@ -152,6 +153,24 @@ class CoordinatorTests(unittest.TestCase):
         self.assertEqual(publishing.call_count,1)
         self.assertTrue(verified.called)
         self.assertTrue(planned.called)
+
+    def test_existing_video00_from_wrong_course_cannot_be_uploaded(self):
+        trailer=self.root/".microgen_youtube"/"trailer"/"video_00.mp4"
+        trailer.parent.mkdir(parents=True)
+        trailer.write_bytes(b"existing other-course promo")
+        with patch("selenium_pipeline.course_youtube_coordinator.socket.gethostname",
+                   return_value="HP-TEST"),patch(
+                   "selenium_pipeline.course_youtube_coordinator.plan_course",
+                   return_value=self.mock_plan()),patch(
+                   "selenium_pipeline.course_youtube_coordinator.verify_video00",
+                   return_value={"plan":{"course_title":"Different course"}}),patch(
+                   "selenium_pipeline.course_youtube_coordinator.publish_course",
+                   side_effect=AssertionError("must not publish")):
+            with self.assertRaisesRegex(YouTubeCourseError,"different course title"):
+                publish_completed_course(root=self.root,run_id=self.runid,
+                    course_title="Physics",publisher_host="HP-TEST",
+                    expected_channel_id="UCtest",expected_handle=None,
+                    visibility="public",youtube=SimpleNamespace())
 
     def test_wrong_publisher_refuses_before_trailer_or_api(self):
         with patch("selenium_pipeline.course_youtube_coordinator.socket.gethostname",

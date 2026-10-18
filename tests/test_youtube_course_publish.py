@@ -389,11 +389,25 @@ class CourseUploadTests(unittest.TestCase):
                 self.plan(trailer=path)
         with patch("selenium_pipeline.youtube_course_publish._mp4_duration",return_value=52.0), patch(
                 "selenium_pipeline.course_video00.verify_video00",
-                return_value={"status":"SOURCE_BOUND_VIDEO00_VERIFIED"}):
+                return_value={"status":"SOURCE_BOUND_VIDEO00_VERIFIED",
+                              "plan":{"course_title":"Physics 8 and 10"}}):
             plan=self.plan(trailer=path)
         self.assertEqual(plan["items"][0].key,"video_00")
         self.assertEqual(plan["items"][0].duration_s,52.0)
         self.assertTrue(plan["trailer_included"])
+
+    def test_trailer_for_different_course_title_is_rejected(self):
+        path=self.root/".microgen_youtube"/"trailer"/"video_00.mp4"
+        path.parent.mkdir(parents=True)
+        path.write_bytes(b"source bound placeholder")
+        with patch("selenium_pipeline.youtube_course_publish._mp4_duration",
+                   return_value=50.0),patch(
+                "selenium_pipeline.course_video00.verify_video00",
+                return_value={"status":"SOURCE_BOUND_VIDEO00_VERIFIED",
+                              "plan":{"course_title":"Different course"}}):
+            with self.assertRaisesRegex(YouTubeCourseError,
+                                        "not bound to this YouTube course"):
+                self.plan(trailer=path)
 
     def test_removing_local_approval_files_is_irrelevant_to_technical_plan(self):
         self.assertFalse(any((folder/"lecture_human_approval.json").exists()

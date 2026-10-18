@@ -108,7 +108,15 @@ class Video00Tests(unittest.TestCase):
         manifest["primary"]["model"]="gemini-3.8-flash-tts"
         manifest["slides"][0]["model"]="gemini-3.8-flash-tts"
         voice.write_text(json.dumps(manifest),encoding="utf-8")
-        with self.assertRaisesRegex(YouTubeCourseError,"TTS identity changed"):
+        with self.assertRaisesRegex(YouTubeCourseError,"TTS manifest changed"):
+            render_video00(plan,source_root=self.root)
+
+    def test_narration_script_change_blocks_stale_trailer_evidence(self):
+        plan=self.planned()
+        path=self.folders["8.1"]/"script.txt"
+        path.write_text(path.read_text(encoding="utf-8")+" Updated.",encoding="utf-8")
+        with self.assertRaisesRegex(YouTubeCourseError,
+                                    "narration script changed"):
             render_video00(plan,source_root=self.root)
 
     def test_real_ffmpeg_video00_and_strict_receipt(self):

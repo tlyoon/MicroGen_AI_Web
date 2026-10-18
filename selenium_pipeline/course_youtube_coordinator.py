@@ -110,12 +110,14 @@ def publish_completed_course(*, root: Path, run_id: str, course_title: str,
     audit_and_plan(root=root,run_id=run_id,course_title=course_title)
     trailer=root/".microgen_youtube"/"trailer"/"video_00.mp4"
     if trailer.exists():
-        verify_video00(trailer,source_root=root)
+        receipt=verify_video00(trailer,source_root=root)
     else:
         planned=plan_video00(root,course_title=course_title)
         # Deterministic plan only; original source MP4/WAV never altered.
         render_video00(planned,source_root=root)
-    verify_video00(trailer,source_root=root)
+        receipt=verify_video00(trailer,source_root=root)
+    require(receipt.get("plan",{}).get("course_title")==course_title,
+            "Existing Video 00 belongs to a different course title")
     full=plan_course(root,course_title=course_title,
                      trailer=trailer,require_complete=True)
     # Recheck statuses and actual original content after local rendering,
