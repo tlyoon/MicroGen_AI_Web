@@ -1,5 +1,7 @@
 # MicroGen_AI_Web
 
+**Stage automation contract (latest owner amendment):** [Internal stages advance automatically on passing technical QA; human academic review is optional](docs/OWNER_AMENDMENT_AUTOMATIC_INTERNAL_STAGE_PROGRESS_20261018.md). This does not authorize student publication, destructive replacement or bypassing integrity checks.
+
 **Current binding contract (18 October 2026):** [Effective contract and supersession index](docs/EFFECTIVE_CONTRACT_AND_SUPERSESSION_20261018.md). Every delivered lecture part is **strictly less than 600 seconds** (no 600–630-second exception), with verifiable spoken-element synchronized highlighting and independent academic/audio/publication approval. Legacy static-slide video commands below are historical and **not authorized for production publication**. Normal generation runners are intentionally blocked pending fully compliant end-to-end production acceptance.
 
 

@@ -10,7 +10,7 @@ import unittest
 from pathlib import Path
 
 from selenium_pipeline.tts_qa_promotion import (
-    AudioPromotionBlocked, audit, export_reviewed, main,
+    AudioPromotionBlocked, audit, export_reviewed, export_verified, main,
 )
 
 
@@ -188,6 +188,27 @@ class ReviewedAudioHandoffTests(unittest.TestCase):
             export_reviewed(self.source,self.review,self.destination,
                             attestation_path=self.attestation_path,
                             confirm_reviewed_audio=True,confirm_isolated_export=True)
+
+    def test_unattended_verified_audio_export_does_not_require_human_approval(self):
+        data=export_verified(self.source,self.review,self.destination)
+        self.assertEqual(data["status"],"AUDIO_TECHNICALLY_VERIFIED_ISOLATED_COPY")
+        self.assertTrue(data["technical_audio_qa_passed"])
+        self.assertFalse(data["human_review_approved"])
+        self.assertFalse(data["video_publication_approved"])
+        self.assertFalse(data["human_review_required_for_next_stage"])
+        self.assertIsNone(data["attestation_sha256"])
+        self.assertFalse(self.attestation_path.exists())
+        for name,expected in data["candidate_wav_sha256"].items():
+            self.assertEqual(sha((self.destination/name).read_bytes()),expected)
+        self.assert_originals_unchanged()
+        with self.assertRaisesRegex(AudioPromotionBlocked,"already exists"):
+            export_verified(self.source,self.review,self.destination)
+
+    def test_automatic_audio_export_refuses_tampered_quality_evidence(self):
+        (self.review/"slide2.wav").write_bytes(pcm("Z"))
+        with self.assertRaisesRegex(AudioPromotionBlocked,"digest mismatch"):
+            export_verified(self.source,self.review,self.destination)
+        self.assertFalse(self.destination.exists())
 
     def test_source_modified_blocks_audit_without_write(self):
         (self.source/"slide1.wav").write_bytes(pcm("Z"))

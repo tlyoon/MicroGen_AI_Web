@@ -42,7 +42,7 @@ def check(*, source_pdf: Path, slides_pdf: Path,
              and audio.is_dir() and not audio.is_symlink(), "Missing source/slides/plan/audio")
     names = ("tts_reviewed_handoff.json", "script.txt", "tts_input_manifest.json")
     required(all((audio/n).is_file() and not (audio/n).is_symlink() for n in names),
-             "Only an independently reviewed isolated audio handoff is permitted")
+             "A verified isolated audio handoff receipt is required")
     try:
         handoff = json.loads((audio/names[0]).read_text(encoding="utf-8"))
         manifest = json.loads((audio/names[2]).read_text(encoding="utf-8"))
@@ -54,8 +54,14 @@ def check(*, source_pdf: Path, slides_pdf: Path,
     required(isinstance(handoff, dict) and isinstance(manifest, dict)
              and isinstance(scene, dict),
              "Handoff, manifest and plan must be JSON objects")
-    required(handoff.get("status") == "AUDIO_REVIEWED_ISOLATED_COPY"
-             and handoff.get("human_review_approved") is True
+    # Explicit owner amendment: machine-confirmed clean WAVs may advance
+    # without independent listening. Never claim human review or publication.
+    human=(handoff.get("status") == "AUDIO_REVIEWED_ISOLATED_COPY"
+           and handoff.get("human_review_approved") is True)
+    technical=(handoff.get("status") == "AUDIO_TECHNICALLY_VERIFIED_ISOLATED_COPY"
+               and handoff.get("human_review_approved") is False
+               and handoff.get("technical_audio_qa_passed") is True)
+    required((human or technical)
              and handoff.get("video_publication_approved") is False
              and handoff.get("destination") == str(audio)
              and handoff.get("source") == str(source.parent),
