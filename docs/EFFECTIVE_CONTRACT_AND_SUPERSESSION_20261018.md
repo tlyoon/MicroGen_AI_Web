@@ -2,6 +2,8 @@
 
 **Effective from 18 October 2026.** This document records the latest explicit course-owner decisions and supersedes *conflicting prescriptive statements* in the older October blueprints, trial reports and troubleshooting notes. Historical documents remain intact as evidence of prior designs, not as an alternative production authorization.
 
+**Technical synchronization QA hardening:** [Source-bound speech-window and unhighlighted-pause pixel verification](SOURCEBOUND_HIGHLIGHT_WINDOW_PAUSE_QA_20261018.md) supplements, but does not replace, source/figure integrity or human narration and semantic review.
+
 **Additional binding development guard:** [Gemini UI model provenance and explicit
 academic/student release gates](GEMINI_UI_MODEL_AND_LECTURE_RELEASE_GATES_20261018.md).
 An authenticated Flash model picker is not independent evidence of the exact

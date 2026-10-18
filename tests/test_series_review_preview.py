@@ -118,6 +118,10 @@ class MultiPartPreviewTests(unittest.TestCase):
             self.assertGreater(record["highlight_segments"],0)
             self.assertEqual(record["decoded_pixel_verified_events"],
                              record["highlight_segments"])
+            qa=json.loads((self.output/record["part_id"]/"encoded_pixel_qa.json").read_text())
+            self.assertEqual(qa["time_window_samples_checked"],4)
+            self.assertEqual(qa["pause_samples_checked"],1)
+            self.assertFalse(qa["scientific_approval"])
             self.assertLess(record["encoded_mp4_seconds"],600)
             part=self.output/record["part_id"]
             self.assertEqual(_sha(part/(record["part_id"]+"_review.mp4")),
@@ -210,6 +214,71 @@ class MultiPartPreviewTests(unittest.TestCase):
         with self.assertRaisesRegex(
             EncodedPixelQAError,"no verified target highlight"):
             verify_encoded_highlight_pixels(mp4=fake,
+                frames_dir=part/"scratch_frames",
+                geometry=geometry,timeline=timeline)
+
+    def _forge_timed_frames(self, part, segments, filename):
+        """Encode a synthetic corruption of a correctly timed render.
+
+        The actual audio and textbook inputs are unchanged. This intentionally
+        changes pixels ONLY in a disposable rendered-review directory.
+        """
+        frames=part/"scratch_frames"
+        lines=["ffconcat version 1.0"]
+        for image,duration in segments:
+            lines.extend([f"file '{(frames/image).as_posix()}'",
+                          f"duration {duration:.6f}"])
+        lines.append(f"file '{(frames/segments[-1][0]).as_posix()}'")
+        playlist=part/(filename+".ffconcat")
+        playlist.write_text("\n".join(lines)+"\n",encoding="ascii")
+        dest=part/filename
+        wav=part/"narration.wav"
+        exe=ffmpeg_path()
+        proc=subprocess.run(
+            [exe,"-y","-hide_banner","-loglevel","error",
+             "-f","concat","-safe","0","-i",str(playlist),
+             "-i",str(wav),"-map","0:v:0","-map","1:a:0",
+             "-c:v","libx264","-preset","veryfast","-crf","22",
+             "-vf","pad=ceil(iw/2)*2:ceil(ih/2)*2",
+             "-pix_fmt","yuv420p","-fps_mode","vfr",
+             "-c:a","aac","-b:a","160k",
+             "-t","2.300000",str(dest)],
+            capture_output=True,text=True,timeout=60)
+        self.assertEqual(proc.returncode,0,proc.stderr)
+        return dest
+
+    def test_incorrect_early_speech_pixels_fail_even_when_midpoint_is_correct(self):
+        render_review_series(
+            source_pdf=self.source,inputs_root=self.staged,output_root=self.output)
+        part=self.output/"part_01"
+        # First 250 ms silently displays the unhighlighted slide; the usual
+        # 500-ms midpoint still has the CORRECT element highlighted.
+        forged=self._forge_timed_frames(part,[
+            ("base_0001.png",0.25),
+            ("event_0001.png",0.75),
+            ("base_0001.png",0.10),
+            ("event_0002.png",1.20)],"early_wrong.mp4")
+        geometry=json.loads((part/"element_geometry.json").read_text())
+        timeline=json.loads((part/"narration_timeline.json").read_text())
+        with self.assertRaisesRegex(EncodedPixelQAError,"start-window"):
+            verify_encoded_highlight_pixels(mp4=forged,
+                frames_dir=part/"scratch_frames",
+                geometry=geometry,timeline=timeline)
+
+    def test_highlight_persisting_during_audio_pause_fails(self):
+        render_review_series(
+            source_pdf=self.source,inputs_root=self.staged,output_root=self.output)
+        part=self.output/"part_01"
+        # Speech highlights are correct. The 100-ms silence between chunks
+        # incorrectly keeps the previous active highlight visible.
+        forged=self._forge_timed_frames(part,[
+            ("event_0001.png",1.00),
+            ("event_0001.png",0.10),
+            ("event_0002.png",1.20)],"bad_pause.mp4")
+        geometry=json.loads((part/"element_geometry.json").read_text())
+        timeline=json.loads((part/"narration_timeline.json").read_text())
+        with self.assertRaisesRegex(EncodedPixelQAError,"Encoded pause"):
+            verify_encoded_highlight_pixels(mp4=forged,
                 frames_dir=part/"scratch_frames",
                 geometry=geometry,timeline=timeline)
 

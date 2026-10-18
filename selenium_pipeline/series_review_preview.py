@@ -165,6 +165,20 @@ def render_review_series(*, source_pdf: Path, inputs_root: Path,
         )
         _require(pixel_qa["count_events"] == encoded["highlight_segments"],
                  f"{part_id}: encoded pixels do not cover all spoken events")
+        expected_speech_samples=2*sum(
+            len(item["element_ids"]) for item in timeline["events"])
+        events=timeline["events"]
+        idle_boundaries=[(0,events[0]["start_ms"])]
+        idle_boundaries.extend((a["end_ms"],b["start_ms"])
+                               for a,b in zip(events,events[1:]))
+        idle_boundaries.append((events[-1]["end_ms"],timeline["duration_ms"]))
+        expected_pauses=sum(b-a>=80 for a,b in idle_boundaries)
+        _require(
+            pixel_qa.get("time_window_samples_checked")==expected_speech_samples
+            and len(pixel_qa.get("time_window_checks",[]))==expected_speech_samples
+            and pixel_qa.get("pause_samples_checked")==expected_pauses
+            and len(pixel_qa.get("pause_checks",[]))==expected_pauses,
+            f"{part_id}: encoded MP4 lacks full spoken-window or pause pixel QA")
         _write_new(target/"encoded_pixel_qa.json", pixel_qa)
         result = {
             "part_id":part_id,

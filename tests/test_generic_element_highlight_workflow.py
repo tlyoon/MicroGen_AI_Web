@@ -144,7 +144,35 @@ class GenericHighlightWorkflowTests(unittest.TestCase):
             review(source=self.source,slides=self.slides,authored=self.plan,
                    audio=self.audio,output_root=self.output)
 
-    def test_count_only_pixel_verification_is_forbidden(self):
+    def test_old_midpoint_only_receipt_cannot_bypass_full_window_checks(self):
+        """Even re-hashed legacy QA must fail the new evidence acceptance."""
+        review(source=self.source,slides=self.slides,authored=self.plan,
+               audio=self.audio,output_root=self.output)
+        part=self.output/"rendered"/"part_01"
+        qa_file=part/"encoded_pixel_qa.json"
+        qa=json.loads(qa_file.read_text(encoding="utf8"))
+        self.assertGreater(qa["time_window_samples_checked"],0)
+        # Simulate historical midpoint-only QA with hashes refreshed, so a
+        # simple stale hash error is not enough to reject the downgrade.
+        qa.pop("time_window_checks")
+        qa.pop("time_window_samples_checked")
+        qa_file.write_text(json.dumps(qa),encoding="utf8")
+        receipt_file=part/"review_receipt.json"
+        receipt=json.loads(receipt_file.read_text(encoding="utf8"))
+        receipt["decoded_pixel_qa_sha256"]=sha(qa_file)
+        receipt_file.write_text(json.dumps(receipt),encoding="utf8")
+        with self.assertRaisesRegex(
+            HighlightReviewGateError,"Incomplete speech-window"
+        ):
+            verify_rendered(
+                source=self.source,slides=self.slides,authored=self.plan,
+                audio=self.audio,
+                staged=self.output/"staged",
+                rendered=self.output/"rendered",
+                output=None)
+        self.assertFalse((self.output/"lecture_completion.json").exists())
+
+
         with self.assertRaisesRegex(HighlightReviewGateError,"pixel verification is mandatory"):
             verify_rendered(source=self.source,slides=self.slides,
                             authored=self.plan,audio=self.audio,
