@@ -34,7 +34,7 @@ class FlaggedNarrationSlideReviewTests(unittest.TestCase):
         return build(destination=self.destination,**{**self.kwargs,**changes})
 
     def test_original_audio_with_actual_rendered_slide_image_is_review_only(self):
-        originals=hashes(self.fixture.case.root)
+        originals=hashes(self.fixture.fixture.case.root)
         record=self.build()
         self.assertEqual(record["status"],
                          "ORIGINAL_SPEECH_AND_SLIDE_MATH_REVIEW_PENDING")
@@ -49,7 +49,7 @@ class FlaggedNarrationSlideReviewTests(unittest.TestCase):
             b"\x89PNG"))
         self.assertEqual(record["flagged_clips"][0]["original_wav_sha256"],
             hashlib.sha256((self.destination/"audio"/"s01_e01.wav").read_bytes()).hexdigest())
-        self.assertEqual(hashes(self.fixture.case.root),originals)
+        self.assertEqual(hashes(self.fixture.fixture.case.root),originals)
         html=(self.destination/"index.html").read_text(encoding="utf8")
         self.assertIn("<audio controls",html)
         self.assertIn("<img src='slides/slide_01.png'",html)
@@ -88,7 +88,7 @@ class FlaggedNarrationSlideReviewTests(unittest.TestCase):
         self.assertFalse(self.destination.exists())
 
     def test_changed_slide_pdf_aborts_without_output(self):
-        with self.fixture.case.slides.open("ab") as f:
+        with self.fixture.fixture.case.slides.open("ab") as f:
             f.write(b"bad-mutation")
         with self.assertRaisesRegex(PreservedReviewRecoveryError,
                                     "Source or slides differ"):
@@ -98,7 +98,7 @@ class FlaggedNarrationSlideReviewTests(unittest.TestCase):
     def test_refuse_output_inside_origins_or_reusing_output(self):
         with self.assertRaisesRegex(PreservedReviewRecoveryError,
                                     "inside or above original evidence"):
-            build(destination=self.fixture.case.root/"unsafe",**self.kwargs)
+            build(destination=self.fixture.fixture.case.root/"unsafe",**self.kwargs)
         self.build()
         with self.assertRaisesRegex(PreservedReviewRecoveryError,
                                     "new isolated"):
