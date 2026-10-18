@@ -960,7 +960,12 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
             item.replace(old_dir / item.name)
     for wav in candidate.glob("slide*.wav"):
         wav.replace(folder / wav.name)
-    candidate.rmdir()
+    try:
+        candidate.rmdir()
+    except OSError as exc:
+        # Google Drive may add metadata or hold a sync file in the candidate
+        # directory. Published WAVs are already in place; cleanup is optional.
+        print(f"[tts] warning: candidate cleanup deferred: {exc}", flush=True)
 
     manifest = {
         "version": 2,

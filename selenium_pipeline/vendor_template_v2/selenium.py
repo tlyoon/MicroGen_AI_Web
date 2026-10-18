@@ -202,7 +202,13 @@ def _wait_until_generation_finishes(driver, timeout: float = 180.0, poll: float 
       - last response text stable for a few polls
     This avoids capturing mid-stream.
     """
-    t0 = time.time()
+    # The nominal timeout is an inactivity window, not a total generation cap.
+    # Gemini can legitimately stream lengthy LaTeX for many minutes.
+    import os
+    t0 = time.monotonic()
+    last_activity = t0
+    hard_cap = max(timeout, float(os.getenv("GEMINI_RESPONSE_HARD_MAX", "1800")))
+    last_report = t0
 
     # Track stability of last response
     last_text = ""
@@ -220,14 +226,11 @@ def _wait_until_generation_finishes(driver, timeout: float = 180.0, poll: float 
         "//button[contains(@aria-label,'Send')]",
         "//button[.//span[contains(normalize-space(.),'Send')]]",
     ]
-    response_selectors = [
-        "message-content",
-        "div[role='article']",
-        "div[class*='response']",
-        "div[class*='model']",
-    ]
+    # Only model-response identifies Gemini's answer. Generic response/model
+    # classes can include the submitted prompt and produce false completion.
+    response_selectors = ["model-response"]
 
-    while time.time() - t0 < timeout:
+    while time.monotonic() - t0 < hard_cap:
         # 1) Check if Stop button exists (means still generating)
         stop_present = False
         try:
@@ -300,6 +303,21 @@ def _wait_until_generation_finishes(driver, timeout: float = 180.0, poll: float 
         else:
             blank_since = None
 
+        # A growing response is proof of activity. Reset the inactivity clock,
+        # but never exceed the absolute safety ceiling.
+        if cur and cur != last_text:
+            last_activity = time.monotonic()
+        now = time.monotonic()
+        if now - last_report >= 30:
+            log(f"Gemini wait: elapsed={now-t0:.0f}s idle={now-last_activity:.0f}s "
+                f"response_chars={len(cur)} stop={stop_present}", "INFO")
+            last_report = now
+        if now - last_activity >= timeout:
+            raise TimeoutError(
+                f"Gemini response inactive for {timeout:.0f}s after "
+                f"{now-t0:.0f}s; response_chars={len(cur)}; retry only after recovery."
+            )
+
         # Stability heuristic
         if cur and cur == last_text:
             stable += 1
@@ -330,8 +348,12 @@ def _wait_until_generation_finishes(driver, timeout: float = 180.0, poll: float 
 
         time.sleep(poll)
 
-    # timeout reached: return anyway (caller will validate via copy)
-    return
+    # A timeout is not evidence that Gemini completed its response.
+    # Fail explicitly so the worker can retry without publishing partial output.
+    raise TimeoutError(
+        f"Gemini response exceeded hard ceiling {hard_cap:.0f}s; "
+        "retain existing checkpoints and retry in a fresh conversation."
+    )
 
 
 def _try_click(driver, el) -> bool:
@@ -857,12 +879,8 @@ def adaptive_wait_and_copy_full(driver, preset="short", overrides=None):
     last = ""
     stable = 0
 
-    selectors = [
-        "message-content",
-        "div[role='article']",
-        "div[class*='response']",
-        "div[class*='model']",
-    ]
+    # Never capture the user's prompt as though it were Gemini's answer.
+    selectors = ["model-response"]
 
     while time.time() - t0 < timeout:
         text = ""
@@ -886,11 +904,18 @@ def adaptive_wait_and_copy_full(driver, preset="short", overrides=None):
                 stable = 0
 
             if stable >= stable_rounds:
-                return text
+                generating = any(
+                    b.is_displayed() and b.is_enabled()
+                    for b in driver.find_elements(By.CSS_SELECTOR, 'button[aria-label*="Stop"]')
+                )
+                if not generating:
+                    return text
 
         time.sleep(poll)
 
-    return (last or "").strip()
+    raise TimeoutError(
+        f"Gemini model-response did not stabilize and finish within {timeout}s"
+    )
 
 
 # =========================
@@ -1102,16 +1127,17 @@ class GeminiSeleniumClient:
     def open_clean_gemini_chat(self) -> None:
         self.ensure_driver_is_alive()
         assert self.driver is not None
-        # Development default is Flash; production returns to Pro after the
-        # complete point-to-point package is stable. An explicit UI override
-        # always wins, otherwise MICROGEN_MODEL_PHASE controls the target.
         phase = os.getenv("MICROGEN_MODEL_PHASE", "development").strip().lower()
-        target_mode = os.getenv("MICROGEN_GEMINI_UI_MODE", "").strip().lower()
-        if not target_mode:
-            target_mode = "pro" if phase in {"production", "prod", "release"} else "flash"
+
+        # Flash remains the default in every phase.
+        # Pro requires an explicit override.
+        target_mode = (
+            os.getenv("MICROGEN_GEMINI_UI_MODE", "flash").strip().lower()
+            or "flash"
+        )
         if target_mode not in {"flash", "pro"}:
             raise RuntimeError(f"Unsupported MICROGEN_GEMINI_UI_MODE={target_mode!r}")
-        target_prefix = "3.8 Flash" if target_mode == "flash" else "3.1 Pro"
+        target_prefix = "Flash" if target_mode == "flash" else "3.1 Pro"
 
         # Reuse an authenticated Gemini tab identified by its real mode picker.
         # Then actively select the configured target inside that same tab.
@@ -1164,7 +1190,18 @@ class GeminiSeleniumClient:
                         items = []
                     for item in items:
                         try:
-                            if item.is_displayed() and (item.text or "").strip().startswith(target_prefix):
+                            label = (item.text or "").strip().lower()
+                            if item.is_displayed() and (
+                                (
+                                    target_mode == "flash"
+                                    and "flash" in label
+                                    and "pro" not in label
+                                )
+                                or (
+                                    target_mode == "pro"
+                                    and label.startswith(target_prefix.lower())
+                                )
+                            ):
                                 target = item
                                 break
                         except Exception:
@@ -1274,23 +1311,30 @@ class GeminiSeleniumClient:
         # draft text in Gemini; stale drafts must never be concatenated with a
         # new MicroGen mapping prompt.
         ed = self._get_prompt_editable()
-        try:
-            ed.click()
-            ed.send_keys(Keys.CONTROL, "a")
-            ed.send_keys(Keys.BACKSPACE)
-            time.sleep(0.12)
-        except Exception:
-            pass
-        if (ed.text or "").strip():
+        for attempt in range(3):
+            if not (ed.get_attribute("value") or ed.text or "").strip():
+                break
             try:
-                self.driver.execute_script(
-                    "arguments[0].innerHTML='<p><br></p>'; arguments[0].dispatchEvent(new InputEvent('input',{bubbles:true,inputType:'deleteContentBackward'}));",
-                    ed,
-                )
-                time.sleep(0.12)
+                ed.click()
+                ed.send_keys(Keys.CONTROL, "a")
+                ed.send_keys(Keys.BACKSPACE)
             except Exception:
                 pass
-        if (ed.text or "").strip():
+            time.sleep(0.20)
+            if (ed.get_attribute("value") or ed.text or "").strip():
+                try:
+                    self.driver.execute_script(
+                        """const e=arguments[0]; e.focus();
+                        const r=document.createRange(); r.selectNodeContents(e);
+                        const s=window.getSelection(); s.removeAllRanges(); s.addRange(r);
+                        document.execCommand('delete', false, null);""",
+                        ed,
+                    )
+                except Exception:
+                    pass
+                time.sleep(0.20)
+            ed = self._get_prompt_editable()
+        if (ed.get_attribute("value") or ed.text or "").strip():
             raise RuntimeError("Gemini composer could not be cleared; refusing to continue with stale draft text.")
         log("Opened Gemini")
 
