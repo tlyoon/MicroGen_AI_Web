@@ -178,8 +178,13 @@ def main(argv=None):
           all(not x.exists() and not x.is_symlink() and x.parent.is_dir()
               for x in outputs), "Two distinct, new review report paths required")
     for output in outputs:
-        check(all(not output.absolute().is_relative_to(
-                  file.resolve().parent) for file in (args.historical,args.refreshed)),
+        # resolve() normalizes Windows drive casing and path components.
+        # Path.absolute() does not guarantee a canonical, comparable path
+        # across GitHub-hosted Windows pytest and standalone local unittest.
+        resolved_output = output.resolve(strict=False)
+        check(all(not resolved_output.is_relative_to(
+                  file.resolve(strict=True).parent)
+                  for file in (args.historical, args.refreshed)),
               "Review reports must be outside both original source folders")
     old, old_sha = load(args.historical)
     new, new_sha = load(args.refreshed)
