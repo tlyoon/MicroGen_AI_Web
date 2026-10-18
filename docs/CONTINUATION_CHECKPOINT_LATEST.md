@@ -1,77 +1,47 @@
-# MicroGen_AI_Web — Latest Development Continuation Checkpoint
+# MicroGen_AI_Web — Latest Autonomous Development Continuation Checkpoint
 
-**Updated 18 October 2026 — draft PR #138 development round.**
-See [Standing owner-authorized autonomous development protocol](AUTONOMOUS_DEVELOPMENT_PROTOCOL_20261018.md).
+**Date:** 18 October 2026 (Malaysia). Owner's autonomous-development protocol is binding.
+**Source of truth:** live GitHub branch HEAD and CI checks, never an assumed background process.
 
-## Durable previous checkpoint
+## Most recent stacked development
 
 Repository: `tlyoon/MicroGen_AI_Web`.
-Latest previously verified draft: PR #137, branch
-`feature/automatic-production-highlighted-renderer-20261018`,
-commit `f719c9c9f1dd9a4a3e78414cac20418ee1721b4f` (draft, unmerged).
-Older draft PRs and archival history remain unchanged; do not merge the
-stack to protected main without meeting release-policy conditions.
 
-## Current continuation development
+- Prior baseline: draft PR #138, branch `feature/element-narration-tts-provenance-20261018`, exact parent commit `41192406252725da7b8e6b475f53a5ba9e78f948`.
+- Current development: **PR #139**, branch `feature/verified-multielement-narration-20261018`, created from PR #138 in a **new isolated HP clone**. Fetch the exact pushed branch HEAD from GitHub at continuation time; do not assume the branch has merged.
+- Other stacked drafts, including #135 YouTube uploader, #136 course Video 00, #137 source-bound video and #138 upstream audio, must be preserved and reconciled before merging. No blind merge into main.
 
-Feature: `feature/element-narration-tts-provenance-20261018`, strictly
-stacked on PR #137. Resolve exact current branch commit using
-`git rev-parse origin/feature/element-narration-tts-provenance-20261018`
-or the corresponding GitHub draft PR once pushed.
+## Actual new capability (PR #139)
 
-Implemented in this iteration:
+Source-grounded automatic narration formerly accepted only one exact PDF text block per slide. This change accepts **1–12 explicitly paragraph-delimited visible text blocks** per slide. Each paragraph must match exactly one separate, unclipped, non-overlapping text rectangle in strict top-to-bottom reading order. The **entire** concatenated narration must occur verbatim on exactly one original textbook PDF page; text ambiguity fails closed.
 
-- Machine-only, exact-source-text/single-block element planner; rejects
-  figures, ambiguous rendered text, unmatched source quotations and
-  incomplete narration **before** paid TTS.
-- Generates true separate original element WAVs through the existing
-  Flash-Lite/Kore batch TTS and bounded provider queue, with only
-  separately verified Flash/Kore or conditional Cloud/Corey whole-batch
-  fallback and observed append-only attempt journal.
-- Verifies effective single-model voice, text hashes, PCM, source/slides,
-  script and original TTS batch receipts. Calculates coherent <540 s
-  narrated-media part boundaries from measured WAV duration.
-- Produces source-adjacent non-overwriting element-plan/WAV/manifest
-  and passes technical output automatically to PR #137's real highlighted
-  multipart renderer via the regular runner and three-PC worker.
-- Does NOT claim author/human academic approval, substitute slideN.wav,
-  guess figure panel meaning, overwrite originals or publish Moodle.
-- Regression tests include mocked-TTS real encoded FFmpeg MP4 and
-  original-file preservation plus ambiguity fail-closed behavior.
+The TTS batch now flattens all source-bound element paragraphs in order, generates a distinct original `sNNN_eXX.wav` per element and binds each to exact spoken text, the local observed producer model/voice manifest, PCM SHA and retry evidence. Multipart planning accounts for **every element duration**, never cuts an overlong slide without actual separate anchors, and still requires each final encoded video to be strictly <600 seconds. The existing independently checked production bridge generates actual element-level highlighted MP4s.
 
-Limitations: Exact text blocks only, not universal figure/equation mapping.
-A real full Serway/Thomas subchapter production with valid original element
-mapping and actual paid provider has NOT been certified in this draft.
-TTS failures preserve diagnostic local staging and require conservative
-reconciliation before retrying; automatic crash recovery remains a possible
-next hardening task.
+**Full-panel figure and math limitation:** Any page image, inline raster block or vector drawing still blocks automatic exact-text mapping. The change does NOT assert that visual figure/panel identities or arbitrary equations can be guessed. These must be tackled as a separate, scientifically audited feature.
 
-## Original three-PC state to preserve
+## Tests and evidence
 
-HP, Dell-115, Yoga6 original Drive repos at
-`G:\My Drive\Projects\MicroGen_AI_Web` were last verified at commit
-`9e1a0ff`, with exactly these **pre-existing dirty tracked files**:
+Focused real synthetic PDF/FFmpeg tests cover six independently highlighted narration elements on three slides, strict original-source replay, actual video/audio technical QA, correct output reuse, reversed ordering, repeated text blocks, repeated textbook source pages, vector-only diagrams, image figures, source mutation and duration fail-closed scenarios.
+
+Before claiming verified success, check:
+
+1. HP latest full `pytest tests selenium_pipeline/tests` exit code and totals.
+2. GitHub exact-commit Windows, Ubuntu, publication and reliability workflows.
+3. Dell-115 and Yoga6 independent isolated clones checking out the exact PR139 SHA, no modifications to original three-PC Drive repos.
+4. New PR's draft status and base = PR138 feature branch.
+
+**No** real paid Gemini/Cloud request, student-visible YouTube upload, Moodle publication, original lecture overwrite, Whisper, Zenbook or external GCS distributed lease is part of PR139.
+
+## Original three-PC preservation
+
+HP, Dell-115, Yoga6 original shared repo `G:\My Drive\Projects\MicroGen_AI_Web` last observed at commit `9e1a0ff`, with pre-existing dirty tracked files:
 `selenium_pipeline/runner.py`,
-`selenium_pipeline/tts.py`,
+`selenium_pipeline/tts.py`, and
 `selenium_pipeline/vendor_template_v2/selenium.py`.
-Never reset, overwrite, checkout a draft over, or synchronize by deletion.
-Zenbook is explicitly excluded. No current YouTube upload, token
-modification, Cloud storage lease, Whisper or Moodle publication.
+Never reset, overwrite or checkout the draft branch there. Use isolated clones.
 
-## Acceptance/continuation procedure
+## Next autonomous development objective
 
-1. Verify exact PR #138 branch SHA and current HP full offline suite results.
-2. Check GitHub Windows/Ubuntu/reliability/publication workflow outcomes.
-3. Check the exact pushed commit on Dell-115 and Yoga6 using **isolated
-   clones only**; never touch original Drive synced repos.
-4. If any tests fail, fix/retest and update the same draft dependency branch
-   without merging prematurely.
-5. Next implement reliable ambiguous multi-element and full-figure panel
-   source grounding, plus a real isolated lecture pilot with the original
-   Flash-Lite/Kore policy. Preserve all prior teaching assets.
-6. Checkpoint again before session limits; a new chat may resume from
-   this document without a new blanket owner-approval request.
+After PR139 passes focused, full and cross-PC acceptance, implement verifiable full-image/full-panel source mapping and narration synchronization with rigorous source/crop/multipanel validation, then perform an isolated **real source** pilot without modifying historical Thomas/Serway materials. Respect all voice, FFmpeg, source QA and automatic YouTube release contracts. A real source pilot is not equivalent to the synthetic tests.
 
-**Important:** ChatGPT cannot automatically open a new conversation or keep
-performing work after an ordinary response ends. Only verified local/CI
-processes or explicit scheduled tasks can run independently.
+Hourly autonomous development scheduled tasks make bounded attempts; they do NOT imply a 24/7 background agent. If an active chat is coding, avoid concurrent writes or moves until the active work reaches a safe checkpoint. Status monitor must honestly report missing progress.
