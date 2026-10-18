@@ -145,7 +145,7 @@ class MappingDriftTests(unittest.TestCase):
                                str(refreshed),"--output-json",str(result),
                                "--output-md",str(md)]),0)
         saved=json.loads(result.read_text())
-        self.assertEqual(saved["ambiguous_classification_changed"],1)
+        self.assertEqual(saved["ambiguity_classification_changed"],1)
         self.assertEqual(saved["historical_draft_sha256"],
                          hashlib.sha256(before[0]).hexdigest())
         self.assertEqual((original.read_bytes(),refreshed.read_bytes()),before)
