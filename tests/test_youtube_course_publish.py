@@ -387,7 +387,9 @@ class CourseUploadTests(unittest.TestCase):
         with patch("selenium_pipeline.youtube_course_publish._mp4_duration",return_value=59.0):
             with self.assertRaisesRegex(YouTubeCourseError,"<59"):
                 self.plan(trailer=path)
-        with patch("selenium_pipeline.youtube_course_publish._mp4_duration",return_value=52.0):
+        with patch("selenium_pipeline.youtube_course_publish._mp4_duration",return_value=52.0), patch(
+                "selenium_pipeline.course_video00.verify_video00",
+                return_value={"status":"SOURCE_BOUND_VIDEO00_VERIFIED"}):
             plan=self.plan(trailer=path)
         self.assertEqual(plan["items"][0].key,"video_00")
         self.assertEqual(plan["items"][0].duration_s,52.0)
