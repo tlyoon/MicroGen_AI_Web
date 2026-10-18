@@ -113,6 +113,12 @@ class MappingDriftTests(unittest.TestCase):
         with self.assertRaisesRegex(MappingDriftError,"source"):
             compare(self.old,self.new)
 
+    def test_missing_source_sha256_rejected(self):
+        self.old["source_sha256"] = None
+        self.new["source_sha256"] = None
+        with self.assertRaisesRegex(MappingDriftError,"source hash"):
+            compare(self.old,self.new)
+
     def test_false_approval_refused(self):
         self.new["slides"][0]["proposed_utterances"][0]["approved_for_tts"] = True
         with self.assertRaisesRegex(MappingDriftError,"Unsafe proposed utterance"):
