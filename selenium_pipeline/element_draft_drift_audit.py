@@ -41,6 +41,11 @@ def validated_units(doc):
           doc.get("academic_approval") is False and
           doc.get("student_publication") is False,
           "Draft must be explicitly unapproved and unsuitable for TTS")
+    for key in ("source_sha256", "slides_sha256", "script_sha256"):
+        digest = doc.get(key)
+        check(isinstance(digest, str) and len(digest) == 64 and
+              all(ch in "0123456789abcdef" for ch in digest),
+              "Unbound or invalid source hash: " + key)
     slides = doc.get("slides")
     check(isinstance(slides, list) and len(slides) == doc.get("slide_count")
           and bool(slides), "Slides incomplete")
