@@ -171,6 +171,41 @@ class ContractAcceptanceTests(unittest.TestCase):
         # Production always probes the real MP4 using the installed FFmpeg.
         with patch("selenium_pipeline.production_video_contract._mp4_duration",
                    return_value=98.0):
+            # A technically valid MP4 is not automatically academically accepted.
+            self.assertFalse(check_valid("video",self.root))
+            (self.root/"slides.pdf").write_bytes(b"synthetic deck")
+            (self.root/"script.txt").write_text(
+                "**Slide 1 [10 sec]:\\nSynthetic math narration**".replace("\\n","\n"),
+                encoding="utf8")
+            tts={
+                "version":2,
+                "primary":{"provider":"gemini","model":"gemini-3.8-flash-lite-tts","voice":"Kore"},
+                "slides":[{
+                    "slide":1,"source_text":"Synthetic math narration",
+                    "tts_text":"Synthetic math narration","provider":"gemini",
+                    "model":"gemini-3.8-flash-lite-tts","voice":"Kore","fallback_used":False,
+                }],
+            }
+            data(self.root/"tts_input_manifest.json",tts)
+            human={
+                "schema_version":1,"status":"human_academic_review_approved",
+                "human_authored_explicit_approval":True,
+                "reviewed_by":"Synthetic test reviewer",
+                "approved_at_utc":"2026-10-18T11:05:00Z",
+                "subject":"entire_source_bound_lecture",
+                "source_sha256":sha(self.root/"source.pdf"),
+                "slides_sha256":sha(self.root/"slides.pdf"),
+                "narration_script_sha256":sha(self.root/"script.txt"),
+                "technical_series_sha256":sha(self.root/"lecture_completion.json"),
+                "tts_input_manifest_sha256":sha(self.root/"tts_input_manifest.json"),
+                "effective_tts_model":"gemini-3.8-flash-lite-tts",
+                "effective_tts_voice":"Kore",
+                "mathematics_approved":True,
+                "all_figures_complete_and_legible":True,
+                "original_narration_listened_and_approved":True,
+                "spoken_element_highlights_approved":True,
+            }
+            data(self.root/"lecture_human_approval.json",human)
             self.assertTrue(check_valid("video",self.root))
             self.media.write_bytes(b"bad")
             self.assertFalse(check_valid("video",self.root))

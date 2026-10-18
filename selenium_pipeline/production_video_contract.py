@@ -173,7 +173,14 @@ def verify_series(folder: Path, *, probe=None) -> dict:
                  f"{part_id} duration receipt disagrees with MP4")
         checked.append({"part_id": part_id, "duration_s": round(measured, 3),
                         "highlight_events": len(cue_events)})
-    return {"status": "accepted_synchronized_series", "parts": checked,
+    # These checks prove the presence/structural integrity of declared media
+    # evidence; they never imply human listening, mathematics or permission to
+    # publish to students. Those require the separate lecture_release_gate.
+    return {"status": "accepted_synchronized_series",
+            "verification_scope": "technical_media_only",
+            "human_academic_approval_verified": False,
+            "student_publication_permitted": False,
+            "parts": checked,
             "total_duration_s": round(sum(p["duration_s"] for p in checked), 3)}
 
 

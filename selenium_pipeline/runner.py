@@ -374,8 +374,9 @@ def valid(stage: str, folder: Path) -> bool:
             >= float(report.get("threshold_percent", 99.0))
         )
     if stage == "video":
-        from .production_video_contract import verify_series
-        return verify_series(folder)["status"] == "accepted_synchronized_series"
+        from .lecture_release_gate import verify_academic_lecture
+        return (verify_academic_lecture(folder)["status"]
+                == "explicit_human_reviewed_lecture")
     return False
 
 
@@ -702,6 +703,7 @@ def _execute_unlocked(s: Settings) -> Path:
             gemini_approved=s.confirm_gemini_api_cost,
             cloud_approved=s.confirm_google_cloud_tts_cost,
             routine_gemini=(s.tts_provider == "gemini"))
+    observed_browser_evidence = None
     if any(_needs_browser(x) for x in planned):
         from .launch_gemini import launch
         requested_port = s.chrome_port
@@ -711,8 +713,13 @@ def _execute_unlocked(s: Settings) -> Path:
             requested_port = 9223
         actual_port, _ = launch(s.alternate_gemini_user, requested_port)
         s.chrome_port = actual_port
-        from .gemini_model import ensure_mode
-        print(f"[microgen] verified Gemini mode: {ensure_mode(s.chrome_port, DEFAULT_BROWSER_UI_MODE)}")
+        from .gemini_model import ensure_mode, browser_model_evidence
+        observed_label = ensure_mode(s.chrome_port, DEFAULT_BROWSER_UI_MODE)
+        observed_browser_evidence = browser_model_evidence(
+            observed_label, requested_mode=DEFAULT_BROWSER_UI_MODE,
+            requested_model_id=ACTIVE_LLM_MODEL)
+        print("[microgen] verified authenticated Gemini UI family: "
+              f"{observed_label}; exact provider model ID NOT independently verified")
     prepare(source, folder)
     if s.from_stage == "video":
         hydrate_video_only_inputs(source, folder)
@@ -729,7 +736,8 @@ def _execute_unlocked(s: Settings) -> Path:
         "caption_benchmark": CAPTION_BENCHMARK_MODEL,
         "slides": DEFAULT_SLIDE_MODEL,
         "narration": DEFAULT_NARRATION_MODEL,
-        "ui_selection_verified_automatically": any(_needs_browser(x) for x in planned),
+        "ui_family_evidence": observed_browser_evidence,
+        "ui_exact_model_id_verified": False,
         "tts": s.tts_model,
         "tts_provider": s.tts_provider,
         "tts_qa": s.tts_qa_model,
@@ -817,8 +825,13 @@ def _execute_unlocked(s: Settings) -> Path:
         log_file = folder / f"microgen_{stage}.log"
         try:
             if _needs_browser(stage):
-                from .gemini_model import ensure_mode
-                print(f"[microgen] {stage} Gemini mode: {ensure_mode(s.chrome_port, DEFAULT_BROWSER_UI_MODE)}")
+                from .gemini_model import ensure_mode, browser_model_evidence
+                stage_label = ensure_mode(s.chrome_port, DEFAULT_BROWSER_UI_MODE)
+                browser_model_evidence(
+                    stage_label, requested_mode=DEFAULT_BROWSER_UI_MODE,
+                    requested_model_id=ACTIVE_LLM_MODEL)
+                print(f"[microgen] {stage} Gemini UI family confirmed: {stage_label}; "
+                      "exact deployed model ID remains unverified")
             if stage not in {"tts", "video"}:
                 # Video assembly archives the prior MP4 only after its new
                 # candidate passes stream and duration validation.
