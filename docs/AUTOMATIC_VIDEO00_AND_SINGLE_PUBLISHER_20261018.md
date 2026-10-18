@@ -1,3 +1,5 @@
+> **LATEST DOWNSTREAM VIDEO BRIDGE:** The new source-bound production adapter can generate technically accepted highlighted multipart receipts from complete independent per-element inputs, for the YouTube coordinator to check. Automatic production of those original element-level inputs is still outstanding. See [source-bound production bridge](SOURCEBOUND_PRODUCTION_VIDEO_STAGE_20261018.md).
+
 # Automatic Video 00 and single-PC course publisher (18 October 2026)
 
 Development status: draft, not deployed. Stacked on the YouTube publisher PR #135.

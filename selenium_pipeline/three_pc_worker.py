@@ -330,6 +330,35 @@ def process_job(
         }
         persist()
         return True
+    # The new source-bound element producer is a separate prerequisite.
+    # When its *actual per-element* WAVs and anchored plan are present,
+    # invoke the accepted video stage on the owning PC (never static video).
+    prepared=(source.parent/"element_narration_plan.json").is_file() and (
+        source.parent/"element_wav").is_dir() and (
+        source.parent/"slides.pdf").is_file()
+    if prepared:
+        log=logs/f"{key}_round{attempt}_video.log"
+        try:
+            ok,error=run_stage(root,key,"video",chrome_port,log,lane,idle,hard)
+            if ok and not stage_recorded(source,"video"):
+                ok,error=False,"Strict source-bound multipart production receipt missing"
+        except Exception as exc:
+            ok,error=False,f"{type(exc).__name__}: {exc}"
+        if not ok:
+            report[key]={"status":"deferred" if attempt==1 else "unfinished",
+                         "stage":"video","round":attempt,
+                         "error":error,"updated_utc":timestamp()}
+            persist()
+            return False
+        checked=verify_series(source.parent)
+        report[key]={
+            "status":"complete","stage":"video","round":attempt,
+            "verified":True,"contract":checked["status"],
+            "acceptance_scope":"technical_only",
+            "human_academic_review":"optional_not_required_for_stage_progression",
+            "student_published":False,"updated_utc":timestamp()}
+        persist()
+        return True
     if completed_lecture(source):
         reason = (
             "Historical video completion is preserved, but it lacks strict "

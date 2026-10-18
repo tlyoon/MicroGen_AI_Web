@@ -661,6 +661,32 @@ def _execute_unlocked(s: Settings) -> Path:
               f" {report['covered_slides']} slides; "
               f"{report['covered_elements']} elements. NOT student published.")
         return Path(s.element_review_root)
+    # Real nonstatic production route: no human signoff or per-slide-static
+    # fallback. This requires a genuinely source-anchored element plan plus
+    # separate original element WAVs from a previous stage; ordinary slideN.wav
+    # files are NOT automatically misrepresented as element-level narration.
+    if (s.from_stage == "video" and s.through_stage == "video"
+            and s.force_from is None
+            and (source.parent/"element_narration_plan.json").is_file()
+            and (source.parent/"element_wav").is_dir()):
+        verify_source_tree(s.source_root,source)
+        if check_valid("video",source.parent):
+            print("[microgen] already verified source-bound multipart video")
+            return folder
+        from .sourcebound_production_video import render_and_install_prepared
+        base=Path(os.getenv("LOCALAPPDATA") or str(Path.home()/".cache"))
+        tmp=base/"MicroGen_AI_Web_VideoStaging"
+        tmp.mkdir(parents=True,exist_ok=True)
+        completed=render_and_install_prepared(
+            source=source,slides=source.parent/"slides.pdf",
+            authored=source.parent/"element_narration_plan.json",
+            audio=source.parent/"element_wav",local_work_root=tmp)
+        if not check_valid("video",source.parent):
+            raise RuntimeError("Installed highlighted multipart video fails fresh QA")
+        print(f"[microgen] {completed['part_count']} technically accepted "
+              "highlighted multipart part(s), no human signoff required")
+        return folder
+
     # A completed lecture has already had its staging/checkpoints removed.
     # Trust only a source-and-output-matched completion receipt: otherwise
     # missing staging files would trigger an expensive, unnecessary rerun.

@@ -1,4 +1,6 @@
 # MicroGen_AI_Web
+**Draft source-bound production video renderer bridge:** [Machine-verifiable highlighted multipart video stage](docs/SOURCEBOUND_PRODUCTION_VIDEO_STAGE_20261018.md). It can create non-overwriting technically accepted multipart receipts when a complete source-anchored element plan and original element WAVs already exist; generating those upstream inputs automatically remains a separate necessary engineering step.
+
 **Draft automatic Video 00 + single-publisher coordinator:** [Source-bound trailer and cross-PC completion guide](docs/AUTOMATIC_VIDEO00_AND_SINGLE_PUBLISHER_20261018.md). This connects the YouTube adapter to real all-worker technical completion evidence, but does not publish anything during tests.
 
 

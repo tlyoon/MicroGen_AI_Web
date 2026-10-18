@@ -103,6 +103,20 @@ def verify_series(folder: Path, *, probe=None) -> dict:
              and manifest.get("status") == "accepted_synchronized_series",
              "Lesson has no accepted multipart-and-highlight receipt")
     _checked_hash(root / "source.pdf", manifest.get("source_sha256"), "source")
+    if manifest.get("origin") == "independent_fresh_decoded_pixel_reverification":
+        # New bridge receipts carry stronger audit-linked source and pixel
+        # provenance. Preserve old synthetic fixture compatibility, but
+        # never accept forged or missing metadata for this new origin.
+        for label,name in (
+            ("slides_sha256","slides.pdf"),
+            ("authored_plan_sha256","element_narration_plan.json"),
+            ("source_review_sha256","source_review_receipt.json"),
+        ):
+            _checked_hash(root/name,manifest.get(label),label)
+        _require(manifest.get("acceptance_scope")=="technical_only"
+                 and manifest.get("human_academic_review_verified") is False
+                 and manifest.get("student_published") is False,
+                 "Technical source-bound receipt falsely claims release approval")
     parts = manifest.get("parts")
     _require(isinstance(parts, list) and 1 <= len(parts) <= 40,
              "Expected one to forty finalized video parts")
@@ -125,6 +139,23 @@ def verify_series(folder: Path, *, probe=None) -> dict:
         _require(receipt.get("renderer") == "audio_timed_highlight_renderer"
                  and not receipt.get("unverified"),
                  f"{part_id} is a static or experimental preview")
+        if manifest.get("origin") == "independent_fresh_decoded_pixel_reverification":
+            for label,name in (
+                ("decoded_pixel_qa_sha256","encoded_pixel_qa.json"),
+                ("element_geometry_sha256","element_geometry.json"),
+                ("narration_timeline_sha256","narration_timeline.json"),
+                ("review_receipt_sha256","review_receipt.json"),
+            ):
+                _checked_hash(location/name,receipt.get(label),label)
+            pixel=_read_json(location/"encoded_pixel_qa.json")
+            _require(
+                type(pixel.get("count_events")) is int
+                and type(pixel.get("time_window_samples_checked")) is int
+                and type(pixel.get("pause_samples_checked")) is int
+                and len(pixel.get("time_window_checks",[]))
+                    ==pixel["time_window_samples_checked"]
+                and len(pixel.get("checks",[]))==pixel["count_events"],
+                f"{part_id}: missing independent spoken-window MP4 pixel proof")
         video = location / f"{part_id}.mp4"
         audio = location / "narration.wav"
         cues_file = location / "visual_cues.json"
