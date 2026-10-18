@@ -98,6 +98,9 @@ def accept_candidate(*,source: Path,slides: Path,authored: Path,audio: Path,
         _copy_new(source,root/"source.pdf")
         _copy_new(slides,root/"slides.pdf")
         _copy_new(authored,root/"element_narration_plan.json")
+        machine_script=(source.parent/"script.txt")
+        if plan.get("status")=="machine_verified_exact_text_element_narration":
+            _copy_new(machine_script,root/"script.txt")
         _copy_new(review/"highlight_technical_review.json",
                   root/"source_review_receipt.json")
         checks=[]
@@ -185,6 +188,10 @@ def accept_candidate(*,source: Path,slides: Path,authored: Path,audio: Path,
             "source_sha256":digest(root/"source.pdf"),
             "slides_sha256":digest(root/"slides.pdf"),
             "authored_plan_sha256":digest(root/"element_narration_plan.json"),
+            "original_narration_script_sha256":(
+                digest(root/"script.txt")
+                if plan.get("status")=="machine_verified_exact_text_element_narration"
+                else None),
             "source_review_sha256":digest(root/"source_review_receipt.json"),
             "origin":"independent_fresh_decoded_pixel_reverification",
             "acceptance_scope":"technical_only",
@@ -218,6 +225,14 @@ def verify_production_candidate(candidate: Path) -> dict:
             and manifest.get("source_review_sha256")
                 ==digest(root/"source_review_receipt.json"),
             "Original slide, source plan or review evidence changed")
+    authored=read(root/"element_narration_plan.json")
+    if authored.get("status")=="machine_verified_exact_text_element_narration":
+        require(manifest.get("original_narration_script_sha256")
+                ==digest(root/"script.txt"),
+                "Machine-anchored original script is missing or changed")
+        from .automatic_element_narration import verify_automatic_source_mapping
+        verify_automatic_source_mapping(
+            source=root/"source.pdf",slides=root/"slides.pdf",plan=authored)
     for part in report["parts"]:
         directory=root/part["part_id"]
         receipt=read(directory/"part_receipt.json")
@@ -370,7 +385,7 @@ def verify_element_tts_batch(*,source: Path,slides: Path,
     allowed={
         ("gemini","gemini-3.8-flash-lite-tts","Kore"),
         ("gemini","gemini-3.8-flash-tts","Kore"),
-        ("chirp3","en-US-Chirp3-HD-Corey","Corey"),
+        ("chirp3","chirp3-hd","en-US-Chirp3-HD-Corey"),
     }
     require(identity in allowed and
             isinstance(plan.get("voice_id"),str) and
@@ -381,11 +396,32 @@ def verify_element_tts_batch(*,source: Path,slides: Path,
                 and record.get("gemini_primary_attempts",0)>=3
                 and record.get("gemini_secondary_attempts",0)>=3,
                 "Cloud element TTS requires exhausted Gemini retries")
+    upstream=audio/"_producer"
+    model_manifest=upstream/"tts_input_manifest.json"
+    batch_script=upstream/"script.txt"
+    require(record.get("producer_manifest_sha256")==digest(model_manifest)
+            and record.get("producer_script_sha256")==digest(batch_script),
+            "Original element TTS batch identity or transcript changed")
+    from .tts_effective_identity import verify_effective_identity
+    from .runner import blocks
+    slots=blocks(batch_script.read_text(encoding="utf-8"))
+    effective=verify_effective_identity(read(model_manifest),slots)
+    require((effective["provider"],effective["model"],effective["voice"])
+            ==identity,
+            "Claimed element voice differs from actual producer batch receipt")
+    if effective["fallback_used"]:
+        from .tts_attempt_evidence import AttemptEvidence
+        AttemptEvidence.verify_saved(upstream,slots,
+                                    read(model_manifest)["attempt_evidence"])
+    elif provider=="chirp3":
+        raise ProductionRenderError("Cloud TTS without observed fallback is prohibited")
     expected=[element for part in plan["parts"] for slide in part["slides"]
               for element in slide["elements"]]
     chunks=record.get("elements")
     require(isinstance(chunks,list) and len(chunks)==len(expected),
             "Element TTS provenance does not cover all spoken elements")
+    require([text for _,text in slots] == [e["spoken_text"] for e in expected],
+            "Actual TTS batch differs from exact source-bound narrated words")
     for claimed,entry in zip(chunks,expected):
         require(isinstance(claimed,dict)
                 and claimed.get("wav")==entry["wav"]

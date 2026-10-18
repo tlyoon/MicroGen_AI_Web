@@ -123,6 +123,9 @@ class WorkerTests(unittest.TestCase):
     def test_prepared_element_media_runs_the_verified_video_stage(self):
         root=self.root/"8"/"8.1"
         (root/"slides.pdf").write_bytes(b"synthetic slides")
+        (root/"script.txt").write_text(
+            "**Slide 1 [20s]:\nA grounded narration segment.\n",
+            encoding="utf8")
         (root/"element_narration_plan.json").write_text("{}",encoding="utf8")
         (root/"element_wav").mkdir()
         calls=[]
@@ -145,6 +148,9 @@ class WorkerTests(unittest.TestCase):
     def test_prepared_element_media_failure_deferred_not_falsely_completed(self):
         root=self.root/"8"/"8.1"
         (root/"slides.pdf").write_bytes(b"synthetic slides")
+        (root/"script.txt").write_text(
+            "**Slide 1 [20s]:\nA grounded narration segment.\n",
+            encoding="utf8")
         (root/"element_narration_plan.json").write_text("{}",encoding="utf8")
         (root/"element_wav").mkdir()
         report={}

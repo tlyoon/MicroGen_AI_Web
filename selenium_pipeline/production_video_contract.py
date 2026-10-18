@@ -113,6 +113,10 @@ def verify_series(folder: Path, *, probe=None) -> dict:
             ("source_review_sha256","source_review_receipt.json"),
         ):
             _checked_hash(root/name,manifest.get(label),label)
+        if manifest.get("original_narration_script_sha256") is not None:
+            _checked_hash(root/"script.txt",
+                          manifest.get("original_narration_script_sha256"),
+                          "original_narration_script_sha256")
         _require(manifest.get("acceptance_scope")=="technical_only"
                  and manifest.get("human_academic_review_verified") is False
                  and manifest.get("student_published") is False,

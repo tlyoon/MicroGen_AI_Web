@@ -333,9 +333,11 @@ def process_job(
     # The new source-bound element producer is a separate prerequisite.
     # When its *actual per-element* WAVs and anchored plan are present,
     # invoke the accepted video stage on the owning PC (never static video).
-    prepared=(source.parent/"element_narration_plan.json").is_file() and (
-        source.parent/"element_wav").is_dir() and (
-        source.parent/"slides.pdf").is_file()
+    prepared=(source.parent/"slides.pdf").is_file() and (
+        source.parent/"script.txt").is_file()
+    # The normal runner performs a read-only strict source/slide/text/figure
+    # preflight before initiating any billable original element-level TTS.
+    # It does not treat pre-existing slideN.wav as element-level narration.
     if prepared:
         log=logs/f"{key}_round{attempt}_video.log"
         try:

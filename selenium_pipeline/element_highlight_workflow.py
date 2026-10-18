@@ -44,11 +44,16 @@ def source_bound_plan(*, source: Path, slides: Path, plan: Path,
     need(audio.is_dir() and not audio.is_symlink(),
          "Frozen recorded audio folder missing")
     data = read(plan)
+    valid_status=("author_specified_unapproved_element_narration",
+                  "machine_verified_exact_text_element_narration")
     need(data.get("schema_version") == 1
-         and data.get("status") == "author_specified_unapproved_element_narration"
+         and data.get("status") in valid_status
          and data.get("source_sha256") == digest(source)
          and data.get("slides_sha256") == digest(slides),
          "Stale, unapproved or unsourced element scene plan")
+    if data["status"] == "machine_verified_exact_text_element_narration":
+        from .automatic_element_narration import verify_automatic_source_mapping
+        verify_automatic_source_mapping(source=source,slides=slides,plan=data)
     voice = data.get("voice_id")
     need(isinstance(voice, str) and len(voice) >= 6 and
          "unknown" not in voice.casefold(), "Explicit narration voice required")
