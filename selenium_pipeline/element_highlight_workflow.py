@@ -174,6 +174,17 @@ def verify_rendered(*, source: Path, slides: Path, authored: Path,
              and rec.get("highlight_segments")==event_count
              and rec.get("decoded_pixel_verified_events")==event_count,
              "Not every narrated element received a decoded-pixel check")
+        events=timeline["events"]
+        expected_window_count=2*sum(len(x["element_ids"]) for x in events)
+        gaps=[(0,events[0]["start_ms"])]
+        gaps.extend((a["end_ms"],b["start_ms"]) for a,b in zip(events,events[1:]))
+        gaps.append((events[-1]["end_ms"],timeline["duration_ms"]))
+        expected_idle_count=sum(b-a>=80 for a,b in gaps)
+        need(qa.get("time_window_samples_checked")==expected_window_count
+             and len(qa.get("time_window_checks",[]))==expected_window_count
+             and qa.get("pause_samples_checked")==expected_idle_count
+             and len(qa.get("pause_checks",[]))==expected_idle_count,
+             "Incomplete speech-window or unhighlighted-pause encoded pixel checks")
         need(rec.get("mp4_sha256")==digest(mp4)
              and rec.get("wav_sha256")==digest(combined)
              and rec.get("decoded_pixel_qa_sha256")==digest(target/"encoded_pixel_qa.json")
@@ -230,8 +241,10 @@ def verify_rendered(*, source: Path, slides: Path, authored: Path,
                 geometry=geometry,timeline=timeline)
             need(independent.get("count_events")==event_count
                  and len(independent.get("checks",[]))==event_count
-                 and all(c.get("target_checks") for c in independent["checks"]),
-                 "Fresh decoded MP4 pixel audit failed")
+                 and all(c.get("target_checks") for c in independent["checks"])
+                 and independent.get("time_window_samples_checked")==expected_window_count
+                 and independent.get("pause_samples_checked")==expected_idle_count,
+                 "Fresh decoded speech-window and pause MP4 pixel audit failed")
         checks.append({"part_id":part_id,"encoded_duration_s":encoded["duration_s"],
                        "narrated_highlight_events":event_count,
                        "encoded_pixels_rechecked":bool(recheck_pixels),
