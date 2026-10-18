@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timedelta
 import tempfile
 import unittest
 from pathlib import Path
@@ -55,8 +56,15 @@ class ProviderEvidenceReconciliationTests(unittest.TestCase):
                 } for i in range(2)
             ],
         }
-        start = "2026-10-17T00:00:00Z"
-        end = "2026-10-18T00:00:00Z"
+        # Derive the aggregate billing window from the observed local UTC
+        # attempt. Fixed calendar dates caused this test to fail the next day.
+        observed = datetime.fromisoformat(
+            self.records[0]["observed_at_utc"].replace("Z", "+00:00"))
+        window_start = observed.replace(hour=0, minute=0, second=0,
+                                        microsecond=0)
+        start = window_start.isoformat().replace("+00:00", "Z")
+        end = (window_start + timedelta(days=1)).isoformat().replace(
+            "+00:00", "Z")
         self.billing = {
             "schema_version": 1,
             "kind": "billing_aggregate_export",
