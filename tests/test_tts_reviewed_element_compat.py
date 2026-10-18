@@ -79,6 +79,26 @@ class ReviewedSlideAudioCompatibilityTests(unittest.TestCase):
         self.assertFalse(result["student_published"])
         self.assertEqual(before,{p.name:sha(p) for p in self.audio.iterdir()})
 
+    def test_technical_handoff_without_human_approval_advances_compatibility(self):
+        path=self.audio/"tts_reviewed_handoff.json"
+        receipt=json.loads(path.read_text(encoding="utf-8"))
+        receipt.update({
+            "status":"AUDIO_TECHNICALLY_VERIFIED_ISOLATED_COPY",
+            "human_review_approved":False,
+            "technical_audio_qa_passed":True,
+            "attestation_sha256":None,
+        })
+        path.write_text(json.dumps(receipt),encoding="utf-8")
+        result=self.check()
+        self.assertEqual(result["status"],"REVIEW_ONLY_AUDIO_ELEMENT_COMPATIBILITY")
+        self.assertFalse(result["production_approved"])
+        self.assertFalse(result["student_published"])
+        # A false attestation masquerading as human acceptance never promotes.
+        receipt["human_review_approved"]=True
+        path.write_text(json.dumps(receipt),encoding="utf-8")
+        with self.assertRaisesRegex(ElementAudioIncompatible,"approval/provenance"):
+            self.check()
+
     def test_multi_element_on_a_slide_is_not_mapped_from_one_wav(self):
         entry = self.fixture.plan_data["parts"][0]["slides"][0]
         extra = dict(entry["elements"][0], wav="some_other_element.wav")
@@ -114,7 +134,7 @@ class ReviewedSlideAudioCompatibilityTests(unittest.TestCase):
     def test_audio_lacks_independent_review_receipt(self):
         (self.audio/"tts_reviewed_handoff.json").unlink()
         with self.assertRaisesRegex(ElementAudioIncompatible,
-                                    "independently reviewed"):
+                                    "verified isolated audio handoff"):
             self.check()
 
     def test_review_audio_has_wrong_source_folder(self):

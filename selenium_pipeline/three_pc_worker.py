@@ -247,10 +247,9 @@ def stage_recorded(source: Path, stage: str) -> bool:
     figures go missing. Defer rather than advancing to the next stage.
     """
     if stage == "video":
-        from .lecture_release_gate import verify_academic_lecture
+        from .production_video_contract import verify_series
         try:
-            verify_academic_lecture(source.parent)
-            return True
+            return verify_series(source.parent)["status"] == "accepted_synchronized_series"
         except (OSError, ValueError):
             return False
     if stage not in STAGES or not source.is_file():
@@ -316,24 +315,19 @@ def process_job(
     except (VideoContractError, OSError, ValueError):
         verified = None
     if verified is not None:
-        from .lecture_release_gate import verify_academic_lecture
-        try:
-            reviewed = verify_academic_lecture(source.parent)
-        except (OSError, ValueError) as exc:
-            report[key] = {
-                "status": "deferred", "stage": "academic_review",
-                "round": attempt, "technical_video_verified": True,
-                "error": "Technical video is preserved but human academic/listening "
-                         f"approval is pending: {exc}",
-                "updated_utc": timestamp(),
-            }
-            persist()
-            return False
-        report[key] = {"status": "complete", "stage": "video",
-                       "round": attempt, "verified": True,
-                       "contract": reviewed["status"],
-                       "student_published": False,
-                       "updated_utc": timestamp()}
+        # Approved policy: proceed after machine-verifiable QA. A missing
+        # lecturer listening/academic attestation may be reported but never
+        # changes this internal stage's completion state.
+        report[key] = {
+            "status": "complete", "stage": "video",
+            "round": attempt, "verified": True,
+            "contract": verified["status"],
+            "acceptance_scope": "technical_only",
+            "human_academic_review": "optional_not_required_for_stage_progression",
+            "production_release_approved": False,
+            "student_published": False,
+            "updated_utc": timestamp(),
+        }
         persist()
         return True
     if completed_lecture(source):

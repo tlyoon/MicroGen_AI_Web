@@ -99,23 +99,24 @@ class WorkerTests(unittest.TestCase):
         self.assertEqual(report["8.2"]["status"], "deferred")
         self.assertIn("Historical video completion", report["8.2"]["error"])
 
-    def test_technically_verified_video_without_human_review_is_deferred(self):
+    def test_technically_verified_video_advances_without_human_review(self):
         source_dir=self.root/"8"/"8.1"
         source=(source_dir/"source.pdf")
         prior=source.read_bytes()
         log={}
         with patch("selenium_pipeline.production_video_contract.verify_series",
                    return_value={"status":"accepted_synchronized_series"}):
-            with patch("selenium_pipeline.lecture_release_gate.verify_series",
-                       return_value={"status":"accepted_synchronized_series"}):
-                with patch("selenium_pipeline.three_pc_worker.run_stage",
-                           side_effect=AssertionError("must not regenerate or publish")):
-                    self.assertFalse(process_job(
-                        self.root,"8.1",9222,1,self.root/"logs",
-                        self.root/"lane",900,3600,log,lambda:None))
-        self.assertEqual(log["8.1"]["stage"],"academic_review")
-        self.assertEqual(log["8.1"]["status"],"deferred")
-        self.assertTrue(log["8.1"]["technical_video_verified"])
+            with patch("selenium_pipeline.three_pc_worker.run_stage",
+                       side_effect=AssertionError("must not regenerate or publish")):
+                self.assertTrue(process_job(
+                    self.root,"8.1",9222,1,self.root/"logs",
+                    self.root/"lane",900,3600,log,lambda:None))
+        self.assertEqual(log["8.1"]["stage"],"video")
+        self.assertEqual(log["8.1"]["status"],"complete")
+        self.assertEqual(log["8.1"]["acceptance_scope"],"technical_only")
+        self.assertEqual(log["8.1"]["human_academic_review"],
+                         "optional_not_required_for_stage_progression")
+        self.assertFalse(log["8.1"]["student_published"])
         self.assertEqual(source.read_bytes(),prior)
         self.assertFalse((source_dir/"lecture_human_approval.json").exists())
 

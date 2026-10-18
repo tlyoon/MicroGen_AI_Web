@@ -201,51 +201,59 @@ def audit(source: Path, review: Path) -> dict:
     }
 
 
-def export_reviewed(source: Path, review: Path, destination: Path, *,
-                    attestation_path: Path, confirm_reviewed_audio: bool,
-                    confirm_isolated_export: bool) -> dict:
-    """Copy approved audio to a fresh isolated directory; NEVER replace source."""
-    if not confirm_reviewed_audio or not confirm_isolated_export:
+def _export(source: Path, review: Path, destination: Path, *,
+            attestation_path: Path | None,
+            confirm_reviewed_audio: bool,
+            confirm_isolated_export: bool) -> dict:
+    """Copy fully technically verified audio with OPTIONAL human review.
+
+    No human attestation is needed to advance to the next internal stage.
+    The separate human-reviewed label remains reserved for actual signoff.
+    Neither path authorizes student publication or replaces original WAVs.
+    """
+    if attestation_path is not None and (
+            not confirm_reviewed_audio or not confirm_isolated_export):
         raise AudioPromotionBlocked("Both explicit reviewed-audio and isolated-export flags required")
     verification = audit(source, review)
-    if attestation_path.is_symlink() or not attestation_path.is_file():
-        raise AudioPromotionBlocked("Independent review attestation is missing or unsafe")
-    attestation_location = attestation_path.resolve(strict=True)
-    source_location = source.resolve(strict=True)
-    review_location = review.resolve(strict=True)
-    if (attestation_location == source_location
-            or source_location in attestation_location.parents
-            or attestation_location == review_location
-            or review_location in attestation_location.parents):
-        raise AudioPromotionBlocked(
-            "Attestation must be independently supplied outside the original/review tree")
-    try:
-        attestation = json.loads(attestation_path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeDecodeError, ValueError) as exc:
-        raise AudioPromotionBlocked("Invalid external attestation") from exc
-    if not isinstance(attestation, dict):
-        raise AudioPromotionBlocked("Independent attestation must be a JSON object")
-    for key in ("receipt_sha256", "fidelity_report_sha256",
-                "source_script_sha256", "source_manifest_sha256",
-                "candidate_wav_sha256"):
-        if attestation.get(key) != verification[key]:
-            raise AudioPromotionBlocked(f"External reviewer attestation does not match {key}")
-    if (verification["fallback_used"] and
-            attestation.get("attempt_evidence_sha256")
-                != verification["attempt_evidence_sha256"]):
-        raise AudioPromotionBlocked(
-            "Human reviewer did not attest to the actual retry-attempt journal")
-    if (not isinstance(attestation.get("reviewer"), str)
-            or attestation.get("reviewer", "").strip() in ("", "automated", "ChatGPT")
-            or attestation.get("review_scope") != "tts-audio-only"
-            or attestation.get("audio_listened") is not True
-            or attestation.get("mathematical_pronunciation_reviewed") is not True
-            or attestation.get(verification["voice_listening_field"]) is not True
-            or (verification["fallback_used"]
-                and attestation.get("fallback_provider_change_reviewed") is not True)
-            or not isinstance(attestation.get("reviewed_at_utc"), str)
-            or not attestation["reviewed_at_utc"].endswith("Z")):
-        raise AudioPromotionBlocked("Independent human listening and voice/maths signoff missing")
+    if attestation_path is not None:
+        if attestation_path.is_symlink() or not attestation_path.is_file():
+            raise AudioPromotionBlocked("Independent review attestation is missing or unsafe")
+        attestation_location = attestation_path.resolve(strict=True)
+        source_location = source.resolve(strict=True)
+        review_location = review.resolve(strict=True)
+        if (attestation_location == source_location
+                or source_location in attestation_location.parents
+                or attestation_location == review_location
+                or review_location in attestation_location.parents):
+            raise AudioPromotionBlocked(
+                "Attestation must be independently supplied outside the original/review tree")
+        try:
+            attestation = json.loads(attestation_path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError, ValueError) as exc:
+            raise AudioPromotionBlocked("Invalid external attestation") from exc
+        if not isinstance(attestation, dict):
+            raise AudioPromotionBlocked("Independent attestation must be a JSON object")
+        for key in ("receipt_sha256", "fidelity_report_sha256",
+                    "source_script_sha256", "source_manifest_sha256",
+                    "candidate_wav_sha256"):
+            if attestation.get(key) != verification[key]:
+                raise AudioPromotionBlocked(f"External reviewer attestation does not match {key}")
+        if (verification["fallback_used"] and
+                attestation.get("attempt_evidence_sha256")
+                    != verification["attempt_evidence_sha256"]):
+            raise AudioPromotionBlocked(
+                "Human reviewer did not attest to the actual retry-attempt journal")
+        if (not isinstance(attestation.get("reviewer"), str)
+                or attestation.get("reviewer", "").strip() in ("", "automated", "ChatGPT")
+                or attestation.get("review_scope") != "tts-audio-only"
+                or attestation.get("audio_listened") is not True
+                or attestation.get("mathematical_pronunciation_reviewed") is not True
+                or attestation.get(verification["voice_listening_field"]) is not True
+                or (verification["fallback_used"]
+                    and attestation.get("fallback_provider_change_reviewed") is not True)
+                or not isinstance(attestation.get("reviewed_at_utc"), str)
+                or not attestation["reviewed_at_utc"].endswith("Z")):
+            raise AudioPromotionBlocked("Independent human listening and voice/maths signoff missing")
     if destination.exists() or destination.is_symlink():
         raise AudioPromotionBlocked("Destination already exists; no replacement permitted")
     dest_parent = destination.parent.resolve(strict=True)
@@ -290,10 +298,16 @@ def export_reviewed(source: Path, review: Path, destination: Path, *,
             raise AudioPromotionBlocked("Review evidence changed during export")
         # An isolated audio handoff NEVER carries downstream release authority.
         handoff = {
-            **verification, "status": "AUDIO_REVIEWED_ISOLATED_COPY",
+            **verification,
+            "status": ("AUDIO_REVIEWED_ISOLATED_COPY"
+                       if attestation_path is not None else
+                       "AUDIO_TECHNICALLY_VERIFIED_ISOLATED_COPY"),
             "destination": str(destination.absolute()),
-            "attestation_sha256": _digest(attestation_path.read_bytes()),
-            "human_review_approved": True,
+            "attestation_sha256": (_digest(attestation_path.read_bytes())
+                                   if attestation_path is not None else None),
+            "human_review_approved": attestation_path is not None,
+            "human_review_required_for_next_stage": False,
+            "technical_audio_qa_passed": True,
             "video_publication_approved": False,
         }
         with (staged / "tts_reviewed_handoff.json").open("x", encoding="utf-8") as stream:
@@ -308,6 +322,23 @@ def export_reviewed(source: Path, review: Path, destination: Path, *,
     return handoff
 
 
+def export_verified(source: Path, review: Path, destination: Path) -> dict:
+    """Standard unattended, source-hash-bound audio handoff, no human gate."""
+    return _export(source,review,destination,attestation_path=None,
+                   confirm_reviewed_audio=False,confirm_isolated_export=False)
+
+
+def export_reviewed(source: Path, review: Path, destination: Path, *,
+                    attestation_path: Path, confirm_reviewed_audio: bool,
+                    confirm_isolated_export: bool) -> dict:
+    """Optional independent human signoff; label must never be fabricated."""
+    if attestation_path is None:
+        raise AudioPromotionBlocked("Human-reviewed export requires real attestation")
+    return _export(source,review,destination,attestation_path=attestation_path,
+                   confirm_reviewed_audio=confirm_reviewed_audio,
+                   confirm_isolated_export=confirm_isolated_export)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Audit TTS repairs, optionally export separately reviewed audio")
     parser.add_argument("--source", type=Path, required=True)
@@ -318,14 +349,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--confirm-isolated-export", action="store_true")
     args = parser.parse_args(argv)
     if args.destination is not None:
-        if args.attestation is None:
-            parser.error("Reviewed export requires --attestation")
-        result = export_reviewed(
-            args.source, args.review, args.destination,
-            attestation_path=args.attestation,
-            confirm_reviewed_audio=args.confirm_reviewed_audio,
-            confirm_isolated_export=args.confirm_isolated_export,
-        )
+        if args.attestation is not None:
+            result = export_reviewed(
+                args.source, args.review, args.destination,
+                attestation_path=args.attestation,
+                confirm_reviewed_audio=args.confirm_reviewed_audio,
+                confirm_isolated_export=args.confirm_isolated_export,
+            )
+        else:
+            if args.confirm_reviewed_audio:
+                parser.error("Cannot declare human-reviewed audio without an attestation")
+            result = export_verified(args.source,args.review,args.destination)
     else:
         if args.attestation or args.confirm_reviewed_audio or args.confirm_isolated_export:
             parser.error("Review confirmation flags may only be supplied with --destination")

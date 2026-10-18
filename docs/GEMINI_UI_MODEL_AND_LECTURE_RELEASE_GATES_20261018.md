@@ -1,3 +1,5 @@
+> **SUPERSEDED MANDATORY-HUMAN STAGE GATE (18 October 2026):** The owner now explicitly authorizes **unattended internal stage progression on verified technical QA**. This document's human approval requirements are optional for internal generation and review handoffs; they do **not** control whether the next internal stage starts. External student publication remains a separate authorized action. See [latest owner amendment](OWNER_AMENDMENT_AUTOMATIC_INTERNAL_STAGE_PROGRESS_20261018.md). The original narrative below is historical.
+
 # Gemini UI model evidence and explicit lecture-release gates
 
 **18 October 2026 — supplemental contract hardening, draft only.**

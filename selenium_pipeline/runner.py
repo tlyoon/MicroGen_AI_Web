@@ -374,9 +374,12 @@ def valid(stage: str, folder: Path) -> bool:
             >= float(report.get("threshold_percent", 99.0))
         )
     if stage == "video":
-        from .lecture_release_gate import verify_academic_lecture
-        return (verify_academic_lecture(folder)["status"]
-                == "explicit_human_reviewed_lecture")
+        # Owner's 18 Oct amendment: human review is OPTIONAL and may not
+        # block transition to the next INTERNAL processing stage.
+        # This verifier proves technical readiness, never academic approval,
+        # public release or authorization to overwrite existing assets.
+        from .production_video_contract import verify_series
+        return verify_series(folder)["status"] == "accepted_synchronized_series"
     return False
 
 

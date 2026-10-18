@@ -17,6 +17,7 @@ from selenium_pipeline.element_highlight_workflow import (
 from selenium_pipeline.review_candidate_handoff import (
     CandidateHandoffError, REVIEW_FLAGS,
     check_human_review, inspect_candidate, sha, stage_human_reviewed_candidate,
+    stage_technically_verified_candidate,
 )
 from tests.test_generic_element_highlight_workflow import (
     GenericHighlightWorkflowTests as _BaseReviewFixture,
@@ -72,7 +73,7 @@ class CandidateHandoffTests(unittest.TestCase):
     def test_no_human_approval_does_not_create_candidate_or_approval(self):
         candidate=inspect_candidate(**self.args())
         self.assertEqual(candidate["status"],
-                         "TECHNICALLY_VERIFIED_CANDIDATE_AWAITING_HUMAN_REVIEW")
+                         "TECHNICALLY_VERIFIED_CANDIDATE_READY_FOR_NEXT_INTERNAL_STAGE")
         self.assertFalse(candidate["production_approved"])
         self.assertFalse(candidate["student_published"])
         self.assertFalse(self.destination.exists())
@@ -81,6 +82,40 @@ class CandidateHandoffTests(unittest.TestCase):
             # The technical evidence alone is not a production lecture receipt.
             from selenium_pipeline.production_video_contract import verify_series
             verify_series(self.review)
+
+    def test_unattended_technical_candidate_advances_without_any_human_review(self):
+        packet=stage_technically_verified_candidate(
+            **self.args(),destination=self.destination)
+        self.assertEqual(
+            packet["status"],"TECHNICALLY_VERIFIED_ISOLATED_CANDIDATE_NOT_PUBLISHED")
+        self.assertFalse(packet["human_review_record_verified"])
+        self.assertFalse(packet["human_review_required_for_next_stage"])
+        self.assertIsNone(packet["independent_review_sha256"])
+        self.assertFalse(packet["production_approved"])
+        self.assertFalse(packet["student_published"])
+        self.assertFalse((self.destination/"independent_human_review.json").exists())
+        self.assertFalse((self.destination/"lecture_completion.json").exists())
+        self.assertFalse(self.approval.exists())
+        for name,digest in packet["evidence"]["files"].items():
+            self.assertEqual(sha(self.destination/name),digest)
+        restored=verify_rendered(
+            source=self.destination/"source.pdf",
+            slides=self.destination/"slides.pdf",
+            authored=self.destination/"authored_element_plan.json",
+            audio=self.destination/"frozen_audio",
+            staged=self.destination/"staged",
+            rendered=self.destination/"rendered",output=None)
+        self.assertEqual(restored["status"],"COMPLETE_ELEMENT_HIGHLIGHT_TECHNICAL_REVIEW_ONLY")
+        self.assertEqual(sha(self.source),self.source_sha)
+        self.assertEqual(sha(self.slides),self.slides_sha)
+        self.assertEqual({p.name:sha(p) for p in self.audio.glob("*.wav")},self.wav_sha)
+
+    def test_unattended_candidate_rejects_corrupt_original_and_existing_target(self):
+        self.assertFalse(self.destination.exists())
+        stage_technically_verified_candidate(**self.args(),destination=self.destination)
+        with self.assertRaisesRegex(CandidateHandoffError,"destination"):
+            stage_technically_verified_candidate(**self.args(),destination=self.destination)
+        self.assertFalse((self.destination/"lecture_student_publication_authorization.json").exists())
 
     def test_missing_human_review_fail_closed_without_creating_destination(self):
         with self.assertRaises((ValueError, OSError)):

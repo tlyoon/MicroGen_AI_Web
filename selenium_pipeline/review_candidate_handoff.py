@@ -183,7 +183,7 @@ def inspect_candidate(*, source: Path, slides: Path, authored: Path,
         "student_published": False,
     }
     return {
-        "status": "TECHNICALLY_VERIFIED_CANDIDATE_AWAITING_HUMAN_REVIEW",
+        "status": "TECHNICALLY_VERIFIED_CANDIDATE_READY_FOR_NEXT_INTERNAL_STAGE",
         "candidate_sha256": canonical(evidence),
         "evidence": evidence,
         "human_approval_verified": False,
@@ -237,31 +237,37 @@ def check_human_review(candidate: dict, approval_path: Path, *,
     }
 
 
-def stage_human_reviewed_candidate(*, source: Path, slides: Path,
-                                  authored: Path, audio: Path, review_root: Path,
-                                  approval: Path, destination: Path) -> dict:
-    """Package reviewed media into a NEW isolated folder, never publish it.
+def _stage_candidate(*, source: Path, slides: Path,
+                     authored: Path, audio: Path, review_root: Path,
+                     destination: Path, approval: Path | None = None) -> dict:
+    """Automatically package technically checked review media.
 
-    Every source and review byte is checked AGAINST the preflight fingerprint
-    before and after a fresh exclusive copy. No student/production receipt.
+    Human approval is OPTIONAL for internal stages under the owner's amended
+    contract. Supplying an independent approval triggers validation, but no
+    approval is created or claimed when absent. Never publishes student
+    materials or writes an accepted production receipt.
     """
     source, slides, authored, audio, review = _paths(
         source=source, slides=slides, authored=authored,
         audio=audio, review_root=review_root)
-    approval = Path(approval).absolute()
+    approval = Path(approval).absolute() if approval is not None else None
     dest = Path(destination).absolute()
     required(not dest.exists() and not dest.is_symlink()
              and dest.parent.is_dir() and not dest.parent.is_symlink(),
              "Candidate destination must be new, existing-parent, non-symlink directory")
     dest = dest.resolve()
+    protected=(source.parent, audio, review)
+    if approval is not None:
+        protected+= (approval.parent,)
     required(all(not dest.is_relative_to(p) and not p.is_relative_to(dest)
-                 for p in (source.parent, audio, review, approval.parent)),
+                 for p in protected),
              "Candidate destination must be isolated from source, media and approval")
     expected = inspect_candidate(
         source=source, slides=slides, authored=authored,
         audio=audio, review_root=review)
-    accepted = check_human_review(
+    accepted = (check_human_review(
         expected, approval, source=source, audio=audio, review_root=review)
+        if approval is not None else None)
     files = expected["evidence"]["files"]
     originals = {
         "source.pdf": source,
@@ -302,10 +308,11 @@ def stage_human_reviewed_candidate(*, source: Path, slides: Path,
                 shutil.copyfileobj(src, dst, length=1 << 20)
             required(sha(target) == files[relative],
                      f"Candidate copy hash differs: {relative}")
-        with approval.open("rb") as src, (dest/"independent_human_review.json").open("xb") as dst:
-            shutil.copyfileobj(src, dst)
-        required(sha(dest/"independent_human_review.json") == accepted["approval_sha256"],
-                 "Copied human review was changed")
+        if accepted is not None:
+            with approval.open("rb") as src, (dest/"independent_human_review.json").open("xb") as dst:
+                shutil.copyfileobj(src, dst)
+            required(sha(dest/"independent_human_review.json") == accepted["approval_sha256"],
+                     "Copied human review was changed")
         required(all(sha(origin) == files[name] for name, origin in origins.items()),
                  "Original media changed while creating candidate")
         # Prove the transferred, self-contained package can independently
@@ -321,12 +328,15 @@ def stage_human_reviewed_candidate(*, source: Path, slides: Path,
                  "Repacked candidate cannot reproduce fresh technical evidence")
         packet = {
             "schema_version": 1,
-            "status": "HUMAN_REVIEWED_TECHNICAL_CANDIDATE_NOT_PUBLISHED",
+            "status": ("HUMAN_REVIEWED_TECHNICAL_CANDIDATE_NOT_PUBLISHED"
+                       if accepted else
+                       "TECHNICALLY_VERIFIED_ISOLATED_CANDIDATE_NOT_PUBLISHED"),
             "candidate_sha256": expected["candidate_sha256"],
             "evidence": expected["evidence"],
-            "independent_review_sha256": accepted["approval_sha256"],
+            "independent_review_sha256": (accepted["approval_sha256"] if accepted else None),
             "technical_source_identity_verified": True,
-            "human_review_record_verified": True,
+            "human_review_record_verified": accepted is not None,
+            "human_review_required_for_next_stage": False,
             "voice_origin_independently_verified": False,
             "production_completion_receipt_created": False,
             "production_approved": False,
@@ -342,6 +352,27 @@ def stage_human_reviewed_candidate(*, source: Path, slides: Path,
         raise
 
 
+def stage_technically_verified_candidate(*, source: Path, slides: Path,
+                                         authored: Path, audio: Path,
+                                         review_root: Path, destination: Path) -> dict:
+    """Standard, unattended internal-stage handoff. No human review needed."""
+    return _stage_candidate(
+        source=source, slides=slides, authored=authored,
+        audio=audio, review_root=review_root, destination=destination)
+
+
+def stage_human_reviewed_candidate(*, source: Path, slides: Path,
+                                  authored: Path, audio: Path, review_root: Path,
+                                  approval: Path, destination: Path) -> dict:
+    """Optional extra human-reviewed candidate path; never student publication."""
+    if approval is None:
+        raise CandidateHandoffError("Explicit approval required for human-reviewed label")
+    return _stage_candidate(
+        source=source, slides=slides, authored=authored,
+        audio=audio, review_root=review_root, approval=approval,
+        destination=destination)
+
+
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description="Review-only candidate fingerprint or isolated handoff")
     for name in ("source","slides","authored","audio","review-root"):
@@ -351,11 +382,15 @@ def main(argv=None) -> int:
     a=p.parse_args(argv)
     args=dict(source=a.source,slides=a.slides,authored=a.authored,
               audio=a.audio,review_root=a.review_root)
-    if bool(a.approval) != bool(a.destination):
-        p.error("Independent --approval and fresh --destination must be supplied together")
-    result=(stage_human_reviewed_candidate(**args,approval=a.approval,
-                                         destination=a.destination)
-            if a.approval else inspect_candidate(**args))
+    if a.approval and not a.destination:
+        p.error("--approval requires a fresh --destination")
+    result = (
+        stage_human_reviewed_candidate(
+            **args, approval=a.approval, destination=a.destination)
+        if a.approval else
+        stage_technically_verified_candidate(**args, destination=a.destination)
+        if a.destination else inspect_candidate(**args)
+    )
     print(json.dumps(result,indent=2,ensure_ascii=False))
     return 0
 

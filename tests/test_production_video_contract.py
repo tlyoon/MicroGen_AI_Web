@@ -171,8 +171,9 @@ class ContractAcceptanceTests(unittest.TestCase):
         # Production always probes the real MP4 using the installed FFmpeg.
         with patch("selenium_pipeline.production_video_contract._mp4_duration",
                    return_value=98.0):
-            # A technically valid MP4 is not automatically academically accepted.
-            self.assertFalse(check_valid("video",self.root))
+            # Internal stage progression is technical, not human-approved.
+            self.assertTrue(check_valid("video",self.root))
+            self.assertFalse((self.root/"lecture_human_approval.json").exists())
             (self.root/"slides.pdf").write_bytes(b"synthetic deck")
             (self.root/"script.txt").write_text(
                 "**Slide 1 [10 sec]:\\nSynthetic math narration**".replace("\\n","\n"),
