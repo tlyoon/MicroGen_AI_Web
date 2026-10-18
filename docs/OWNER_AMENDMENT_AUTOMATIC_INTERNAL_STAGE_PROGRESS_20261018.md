@@ -1,3 +1,5 @@
+> **YOUTUBE PUBLICATION ADDENDUM — 18 October 2026:** The owner explicitly authorizes automatic publication of fully technically verified lecture videos to their **YouTube channel**, not Moodle. No human academic approval is required for this authorized YouTube publishing workflow. A pinned exact YouTube channel, one designated publisher machine, source/figure/audio/<600-second/highlight QA and resumable SHA-256 evidence remain mandatory. The uploader is implemented in a draft adapter, but no live upload has been performed. See [YouTube course publisher](YOUTUBE_COURSE_PUBLISH_ADAPTER_20261018.md). Earlier generic student-publication wording is superseded only for this specific approved YouTube mode; it never grants Moodle access.
+
 # MicroGen_AI_Web — Owner Amendment: Automatic Internal Stage Progression
 
 **Effective 18 October 2026. Latest explicit instruction by the project owner.**

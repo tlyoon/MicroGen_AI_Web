@@ -1,3 +1,5 @@
+> **ADDITIONAL OWNER-APPROVED YOUTUBE PUBLICATION (18 October 2026):** Automatic posting of technically accepted lecture MP4s to the pinned owner YouTube channel is authorized, without per-lecture human approval. Moodle publication remains prohibited. See [YouTube publisher](YOUTUBE_COURSE_PUBLISH_ADAPTER_20261018.md).
+
 # MicroGen_AI_Web effective contract and supersession index
 
 > **LATEST BINDING OWNER AMENDMENT — 18 October 2026:** Human approval is **not required** to proceed to the next internal MicroGen generation/development stage once machine-verifiable QA passes. Human math/listening/figure review is optional for internal progression, not a prerequisite. Student-facing publication remains separately authorized and cannot be inferred from technical QA. Read [Automatic Internal Stage Progression](OWNER_AMENDMENT_AUTOMATIC_INTERNAL_STAGE_PROGRESS_20261018.md) before interpreting any earlier mandatory-human-gate wording. Older contradictory text is superseded, retained for history.
