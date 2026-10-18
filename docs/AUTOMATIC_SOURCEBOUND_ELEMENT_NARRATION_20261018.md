@@ -1,3 +1,5 @@
+> **PR #139 EXTENSION:** The formerly one-block-only requirement below now extends to multiple distinct, explicitly paragraph-delimited, verbatim source-grounded text blocks per slide. No images, vector figures or ambiguous math are permitted. See [verified multi-element narration](VERIFIED_MULTI_ELEMENT_NARRATION_20261018.md).
+
 # MicroGen_AI_Web — automatic exact-text element narration & TTS
 
 **18 October 2026. Draft source-grounded upstream bridge, stacked on PR #137.**

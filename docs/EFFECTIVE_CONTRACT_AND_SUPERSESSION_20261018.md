@@ -1,3 +1,5 @@
+> **PR #139 MACHINE-VERIFIED MULTI-ELEMENT TEXT:** Multiple spoken text elements on one slide are now individually source/geometry/WAV/decoded-highlight bound without human approval. Multi-panel figures, vector diagrams and ambiguous math remain blocked, not auto-approved. See [multi-element verification](VERIFIED_MULTI_ELEMENT_NARRATION_20261018.md).
+
 > **LATEST OWNER AUTONOMY (18 October 2026):** Proceed automatically through subsequent contract-safe development steps rather than requesting routine consent. Stop at genuine owner discretion or session boundaries and record a durable checkpoint. See [standing autonomous development protocol](AUTONOMOUS_DEVELOPMENT_PROTOCOL_20261018.md).
 
 > **SOURCE-BOUND UPSTREAM ELEMENT AUDIO — DRAFT:** A conservative text-only exact-source planner now produces original per-element TTS under the established Flash-Lite/Kore fallback policy, with no human signoff requirement. Unsupported figure/semantic mapping still fails closed. See [automatic element narration](AUTOMATIC_SOURCEBOUND_ELEMENT_NARRATION_20261018.md).

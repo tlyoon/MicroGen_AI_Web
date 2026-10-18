@@ -1,5 +1,7 @@
 # MicroGen_AI_Web
 
+**Draft PR #139 — exact multi-element narration:** [Verified distinct spoken slide blocks](docs/VERIFIED_MULTI_ELEMENT_NARRATION_20261018.md). The source-bound planner now supports multiple separate, sequential, verbatim narrated blocks on one slide; no vector/raster/multipanel figure or source/reading-order ambiguity is approved. The immutable WAV/TTS policy and automatic QA remain in force.
+
 **Standing owner-authorized autonomy:** [Development protocol](docs/AUTONOMOUS_DEVELOPMENT_PROTOCOL_20261018.md). Continue contract-safe engineering steps without per-stage 'Proceed' requests; checkpoint and seek discretion only at genuine authorization boundaries.
 
 **New draft upstream element TTS:** [Exact-text source-bound narration and original WAV stage](docs/AUTOMATIC_SOURCEBOUND_ELEMENT_NARRATION_20261018.md). Strict unsupported figure/semantic mappings block before billing; the normal highlighted-video runner uses real element-level audio only after source and TTS provenance checks.

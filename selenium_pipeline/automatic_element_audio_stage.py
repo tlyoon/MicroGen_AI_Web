@@ -75,7 +75,10 @@ def produce_element_audio(*,source:Path,slides:Path,script:Path,
     need(all(not path.exists() and not path.is_symlink() for path in outputs),
          "Element stage already exists; never overwrite or silently resume")
     evidence=inspect_text_only(source=source,slides=slides,script=script)
-    fragments=[entry["elements"][0]["spoken_text"] for entry in evidence["elements"]]
+    references=[(slide["slide"],ordinal,item)
+                for slide in evidence["elements"]
+                for ordinal,item in enumerate(slide["elements"],1)]
+    fragments=[item["spoken_text"] for _,_,item in references]
     # Preflight script encoding and exact TTS parser roundtrip before billing.
     tts_script="".join(f"**Slide {n} [30s]:\n\n{text}\n\n"
                        for n,text in enumerate(fragments,1))
@@ -117,9 +120,9 @@ def produce_element_audio(*,source:Path,slides:Path,script:Path,
         audio_dir=outputs[1]
         audio_dir.mkdir()
         created.append(audio_dir)
-        for n,entry in enumerate(evidence["elements"],1):
+        for n,(_,_,entry) in enumerate(references,1):
             original=work/f"slide{n}.wav"
-            target=audio_dir/entry["elements"][0]["wav"]
+            target=audio_dir/entry["wav"]
             with original.open("rb") as src,target.open("xb") as dst:
                 shutil.copyfileobj(src,dst)
             need(sha(original)==sha(target),"TTS WAV changed during copy")
@@ -161,13 +164,13 @@ def produce_element_audio(*,source:Path,slides:Path,script:Path,
             "gemini_primary_attempts":(3 if effective["provider"]=="chirp3" else 0),
             "gemini_secondary_attempts":(3 if effective["provider"]=="chirp3" else 0),
             "elements":[{
-                "wav":entry["elements"][0]["wav"],
-                "sha256":sha(audio_dir/entry["elements"][0]["wav"]),
+                "wav":entry["wav"],
+                "sha256":sha(audio_dir/entry["wav"]),
                 "spoken_text_sha256":_digest(text.encode("utf-8")),
                 "provider":effective["provider"],
                 "model":effective["model"],
                 "voice":effective["voice"],
-            } for entry,text in zip(evidence["elements"],fragments)]
+            } for (_,_,entry),text in zip(references,fragments)]
         }
         # Only original observed evidence, not counters above, can authorize
         # Cloud TTS. The producer's saved retry journal is mandatory on fallback.
