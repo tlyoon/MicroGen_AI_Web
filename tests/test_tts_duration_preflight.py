@@ -36,6 +36,15 @@ class PreflightTests(unittest.TestCase):
         self.assertGreater(result["parts"][0]["slow_rate_plus_reserve_s"],
                            result["parts"][0]["pilot_rate_s"])
 
+    def test_strict_600_second_default_and_weak_overrides_rejected(self):
+        p,r,c=sample()
+        result=calculate(p,r,[c])
+        self.assertEqual(result["strict_video_limit_seconds"],600.0)
+        for bad in (600.1,620,629.9,630,float("inf"),float("nan"),True):
+            with self.subTest(limit=bad), self.assertRaisesRegex(CalibrationError,"duration policy"):
+                calculate(p,r,[c],limit_seconds=bad)
+        self.assertEqual(calculate(p,r,[c],limit_seconds=599.9)["strict_video_limit_seconds"],599.9)
+
     def test_mismatched_spoken_hash_rejected(self):
         p,r,c=sample()
         p["narration_segments"][0]["spoken_text"]+=" corrupted"

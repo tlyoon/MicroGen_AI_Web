@@ -1,3 +1,14 @@
+"""Disabled legacy PNG/MoviePy static video generator.
+
+Original source is preserved below as historical implementation, but executing
+or importing it must never overwrite a lecture MP4 or bypass the highlighted
+multipart final contract.
+"""
+raise RuntimeError(
+    "Legacy PNG/static slide video publishing disabled: strict <600-second "
+    "synchronized multipart and source-bound publication acceptance required."
+)
+
 from PIL import Image
 import os, sys, time
 import re

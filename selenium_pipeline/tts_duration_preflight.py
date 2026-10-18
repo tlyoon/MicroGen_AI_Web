@@ -42,7 +42,7 @@ def _segments(storyboard):
 
 
 def calculate(pilot, receipt, candidates, *, video_seconds=None,
-              slowdown=.20, reserve_seconds=24., limit_seconds=630.):
+              slowdown=.20, reserve_seconds=24., limit_seconds=600.):
     seq = _segments(pilot)
     if (not isinstance(receipt, dict) or
             receipt.get("status") != "wave_chunk_timing_verified_spoken_content_unreviewed"):
@@ -55,8 +55,10 @@ def calculate(pilot, receipt, candidates, *, video_seconds=None,
     if (type(slowdown) not in (int, float) or not 0 <= slowdown < 1 or
             type(reserve_seconds) not in (int, float) or reserve_seconds < 0 or
             not math.isfinite(reserve_seconds) or
-            type(limit_seconds) not in (int, float) or limit_seconds <= 0):
-        raise CalibrationError("Invalid duration policy")
+            type(limit_seconds) not in (int, float) or
+            not math.isfinite(limit_seconds) or
+            not 0 < limit_seconds <= 600):
+        raise CalibrationError("Invalid duration policy: strict ceiling is <600 seconds")
     voices = set()
     rates = set()
     audio_s = 0.

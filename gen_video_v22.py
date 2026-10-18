@@ -163,6 +163,14 @@ def _concat(segments: list[Path], output: Path) -> None:
 
 
 def main() -> None:
+    # Historical v22 encodes static slides and once unlinked an existing MP4.
+    # It cannot certify per-element spoken-time highlights or multipart
+    # <600-second delivery. Never touch existing lecture files here.
+    raise RuntimeError(
+        "Legacy static video entry point disabled by the MicroGen_AI_Web "
+        "contract: no source-bound multipart highlighting or safe publication. "
+        "Use the verified reviewed-element video workflow."
+    )
     pdfs = _ensure_slide_pdfs()
     wavs = _numbered("wav")
     if not pdfs or not wavs:
@@ -174,8 +182,10 @@ def main() -> None:
     print(f"len(pdf_files)={len(pdfs)}; len(wav_files)={len(wavs)}")
     print("Number of PDF and WAV files tallies. To generate video with pri FFmpeg media engine ...")
 
+    # The legacy generation body is unreachable but retained for historical
+    # diff review; it must never delete an existing video.
     if OUTPUT_FILE.exists():
-        OUTPUT_FILE.unlink()
+        raise FileExistsError(f"Preserve existing video: {OUTPUT_FILE}")
     with tempfile.TemporaryDirectory(prefix="microvid_v7_segments_") as tmp:
         segment_dir = Path(tmp)
         segments = []

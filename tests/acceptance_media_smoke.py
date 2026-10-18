@@ -40,9 +40,12 @@ def main():
                     one.save(root / f"slide{idx+1}.pdf")
         for idx in (1, 2):
             make_audio(root / f"slide{idx}.wav")
+        (root / ".microgen_static_review_sandbox").write_text(
+            "SYNTHETIC TEST ONLY", encoding="utf-8")
         before = {n: hashlib.sha256((root/n).read_bytes()).hexdigest()
                   for n in ("slide1.wav", "slide2.wav")}
-        result = assemble(root, width=640, height=360, fps=12)
+        result = assemble(root, output="REVIEW_ONLY_static_slides.mp4",
+                          _offline_test_only=True, width=640, height=360, fps=12)
         validate_video(ffmpeg_executable(), result, 1.6)
         assert result.is_file() and result.stat().st_size > 2048
         assert before == {n: hashlib.sha256((root/n).read_bytes()).hexdigest()

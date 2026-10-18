@@ -5,8 +5,13 @@ on:
     paths:
       - 'selenium_pipeline/**'
       - 'tests/**'
-      - 'docs/MicroGen_Stage3_Regression_Acceptance_20261012.md'
-      - '.github/workflows/microgen-reliability-tests.yml'
+      - 'schemas/**'
+      - 'docs/**'
+      - 'prompts/**'
+      - 'README.md'
+      - 'gen_video*.py'
+      - 'microgen_batch.py'
+      - '.github/workflows/**'
   push:
     branches: [main]
 

@@ -117,7 +117,7 @@
               },
               "max": {
                 "type": "number",
-                "exclusiveMaximum": 630,
+                "exclusiveMaximum": 600,
                 "minimum": 0
               }
             },
