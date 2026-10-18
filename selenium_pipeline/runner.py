@@ -661,26 +661,43 @@ def _execute_unlocked(s: Settings) -> Path:
               f" {report['covered_slides']} slides; "
               f"{report['covered_elements']} elements. NOT student published.")
         return Path(s.element_review_root)
-    # Real nonstatic production route: no human signoff or per-slide-static
-    # fallback. This requires a genuinely source-anchored element plan plus
-    # separate original element WAVs from a previous stage; ordinary slideN.wav
-    # files are NOT automatically misrepresented as element-level narration.
+    # Automatic source-grounded element-TTS + real synced video path.
+    # Full scientific semantics/figure-panel equivalence cannot be inferred
+    # from PDF text. The automatic element selector therefore accepts ONLY
+    # unique, verbatim original slide narration in a source text block.
+    # Ambiguous figures/text NEVER trigger paid TTS or static video fallback.
     if (s.from_stage == "video" and s.through_stage == "video"
-            and s.force_from is None
-            and (source.parent/"element_narration_plan.json").is_file()
-            and (source.parent/"element_wav").is_dir()):
+            and s.force_from is None):
         verify_source_tree(s.source_root,source)
         if check_valid("video",source.parent):
             print("[microgen] already verified source-bound multipart video")
             return folder
+        # A *historically receipt-verified* published slides.mp4 is protected:
+        # no automatic new TTS/video execution can bypass its old guard.
+        if ((source.parent/"slides.mp4").is_file()
+                and completed_lecture(source)):
+            raise RuntimeError(
+                "This lecture is already receipt-verified; an explicit "
+                "--force-from is required before any partial regeneration.")
         from .sourcebound_production_video import render_and_install_prepared
         base=Path(os.getenv("LOCALAPPDATA") or str(Path.home()/".cache"))
         tmp=base/"MicroGen_AI_Web_VideoStaging"
         tmp.mkdir(parents=True,exist_ok=True)
+        targets=(source.parent/"element_narration_plan.json",
+                 source.parent/"element_wav",
+                 source.parent/"element_tts_manifest.json")
+        if all(not p.exists() and not p.is_symlink() for p in targets):
+            from .automatic_element_audio_stage import produce_element_audio
+            produce_element_audio(
+                source=source,slides=source.parent/"slides.pdf",
+                script=source.parent/"script.txt",
+                local_work_root=tmp)
+        if not all(p.exists() and not p.is_symlink() for p in targets):
+            raise RuntimeError("Incomplete original element TTS outputs; "
+                               "never resume an ambiguous or partial element batch")
         completed=render_and_install_prepared(
             source=source,slides=source.parent/"slides.pdf",
-            authored=source.parent/"element_narration_plan.json",
-            audio=source.parent/"element_wav",local_work_root=tmp)
+            authored=targets[0],audio=targets[1],local_work_root=tmp)
         if not check_valid("video",source.parent):
             raise RuntimeError("Installed highlighted multipart video fails fresh QA")
         print(f"[microgen] {completed['part_count']} technically accepted "

@@ -98,7 +98,26 @@ class ProductionBridgeTests(unittest.TestCase):
             "voice":"Kore",
         } for part in original["parts"] for page in part["slides"]
           for piece in page["elements"]]
+        from selenium_pipeline.tts_effective_identity import DEFAULT
+        from selenium_pipeline.runner import blocks
+        rows=[piece["spoken_text"] for part in original["parts"]
+              for page in part["slides"] for piece in page["elements"]]
+        producer=wav_dir/"_producer"
+        producer.mkdir()
+        producer_text="".join(f"**Slide {i} [30s]:\n\n{text}\n\n"
+                              for i,text in enumerate(rows,1))
+        (producer/"script.txt").write_text(producer_text,encoding="utf8")
+        producer_manifest={
+            "version":2,"primary":DEFAULT,
+            "slides":[{"slide":i,"source_text":txt,"tts_text":txt,
+                       **DEFAULT,"fallback_used":False}
+                      for i,txt in enumerate(rows,1)],
+        }
+        (producer/"tts_input_manifest.json").write_text(
+            json.dumps(producer_manifest),encoding="utf8")
         certificate={
+            "producer_manifest_sha256":hash_file(producer/"tts_input_manifest.json"),
+            "producer_script_sha256":hash_file(producer/"script.txt"),
             "schema_version":1,
             "status":"verified_source_bound_element_audio",
             "source_sha256":hash_file(self.source),

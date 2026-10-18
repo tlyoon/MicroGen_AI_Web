@@ -121,8 +121,13 @@ def prepare(*, source_pdf:Path, slides_pdf:Path, authored_json:Path,
          "Cannot stage inside source, plan, or audio tree")
     plan=json.loads(author_file.read_text(encoding="utf-8"))
     need(plan.get("schema_version")==1
-         and plan.get("status")=="author_specified_unapproved_element_narration",
-         "Not an explicit author-specified review plan")
+         and plan.get("status") in (
+             "author_specified_unapproved_element_narration",
+             "machine_verified_exact_text_element_narration"),
+         "Not a valid source-grounded element narration plan")
+    if plan["status"]=="machine_verified_exact_text_element_narration":
+        from .automatic_element_narration import verify_automatic_source_mapping
+        verify_automatic_source_mapping(source=source,slides=slides,plan=plan)
     need(plan.get("source_sha256")==digest(source)
          and plan.get("slides_sha256")==digest(slides),
          "Stale source or slide SHA")
