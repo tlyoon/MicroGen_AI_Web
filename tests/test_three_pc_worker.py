@@ -120,6 +120,41 @@ class WorkerTests(unittest.TestCase):
         self.assertEqual(source.read_bytes(),prior)
         self.assertFalse((source_dir/"lecture_human_approval.json").exists())
 
+    def test_prepared_element_media_runs_the_verified_video_stage(self):
+        root=self.root/"8"/"8.1"
+        (root/"slides.pdf").write_bytes(b"synthetic slides")
+        (root/"element_narration_plan.json").write_text("{}",encoding="utf8")
+        (root/"element_wav").mkdir()
+        calls=[]
+        def run(_root,_key,stage,*args):
+            calls.append(stage)
+            return True,""
+        report={}
+        from selenium_pipeline.production_video_contract import VideoContractError
+        with patch("selenium_pipeline.three_pc_worker.run_stage",side_effect=run),patch(
+                "selenium_pipeline.three_pc_worker.stage_recorded",return_value=True),patch(
+                "selenium_pipeline.production_video_contract.verify_series",
+                side_effect=[VideoContractError("not produced yet"),
+                             {"status":"accepted_synchronized_series"}]):
+            self.assertTrue(process_job(self.root,"8.1",9222,1,self.root/"logs",
+                    self.root/"lane",900,3600,report,lambda:None))
+        self.assertEqual(calls,["video"])
+        self.assertEqual(report["8.1"]["contract"],"accepted_synchronized_series")
+        self.assertFalse(report["8.1"]["student_published"])
+
+    def test_prepared_element_media_failure_deferred_not_falsely_completed(self):
+        root=self.root/"8"/"8.1"
+        (root/"slides.pdf").write_bytes(b"synthetic slides")
+        (root/"element_narration_plan.json").write_text("{}",encoding="utf8")
+        (root/"element_wav").mkdir()
+        report={}
+        with patch("selenium_pipeline.three_pc_worker.run_stage",
+                   return_value=(False,"missing source anchor")):
+            self.assertFalse(process_job(self.root,"8.1",9222,2,self.root/"logs",
+                    self.root/"lane",900,3600,report,lambda:None))
+        self.assertEqual(report["8.1"]["status"],"unfinished")
+        self.assertIn("missing source anchor",report["8.1"]["error"])
+
     def test_figure_stage_accepts_legitimate_no_figure_pdf(self):
         from selenium_pipeline.runner import valid
         workspace = self.root / "empty_figure_workspace"
