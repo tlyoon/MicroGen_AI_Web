@@ -1,3 +1,45 @@
+# MicroGen_AI_Web latest continuation checkpoint — PR #150 stage
+
+19 October 2026, Malaysia. Only **Dell-115** may be used for
+local code development and tests. Do not access HP, Yoga6 or Zenbook.
+
+## New isolated PR #150 source figure panel-label evidence
+
+- Parent live draft #149, branch
+  `feature/vector-region-discovery-failclosed-20261019`,
+  exact HEAD `b23f22a91684c8233b09287550318b23ddf7051e`.
+- Independent new Dell-only isolated clone:
+  `%LOCALAPPDATA%/MicroGen_AI_Web_Checkpoints/20261019_pr150_source_panel_labels_2335`;
+  new `feature/source-panel-label-evidence-20261019` branch.
+  Do not touch other isolated directories or dirty G: repositories.
+- New read-only `figure_panel_label_evidence.py` and adversarial tests
+  establish an exact extractable FIGURE heading, detect distinct and
+  consecutive literal original-PDF panel label tokens inside the bounded
+  vector candidate and report explicit missing/duplicate/gapped blockers.
+  They NEVER infer author-intended complete figure/panels, scientific
+  meanings, source-to-slide identity or video eligibility.
+- Dell focused PR149+150 suite: **14 passed, 1 skipped**.
+- Actual Thomas 8.4 Figure 8.3 source page 2: original SHA
+  `b695018baa55f69ae3c9c875e7b1cb8ed284123d5a4b43f31314e659b1f22068`,
+  exact `FIGURE 8.3` heading found, zero extractable (a)/(b)/(c)
+  tokens inside candidate vector path #37. Status
+  `SOURCE_PANEL_LABELS_MISSING_OR_INCOMPLETE`; source/panels
+  remain SCIENTIFICALLY UNVERIFIED. No production authorization.
+- Historical Thomas 8.4 video 633.93s violates <600s encoded-part
+  rule. Still requires new immutable properly narrated highlighted parts.
+- Full-suite independent test evidence and compatible google-genai
+  environment must be checked before any full-regression claim.
+- Next: independently sourced original panel boundaries/identities,
+  PR151 highlight integrity, PR152 strictly <600s multipart, PR153
+  end-to-end technical acceptance. Never bypass a scientific blocker
+  by arbitrary partitions, source guesses or mock approvals.
+- All source PDF/slides, WAV/MP4, narrated outputs, credentials, FIFO,
+  protected main, paid TTS, Moodle and YouTube remain unchanged.
+  Flash-Lite/Kore primary, real three-failure fallback, consistent voice,
+  no Whisper/ASR, external GCS lease or Zenbook remain binding.
+
+---
+
 # MicroGen_AI_Web latest continuation checkpoint
 
 19 October 2026, Asia/Kuala_Lumpur. Owner explicitly changed local
