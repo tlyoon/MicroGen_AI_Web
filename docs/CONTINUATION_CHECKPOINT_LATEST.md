@@ -1,3 +1,34 @@
+# Latest checkpoint — PR154 original source-to-slide blocked evidence gate
+
+20 Oct 2026 Asia/Kuala_Lumpur; authorized Dell-115 ONLY.
+Parent PR153 branch `feature/precaption-vector-inventory-20261020`,
+exact HEAD `7ebda8d20427bbc1ba30e1f389820379b6f08bc6`.
+New isolated branch `feature/actual-source-slide-figure-gate-20261020`,
+checkout `%LOCALAPPDATA%/MicroGen_AI_Web_Checkpoints/20261020_pr154_real_fig_evidence_gate`.
+Real original Thomas Calculus 8.4 source page 2 and slides.pdf
+slide page 5 were independently inspected read-only. Source SHA256
+`b695018baa55f69ae3c9c875e7b1cb8ed284123d5a4b43f31314e659b1f22068`,
+slide SHA256
+`f6219ee18be4e347132d59be0d55e19765f325efed0b9d3d6544959a6dda68d1`
+preserved. Source caption has 8 parallel procedure lines in same
+PDF block; pre-caption corridor 23 unassigned vector objects,
+wrong #37 prose-box excluded. Slide 5 exact Figure 8.3
+text occurrences = 0, raster reference objects=1,
+vector paths=22. Explicit technical gate result
+`REAL_SOURCE_SLIDE_FIGURE_EVIDENCE_BLOCKED`, CLI exit 2.
+No independently grounded complete figure panels, math semantics,
+source-to-slide correspondence, audible element highlight,
+<600s multipart technical acceptance or academic approval.
+No output media created, historic teaching PDFs/scripts/WAV/MP4,
+original G: repositories, protected main, other machines, workers,
+Moodle/YouTube or paid Gemini TTS touched.
+Next: establish independent original figure content mapping and
+separate exact encoded narration/parts acceptance, never
+manufacture a false completed pipeline. Dell-only, no
+Whisper/ASR/Zenbook or GCS lease. Contract unchanged.
+
+---
+
 # Latest checkpoint — PR153 pre-caption vector inventory
 
 20 October 2026, Asia/Kuala_Lumpur; Dell-115 ONLY.
