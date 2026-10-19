@@ -1,3 +1,28 @@
+# Latest checkpoint — PR153 pre-caption vector inventory
+
+20 October 2026, Asia/Kuala_Lumpur; Dell-115 ONLY.
+Parent PR152 `feature/figure-caption-block-contamination-20261020`
+exact `0979ac83ef718aac935b507251deb3b6a718869e`.
+New isolated branch `feature/precaption-vector-inventory-20261020`,
+path `%LOCALAPPDATA%/MicroGen_AI_Web_Checkpoints/20261020_pr153_precaption_vector_inventory`.
+Real Thomas 8.4 source page 2 Figure 8.3 pre-heading scan
+`[0,0,207.835,401.11]`: 23 candidate drawing objects,
+44 page drawing objects. **False #37 substitution procedure box excluded**.
+No complete figure/panel/semantic or narrated highlight certification.
+Source SHA `b695018baa55f69ae3c9c875e7b1cb8ed284123d5a4b43f31314e659b1f22068`
+unchanged. Caption right-column contamination independently proven in
+PR152. The pre-heading left corridor is a scan heuristic, not a
+scientifically verified crop. Next: independent source-to-slide
+technical evidence and fail-closed acceptance record.
+All historical PDF/slides/script/WAV/MP4 and three shared G: checkout
+trees, user processes and main untouched. Dell-only, no Whisper,
+ASR, GCS lease, other PCs or unverified publication. Strict <600s
+encoded-part duration and spoken-element highlighting, approved
+Flash-Lite/Kore primary with 3 genuine retries/consistent-voice
+fallback remain in force.
+
+---
+
 # Latest checkpoint — PR152 caption-column audit
 
 20 Oct 2026 Asia/Kuala_Lumpur. Dell-115-only local work. New isolated
