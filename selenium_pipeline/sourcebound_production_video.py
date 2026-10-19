@@ -75,6 +75,16 @@ def accept_candidate(*,source: Path,slides: Path,authored: Path,audio: Path,
     require(all(not root.is_relative_to(p) and not p.is_relative_to(root)
                 for p in (source.parent,audio,review)),
             "Production candidate must not overlap original lecture or review")
+    # Fail before expensive FFmpeg, file-copy or any candidate output.
+    # A review-only image/panel anchor is not an independently source-proven
+    # figure: PR140-146 candidate receipts cannot confer TTS/video approval.
+    from .figure_narration_promotion import (
+        FigureNarrationPromotionBlocked, check_production_anchor_provenance)
+    authored_sha_before=digest(authored)
+    try:
+        check_production_anchor_provenance(read(authored))
+    except FigureNarrationPromotionBlocked as exc:
+        raise ProductionRenderError(str(exc)) from exc
     proof=verify_rendered(
         source=source,slides=slides,authored=authored,audio=audio,
         staged=review/"staged",rendered=review/"rendered",
@@ -86,6 +96,12 @@ def accept_candidate(*,source: Path,slides: Path,authored: Path,audio: Path,
     saved=read(review/"highlight_technical_review.json")
     require(saved==proof,"Frozen review receipt differs from fresh decoded verification")
     plan=read(authored)
+    require(digest(authored)==authored_sha_before,
+            "Authored source-bound plan changed during production verification")
+    try:
+        check_production_anchor_provenance(plan)
+    except FigureNarrationPromotionBlocked as exc:
+        raise ProductionRenderError(str(exc)) from exc
     require(len(plan["parts"])==len(proof["parts"]),"Missing or unordered parts")
     original_hashes={str(path):digest(path) for path in
                      (source,slides,authored,

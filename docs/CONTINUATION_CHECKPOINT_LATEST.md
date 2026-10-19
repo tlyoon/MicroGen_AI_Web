@@ -1,3 +1,41 @@
+# MicroGen_AI_Web — latest continuation checkpoint (19 October 2026)
+
+## PR147 figure production gate
+
+- Parent new draft PR146: feature/verified-vector-region-reconstruction-20261019
+  at 720d8f4d9ac69b7ffb2c4dd39a3961741dc6a019.
+- Isolated HP branch feature/failclosed-figure-video-promotion-20261019,
+  checkout %LOCALAPPDATA%/MicroGen_AI_Web_Checkpoints/
+  20261019_pr147_figure_promotion_guard.
+- Code: selenium_pipeline/figure_narration_promotion.py rejects all
+  image/figure/panel anchors and forged provenance flags BEFORE
+  sourcebound_production_video.accept_candidate incurs FFmpeg or output
+  writes; original JSON SHA rechecked before production media copying.
+  Existing author-specified figure review-only previews remain possible,
+  but cannot silently become student-ready production.
+- Verified focused: 6 passed, 16 subtests. Existing real synthetic
+  sourcebound FFmpeg production integration plus new guard: 30 passed,
+  16 subtests, showing text-only pipeline preserved.
+- Exact previous PR146 QA: HP full 1,188 passed, 3 skipped, 181 subtests,
+  Dell and Yoga 29 passed / 1 skipped each, GitHub reliability passed.
+- Thomas Calculus 8.4 Figure 8.3 still lacks actual original
+  source-space complete scientific panel regions/labels. No figure
+  production acceptance, real narrated Figure 8.3 video or academic
+  approval asserted.
+- Next: PR148 original-source-aware acceptance manifest distinguishing
+  actual technical checks from blocked figure/media stages. Stay
+  fail-closed, no invention of scientific source labels or spending.
+- Never overwrite original PDFs, slides, transcripts, audio/MP4,
+  three dirty G: Drive working trees, older isolated research or main.
+  Preserve strict encoded MP4 <600s, narrated element highlight timing,
+  approved Flash-Lite/Kore primary genuine retry/fallback, homogeneous
+  voice. No Zenbook/Whisper/GCS lease/Moodle/unsafe publication.
+- Hourly scheduled runs are bounded, avoid concurrent branches.
+
+---
+
+## Prior PR146 checkpoint
+
 # MicroGen_AI_Web — latest continuation checkpoint
 
 Date 19 Oct 2026 Malaysia. Always use newest GitHub live PR HEAD.
