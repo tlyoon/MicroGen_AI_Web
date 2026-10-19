@@ -1,3 +1,24 @@
+# MicroGen_AI_Web — Latest Development Checkpoint
+
+**Date:** 19 October 2026 (Malaysia). Owner autonomous-development
+protocol and the effective production contract remain authoritative.
+
+## Current isolated figure identity candidate
+
+- **Previous submitted draft:** PR #139, branch feature/verified-multielement-narration-20261018, exact dependency SHA 4db850f205030d9a764f86dc34f790d8502e1667.
+- **Next draft candidate:** branch feature/whole-figure-source-identity-20261019b, stacked on #139, isolated HP checkout 20261019_pr140_figure_identity_0957; PR number is pending GitHub creation.
+- Implementation commit af0058d08f239630cc62597a6fb2df09f7580de0: read-only figure_source_identity.py, adversarial synthetic-PDF tests, and technical scope notes.
+- **Verified focused QA, 19 Oct:** 32 passed, 1 skipped (figure_source_identity plus automatic_multielement_narration, exact HP clone).
+- **Full QA, CI, Dell/Yoga:** must be independently checked on pushed new HEAD. Do not assume results.
+- **Scientific boundary:** exact decoded raster, source/slide caption, placement, dimensions and uniqueness establish only a candidate. Visible completeness, clipping, panel boundaries, or mathematics/semantics are not certified. No paid Gemini TTS, production video or YouTube publication permitted by this result.
+- **Other isolated unfinished checkouts:** 20261019_pr140_figure_identity_0758 and 20261018_pr140_figure_identity retain their uncommitted work. Original shared G: Drive repositories on HP, Dell-115 and Yoga6 must remain untouched.
+- **Next increment:** independent visible-completeness and multi-panel boundary mapping, adversarial checks, then a non-destructive real textbook pilot.
+- Recurring schedules are bounded attempts, not a continuously running background coder. Check the task enabled state independently.
+
+---
+
+## Previous PR #139 checkpoint
+
 # MicroGen_AI_Web — Latest Autonomous Development Continuation Checkpoint
 
 **Date:** 18 October 2026 (Malaysia). Owner's autonomous-development protocol is binding.
