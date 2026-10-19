@@ -19,6 +19,8 @@
   certification remain false; production stage not changed.
 - HP initial focused tests: 14 passed, 9 parameterized subtests passed.
   Broader regression and cross-PC checks require fresh exact-commit proof.
+- **Verified QA against PR142 implementation:** HP full regression 1,152 passed, 2 skipped, 166 subtests passed; Dell-115 38 passed/1 skipped; Yoga6 38 passed/1 skipped, on isolated exact SHA 6522f25755d3a6c14cb876742480bf97c06747c7. GitHub CI must be confirmed against latest pushed commit.
+- **Real Thomas 8.4 pilot:** original source Figure 8.3 is vector-based (source page 2: zero raster, 44 drawing paths), whereas slide 5 has raster objects. This blocks PR142 bitmap-only proof; next stage must conservatively verify vector crop and original panel labels.
 - Other isolated research and all three original dirty Drive working
   trees (HP/Dell-115/Yoga6) remain protected. Preserve all textbook
   PDFs, slides, scripts, WAV and MP4 outputs, no protected-main merge.

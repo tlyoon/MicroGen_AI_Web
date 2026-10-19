@@ -44,3 +44,22 @@ labels and complete source panel boundaries, with a read-only pilot on
 real textbook figures. Never infer scientific review from geometry alone.
 Preserve all original PC Drive working trees, sub-600 second encoded videos,
 and the agreed Flash-Lite/Kore default TTS policy.
+
+## Read-only real textbook structural pilot (19 October 2026)
+
+The authorized HP source folder for Thomas Calculus 8.4 was opened only for
+PDF metadata/text/figure-structure inspection; no teaching source or output
+was written. The original source.pdf contains 6 pages. Source page 2 has two
+text indicators referring to Figure 8.3 and **44 vector drawing paths**, but
+**no raster image** on that page. The existing slides.pdf has 17 pages;
+slide page 5 has 4 raster objects, including one 744-by-173 raster.
+No semantic assertion that this raster exactly corresponds to Figure 8.3
+is made without further visual/source proof.
+
+**Result:** real Figure 8.3 cannot pass the PR140/141/142 single embedded-raster
+identity chain because its original is vector content rather than one raster
+xref. This is an observed limitation, not a test failure or certification.
+The next task must build an independent **vector-source / rendered-PDF
+figure region** extraction and full panel label/boundary provenance gate,
+then compare with the slide composite without guessing source identities.
+Do not modify the real files or bypass existing strict technical checks.
