@@ -1,3 +1,49 @@
+# MicroGen_AI_Web — latest continuation checkpoint
+
+Date 19 Oct 2026 Malaysia. Always use newest GitHub live PR HEAD.
+
+## Isolated PR146 technical increment
+
+- Parent latest draft PR #145 (source-verified read-only real textbook
+  pilot), branch feature/read-only-real-textbook-figure-pilot-20261019,
+  exact dependency commit 285b649f8a80bab21a70328b3de91a5514a468bb.
+- Current isolated HP checkout:
+  %LOCALAPPDATA%/MicroGen_AI_Web_Checkpoints/
+  20261019_pr146_vector_reconstruction.
+  Branch feature/verified-vector-region-reconstruction-20261019.
+- Added selenium_pipeline/figure_panel_reflow.py with panel-wise
+  independent source-vector-to-slide-raster exact rendered RGB matches,
+  permitting rearranged PDF layouts with independently source-labelled
+  original text and caption, full original drawing/text region ownership,
+  exact page SHA-256 integrity, no source-image substitution.
+- The source rectangle and each panel region are *declared* by caller,
+  not inferred. Therefore the technical candidate does NOT prove
+  author-intended complete panel boundaries, scientific meanings,
+  automatic TTS/video authorization, or human academic review.
+- Initial HP focused QA: 12 passed plus 4 subtests; verify latest
+  full suite, cross-PC and CI results separately before acceptance.
+- Actual Thomas Calculus 8.4 Figure 8.3 remains BLOCKED: original
+  vector source page 2 has 44 vector paths and no raster, slide
+  page 5 has one 744x173 embedded raster plus bullet images and
+  other drawing paths, source (a)/(b)/(c) tokens not extractable.
+  No validated full panel-source geometry/semantic mappings.
+- No original source PDF/slide PDF/script/WAV/MP4, PC shared Drive
+  repository dirty worktrees, or older research/PR clones altered.
+- Next: PR147 fail-closed narrated-panel acceptance (use prior
+  TTS/audio-highlight provenance); PR148 independent contract QA
+  and read-only real textbook pilot, no fabricated acceptance.
+- Strictly keep per-part encoded MP4 <600 seconds, actual synced
+  spoken-element highlight pixels, authorized Flash-Lite/Kore primary
+  three genuine attempts before approved fallback, whole-lecture
+  consistent voice, no Whisper, GCS lease, Zenbook, Moodle publication
+  or protected-main merge. Human academic approval is NOT a condition
+  for other verified internal stages, but ambiguity in source evidence
+  cannot be silently waived. Hourly scheduler not a nonstop process.
+
+---
+
+## Prior PR145 checkpoint
+
 # MicroGen_AI_Web latest continuation checkpoint — 19 October 2026
 
 ## Three consecutive stacked development increments
