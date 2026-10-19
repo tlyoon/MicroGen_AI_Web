@@ -1,3 +1,38 @@
+# MicroGen_AI_Web — Latest Autonomous Development Checkpoint
+
+**Date:** 19 October 2026, Malaysia. Standing owner contract is binding.
+
+## New isolated panel geometry work
+
+- Parent: draft PR #141, branch feature/rendered-figure-visibility-proof-20261019,
+  pinned parent 80b3eab86a400024d79c5aeb34a3782e8735b0a0.
+- New isolated HP checkout: %LOCALAPPDATA%/MicroGen_AI_Web_Checkpoints/
+  20261019_pr142_multipanel_1905; branch
+  feature/source-grounded-multipanel-geometry-20261019. Draft PR pending.
+- New read-only checker selenium_pipeline/figure_panel_geometry.py:
+  explicit source-native pixel panel boundaries, exact decoded RGB panel
+  SHA-256, strict full-raster partition, source-to-slide PDF rectangles,
+  inherited figure identity and independent visibility preflights.
+- This is ONLY a geometry candidate. Declared (a)/(b)/(c) labels are not
+  independently source-grounded; true scientific panel boundaries and
+  completeness are unproven. TTS/video authorization and semantic
+  certification remain false; production stage not changed.
+- HP initial focused tests: 14 passed, 9 parameterized subtests passed.
+  Broader regression and cross-PC checks require fresh exact-commit proof.
+- Other isolated research and all three original dirty Drive working
+  trees (HP/Dell-115/Yoga6) remain protected. Preserve all textbook
+  PDFs, slides, scripts, WAV and MP4 outputs, no protected-main merge.
+- Next: independently verify real source figure embedded panel labels
+  and geometries, read-only textbook pilot before video integration.
+- All parts <600 sec, synchronized spoken element highlighting, approved
+  Gemini Flash-Lite/Kore primary with actual 3 retries and conditional
+  fallback, homogeneous voice, no Whisper/Zenbook/GCS lease/Moodle.
+- Scheduled development is discrete hourly attempts, not nonstop work.
+
+---
+
+## Earlier PR #141 checkpoint
+
 # MicroGen_AI_Web — Latest Continuation Checkpoint
 
 **Date:** 19 October 2026, Malaysia time.
