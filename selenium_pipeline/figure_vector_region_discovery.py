@@ -5,12 +5,33 @@ production certificates. Ambiguous source geometry raises review required.
 """
 from __future__ import annotations
 
-import hashlib
 import re
 from pathlib import Path
+
 import pymupdf
 
-from .figure_source_identity import FigureIdentityReviewRequired, require, _sha
+from .figure_source_identity import require, _sha
+
+
+def _embedded_prose_evidence(page, rectangle: pymupdf.Rect) -> tuple[int, int]:
+    """Count substantial words/lines INSIDE a candidate vector rectangle.
+
+    This is a conservative *rejection* signal, not proof of diagram identity.
+    PDF writers frequently combine adjacent captions and unrelated boxed
+    teaching instructions into one text block. A vector border surrounding
+    paragraph-sized prose must never be called the textbook figure.
+    """
+    long_words_by_line: dict[tuple[int, int], int] = {}
+    for word in page.get_text("words"):
+        if len(word) < 7 or not re.search(r"[A-Za-z]{3,}", str(word[4])):
+            continue
+        x0, y0, x1, y1 = (float(v) for v in word[:4])
+        centre = pymupdf.Point((x0 + x1) / 2, (y0 + y1) / 2)
+        if rectangle.contains(centre):
+            line_key = (int(word[5]), int(word[6]))
+            long_words_by_line[line_key] = long_words_by_line.get(line_key, 0) + 1
+    return (sum(long_words_by_line.values()),
+            sum(count >= 4 for count in long_words_by_line.values()))
 
 
 def discover_vector_figure_candidate(*, source: Path, page_number: int,
@@ -58,7 +79,14 @@ def discover_vector_figure_candidate(*, source: Path, page_number: int,
         require(len(candidates) == 1,
                 "Source vector figure region absent or ambiguous")
         index, rect = candidates[0]
-        # Deliberately do not crop, copy or select panels automatically.
+        long_word_count, dense_line_count = _embedded_prose_evidence(page, rect)
+        # A nearby boxed set of prose instructions is not necessarily
+        # artwork. Reject long multiline prose; absence is NOT scientific
+        # proof that a region is the complete author-intended figure.
+        require(not (long_word_count >= 25 or
+                     (long_word_count >= 14 and dense_line_count >= 2)),
+                "Candidate vector region encloses substantial prose or "
+                "instructions; independent figure-source review required")
         record = {
             "schema_version": 1,
             "status": "VECTOR_REGION_CANDIDATE_REVIEW_REQUIRED",
@@ -70,6 +98,8 @@ def discover_vector_figure_candidate(*, source: Path, page_number: int,
             "candidate_drawing_index": index,
             "all_page_drawing_count": len(paths),
             "rejected_drawing_count": len(excluded),
+            "candidate_embedded_long_word_count": long_word_count,
+            "candidate_dense_prose_line_count": dense_line_count,
             "unique_anchored_vector_candidate": True,
             "author_intended_complete_crop_certified": False,
             "panel_ids_source_verified": False,
