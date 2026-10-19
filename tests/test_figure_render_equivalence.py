@@ -7,7 +7,8 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 import pymupdf
-from tests import test_figure_source_identity as figure_fixtures
+import tempfile
+from PIL import Image
 from selenium_pipeline.figure_source_identity import (
     FigureIdentityReviewRequired, inspect_whole_raster_candidate,
 )
@@ -18,14 +19,36 @@ from selenium_pipeline.figure_render_equivalence import (
 
 class FigureVisibleRenderingTests(unittest.TestCase):
     def setUp(self):
-        self.fixture=figure_fixtures.WholeFigureIdentityTests(
-            "test_exact_pixel_and_caption_candidate_is_not_approval")
-        self.fixture.setUp()
-        self.addCleanup(self.fixture.doCleanups)
-        self.root=self.fixture.root
-        self.source=self.fixture.source
-        self.slides=self.fixture.slides
-        self.caption=self.fixture.caption
+        self.temporary=tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.root=Path(self.temporary.name)
+        self.source=self.root/"source.pdf"
+        self.slides=self.root/"slides.pdf"
+        self.caption="Figure 2.3 The magnetic field around a solenoid."
+        self.png=self.root/"original.png"
+        img=Image.new("RGB",(200,150))
+        for y in range(150):
+            for x in range(200):
+                img.putpixel((x,y),((x*3)%256,(y*5)%256,(x+y)%256))
+        img.save(self.png)
+        self._pdf(self.source,is_slide=False)
+        self._pdf(self.slides,is_slide=True)
+
+    def _pdf(self,path,*,is_slide,caption=None,image=None,vector=False):
+        caption=self.caption if caption is None else caption
+        image=self.png if image is None else image
+        with pymupdf.open() as doc:
+            page=doc.new_page(width=620,height=780)
+            rect=(pymupdf.Rect(80,90,360,300) if is_slide
+                  else pymupdf.Rect(80,80,280,230))
+            page.insert_image(rect,filename=str(image))
+            if vector:
+                shape=page.new_shape()
+                shape.draw_rect(pymupdf.Rect(390,350,540,450))
+                shape.finish(color=(0,0,0))
+                shape.commit()
+            page.insert_text((80,rect.y1+28),caption,fontsize=11)
+            doc.save(path)
 
     def candidate(self, **kw):
         args=dict(source=self.source,slides=self.slides,
@@ -114,16 +137,16 @@ class FigureVisibleRenderingTests(unittest.TestCase):
     def test_modified_raster_blocks_as_earlier_identity_failure(self):
         from PIL import Image
         changed=self.root/"edited.png"
-        with Image.open(self.fixture.png) as bitmap:
+        with Image.open(self.png) as bitmap:
             bitmap.putpixel((52,35),(0,0,0))
             bitmap.save(changed)
-        self.fixture._pdf(self.slides,is_slide=True,image=changed)
+        self._pdf(self.slides,is_slide=True,image=changed)
         with self.assertRaisesRegex(FigureIdentityReviewRequired,
                                     "identity differs"):
             self.candidate()
 
     def test_mutating_caption_does_not_fake_image_proof(self):
-        self.fixture._pdf(self.slides,is_slide=True,
+        self._pdf(self.slides,is_slide=True,
                           caption="Figure 2.3 Another diagram.")
         with self.assertRaisesRegex(FigureIdentityReviewRequired,
                                     "caption absent"):
@@ -134,14 +157,14 @@ class FigureVisibleRenderingTests(unittest.TestCase):
             self.candidate(scale=1)
 
     def test_svg_vector_overlay_fails_original_guard(self):
-        self.fixture._pdf(self.slides,is_slide=True,vector=True)
+        self._pdf(self.slides,is_slide=True,vector=True)
         with self.assertRaisesRegex(FigureIdentityReviewRequired,"vector"):
             self.candidate()
 
     def test_panel_caption_has_no_implicit_panel_certification(self):
-        self.fixture._pdf(self.source,is_slide=False,
+        self._pdf(self.source,is_slide=False,
                           caption="Figure 2.3 (a) First panel.")
-        self.fixture._pdf(self.slides,is_slide=True,
+        self._pdf(self.slides,is_slide=True,
                           caption="Figure 2.3 (a) First panel.")
         with self.assertRaisesRegex(FigureIdentityReviewRequired,"Panel-labelled"):
             self.candidate(caption="Figure 2.3 (a) First panel.")
