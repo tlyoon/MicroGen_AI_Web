@@ -101,3 +101,49 @@ class SourceVectorDiscoveryTests(unittest.TestCase):
             self.skipTest("Windows does not permit symlink for this user")
         with self.assertRaises(FigureIdentityReviewRequired):
             self.inspect(source=alias)
+
+    def test_boxed_procedure_is_not_a_figure_candidate(self):
+        """Caption text blocks can merge a nearby instruction box."""
+        with pymupdf.open() as pdf:
+            page = pdf.new_page(width=460, height=390)
+            page.insert_text((30, 120), "FIGURE 8.3", fontsize=11)
+            page.insert_text((30, 132), "The graph of inverse trigonometric functions.", fontsize=8)
+            page.draw_rect(pymupdf.Rect(120, 145, 410, 305))
+            for y, txt in (
+                (169, "Procedure for the Trigonometric Substitution"),
+                (188, "1. Write the substitution, calculate the differential and specify the angle."),
+                (207, "2. Substitute the expression and simplify the results carefully."),
+                (226, "3. Integrate the trigonometric integral and note restrictions."),
+                (245, "4. Draw an appropriate reference triangle to reverse substitution."),
+            ):
+                page.insert_text((130, y), txt, fontsize=7)
+            pdf.save(self.path)
+        original = hashlib.sha256(self.path.read_bytes()).hexdigest()
+        with self.assertRaisesRegex(FigureIdentityReviewRequired, "prose|instructions"):
+            self.inspect()
+        self.assertEqual(hashlib.sha256(self.path.read_bytes()).hexdigest(), original)
+
+    def test_short_axis_and_panel_labels_are_not_misclassified_as_prose(self):
+        with pymupdf.open() as pdf:
+            page = pdf.new_page(width=400, height=340)
+            page.insert_text((30, 120), "FIGURE 8.3", fontsize=11)
+            page.draw_rect(pymupdf.Rect(110, 145, 280, 210))
+            for pos, txt in (((140, 168), "(a)"), ((230, 168), "(b)"),
+                             ((155, 194), "sine"), ((240, 194), "cosine")):
+                page.insert_text(pos, txt, fontsize=8)
+            pdf.save(self.path)
+        receipt = self.inspect()
+        self.assertEqual(receipt["candidate_embedded_long_word_count"], 2)
+        self.assertEqual(receipt["candidate_dense_prose_line_count"], 0)
+        self.assertFalse(receipt["tts_or_video_authorized"])
+
+    def test_single_long_text_line_must_fail_closed(self):
+        """Some PDF encoders expose a whole instruction paragraph as one line."""
+        with pymupdf.open() as pdf:
+            page = pdf.new_page(width=720, height=340)
+            page.insert_text((30, 120), "FIGURE 8.3", fontsize=11)
+            page.draw_rect(pymupdf.Rect(95, 145, 680, 215))
+            page.insert_text((105, 175), " ".join(["context"] * 29), fontsize=5)
+            pdf.save(self.path)
+        with self.assertRaisesRegex(FigureIdentityReviewRequired, "prose|instructions"):
+            self.inspect()

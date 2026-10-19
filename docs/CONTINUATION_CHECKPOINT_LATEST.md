@@ -1,3 +1,54 @@
+# MicroGen_AI_Web latest continuation checkpoint — PR #151 correction
+
+20 October 2026, Malaysia. The newest live draft was PR #150,
+`feature/source-panel-label-evidence-20261019`,
+exact parent HEAD `4142ec7136fd45fdfef8e49f2992c4dd7d9d5513`.
+GitHub reliability Actions **passed** for that exact PR #150 commit.
+Dell-115 is the ONLY authorized development/testing PC.
+
+## Corrective source figure discovery work (PR #151 candidate)
+
+- New isolated Dell-115 checkout:
+  `%LOCALAPPDATA%/MicroGen_AI_Web_Checkpoints/20261020_pr151_source_region_probe`,
+  branch `feature/source-vector-boundary-review-20261020`,
+  stacked directly on PR #150, no dirty G: working-tree edits.
+- **Critical real-source discovery:** the vector path #37
+  `[197.89,424.406,557.39,562.906]` previously treated in PR149/150
+  as candidate Figure 8.3 actually encloses the adjacent textbook
+  "Procedure for a Trigonometric Substitution" instruction box. It
+  contains **66 substantial words and 8 dense prose lines**.
+  The graph artwork lies above the Figure 8.3 caption and its
+  original complete geometry remains *unverified*. This supersedes
+  any implication that drawing #37 was a valid scientific figure.
+- New read-only guard in `figure_vector_region_discovery.py`
+  rejects unique vector rectangles full of prose before returning
+  a candidate. `figure_panel_label_evidence.py` inherits the
+  corrected blocker automatically. No automatic replacement figure
+  is guessed or certified.
+- Original real Thomas 8.4 source page 2 SHA256
+  `b695018baa55f69ae3c9c875e7b1cb8ed284123d5a4b43f31314e659b1f22068`
+  unchanged before/after read-only test. Actual status:
+  `SOURCE_VECTOR_FIGURE_ASSOCIATION_BLOCKED` via review exception,
+  no narrated figure approval.
+- Dell focused/re-run all 19 figure test modules:
+  **151 passed, 3 skipped, 0 failed**. Includes new real-PDF
+  adversarial instruction box and single-line prose tests.
+- Full-suite no-exclusion Dell regression is **not** certified;
+  previous PR150 compatible SDK run was interrupted after ~70%.
+  Do not present truncated results as a full pass.
+- Details: `docs/FIGURE_BOXED_PROSE_FALSE_CANDIDATE_20261020.md`.
+- Next: independently bound *actual* graphs above source caption,
+  independently prove all original labels/panels and source-to-slide
+  semantic/content identity, then verified speech-highlight integration
+  and immutable encoded <600-second video parts. Keep fail-closed.
+- Contract: no modification to original source/slides/script/WAV/MP4,
+  active workers, other isolated clones, protected main, paid TTS or
+  unverified student publication. Default Flash-Lite/Kore; approved
+  homogeneous voice only after three genuine errors; no
+  HP/Yoga6/Zenbook, Whisper/ASR or GCS external lease.
+
+---
+
 # MicroGen_AI_Web latest continuation checkpoint — PR #150 stage
 
 19 October 2026, Malaysia. Only **Dell-115** may be used for
