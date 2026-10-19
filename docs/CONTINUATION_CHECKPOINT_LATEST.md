@@ -1,3 +1,53 @@
+# Latest continuation checkpoint — PR156 slide raster visibility
+
+20 October 2026, Malaysia. Dell-115 is the ONLY authorized local
+development and testing PC. Latest live draft was PR155,
+`feature/read-only-source-media-joint-audit-20261020`, exact HEAD
+`f1bb4bf0acff712786e96fbf5aea4fe854e0d301`;
+its GitHub reliability CI PASSED. New isolated clone
+`%LOCALAPPDATA%/MicroGen_AI_Web_Checkpoints/20261020_pr156_source_slide_raster_match_0830`,
+branch `feature/source-slide-raster-match-candidates-20261020`.
+Existing UNCOMMITTED earlier `20261020_pr155_source_vector_visibility_0055`
+and all dirty G: working trees deliberately preserved untouched.
+
+This incremental source-to-slide *modality* audit runs entirely
+read-only. New `figure_slide_raster_visibility.py` inventories
+actual embedded **slide** raster images and their placements,
+distinguishes tiny inline decorations, and at 2x independently
+compares every slide figure bitmap RGB pixel with a separate
+image-only reference. This does NOT attribute those pixels to any
+original source vector artwork. Real original Thomas 8.4 source
+PDF page 2 has 0 embedded image instances and 23 unassigned
+pre-caption vector drawing objects. Original slide PDF page 5
+has 4 actually displayed image instances: 3 tiny inline decorative
+glyphs and one 744x173 bitmap (xref 136) positioned at
+`[36.484,165.439,326.346,232.84]`. The one material
+embedded bitmap is unobstructed at the defined verification scale.
+Source PDF SHA256
+`b695018baa55f69ae3c9c875e7b1cb8ed284123d5a4b43f31314e659b1f22068`,
+slide SHA256
+`f6219ee18be4e347132d59be0d55e19765f325efed0b9d3d6544959a6dda68d1`
+unchanged. Positive slide raster visibility is **not**
+scientific proof of correct original figure, complete source panels,
+semantic mapping or source-to-slide equivalence; every production,
+figure, narration highlight, <600s encoded-part, academic-review
+and publication approval flag remains False. CLI exit 2 even
+for visible bitmap. Details: `docs/SLIDE_RASTER_VISIBILITY_20261020.md`.
+
+Original history and all source/slides/script/WAV/MP4 remain untouched.
+No HP, Yoga6, Zenbook, protected main, paid TTS, Whisper/ASR,
+GCS distributed lease or publication. Contract: Flash-Lite/Kore
+primary, approved homogeneous fallback only after three genuine
+failures; strictly <600 seconds per encoded MP4 part, synchronized
+spoken-element highlighted visuals and human academic QA distinct.
+Dell-only combined figure + existing real lecture audit tests:
+**187 passed, 3 skipped, 0 failed** across 23 figure modules
+and two acceptance modules; staged diff whitespace check pending.
+This is focused regression, not full whole-repo no-exclusion suite.
+GitHub Actions CI must be checked on the exact new commit.
+
+---
+
 # Latest checkpoint — joint read-only original figure and encoded media gate
 
 20 October 2026, Malaysia; develop/test **only on Dell-115**.
