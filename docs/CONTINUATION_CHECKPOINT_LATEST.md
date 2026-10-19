@@ -1,3 +1,68 @@
+# MicroGen_AI_Web latest continuation checkpoint — 19 October 2026
+
+## Three consecutive stacked development increments
+
+The owner authorized sequential implementation without routine manual
+input. Always discover actual live latest draft and exact HEAD rather
+than assuming GitHub PR numbers.
+
+1. PR #143 vector source to raster slide panels, branch
+   feature/verified-vector-to-raster-panels-20261019,
+   initial HEAD ae5d0d4f4408d4c8ac1e883cdb6d4e4635b8f38c,
+   stacked on PR #142. Read-only original vector regions, extractable
+   (a)/(b)/(c) labels and same rendered slide RGB candidate.
+2. PR #144 vector-source complete seam white-gutter preflight, branch
+   feature/source-panel-seam-evidence-20261019,
+   initial HEAD 228808a85d7ea31f8673fc65d7ee0b3583f38b5a,
+   stacked on PR #143. Source pixel-gutter evidence remains
+   only a candidate; scientific boundary semantics NOT certified.
+3. Current isolated PR #145 candidate, branch
+   feature/read-only-real-textbook-figure-pilot-20261019,
+   base PR #144 HEAD 228808a85d7ea31f8673fc65d7ee0b3583f38b5a,
+   checkout %LOCALAPPDATA%/MicroGen_AI_Web_Checkpoints/
+   20261019_pr145_textbook_pilot_2045.
+
+## Actual real textbook finding (do not exaggerate)
+
+An authorized HP read-only actual Thomas Calculus 8.4 pilot (source
+page 2, slide page 5, Figure 8.3) returned status
+PILOT_BLOCKED_MISSING_INDEPENDENT_FIGURE_GEOMETRY. Source page has
+44 vector drawings, 0 raster; slide page has 4 raster objects,
+22 drawing paths; no exact slide Figure 8.3 caption text block and
+no extractable panel labels in source page text. Input PDFs were
+unchanged by hash. See docs/READONLY_THOMAS_FIGURE_PILOT_20261019.md.
+
+No automatic Figure 8.3 source-to-slide full panel identity and
+semantic proof, no technical figure narration/video authorization,
+no human academic QA claim, and no student-visible publication.
+
+## Tests and invariants
+
+PR143: focused HP 24 passed, 1 skipped, 9 parameterized subtests;
+HP full 1,162 passed, 3 skipped, 166 subtests.
+PR144: focused HP 17 passed, 1 skipped, 7 parameterized subtests.
+PR145: pilot focused HP 7 passed, 4 parameterized subtests. Check
+the full exact-commit CI and independent Dell/Yoga before claims.
+
+Never overwrite original PDFs, slides, scripts, WAV/MP4, the
+three dirty shared G: Drive working trees on HP/Dell/Yoga or other
+old isolated checkouts. Preserve <600-second actual encoded MP4s,
+synchronized spoken-element highlights, source figure/panel/caption
+evidence, Gemini Flash-Lite/Kore 3 real retries then agreed fallback
+with whole-lecture voice consistency. No Whisper, Zenbook,
+external GCS lease, unjustified billable calls or Moodle publication.
+
+Next engineering objective after these three drafts: independent
+source-space boundary and label extraction for arbitrary vector
+textbook figures (particularly Figure 8.3) and a real technical
+provenance-backed figure-highlight TTS/video pilot. DO NOT bypass a
+genuine missing-proof blocker or invent publication readiness.
+Discrete hourly automations do not represent nonstop execution.
+
+---
+
+## Prior PR #144 checkpoint
+
 # MicroGen_AI_Web — latest checkpoint (19 October 2026)
 
 ## Source-vector panel-seam evidence candidate (PR #144 stage)
