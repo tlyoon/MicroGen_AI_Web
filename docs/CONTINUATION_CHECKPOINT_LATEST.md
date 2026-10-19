@@ -1,3 +1,50 @@
+# Latest checkpoint — joint read-only original figure and encoded media gate
+
+20 October 2026, Malaysia; develop/test **only on Dell-115**.
+Newest live draft checked before work was PR154, branch
+`feature/actual-source-slide-figure-gate-20261020`, head
+`02e93521ca85b3ff022c3335d051440910dfc382`;
+its GitHub reliability CI passed. An older uncommitted local
+`20261020_pr155_source_vector_visibility_0055` checkout EXISTS;
+preserved untouched to avoid overwriting another worker's work.
+
+New isolated repo:
+`%LOCALAPPDATA%/MicroGen_AI_Web_Checkpoints/20261020_pr155_readonly_joint_acceptance_0715`,
+branch `feature/read-only-source-media-joint-audit-20261020`.
+New read-only `joint_original_lecture_acceptance.py` independently
+combines PR154's corrected source-figure blockers with the existing
+real encoded-media multipart acceptance verifier. Verifies source and
+slide exact SHA identity, original figure locator, original MP4 names
+and hashes, lack of mutation, no injected synthetic duration probes
+or forged publication approval; generates actionable blocker codes.
+
+Real Thomas Calculus 8.4 original G: folder read-only:
+source page 2 SHA `b695018baa55f69ae3c9c875e7b1cb8ed284123d5a4b43f31314e659b1f22068`,
+slides page 5 SHA `f6219ee18be4e347132d59be0d55e19765f325efed0b9d3d6544959a6dda68d1`,
+MP4 SHA `3398c48199e3f7ac00c1918e71576b8105a81c7064717866499bbb7da3b094c8`.
+Real slides.mp4 encoded duration **633.93 s** fails strictly <600s.
+The source Figure 8.3 caption includes 8 neighboring instruction
+lines; 23 unassigned pre-caption drawing objects. No independent
+complete source-to-slide panel evidence and no
+`lecture_completion.json` verified timed-highlight multipart proof.
+Joint status `JOINT_ORIGINAL_LECTURE_ACCEPTANCE_BLOCKED`;
+CLI exit 2. No lecture, original source/media or shared G: files changed.
+
+Contract preserved: each encoded video part strictly <600s,
+spoken-element synchronous highlights, default Flash-Lite/Kore
+TTS with 3 genuine failures before voice-consistent approved
+fallback; no HP/Yoga6/Zenbook, Whisper/ASR/GCS distributed lease,
+paid generation, unverified Moodle/YouTube/student publication
+or protected-main changes. Automated QA is NOT human academic QA.
+Actual Dell-115 testing: all related lecture, video contract and joint
+acceptance tests **58 passed** (0 failed); all figure-specific test
+modules **163 passed, 3 skipped** (0 failed). These are scoped
+regressions, not a whole-repository no-exclusion pass. Repo diff
+whitespace check succeeded. GitHub CI is to be independently checked
+on this exact new commit; never assume queued jobs succeeded.
+
+---
+
 # Latest checkpoint — PR154 original source-to-slide blocked evidence gate
 
 20 Oct 2026 Asia/Kuala_Lumpur; authorized Dell-115 ONLY.
