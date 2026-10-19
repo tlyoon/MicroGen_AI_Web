@@ -1,3 +1,44 @@
+# MicroGen_AI_Web latest continuation checkpoint — 19 October 2026
+
+## Vector-source next stage
+
+- Previous draft: PR #142, branch feature/source-grounded-multipanel-geometry-20261019
+  at HEAD a6274c0ff3031cca354a27cb8cf88295b9393583.
+- New stacked draft candidate PR #143 branch
+  feature/verified-vector-to-raster-panels-20261019,
+  isolated HP checkout %LOCALAPPDATA%/MicroGen_AI_Web_Checkpoints/
+  20261019_pr143_vector_source_1958.
+- New read-only figure_vector_provenance.py + adversarial real PDF tests.
+  Renders declared original vector figure region and a slide raster region
+  to the same pixel dimensions; source caption and individually extracted
+  (a)/(b)/(c) source text positions verified as a candidate; vector paths
+  cannot cross the declared panel seam. Explicit zero-height vector line
+  handling corrected following a failed test.
+- Important: a subtly shifted panel boundary which intersects no figure
+  strokes remains geometrically plausible. Such a result is NOT evidence
+  of the author's intended panel divisions or scientific correctness.
+  All narration, true panel-completeness, human and publication flags false.
+- HP focused tests: 24 passed, 1 skipped, 9 parameterized subtests passed.
+  Full repo suite, GitHub CI and independent Dell/Yoga checks require
+  exact pushed-commit verification.
+- The original three dirty G: Drive working trees and prior isolated
+  uncommitted research/checkouts remain untouched. Preserve original
+  textbook PDFs, slides, script, WAV, MP4, auth and distributed leases.
+- Suggested sequential PR #144: independent verified source-space panel
+  label/boundary semantics, fail closed without evidence.
+- Suggested sequential PR #145: real source textbook nondestructive pilot,
+  end-to-end contract QA and safe implementation gates; not assumed
+  publication.
+- All videos strictly <600 seconds, actual spoken element highlight sync,
+  Gemini Flash Lite/Kore first, genuine 3-attempt retries before approved
+  whole-batch fallback, homogeneous voice; no Whisper, Zenbook or GCS lease.
+- The hourly automation is a series of bounded runs, not continuous
+  background execution. Read live latest PR/checkpoint and avoid collisions.
+
+---
+
+## Prior PR #142 checkpoint
+
 # MicroGen_AI_Web — Latest Autonomous Development Checkpoint
 
 **Date:** 19 October 2026, Malaysia. Standing owner contract is binding.
