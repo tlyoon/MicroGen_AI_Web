@@ -1,3 +1,43 @@
+# MicroGen_AI_Web — Latest Continuation Checkpoint
+
+**Date:** 19 October 2026, Malaysia time.
+**Standing contract:** docs/AUTONOMOUS_DEVELOPMENT_PROTOCOL_20261018.md and
+docs/EFFECTIVE_CONTRACT_AND_SUPERSESSION_20261018.md remain authoritative.
+
+## New isolated rendered-figure work
+
+- **Parent:** draft PR #140, branch feature/whole-figure-source-identity-20261019b,
+  exact parent ecd23081b4ffd49c4bc5315e5b6bc6bf1a66ee7c.
+- **Current candidate:** new isolated HP checkout
+  %LOCALAPPDATA%/MicroGen_AI_Web_Checkpoints/20261019_pr141_rendered_visibility,
+  branch feature/rendered-figure-visibility-proof-20261019, stacked draft PR
+  pending creation (never merge protected main).
+- **Changes:** independent source/slide rectangle pixel-render comparison to a
+  bitmap-only reference in new figure_render_equivalence.py. Exact source PNG
+  digest alone does not prove visible completeness. Reject PDF clip paths,
+  foreground lettering, raster mismatch and annotations when detected.
+- **Focused HP tests:** 24 passed, 1 skipped, exit 0. Covers actual
+  synthetic PDFs with visual clipping and occlusion. Full regressions,
+  independent Dell/Yoga and GitHub CI require exact resulting-commit verification.
+- **Scientific boundaries:** Pixel equivalence at bounded rendering resolution
+  is NOT complete panel boundary or scientific semantic certification. Explicit
+  false flags for full visibility, panel completeness, semantics, TTS/video
+  authorization and human review. No automatic production integration.
+- **Production preservation:** Original HP/Dell-115/Yoga6 shared G: Drive repos,
+  source PDFs, original slide decks, narration, WAV and MP4 remain untouched.
+  Other uncommitted older HP PR140 research checkouts must also be preserved.
+- **Next safe task:** prove complete panels (a)/(b)/(c), source-space geometry
+  and caption labels, then an isolated real textbook acceptance pilot. Keep
+  video parts strictly <600s and narrated highlight exact; use authorized
+  Flash-Lite/Kore primary and conditional fallback; no Whisper, Zenbook,
+  GCS distributed lease, Moodle publication or unverified YouTube uploads.
+- **Autonomous cadence:** Individual bounded scheduled attempts are not
+  continuous background code execution. Avoid collisions with active chat.
+
+---
+
+## Earlier PR #140 checkpoint
+
 # MicroGen_AI_Web — Latest Development Checkpoint
 
 **Date:** 19 October 2026 (Malaysia). Owner autonomous-development
