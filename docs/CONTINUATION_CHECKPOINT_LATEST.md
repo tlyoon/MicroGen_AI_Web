@@ -1,3 +1,50 @@
+# MicroGen_AI_Web — latest technical acceptance continuation checkpoint
+
+19 October 2026 (Malaysia time). Check live GitHub for newer draft before work.
+
+## PR148 actual lecture acceptance auditor
+
+- New draft stacked on PR147:
+  feature/real-lecture-technical-acceptance-audit-20261019.
+  Pinned immediate base: c38134f0c20b543a4547fbd7c97e5cbe63e6851d.
+  Isolated HP checkout %LOCALAPPDATA%/MicroGen_AI_Web_Checkpoints/
+  20261019_pr148_real_acceptance_audit.
+- New read-only selenium_pipeline/lecture_acceptance_audit.py,
+  actual FFmpeg MP4 probe, PR145 source-figure pilot and canonical
+  existing strict multipart media verifier where receipts exist.
+  Legacy slides.mp4 NEVER counts as verified narrated-highlighted video.
+  Blocked CLI returns exit code 2, no silent success.
+- HP focused audit plus PR147 promotion tests: 13 passed, 19 subtests.
+  Cross-PC, full regressions and exact-head GitHub CI need actual
+  verification, not assumptions.
+- Actual Thomas 8.4 original source page 2 / slide page 5 Figure 8.3
+  has no independent author-intended complete source (a)/(b)/(c)
+  panel proof and only legacy slides.mp4. Real FFmpeg video duration
+  measured **633.93 s**, violates STRICTLY <600s.
+  Source/slide/video SHA preserved; no production output claimed.
+  Actual MP4 SHA 3398c48199e3f7ac00c1918e71576b8105a81c7064717866499bbb7da3b094c8.
+- PR146 reconstructed explicitly declared rearranged vector-to-raster
+  panel candidate; PR147 blocks unverified figures before production
+  video promotion; PR148 reports exact evidence but DOES NOT
+  manufacture figure/academic QA or complete lecture replacement.
+- Old PRs #146/#147/#148 remain DRAFT stacked. Never merge protected
+  main without established authorization.
+- Next: independently ground complete original vector panel
+  boundaries, source (a)/(b)/(c) identities and semantics for real
+  textbook; only then test actual audio-synchronized highlight on
+  new immutable technical candidate video, split <600 seconds.
+  Preserve all original source PDF/slides/script/WAV/MP4, three dirty
+  G: Drive PC working trees, older isolated clones, credentials, FIFO.
+  Only HP/Dell-115/Yoga6; no Zenbook, Whisper, GCS distributed
+  lease or unauthorized Moodle/YouTube; approved Flash-Lite/Kore
+  primary and contractual 3-attempt fallback voice consistency.
+- Hourly automations are bounded, not persistent nonstop coding.
+  Avoid collision with an active ChatGPT dev session.
+
+---
+
+## Prior PR147 checkpoint
+
 # MicroGen_AI_Web — latest continuation checkpoint (19 October 2026)
 
 ## PR147 figure production gate
