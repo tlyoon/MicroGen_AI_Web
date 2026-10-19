@@ -1,3 +1,27 @@
+# Latest checkpoint — PR152 caption-column audit
+
+20 Oct 2026 Asia/Kuala_Lumpur. Dell-115-only local work. New isolated
+branch `feature/figure-caption-block-contamination-20261020`,
+`%LOCALAPPDATA%/MicroGen_AI_Web_Checkpoints/20261020_pr152_caption_contamination`.
+Parent PR151 exact HEAD `bc0798792ab00463317a68e44f72dd0bb5098015`.
+Actual original Thomas 8.4 Figure 8.3 heading and adjacent
+procedure instructions share text block #36; eight right-column
+instruction lines. New read-only auditor returns
+`CAPTION_PARALLEL_PROSE_COLLISION_REVIEW_REQUIRED`.
+Original source SHA256
+`b695018baa55f69ae3c9c875e7b1cb8ed284123d5a4b43f31314e659b1f22068`
+preserved. No automatic caption figure/panel completeness,
+semantics, original source-to-slide identity or TTS/video approvals.
+No original PDFs/slides/script/WAV/MP4, shared G: checkout, credentials,
+other processes, protected main, YouTube/Moodle or paid TTS touched.
+No HP/Yoga6/Zenbook, Whisper/ASR or GCS lease. Strict <600s per encoded
+part, synchronized spoken-element highlight and approved homogeneous
+Flash-Lite TTS retry/fallback remain mandatory.
+Next: independent source graph-region inventory; no invented panel map.
+Full no-exclusion suite not assumed from targeted checks.
+
+---
+
 # MicroGen_AI_Web latest continuation checkpoint — PR #151 correction
 
 20 October 2026, Malaysia. The newest live draft was PR #150,
