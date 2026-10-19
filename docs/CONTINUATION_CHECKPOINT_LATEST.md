@@ -1,3 +1,55 @@
+# MicroGen_AI_Web latest continuation checkpoint
+
+19 October 2026, Asia/Kuala_Lumpur. Owner explicitly changed local
+development and QA policy: use **Dell-115 only**, no access to HP,
+Yoga6 or Zenbook. GitHub-hosted Actions CI remains allowed.
+
+## Draft PR #149 source vector-region discovery
+
+- Pinned parent draft PR #148:
+  feature/real-lecture-technical-acceptance-audit-20261019
+  at HEAD `70b108eceb8632574f41a71e83de7ed72bf75810`.
+- Dedicated isolated Dell checkout:
+  `%LOCALAPPDATA%/MicroGen_AI_Web_Checkpoints/
+  20261019_pr149_vector_source_discovery_2130`,
+  branch `feature/vector-region-discovery-failclosed-20261019`.
+  Do not touch any existing G: Drive dirty checkout or historical teaching
+  file. Do not use HP, Yoga6 or Zenbook.
+- Implemented read-only
+  `selenium_pipeline/figure_vector_region_discovery.py` and
+  adversarial `tests/test_figure_vector_region_discovery.py`.
+  Conservative single nearby vector path + unique exact FIGURE heading
+  candidate, rejecting pagewide and small math paths and ambiguities.
+- Dell focused tests: **6 passed, 1 skipped**. See more recent exact
+  commit regression/CI evidence if present.
+- Actual Dell read-only Thomas Calculus 8.4 source page 2 Figure 8.3:
+  44 vector paths; one candidate path #37 x197.89..557.39,
+  y424.406..562.906; 43 excluded. Unique caption text block starts
+  x29.638,y404.11. Source SHA256
+  `b695018baa55f69ae3c9c875e7b1cb8ed284123d5a4b43f31314e659b1f22068`.
+- **Scientific blocker remains**: inferred nearest vector path does
+  NOT verify complete intended original figure or a/b/c panel identity
+  and math meaning; slide Figure 8.3 still not certified for production
+  synchronized figure narration. Historical 8.4 MP4 ~633.93 seconds
+  violates strict part <600 seconds. All provenance and TTS/video
+  approval fields remain false. No source/slides/WAV/MP4 altered.
+- Next planned stages: PR #150 verified original label and complete
+  vector panel boundaries, PR #151 figure narration/highlight integration,
+  PR #152 new immutable <600s multipart rendered candidates, PR #153
+  real source technical acceptance. Real evidence gates each stage;
+  numbers depend on actual GitHub numbering, no forced completion.
+- Hard contract unchanged: entire source panels/captions, actual pixel
+  speech highlight alignment, encoded <600 sec parts, paid Gemini
+  Flash-Lite/Kore primary and 3 actual errors before approved
+  voice-consistent fallback. No Whisper, ASR, Zenbook, GCS lease,
+  unverified Moodle/YouTube publication, protected-main merge.
+- Check latest live draft and checkpoint before scheduled continuation.
+  Never claim continuous background activity between scheduled runs.
+
+---
+
+## Previous PR #148 continuation checkpoint
+
 # MicroGen_AI_Web — latest technical acceptance continuation checkpoint
 
 19 October 2026 (Malaysia time). Check live GitHub for newer draft before work.
