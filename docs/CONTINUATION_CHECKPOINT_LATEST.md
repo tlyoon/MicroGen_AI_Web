@@ -1,3 +1,42 @@
+# MicroGen_AI_Web — latest checkpoint (19 October 2026)
+
+## Source-vector panel-seam evidence candidate (PR #144 stage)
+
+- Parent draft PR #143 source vector provenance, branch
+  feature/verified-vector-to-raster-panels-20261019, commit
+  ae5d0d4f4408d4c8ac1e883cdb6d4e4635b8f38c.
+- Current isolated HP checkout:
+  %LOCALAPPDATA%/MicroGen_AI_Web_Checkpoints/
+  20261019_pr144_vector_gutters_2015, branch
+  feature/source-panel-seam-evidence-20261019.
+- New read-only figure_vector_panel_seams.py independently renders original
+  source-vector figure and checks near-white pixel stripes throughout
+  the full vertical/horizontal declared panel gutter. It inherits
+  original (a)/(b)/(c) PDF text-rectangle, vector path region ownership,
+  original figure caption, and exact visible source->slide raster proof.
+- Supported scope is narrow: white-background axis-aligned 2–6 panel
+  source vector figures with explicitly supplied region boundaries.
+  Real textbook panel semantics are NOT certified; another blank gap can
+  produce a plausible wrong boundary. Do not enable automatic TTS,
+  publication, or claim author-intended panel completeness.
+- Focused HP real-PDF/adversarial tests: 17 passed, 1 skipped,
+  7 parameterized subtests passed. Broad regression, independent
+  Dell/Yoga and GitHub CI require independent exact-commit verification.
+- Next PR #145 stage: read-only original Thomas/Serway figure pilot,
+  source-aware technical QA and fail-closed practical recommendations;
+  DO NOT treat pilot as proof of academic or full figure acceptance.
+- Preserve all source files, previous dirty G: Drive working trees,
+  all earlier isolated research and PRs, WAV/MP4/videos. No Whisper,
+  Zenbook, GCS lease or protected main merge. Source figures and all
+  original panels, narration-synchronized highlights, encoded video
+  part duration <600 sec, actual Flash-Lite/Kore TTS retry chain and
+  voice consistency remain binding.
+- Task cadence: discrete hourly attempts; avoid duplicate concurrent edits.
+
+---
+
+## PR #143 checkpoint
+
 # MicroGen_AI_Web latest continuation checkpoint — 19 October 2026
 
 ## Vector-source next stage
