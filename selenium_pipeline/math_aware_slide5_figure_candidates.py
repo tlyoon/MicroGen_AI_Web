@@ -7,6 +7,7 @@ from __future__ import annotations
 import re,hashlib,json
 from pathlib import Path
 from .figure83_original_inverse_label_identity import audit_original_inverse_labels
+from .figure83_slide_inverse_glyph_correspondence import audit_source_to_slide_inverse_glyphs
 from .figure_three_graph_color_reflow import audit_real_three_graph_reflow
 from .element_plan_autodraft import propose
 from .figure_source_identity import require,_sha
@@ -28,9 +29,16 @@ def audit(*,source:Path,slides:Path,script:Path,source_page:int=2,slide_page:int
         source_page=source_page,slide_page=slide_page,figure_id=figure_id)
     layout=audit_real_three_graph_reflow(source=source,slides=slides,
         source_page=source_page,slide_page=slide_page,figure_id=figure_id)
+    operator_pixels=audit_source_to_slide_inverse_glyphs(
+        source=source,slides=slides,source_page=source_page,
+        slide_page=slide_page,figure_id=figure_id)
     draft=propose(source_pdf=source,slides_pdf=slides,script_txt=script)
     require([labels["source_sha256"],labels["slides_sha256"]]==before[:2]
             and [layout["original_pdf_sha256"],layout["existing_slides_pdf_sha256"]]==before[:2]
+            and [operator_pixels["original_source_sha256"],
+                 operator_pixels["existing_slides_sha256"]]==before[:2]
+            and operator_pixels[
+                "all_three_source_inverse_operator_glyphs_in_slide_verified"] is True
             and draft["script_sha256"]==before[2]
             and len(labels["panels"])==layout["detected_graph_count"]==3
             and layout["three_graph_black_ink_geometry_plausible"] is True,
@@ -50,6 +58,7 @@ def audit(*,source:Path,slides:Path,script:Path,source_page:int=2,slide_page:int
             "function_names_explicitly_spoken":found,
             "candidate_ordered_graph_panel":mapped,
             "candidate_panel_identity_read_from_original_pdf":mapped is not None,
+            "candidate_label_glyphs_matched_source_to_slide":mapped is not None,
             "candidate_panel_original_words":(
                 [labels["panels"][mapped-1]["original_printed_inverse_function_token"]]
                 if mapped is not None else []),
@@ -68,6 +77,7 @@ def audit(*,source:Path,slides:Path,script:Path,source_page:int=2,slide_page:int
        "hypothesized_ordered_panel_names":list(ORDER),
        "original_graph_ink_reflow_independently_correlated":True,
        "original_source_printed_function_labels_verified":True,
+       "original_slide_inverse_operator_glyph_correspondence_verified":True,
        "original_graph_semantics_independently_verified":False,
        "original_figure_math_labels_verified":False,
        "utterances":results,
