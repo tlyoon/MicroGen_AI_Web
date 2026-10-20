@@ -1,3 +1,9 @@
+# Latest checkpoint — PR177 pause-indexed original WAV element highlight candidates
+
+20 October 2026, Dell-115 ONLY. Branch `feature/original-wav-pause-aligned-highlight-candidates-20261020` in isolated `20261020_pr177_wav_timed_highlight_candidates_1945`, parent PR176 exact SHA `86d9b816d3c1b3f4b390eb69173404974c31bbfa`. Original slide5 of Thomas 8.4 has eight visible text blocks; original slide5.wav duration 59.45533s. RMS silence gaps generate eight ordered SAMPLE-timed intervals with source PDF geometry and frozen hashes, but **not proven speech-to-element semantic alignment**: all approval flags false. Future reviewer pilot may render provisional highlights but cannot approve final synchronized lecture on this evidence alone. All G: originals and dirty repos preserved; no other PCs, paid TTS, Whisper/ASR or GCS lease. Strict encoded <600s, academic/math and independently verified speech highlight QA required.
+
+---
+
 # Latest checkpoint — PR176 source-grounded mathematical figure words
 
 20 Oct 2026, Dell-115 only. Isolated checkout `20261020_pr176_figure_label_ink_1930`, branch `feature/figure-original-math-ink-evidence-20261020`, on parent PR175 exact SHA `0b671bacf0585ecbfbe402b6a945b4108fe0208c`.
