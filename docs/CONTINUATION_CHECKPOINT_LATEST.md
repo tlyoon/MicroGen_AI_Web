@@ -1,3 +1,9 @@
+# Latest checkpoint — PR185 genuine element-WAV video release gate
+
+20 Oct 2026 Dell-115 only; isolated `20261020_pr185_synchronized_release_gate_2125`, branch `feature/true-element-sync-release-gate-20261020`, stacked on PR184 SHA `cf0cf685eff87198a28479fc315528513ea809b7`. Established `true_element_sync_release_gate` prevents PAUSE-derived original slide WAV highlight candidates from being treated as genuine spoken-element alignment. Requires complete source-proven element audio, reviewed plan, independently pixel-tested element MP4; delegates technical acceptance to existing `sourcebound_production_video.accept_candidate` only after validation. Real Thomas 8.4 correctly BLOCKS, no production candidate or original changes. 27 Dell source-bound production regression tests passed; no paid Gemini, Whisper/ASR, HP/Yoga6, GCS, or student publication. The existing two 8.4 review MP4s under 600s remain valid visual review only, not publishable.
+
+---
+
 # Latest checkpoint — PR184 fail-closed per-element TTS preflight
 
 20 Oct 2026 Dell-115 only; branch `feature/verified-element-tts-handoff-20261020` isolated checkout `20261020_pr184_tts_handoff_2105`, on parent PR183 SHA `52bf848643078619f9fdc5a380d660f33093e49e`. Paid Gemini Flash-Lite/Kore is permitted only when exact text-only source evidence or independently reviewed source/element selection validates through existing bridge. Preflight itself never makes paid calls. Real Thomas 8.4 returns BLOCKED, 71 utterances all unreviewed; no element WAVs or synced final MP4s claimed. 20 focused existing TTS and new adversarial tests passed. All source and original media intact; Dell-only, no Whisper/ASR/GCS lease, student publication, main merge or unsafe voice change.
