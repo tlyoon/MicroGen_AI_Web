@@ -1,3 +1,49 @@
+# Latest checkpoint — PR169 alternative layout-aware Figure 8.3 algorithm
+
+20 October 2026 Malaysia; Dell-115 ONLY. Latest checked
+stack parent PR168 branch
+`feature/figure-readonly-rendered-review-packet-20261020`,
+exact head `529dc56ae0a1bf5cf99299c9f08e600044a4253a`.
+New isolated checkout
+`20261020_pr169_dense_ink_registration_1540`,
+branch `feature/figure-dense-ink-patch-alignment-20261020`.
+**Important root-cause breakthrough:** actual Thomas
+Calculus 8.4 Figure 8.3 is THREE UNLETTERED stacked
+graphs (arctan/arcsin/arcsec), the existing slide 5
+raster has THREE corresponding graphs laid SIDE-BY-SIDE.
+Past whole-source-crop aspect mismatch and missing
+(a)/(b)/(c) text labels were NOT proof of figure defect.
+
+Implemented independent 3x original-PDF left-column ink
+row-run detection vs actual visible embedded slide-raster
+column-run detection. Ordered blue curve Chamfer distances
+0.001526/0.001110/0.001405, red/magenta asymptote
+distances 0.000534/absent in both/0.003858;
+three graph colored curves **corroborated**.
+Black axis/label ink geometric diagnostics
+0.020170/0.004777/0.035422 are NOT academic
+verification of axes, labels, curves or text.
+Adversarial tests reject swapped order, missing colored
+curve, missing third panel and red asymptotes; when
+black axes are erased, color evidence remains but ALL
+math semantic/video/publication approval fields remain
+false. Original SHA hashes unchanged; prior source
+vector index 30 missing feature keypoints does NOT imply
+missing panel, since original three graph shapes match.
+See docs/FIGURE_THREE_GRAPH_REFLOW_20261020.md.
+
+Strict video part duration <600s and actual spoken-
+element highlight synchronization remain unresolved;
+original 8.4 MP4 ~633.93s noncompliant. No generation,
+paid calls, Moodle student publication, main merge,
+other PCs, G: edits, older worker checkout modifications,
+Whisper/ASR or external GCS lease. TTS primary
+Flash-Lite/Kore, approved same voice fallback after
+3 genuine failed attempts; human academic/listening
+QA separate. The module exits 2 for remaining review.
+
+---
+
 # Latest checkpoint — PR168 read-only original/slide evidence packet
 
 20 October 2026 Malaysia. Dell-115-only isolated checkout
