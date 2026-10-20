@@ -1,3 +1,9 @@
+# Latest checkpoint — PR188 source-PDF and slide Fig. 8.3 review montage
+
+20 Oct 2026 Dell-115 only. Isolated PR188 based on PR187; actual source/slide pixel comparison and all eight speech-to-panel candidate hypotheses staged outside teaching source. Full mathematical axes/labels and speech alignment remain unverified; never permit premature TTS/publication. Original assets preserved.
+
+---
+
 # Latest checkpoint — PR187 source-grounded spoken trig-branch figure candidates
 
 20 Oct 2026 Malaysia. Dell-115 ONLY. Branch
