@@ -1,3 +1,25 @@
+# Latest checkpoint — PR198 source-grounded Figure 8.3 operator narration review anchors
+
+21 October 2026 Malaysia, Dell-115 ONLY; isolated development, stacked
+draft PRs #194-#198 on #193. PR194 hardened invalid confidence thresholds;
+PR195 corroborated real inverse-operator glyph pixel scales
+(0.51/0.48/0.51); PR196 anchored original inverse-function operator
+glyphs on the existing slide-5 embedded bitmap at pixel boxes
+[56,70,84,85], [406,29,431,43], [668,78,696,93].
+PR197 inventoried original mathematical equation and axis token repeats,
+u=2 / equals=1 / x=2 / a=2 / inverse=1 per source graph.
+PR198 associates four of eight original narration utterances with
+review-only original-to-slide operator bitmap boxes. Four other
+utterances have no single-named function. This does NOT certify full
+x/a, axes, ticks, graph mathematical correctness, word timing,
+element-level TTS, listening/academic QA, video replacement or student
+publication. Original source/slides/script/WAV/MP4 unchanged.
+No billed TTS, HP/Yoga6/Zenbook, Whisper/ASR, GCS lease or main merge.
+Continue from live PR stack and source SHA, not hardcoded next number.
+See docs/FIGURE83_SOURCEBOUND_OPERATOR_NARRATION_REVIEW_20261021.md.
+
+---
+
 # Latest checkpoint — PR193 verified original-to-existing-slide inverse-function label glyphs
 
 20 Oct 2026, Dell-115 ONLY, isolated `20261020_pr193_label_bitmap_match_2340`, stacked on PR192 exact SHA `aa97dc18e1aece31767dfb5f8f85472d2acade8e`. New OpenCV figure QA extracts source PDF operator tokens `tan−1`, `sin−1`, `sec−1` from actual Figure 8.3 plot source, then detects their respective **pixels in existing slide 5 bitmap** with scale-swept black ink template comparison across all three panels. Real matching panel scores 0.78845, 0.80213, 0.78747 and closest-source/slide uniqueness margins 0.09412, 0.10780, 0.21627; all exceed strict automatic thresholds. Existing narration-mapping now requires this actual operator-glyph evidence, not mere source printed names or colored curve agreement. Four single-function spoken panel candidates remain unapproved. Full equation and other axes/labels, mathematical curve semantics, spoken-word timing, TTS and student publishing remain blocked. No original changes or other PCs. See docs/FIGURE83_SOURCE_SLIDE_INVERSE_GLYPH_PIXEL_QA_20261020.md.

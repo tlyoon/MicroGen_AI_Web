@@ -8,6 +8,7 @@ import re,hashlib,json
 from pathlib import Path
 from .figure83_original_inverse_label_identity import audit_original_inverse_labels
 from .figure83_slide_inverse_glyph_correspondence import audit_source_to_slide_inverse_glyphs
+from .figure83_original_equation_components import audit as audit_original_equation_components
 from .figure_three_graph_color_reflow import audit_real_three_graph_reflow
 from .element_plan_autodraft import propose
 from .figure_source_identity import require,_sha
@@ -32,6 +33,9 @@ def audit(*,source:Path,slides:Path,script:Path,source_page:int=2,slide_page:int
     operator_pixels=audit_source_to_slide_inverse_glyphs(
         source=source,slides=slides,source_page=source_page,
         slide_page=slide_page,figure_id=figure_id)
+    equation_components=audit_original_equation_components(
+        source=source,slides=slides,source_page=source_page,
+        slide_page=slide_page,figure_id=figure_id)
     draft=propose(source_pdf=source,slides_pdf=slides,script_txt=script)
     require([labels["source_sha256"],labels["slides_sha256"]]==before[:2]
             and [layout["original_pdf_sha256"],layout["existing_slides_pdf_sha256"]]==before[:2]
@@ -39,6 +43,10 @@ def audit(*,source:Path,slides:Path,script:Path,source_page:int=2,slide_page:int
                  operator_pixels["existing_slides_sha256"]]==before[:2]
             and operator_pixels[
                 "all_three_source_inverse_operator_glyphs_in_slide_verified"] is True
+            and [equation_components["source_sha256"],
+                 equation_components["slides_sha256"]]==before[:2]
+            and equation_components["source_math_equation_components_inventory_complete"] is True
+            and len(operator_pixels["source_operator_target_pixel_boxes_for_review"])==3
             and draft["script_sha256"]==before[2]
             and len(labels["panels"])==layout["detected_graph_count"]==3
             and layout["three_graph_black_ink_geometry_plausible"] is True,
@@ -59,6 +67,12 @@ def audit(*,source:Path,slides:Path,script:Path,source_page:int=2,slide_page:int
             "candidate_ordered_graph_panel":mapped,
             "candidate_panel_identity_read_from_original_pdf":mapped is not None,
             "candidate_label_glyphs_matched_source_to_slide":mapped is not None,
+            "candidate_matched_operator_pixel_bbox_for_review":(
+                operator_pixels["source_operator_target_pixel_boxes_for_review"]
+                    [mapped-1]["matched_original_glyph_bbox_on_existing_slide_bitmap_px"]
+                if mapped is not None else None),
+            "source_equation_and_axis_tokens_inventory_present":mapped is not None,
+            "complete_equation_label_and_axis_mathematics_verified":False,
             "candidate_panel_original_words":(
                 [labels["panels"][mapped-1]["original_printed_inverse_function_token"]]
                 if mapped is not None else []),
@@ -79,6 +93,8 @@ def audit(*,source:Path,slides:Path,script:Path,source_page:int=2,slide_page:int
        "original_source_printed_function_labels_verified":True,
        "original_slide_inverse_operator_glyph_correspondence_verified":True,
        "original_graph_semantics_independently_verified":False,
+       "operator_glyph_review_boxes_only_not_spoken_word_timing":True,
+       "original_source_equation_candidates_inventory_verified":True,
        "original_figure_math_labels_verified":False,
        "utterances":results,
        "unique_single_function_hint_count":sum(x["candidate_ordered_graph_panel"] is not None for x in results),
