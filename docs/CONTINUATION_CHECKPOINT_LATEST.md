@@ -1,3 +1,33 @@
+# Latest checkpoint — PR163 original source-vector coverage gaps
+
+20 Oct 2026; Dell-115 isolated new branch
+`feature/source-vector-object-coverage-gaps-20261020`
+stacked on PR162 head `ed1591bff62f9a5332485dd9e98adce6e3dda286`.
+Original Thomas Calculus 8.4 Figure 8.3 source page 2
+and lecture slide 5 read-only tested. Among 23 original
+pre-caption drawing objects, **13 are near a single**
+measured keypoint-registration source group, **2 are near
+multiple groups** and **8 have no nearby matched features**.
+These are bounded geometric proximity classifications;
+NOT proof that eight original graph strokes are absent
+from slide. Some objects may be unrelated or lack local
+feature detections. Correctly handles PDF zero-height and
+zero-width drawing strokes; malicious duplicate/invalid
+objects fail closed. Dell figure regression completed:
+**220 passed, 3 skipped, 0 failed**. Eight focused tests
+passed. Full repository no-exclusion tests not certified. No complete figure/panel/semantic,
+narration, MP4 or publication approval; CLI exits 2.
+See docs/SOURCE_VECTOR_COVERAGE_GAPS_20261020.md.
+Only Dell-115; historic PDFs/WAV/MP4, all G: shared
+worktrees, old unfinished other checkout preserved.
+Strict <600s encoded parts, actual synchronized
+spoken-element highlights, Flash-Lite/Kore default
+and three-real-failure approved same-voice fallback
+retained. No HP/Yoga6/Zenbook, paid calls,
+Whisper/ASR, external GCS lease, main merge or publication.
+
+---
+
 # Latest checkpoint — PR162 independent AKAZE corroboration
 
 20 October 2026; Dell-115 ONLY, stacked on PR161 exact
