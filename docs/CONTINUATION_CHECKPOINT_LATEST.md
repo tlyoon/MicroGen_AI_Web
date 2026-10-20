@@ -1,3 +1,28 @@
+# Latest checkpoint — PR186 cross-subchapter original-audio semantic highlight acceptance
+
+20 Oct 2026 Malaysia, Dell-115 ONLY. Isolated `20261020_pr186_batch_source_acceptance_2145`,
+branch `feature/element-sync-multisubchapter-acceptance-20261020`,
+parent PR185 exact SHA `d082f33e2006e73b67783979224af0793838d3be`.
+Real READ-ONLY source-bound audit of Thomas 8.4, 8.5, 8.6:
+8.4 has original 17 slide WAVs and two actual visually reviewed encoded
+multipart MP4s <600s in separate isolated staging, but no verified
+spoken-word-to-mathematical-element alignment, so NOT publishable;
+8.5 has 20 slide WAVs and a multipart preflight but no accepted media;
+8.6 has 17 slide WAVs and a multipart preflight but no accepted media.
+Published/production accepted 0/3. Machine-readable report saved at
+`%LOCALAPPDATA%\MicroGen_AI_Web_Checkpoints\thomas_84_85_86_element_sync_acceptance_20261020.json`.
+Actual original figure/source scripts/slide WAVs unmodified. The next
+substantive implementation must resolve original math/figure narration
+mapping with independently corroborated source evidence and produce
+separate source-verified element WAV clips; only then run real encoder,
+strict <600s and element-synced QA. No paid TTS was invoked on unverified
+source mappings. Preserve consistent Gemini Flash-Lite/Kore voice,
+fallback Cloud only after three genuine failures. No other PCs,
+Whisper/ASR, GCS lease, main merge or Moodle/YouTube publication.
+See docs/MULTISUBCHAPTER_ELEMENT_SYNC_ACCEPTANCE_20261020.md.
+
+---
+
 # Latest checkpoint — PR185 genuine element-WAV video release gate
 
 20 Oct 2026 Dell-115 only; isolated `20261020_pr185_synchronized_release_gate_2125`, branch `feature/true-element-sync-release-gate-20261020`, stacked on PR184 SHA `cf0cf685eff87198a28479fc315528513ea809b7`. Established `true_element_sync_release_gate` prevents PAUSE-derived original slide WAV highlight candidates from being treated as genuine spoken-element alignment. Requires complete source-proven element audio, reviewed plan, independently pixel-tested element MP4; delegates technical acceptance to existing `sourcebound_production_video.accept_candidate` only after validation. Real Thomas 8.4 correctly BLOCKS, no production candidate or original changes. 27 Dell source-bound production regression tests passed; no paid Gemini, Whisper/ASR, HP/Yoga6, GCS, or student publication. The existing two 8.4 review MP4s under 600s remain valid visual review only, not publishable.
