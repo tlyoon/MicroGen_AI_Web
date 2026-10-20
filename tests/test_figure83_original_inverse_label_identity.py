@@ -63,10 +63,19 @@ class PrintedInverseIdentityTests(unittest.TestCase):
                 return_value=scripted),patch(
                 "selenium_pipeline.math_aware_slide5_figure_candidates.audit_source_to_slide_inverse_glyphs",
                 return_value={"original_source_sha256":"a","existing_slides_sha256":"a",
-                    "all_three_source_inverse_operator_glyphs_in_slide_verified":True}):
+                    "all_three_source_inverse_operator_glyphs_in_slide_verified":True,
+                    "source_operator_target_pixel_boxes_for_review":[
+                        {"matched_original_glyph_bbox_on_existing_slide_bitmap_px":[i,2,i+2,4]}
+                        for i in (1,10,20)]}),patch(
+                "selenium_pipeline.math_aware_slide5_figure_candidates.audit_original_equation_components",
+                return_value={"source_sha256":"a","slides_sha256":"a",
+                    "source_math_equation_components_inventory_complete":True}):
             result=audit(source=Path("original.pdf"),slides=Path("slide.pdf"),
                          script=Path("script.txt"))
         self.assertEqual(result["utterances"][0]["candidate_ordered_graph_panel"],2)
+        self.assertEqual(result["utterances"][0]["candidate_matched_operator_pixel_bbox_for_review"],
+                         [10,2,12,4])
+        self.assertFalse(result["utterances"][0]["complete_equation_label_and_axis_mathematics_verified"])
         self.assertTrue(result["original_source_printed_function_labels_verified"])
         self.assertFalse(result["figure_element_tts_authorized"])
 
