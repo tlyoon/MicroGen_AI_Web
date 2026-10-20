@@ -1,3 +1,26 @@
+# Latest checkpoint — PR164 unmatched source drawing operation taxonomy
+
+20 October 2026; Dell-115-only. Parent PR163
+`feature/source-vector-object-coverage-gaps-20261020`
+SHA `141ac413c5adb0614b91846248872d2952ed3498`.
+New isolated checkout `20261020_pr164_unmatched_vector_taxonomy_1155`,
+branch `feature/source-vector-unmatched-operation-taxonomy-20261020`.
+Read-only source page PDF original drawing-object operation and
+adjacent text inventory distinguishes 8 unmatched source drawing
+indices `14,15,20,24,26,28,30,33`. Of these 8, 5 are line-like
+and 7 are near an extractable text word within 2 pt. These metrics
+DO NOT identify author-original graph panels and DO NOT prove
+omission from the slide. Adversarial duplicate / wrong index
+guard; source hash preserved and output stays fail-closed.
+No production modifications, video acceptance, actual panel
+mapping, student publication, other-PC access, G: repo mutation,
+Whisper/ASR/GCS distributed lease or paid TTS. Strict <600s
+MP4 parts and spoken-element highlights; primary Flash-Lite/Kore,
+fallback only after 3 actual failed attempts, consistent voice;
+academic listening QA independent.
+
+---
+
 # Latest checkpoint — PR163 original source-vector coverage gaps
 
 20 Oct 2026; Dell-115 isolated new branch
