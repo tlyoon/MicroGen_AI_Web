@@ -246,6 +246,8 @@ def audit_real_three_graph_reflow(*, source:Path, slides:Path,
     return {**report,
             "figure_id":figure_id,"source_page":source_page,
             "slide_page":slide_page,
+            "source_scan_pixel_x_bounds":[x_start,x_end],
+            "original_source_render_scale":3,
             "original_pdf_sha256":inv["source_sha256"],
             "existing_slides_pdf_sha256":vis["slides_sha256"]}
 
