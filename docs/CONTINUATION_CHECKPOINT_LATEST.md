@@ -1,3 +1,25 @@
+# Latest checkpoint — PR165 registration proximity threshold sensitivity
+
+20 October 2026, Dell-115 isolated branch
+`feature/source-vector-coverage-margin-sensitivity-20261020`
+on parent PR164 `f8f7722f0671f2b95147aea02597fb3893ca116b`.
+Thomas 8.4 original Figure 8.3, source page 2 and slide 5:
+re-running identical read-only source-vector/registration audit
+at margins 0,4,8,12,20pt finds unmatched counts
+**10,10,8,7,6**. Two PR163 unmatched-at-8 objects become
+near a group at 20pt, six still lack nearby keypoints.
+Neither stable classification nor threshold sensitivity
+certifies missing original artwork or panel identity.
+All source-to-slide scientific completeness, highlight
+sync, under-600s MP4 output and student publication
+remain blocked. No source/slide or old media mutated,
+nor dirty worktree, older uncommitted separate checkout,
+other PCs, paid calls, Whisper/ASR/GCS lease. Primary
+Flash-Lite/Kore, three genuine failures before approved
+homogeneous fallback remains binding.
+
+---
+
 # Latest checkpoint — PR164 unmatched source drawing operation taxonomy
 
 20 October 2026; Dell-115-only. Parent PR163
