@@ -20,7 +20,8 @@ def audit_vector_source_slide_raster(*, source: Path, slides: Path,
                                      figure_id: str) -> dict:
     parent = assess_real_source_slide_figure(
         source=source, slides=slides, source_page=source_page,
-        slide_page=slide_page, figure_id=figure_id)
+        slide_page=slide_page, figure_id=figure_id,
+        automatic_layout_review=False)
     spath, dpath = Path(source).absolute(), Path(slides).absolute()
     require(spath != dpath, "Source and slide must be distinct PDFs")
     shash, dhash = parent["source_sha256"], parent["slides_sha256"]

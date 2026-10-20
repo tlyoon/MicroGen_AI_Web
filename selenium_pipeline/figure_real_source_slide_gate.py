@@ -20,7 +20,8 @@ from .figure_source_identity import require, _sha
 
 def assess_real_source_slide_figure(*, source: Path, slides: Path,
                                     source_page: int, slide_page: int,
-                                    figure_id: str) -> dict:
+                                    figure_id: str,
+                                    automatic_layout_review: bool = True) -> dict:
     caption = audit_caption_column_collision(
         source=source, page_number=source_page, figure_id=figure_id
     )
@@ -50,6 +51,30 @@ def assess_real_source_slide_figure(*, source: Path, slides: Path,
         ))
         raster_count = len(page.get_images(full=True))
         drawing_count = len(page.get_drawings())
+        # Do not call an expensive optional reflow detector for pages that
+        # contain only vector decorations or tiny bullet raster glyphs.
+        material_bitmaps = [item for item in page.get_image_info(xrefs=True)
+                            if int(item["width"]) >= 48 and int(item["height"]) >= 48
+                            and pymupdf.Rect(item["bbox"]).width >= 50
+                            and pymupdf.Rect(item["bbox"]).height >= 25
+                            and type(item.get("xref")) is int and item["xref"] > 0]
+    if (automatic_layout_review and len(material_bitmaps) == 1
+            and vectors["pre_caption_object_count"] > 0):
+        from .figure_layout_recovery_dispatch import discover_source_slide_reflow
+        reflow = discover_source_slide_reflow(
+            source=source, slides=slides, source_page=source_page,
+            slide_page=slide_page, figure_id=figure_id)
+    else:
+        reflow = {"status":"NO_UNIQUE_MATERIAL_BITMAP_FOR_AUTOMATIC_REFLOW",
+                  "layout_reflow_detected":False,
+                  "previous_whole_source_crop_aspect_mismatch_resolved_as_layout_only":False,
+                  "publication_authorized":False}
+    require(not reflow["publication_authorized"],
+            "Optional layout detector must never authorize production")
+    if reflow["layout_reflow_detected"]:
+        require(reflow["source_sha256"] == caption["source_sha256"]
+                and reflow["slides_sha256"] == slide_sha,
+                "Automatic layout evidence refers to changed original files")
     require(_sha(Path(source).absolute()) == caption["source_sha256"],
             "Original source changed during review")
     require(_sha(slide_path) == slide_sha, "Slide PDF changed during review")
@@ -67,6 +92,10 @@ def assess_real_source_slide_figure(*, source: Path, slides: Path,
         "slide_exact_figure_caption_text_matches": exact_text_matches,
         "slide_raster_object_count": raster_count,
         "slide_vector_drawing_count": drawing_count,
+        "automatically_detected_layout_reflow":reflow["layout_reflow_detected"],
+        "legacy_whole_crop_aspect_rejection_resolved_as_layout_only":
+            reflow["previous_whole_source_crop_aspect_mismatch_resolved_as_layout_only"],
+        "layout_recovery_diagnostic":reflow,
         "source_graph_objects_scientifically_assigned": False,
         "original_complete_panel_boundaries_verified": False,
         "source_to_slide_figure_identity_verified": False,
