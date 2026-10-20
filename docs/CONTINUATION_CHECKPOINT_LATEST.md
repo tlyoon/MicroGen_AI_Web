@@ -1,3 +1,39 @@
+# Latest checkpoint — PR181 real encoded visual-event exhaustiveness and verified-audio repair gate
+
+20 October 2026; Dell-115 ONLY. Isolated checkout
+`20261020_pr181_immutable_element_audio_alignment_2130`,
+branch `feature/source-bound-element-audio-alignment-repair-20261020`,
+parent latest PR180 exact SHA `e11d5ef7db9071b9c2198db4faba267f5cfad065`,
+whose GitHub Windows and Ubuntu CI succeeded.
+
+Actual Thomas Calculus 8.4 two staged review MP4s (321.89s/310.82s,
+slides 1–8/9–17) had all **86 encoded visual events** independently
+decoded against freshly regenerated exact original slides.pdf
+source-element highlight images and sample-derived WAV timings.
+Integrated the same check into `joint_original_lecture_acceptance`
+as optional `--staged-review`. Real 8.4 joint gate reported
+86/86 source-reconstructed encoded frames but kept
+`STAGED_REVIEW_EVENT_PIXELS_VERIFIED_SPOKEN_ELEMENT_ALIGNMENT_MISSING`
+as an explicit blocker, exit 2 and student publication false.
+Every original WAV PCM sample and original teaching SHA previously
+verified unchanged; no media rewritten. Separate original script
+review draft found 71 utterances, 116 visual target candidates,
+53 ambiguous text/figure associations. 16 of 17 slides require
+source-grounded separate per-element TTS, remaining title slide
+needs spoken text correspondence verification. **Cannot prove
+semantic spoken-word synchronization from old slide-level WAV
+silence alone**; never mark actual MP4 as technical production
+approved or student-publishable. Existing per-element TTS
+pipeline provides a bounded follow-on after true source-bound
+text-to-element decisions; no billed TTS without verified inputs,
+one consistent Kore voice across regenerated lecture, Google
+Cloud fallback only after three genuine failures. No Whisper/ASR,
+GCS lease, other PCs, dirty G: worktrees, main merge, student
+publication or original source/WAV/MP4 mutation. See
+docs/ORIGINAL_ELEMENT_SPEECH_ALIGNMENT_REPAIR_20261020.md.
+
+---
+
 # Latest checkpoint — PR180 independent real multipart media re-audit + 8.5/8.6 preflight
 
 20 Oct 2026; Dell-115 ONLY. New isolated branch `feature/independent-real-multipart-recovery-audit-20261020` in `20261020_pr180_staged_reaudit_2100`, parent PR179 SHA `ca66f93b8a6d60ca880dd4cdcb7b2272707b53f5`.
