@@ -1,3 +1,25 @@
+# Latest checkpoint — PR166 original PDF vector connected components
+
+20 October 2026, Dell-115 isolated checkout
+`20261020_pr166_source_vector_components_1225`
+branch `feature/source-vector-connected-components-20261020`
+stacked on PR165 HEAD `caa208e886c175a893edccefd9bcd5c3c6e53616`.
+Real source.pdf Thomas Calculus 8.4 page 2, FIGURE 8.3:
+23 candidate vector drawings form two bbox-gap connected
+components with 2pt observation threshold: one 22-path group
+and one isolated source vector index 30. This is untrusted
+drawing topology, NOT author panel boundaries, source figure
+completeness or missing slide graph certification. Other
+scientific, narration highlight, encoded <600s video,
+student publication and academic listening gates remain blocked.
+All original source, PDFs, WAV and MP4 unchanged.
+No dirty worktrees, older uncommitted checkout or other
+PCs accessed; no paid generation/Whisper/ASR/GCS lease.
+Voice-consistent Flash-Lite/Kore primary + approved fallback
+only after 3 real failures retained.
+
+---
+
 # Latest checkpoint — PR165 registration proximity threshold sensitivity
 
 20 October 2026, Dell-115 isolated branch
