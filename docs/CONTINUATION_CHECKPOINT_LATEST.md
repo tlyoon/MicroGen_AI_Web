@@ -1,3 +1,25 @@
+# Latest checkpoint — PR167 component-to-registration overlap
+
+20 October 2026, Dell-115 only, isolated branch
+`feature/source-component-registration-crosscheck-20261020`
+stacked on parent PR166 SHA
+`8883f965a3918eb082e3fd904570c5603f154ef8`.
+Real Thomas 8.4 original vector source page 2 and slide 5:
+22-object candidate geometrically connected component
+spans source RANSAC registration group bounding boxes [0,1,2].
+An original isolated zero-height or zero-width drawing
+index 30 remains outside all matched-group boxes.
+This is only geometry. No independently proven source object
+ink in slide, author complete figure, panel semantics,
+narration highlights or compliant <600s encoded video part.
+All real original PDFs, scripts, WAV/MP4 unchanged; G:
+working tree/unfinished checkout untouched. No other PCs,
+paid calls, Whisper/ASR/GCS external lease or publication.
+TTS default Flash-Lite/Kore, voice-consistent approved
+fallback only after 3 genuinely failed attempts unchanged.
+
+---
+
 # Latest checkpoint — PR166 original PDF vector connected components
 
 20 October 2026, Dell-115 isolated checkout
