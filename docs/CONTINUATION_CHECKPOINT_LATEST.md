@@ -1,3 +1,9 @@
+# Latest checkpoint — PR178 real encoded slide5 provisional highlight pilot
+
+20 Oct 2026, Dell-115 ONLY, branch `feature/real-slide5-pause-highlight-mp4-pilot-20261020` in isolated `20261020_pr178_real_slide5_highlight_pilot_2000`; parent PR177 SHA ff19c18d082e3a9df8fb1a64560fcf5068cb2cbf. **Actual playable 59.46s encoded video** created from original Thomas 8.4 slide5.pdf bitmap and slide5.wav with eight sequential source PDF text-region orange outlines at PCM acoustic pauses. Encoded duration measured by FFmpeg, sampled decoded pixels match generated highlighted frames (mean RGB errors <1). This is NOT verified word-to-element speech synchronization! No production or academic QA approval. Original WAV/slides/MP4 unchanged; original 633.93s full MP4 still noncompliant. Need real timing evidence and 2-part complete MP4 <600s before production. No other PCs, G: dirty trees, paid TTS, Whisper/ASR/GCS lease, main merge or publication. See docs/REAL_SLIDE5_HIGHLIGHTED_REVIEW_PILOT_20261020.md.
+
+---
+
 # Latest checkpoint — PR177 pause-indexed original WAV element highlight candidates
 
 20 October 2026, Dell-115 ONLY. Branch `feature/original-wav-pause-aligned-highlight-candidates-20261020` in isolated `20261020_pr177_wav_timed_highlight_candidates_1945`, parent PR176 exact SHA `86d9b816d3c1b3f4b390eb69173404974c31bbfa`. Original slide5 of Thomas 8.4 has eight visible text blocks; original slide5.wav duration 59.45533s. RMS silence gaps generate eight ordered SAMPLE-timed intervals with source PDF geometry and frozen hashes, but **not proven speech-to-element semantic alignment**: all approval flags false. Future reviewer pilot may render provisional highlights but cannot approve final synchronized lecture on this evidence alone. All G: originals and dirty repos preserved; no other PCs, paid TTS, Whisper/ASR or GCS lease. Strict encoded <600s, academic/math and independently verified speech highlight QA required.
