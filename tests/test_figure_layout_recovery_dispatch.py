@@ -57,6 +57,21 @@ class LayoutAutoTriageTests(unittest.TestCase):
                 report={**evidence(),**wrong}
                 self.assertFalse(classify_layout_evidence(report)["layout_reflow_detected"])
 
+    def test_four_panel_geometry_matches_can_be_dispatched_without_approval(self):
+        old=evidence()
+        e={**old,
+           "status":"MULTI_GRAPH_COLOR_AND_BLACK_INK_REFLOW_CORROBORATED_REVIEW_REQUIRED",
+           "detected_graph_count":4,
+           "original_vertical_graph_run_count":4,
+           "slide_horizontal_graph_run_count":4,
+           "graph_correspondence_evidence":old["graph_correspondence_evidence"]+[dict(old["graph_correspondence_evidence"][0])]}
+        result=classify_layout_evidence(e)
+        self.assertTrue(result["layout_reflow_detected"])
+        self.assertEqual(result["detected_graph_count"],4)
+        self.assertFalse(result["publication_authorized"])
+        e["graph_correspondence_evidence"]=e["graph_correspondence_evidence"][:3]
+        self.assertFalse(classify_layout_evidence(e)["layout_reflow_detected"])
+
     def test_optional_cv_dependency_failure_never_promotes_figure(self):
         with patch("selenium_pipeline.figure_three_graph_color_reflow."
                    "audit_real_three_graph_reflow",
