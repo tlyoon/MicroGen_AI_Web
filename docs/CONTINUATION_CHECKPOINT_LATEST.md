@@ -1,3 +1,28 @@
+# Latest checkpoint — PR173 isolated source-to-slide graph review montage
+
+20 Oct 2026, Dell-115 only, branch
+`feature/figure-reflow-original-panel-review-montage-20261020`,
+isolated checkout `20261020_pr173_graph_montage_1810`,
+based on PR172 exact commit
+`5b4b558f8e7beb283c2568d2b2eefbebcc25e1ca`.
+New safe original-PDF plot y-band and slide bitmap
+x-band review montage, exact rendered RGB crops side-by-side,
+no inferred semantic label or automatic media acceptance.
+On actual Thomas 8.4 source p2 Figure 8.3 / slide p5,
+created scratch `source_slide_comparison.png` (58,377 B)
+and hash-bound `review_manifest.json` (2,826 B), CLI 2,
+then deleted scratch output. All original teaching assets
+preserved; no slides/MP4/WAV replaced. Future automatic
+figure repair remains source-bound, fail-closed and only
+candidate staging, not silently published artwork.
+No HP/Yoga6/Zenbook, dirty G: checkout, paid Gemini,
+Whisper/ASR/GCS external lease. Strict encoded <600s
+per part and narrated synchronized highlights still
+mandatory and unproven; human academic listening QA separate.
+See docs/REFLOW_REVIEW_MONTAGE_20261020.md.
+
+---
+
 # Latest checkpoint — PR172 bounded multi-graph figure reflow
 
 20 October 2026, Dell-115 only. Isolated branch
