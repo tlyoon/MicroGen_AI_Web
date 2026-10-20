@@ -10,6 +10,11 @@ Actual Thomas Calculus 8.4 two staged review MP4s (321.89s/310.82s,
 slides 1–8/9–17) had all **86 encoded visual events** independently
 decoded against freshly regenerated exact original slides.pdf
 source-element highlight images and sample-derived WAV timings.
+Integrated the same check into `joint_original_lecture_acceptance`
+as optional `--staged-review`. Real 8.4 joint gate reported
+86/86 source-reconstructed encoded frames but kept
+`STAGED_REVIEW_EVENT_PIXELS_VERIFIED_SPOKEN_ELEMENT_ALIGNMENT_MISSING`
+as an explicit blocker, exit 2 and student publication false.
 Every original WAV PCM sample and original teaching SHA previously
 verified unchanged; no media rewritten. Separate original script
 review draft found 71 utterances, 116 visual target candidates,

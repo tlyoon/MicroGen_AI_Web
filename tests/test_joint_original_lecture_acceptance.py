@@ -60,6 +60,49 @@ class JointOriginalLectureTests(unittest.TestCase):
         for name, digest in original.items():
             self.assertEqual(hashlib.sha256((self.folder / name).read_bytes()).hexdigest(), digest)
 
+    def test_optional_staged_event_reaudit_is_not_original_media_approval(self):
+        from selenium_pipeline import joint_original_lecture_acceptance as mod
+        original = {name: hashlib.sha256((self.folder/name).read_bytes()).hexdigest()
+                    for name in ("source.pdf", "slides.pdf")}
+        fake = {
+            "source_sha256": original["source.pdf"],
+            "slides_sha256": original["slides.pdf"],
+            "student_publication_authorized":False,
+            "audio_to_element_semantic_correspondence_verified":False,
+            "status":"ALL_ENCODED_EVENTS_INDEPENDENTLY_VERIFIED_SPOKEN_SEMANTICS_UNPROVEN",
+            "total_provisional_highlight_events":4,
+            "all_events_encoded_pixel_recheck_count":4,
+        }
+        with patch.object(mod,"verify_full_staged_element_coverage",
+                          return_value=fake) as checked:
+            report = inspect_joint_original_lecture(
+                folder=self.folder, source_page=1, slide_page=1,
+                figure_id="8.3", staged_review=self.folder.parent/"external_staging")
+        self.assertTrue(checked.called)
+        self.assertTrue(checked.call_args.kwargs["check_all_pixels"])
+        self.assertEqual(report["staged_highlight_event_review"]["total_events"],4)
+        self.assertIn(
+            "STAGED_REVIEW_EVENT_PIXELS_VERIFIED_SPOKEN_ELEMENT_ALIGNMENT_MISSING",
+            report["blocker_codes"])
+        self.assertFalse(report["spoken_element_highlight_certified"])
+        self.assertFalse(report["student_publication_authorized"])
+
+    def test_staged_review_cannot_forge_published_alignment(self):
+        from selenium_pipeline import joint_original_lecture_acceptance as mod
+        with patch.object(mod,"verify_full_staged_element_coverage",
+                          return_value={
+                              "source_sha256": hashlib.sha256(
+                                  (self.folder/"source.pdf").read_bytes()).hexdigest(),
+                              "slides_sha256": hashlib.sha256(
+                                  (self.folder/"slides.pdf").read_bytes()).hexdigest(),
+                              "student_publication_authorized":True,
+                              "audio_to_element_semantic_correspondence_verified":True,
+                          }):
+            with self.assertRaises(FigureIdentityReviewRequired):
+                inspect_joint_original_lecture(
+                    folder=self.folder,source_page=1,slide_page=1,
+                    figure_id="8.3",staged_review=self.folder.parent/"external_staging")
+
     def test_missing_slides_fails_closed(self):
         (self.folder / "slides.pdf").unlink()
         with self.assertRaises(FigureIdentityReviewRequired):

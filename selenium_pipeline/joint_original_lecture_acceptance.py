@@ -6,6 +6,7 @@ from pathlib import Path
 
 from .figure_source_identity import _sha, require, FigureIdentityReviewRequired
 from .original_wav_multipart_plan import inspect_original_slide_wav_plan
+from .original_audio_element_reconciliation import verify_full_staged_element_coverage
 from .figure_real_source_slide_gate import assess_real_source_slide_figure
 from .lecture_acceptance_audit import (
     _regular_path, _scan_mp4, inspect_real_lecture_acceptance,
@@ -13,7 +14,8 @@ from .lecture_acceptance_audit import (
 
 
 def inspect_joint_original_lecture(*, folder: Path, source_page: int,
-                                   slide_page: int, figure_id: str) -> dict:
+                                   slide_page: int, figure_id: str,
+                                   staged_review: Path | None = None) -> dict:
     root = _regular_path(folder, directory=True)
     source = _regular_path(root / "source.pdf")
     slides = _regular_path(root / "slides.pdf")
@@ -98,6 +100,18 @@ def inspect_joint_original_lecture(*, folder: Path, source_page: int,
         blockers.append("UNMEASURED_ENCODED_VIDEO")
     if not media["multipart_media_verified"]:
         blockers.append("UNVERIFIED_SPEECH_TIMED_MULTIPART_HIGHLIGHTS")
+    isolated_event_review = None
+    if staged_review is not None:
+        # Explicit review candidates may be re-audited but CANNOT be
+        # promoted to originals or override scientific/speech QA.
+        isolated_event_review = verify_full_staged_element_coverage(
+            original=root, staged=staged_review, check_all_pixels=True)
+        require(isolated_event_review["source_sha256"] == before[str(source)]
+                and isolated_event_review["slides_sha256"] == before[str(slides)]
+                and isolated_event_review["student_publication_authorized"] is False
+                and isolated_event_review["audio_to_element_semantic_correspondence_verified"] is False,
+                "Isolated staged review cannot certify original spoken elements")
+        blockers.append("STAGED_REVIEW_EVENT_PIXELS_VERIFIED_SPOKEN_ELEMENT_ALIGNMENT_MISSING")
     return {
         "schema_version": 1,
         "status": "JOINT_ORIGINAL_LECTURE_ACCEPTANCE_BLOCKED",
@@ -119,6 +133,15 @@ def inspect_joint_original_lecture(*, folder: Path, source_page: int,
             audio_plan["status"]=="ORIGINAL_SLIDE_WAV_MULTIPART_CANDIDATE_NOT_RENDERED"),
         "replacement_encoded_mp4_created":False,
         "replacement_highlighted_mp4_verified":False,
+        "staged_highlight_event_review":({
+            "status":isolated_event_review["status"],
+            "total_events":isolated_event_review["total_provisional_highlight_events"],
+            "source_reconstructed_encoded_events":
+                isolated_event_review["all_events_encoded_pixel_recheck_count"],
+            "spoken_element_semantics_verified":False,
+            "production_approved":False,
+            "student_publication_authorized":False,
+        } if isolated_event_review is not None else None),
         "unmeasured_video_candidates": unmeasured,
         "multipart_media_verified": media["multipart_media_verified"],
         "multipart_media_failure_reason": media["multipart_media_failure_reason"],
@@ -139,10 +162,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--source-page", type=int, required=True)
     parser.add_argument("--slide-page", type=int, required=True)
     parser.add_argument("--figure-id", required=True)
+    parser.add_argument("--staged-review",type=Path,
+                        help="Explicit isolated review-only MP4 folder to recheck")
     a = parser.parse_args(argv)
     report = inspect_joint_original_lecture(
         folder=a.folder, source_page=a.source_page,
-        slide_page=a.slide_page, figure_id=a.figure_id)
+        slide_page=a.slide_page, figure_id=a.figure_id,
+        staged_review=a.staged_review)
     print(json.dumps(report, indent=2, ensure_ascii=False))
     return 2
 

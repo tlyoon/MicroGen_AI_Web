@@ -58,6 +58,21 @@ Review evidence is stored in Dell-115 separate local staging as JSON files:
 `%LOCALAPPDATA%\MicroGen_AI_Web_Checkpoints\thomas_84_source_bound_element_review_draft_20261020.json`
 and `...\thomas_84_independent_element_event_reaudit_20261020.json`.
 
+## Integrated official acceptance command
+
+PR181 also extends `selenium_pipeline.joint_original_lecture_acceptance`
+with an OPTIONAL `--staged-review <fresh separate review folder>` argument.
+Without it, previous original-lecture QA behavior is unchanged.
+With it, the official gate independently reruns ALL 86 encoded event pixel
+and source-PDF reconstruction checks, includes a separate
+`staged_highlight_event_review` receipt, and adds blocker
+`STAGED_REVIEW_EVENT_PIXELS_VERIFIED_SPOKEN_ELEMENT_ALIGNMENT_MISSING`.
+This does NOT confuse newly staged MP4 media with the historical original
+MP4 inventory or authorize publication. Real Thomas 8.4 joint gate
+returned exit **2**, reported 86/86 source-reconstructed encoded events
+and student publication False. Two additional adversarial tests cover
+positive staged-review reporting and forged proof of speech approval.
+
 All output authorizations remain FALSE, including
 `audio_to_element_semantic_correspondence_verified`,
 `technical_production_approved` and
