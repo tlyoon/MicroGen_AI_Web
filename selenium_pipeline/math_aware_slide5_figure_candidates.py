@@ -6,7 +6,7 @@ independently corroborated graph order; DOES NOT certify graph semantics.
 from __future__ import annotations
 import re,hashlib,json
 from pathlib import Path
-from .figure_original_math_labels import audit_original_graph_labels
+from .figure83_original_inverse_label_identity import audit_original_inverse_labels
 from .figure_three_graph_color_reflow import audit_real_three_graph_reflow
 from .element_plan_autodraft import propose
 from .figure_source_identity import require,_sha
@@ -24,7 +24,7 @@ def audit(*,source:Path,slides:Path,script:Path,source_page:int=2,slide_page:int
           figure_id:str="8.3")->dict:
     source,slides,script=(Path(x).absolute() for x in (source,slides,script))
     before=[_sha(p) for p in (source,slides,script)]
-    labels=audit_original_graph_labels(source=source,slides=slides,
+    labels=audit_original_inverse_labels(source=source,slides=slides,
         source_page=source_page,slide_page=slide_page,figure_id=figure_id)
     layout=audit_real_three_graph_reflow(source=source,slides=slides,
         source_page=source_page,slide_page=slide_page,figure_id=figure_id)
@@ -40,13 +40,18 @@ def audit(*,source:Path,slides:Path,script:Path,source_page:int=2,slide_page:int
     results=[]
     for unit in slide["proposed_utterances"]:
         found=mentions(unit["verbatim_script_fragment"])
-        mapped=(ORDER.index(found[0])+1 if len(found)==1 else None)
+        # Panel family is independently read from ORIGINAL textbook PDF
+        # inverse-function equation tokens, not hard-coded graphic order.
+        mapped=(next((panel["graph_index"] for panel in labels["panels"]
+                       if panel["original_printed_inverse_function_family"]==found[0]),None)
+                if len(found)==1 else None)
         results.append({
             "utterance_id":unit["proposal_id"],"original_narration":unit["verbatim_script_fragment"],
             "function_names_explicitly_spoken":found,
             "candidate_ordered_graph_panel":mapped,
+            "candidate_panel_identity_read_from_original_pdf":mapped is not None,
             "candidate_panel_original_words":(
-                [x["text"] for x in labels["panels"][mapped-1]["original_printed_tokens"]]
+                [labels["panels"][mapped-1]["original_printed_inverse_function_token"]]
                 if mapped is not None else []),
             "ambiguous_due_to_multiple_or_no_named_functions":len(found)!=1,
             "author_confirmed_graph_function_identity":False,
@@ -62,6 +67,7 @@ def audit(*,source:Path,slides:Path,script:Path,source_page:int=2,slide_page:int
        "original_vertical_and_existing_horizontal_graph_count":3,
        "hypothesized_ordered_panel_names":list(ORDER),
        "original_graph_ink_reflow_independently_correlated":True,
+       "original_source_printed_function_labels_verified":True,
        "original_graph_semantics_independently_verified":False,
        "original_figure_math_labels_verified":False,
        "utterances":results,

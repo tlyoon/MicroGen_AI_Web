@@ -1,0 +1,7 @@
+# PR192 — source-printed Figure 8.3 inverse-function label identity
+
+Dell-115, 20 Oct 2026. Previous narration-to-panel mapping *assumed* three function names in fixed order. The new source-derived parser independently inspects PDF-extractable mathematical glyphs located inside original graph panels, requires a unique tan−1 / sin−1 / sec−1 token plus u = inverse(x/a) tokens in each graph, enforces unique mathematical family per original plot, and binds hashes and panel positions to the original source and slides.
+
+Real original Thomas 8.4 source.pdf page 2 unambiguously yields original panel 1 tangent inverse, panel 2 sine inverse, panel 3 secant inverse. Existing Figure 8.3 color/black pixel reflow corroborates original and slide graph order. The source-label model *now derives* panel associations from printed PDF content rather than hard-coding expected order. A swapped-order adversarial test verifies that a narration phrase referring to tangent would select panel 2 if the actual source PDF labels were reordered.
+
+**Scope**: This proves source printed inverse-function token identity (without OCR), NOT existing slide bitmap exact mathematical label/glyph equivalence, correctness of the mathematical curves, or semantic alignment of recorded WAV speech to an element. Existing four single-family spoken hints on slide 5 remain CANDIDATES. TTS, student publication, academic and listening QA gates stay FALSE. Full original source/slides/WAV/MP4 unchanged. No HP, Yoga 6, Zenbook, Whisper/ASR, external GCS, or paid TTS.

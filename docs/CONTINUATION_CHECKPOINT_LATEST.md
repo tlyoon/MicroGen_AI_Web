@@ -1,3 +1,9 @@
+# Latest checkpoint — PR192 original PDF inverse-function labels replace assumed Figure 8.3 order
+
+20 Oct 2026; Dell-115 ONLY; isolated `20261020_pr192_original_inverse_label_identity_2320`, stacked on PR191 SHA `8a10ba81ff034f5421a75e48e0c16bcd6685fa87` (GitHub CI successful). Source original Figure 8.3 plot 1 independently prints `tan−1`, plot 2 `sin−1`, plot 3 `sec−1`, with associated original PDF mathematical equation tokens. Replace prior fixed trig function order assumption in slide5 utterance-panel mapping with SHA-bound PDF-extracted source identity. Source label identity verified; slide raster math-label pixel equivalence, graph mathematical semantics, actual narrated-word synchronization and TTS/publication remain unapproved. Dell-only focused tests with swapped label order/duplicate/missing equation adversaries, broader figure regression required. Original assets preserved.
+
+---
+
 # Latest checkpoint — PR191 true-sync technical acceptance
 
 Dell-115 real Thomas 8.4: all 86 encoded staged highlight events independently rechecked, zero verified element-level audio jobs, no proven source math/voice correspondence. Full synchronization and publishing BLOCKED; original teaching assets unchanged. Five stacked draft PRs #187-191 provide source review and conditional generation path without false approval.
