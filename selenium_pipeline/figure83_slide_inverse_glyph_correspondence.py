@@ -57,6 +57,10 @@ def _best_template(original_black,target_black,cv2,np)->dict:
 def validate_glyph_matrix(matrix:list,*,min_score:float=.75,
                           min_margin:float=.075)->dict:
     """Fail closed if another panel/label competes or a glyph disappears."""
+    require(type(min_score) in (float,int) and type(min_margin) in (float,int)
+            and math.isfinite(min_score) and math.isfinite(min_margin)
+            and 0 < min_score <= 1 and 0 < min_margin <= 1,
+            "Invalid finite strict glyph acceptance thresholds")
     require(type(matrix) is list and len(matrix)==3
             and all(type(row) is list and len(row)==3 for row in matrix)
             and all(type(x) in (float,int) and math.isfinite(x)
