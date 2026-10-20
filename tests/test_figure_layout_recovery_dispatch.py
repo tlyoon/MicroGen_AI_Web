@@ -11,12 +11,15 @@ from selenium_pipeline.figure_source_identity import FigureIdentityReviewRequire
 
 def evidence():
     return {
-        "status":"THREE_GRAPH_COLORED_CURVES_REFLOW_CORROBORATED_REVIEW_REQUIRED",
+        "status":"THREE_GRAPH_COLOR_AND_BLACK_INK_REFLOW_CORROBORATED_REVIEW_REQUIRED",
+        "three_graph_black_ink_geometry_plausible":True,
         "original_vertical_graph_run_count":3,
         "slide_horizontal_graph_run_count":3,
         "three_graph_curve_shape_sequence_coherent":True,
         "graph_correspondence_evidence":[
             {"blue_red_curve_shapes_coherent":True,
+             "black_ink_geometry_plausible":True,
+             "black_axes_and_label_ink_shape_diagnostic":0.02,
              "original_math_axis_and_labels_verified":False}
             for _ in range(3)],
         "full_source_figure_equivalence_certified":False,
@@ -44,6 +47,11 @@ class LayoutAutoTriageTests(unittest.TestCase):
             {"graph_correspondence_evidence":[]},
             {"video_or_publication_authorized":True},
             {"full_source_figure_equivalence_certified":True},
+            {"three_graph_black_ink_geometry_plausible":False},
+            {"graph_correspondence_evidence":[{
+                **evidence()["graph_correspondence_evidence"][0],
+                "black_ink_geometry_plausible":False,
+            }, *evidence()["graph_correspondence_evidence"][1:]]},
         ):
             with self.subTest(wrong=wrong):
                 report={**evidence(),**wrong}

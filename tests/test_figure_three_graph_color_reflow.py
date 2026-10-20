@@ -66,6 +66,7 @@ class ThreeGraphReflowTests(unittest.TestCase):
         self.assertEqual(r["original_vertical_graph_run_count"],3, r)
         self.assertEqual(r["slide_horizontal_graph_run_count"],3)
         self.assertTrue(r["three_graph_curve_shape_sequence_coherent"])
+        self.assertTrue(r["three_graph_black_ink_geometry_plausible"])
         self.assertEqual(len(r["graph_correspondence_evidence"]),3)
         for name in ("original_complete_axes_labels_legend_certified",
                      "full_source_figure_equivalence_certified",
@@ -100,6 +101,8 @@ class ThreeGraphReflowTests(unittest.TestCase):
         self.assertTrue(result["three_graph_curve_shape_sequence_coherent"])
         self.assertIsNone(result["graph_correspondence_evidence"][0][
             "black_axes_and_label_ink_shape_diagnostic"])
+        self.assertFalse(result["three_graph_black_ink_geometry_plausible"])
+        self.assertEqual(result["status"], "THREE_GRAPH_BLACK_INK_INCOMPLETE_REVIEW_REQUIRED")
         self.assertFalse(result["original_complete_axes_labels_legend_certified"])
         self.assertFalse(result["video_or_publication_authorized"])
 

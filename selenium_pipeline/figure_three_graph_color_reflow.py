@@ -142,6 +142,8 @@ def compare_reflowed_graph_color_shapes(source_rgb, slide_rgb, *,
         black_source=(np.max(first,axis=2)<165)
         black_slide=(np.max(second,axis=2)<165)
         black=_shape_difference(black_source,black_slide,cv2,np)
+        black_shape_plausible=(black is not None and math.isfinite(black)
+                               and black <= .045)
         blue=_shape_difference(sb,tb,cv2,np)
         red=_shape_difference(sr_red,tr_red,cv2,np) if sr_red.any() or tr_red.any() else None
         if red is None and sr_red.any() and tr_red.any():
@@ -162,6 +164,7 @@ def compare_reflowed_graph_color_shapes(source_rgb, slide_rgb, *,
             "slide_red_pixel_count":int(tr_red.sum()),
             "blue_shape_symmetric_chamfer":blue,
             "black_axes_and_label_ink_shape_diagnostic":black,
+            "black_ink_geometry_plausible":bool(black_shape_plausible),
             "red_shape_symmetric_chamfer":red,
             "red_absent_in_both":red_equal_absence,
             "blue_red_curve_shapes_coherent":bool(score_ok),
@@ -171,13 +174,17 @@ def compare_reflowed_graph_color_shapes(source_rgb, slide_rgb, *,
                   and len(panels)==3
                   and all(row["blue_red_curve_shapes_coherent"]
                           for row in panels))
+    all_black = (all_curves and all(row["black_ink_geometry_plausible"]
+                                    for row in panels))
     return {
         "schema_version":1,
-        "status":("THREE_GRAPH_COLORED_CURVES_REFLOW_CORROBORATED_REVIEW_REQUIRED"
+        "status":("THREE_GRAPH_COLOR_AND_BLACK_INK_REFLOW_CORROBORATED_REVIEW_REQUIRED"
+                  if all_black else "THREE_GRAPH_BLACK_INK_INCOMPLETE_REVIEW_REQUIRED"
                   if all_curves else "THREE_GRAPH_CURVE_REFLOW_INCOMPLETE_REVIEW_REQUIRED"),
         "original_vertical_graph_run_count":len(src_runs),
         "slide_horizontal_graph_run_count":len(dst_runs),
         "three_graph_curve_shape_sequence_coherent":bool(all_curves),
+        "three_graph_black_ink_geometry_plausible":bool(all_black),
         "graph_correspondence_evidence":panels,
         "original_complete_axes_labels_legend_certified":False,
         "full_source_figure_equivalence_certified":False,

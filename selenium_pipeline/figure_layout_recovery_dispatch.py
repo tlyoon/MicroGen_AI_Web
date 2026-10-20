@@ -16,13 +16,17 @@ def classify_layout_evidence(report: dict) -> dict:
     """Return a bounded disposition, never production authorization."""
     matched = (type(report) is dict and
                report.get("status") ==
-               "THREE_GRAPH_COLORED_CURVES_REFLOW_CORROBORATED_REVIEW_REQUIRED" and
+               "THREE_GRAPH_COLOR_AND_BLACK_INK_REFLOW_CORROBORATED_REVIEW_REQUIRED" and
+               report.get("three_graph_black_ink_geometry_plausible") is True and
                report.get("original_vertical_graph_run_count") == 3 and
                report.get("slide_horizontal_graph_run_count") == 3 and
                report.get("three_graph_curve_shape_sequence_coherent") is True and
                type(report.get("graph_correspondence_evidence")) is list and
                len(report["graph_correspondence_evidence"]) == 3 and
                all(type(x) is dict and x.get("blue_red_curve_shapes_coherent") is True
+                   and x.get("black_ink_geometry_plausible") is True
+                   and type(x.get("black_axes_and_label_ink_shape_diagnostic")) in (int,float)
+                   and 0 <= x["black_axes_and_label_ink_shape_diagnostic"] <= .045
                    and x.get("original_math_axis_and_labels_verified") is False
                    for x in report["graph_correspondence_evidence"]) and
                report.get("full_source_figure_equivalence_certified") is False and
