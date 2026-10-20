@@ -1,3 +1,36 @@
+# Latest checkpoint — PR159 declared vector-panel to slide-tile reflow evidence
+
+20 Oct 2026 Malaysia. New isolated Dell-115 branch
+`feature/declared-panel-reflow-pixel-evidence-20261020`
+checkout `20261020_pr159_declared_panel_reflow_1000`,
+stacked on PR158 exact `c5fe0a397809bfdec987baf54a9a63ef72802ceb`.
+Read-only multi-crop test allows 2-12 untrusted declared source
+vector crop rectangles and one slide bitmap's ordered RGB target
+rectangles. Requires original page/caption containment,
+nonoverlapping boxes, dimensions, independent bitmap visibility,
+identical actual decoded pixel data at bounded render scale and
+unchanged PDF hashes. Generated original vector-PDF test with
+two vertically separate graphs placed side by side in a slide
+bitmap shows that reflow hypotheses can be independently measured.
+Adversarial missing, tampered, overlay and overlapping selections
+fail. Dell figure-specific regression suite: **192 passed, 3 skipped,
+0 failed**; all 8 new focused tests passed. Complete repository-wide
+no-exclusion tests not yet certified. **Even exact pixel match cannot prove source figure author
+completeness, panel count/labels, semantics, entire slide coverage,
+nor production MP4, narration or human listening QA.**
+Real Thomas 8.4 original Figure 8.3 panel source boxes and
+slide pixel tile regions remain UNVERIFIED; NO arbitrary
+mapping has been called a real-figure candidate.
+See docs/DECLARED_PANEL_REFLOW_COMPARISON_20261020.md.
+Originals, G: roots, unfinished raster-visibility checkout,
+other user processes, HP, Yoga6, Zenbook, protected main and
+student publication unchanged. Flash-Lite/Kore primary, 3
+genuine failures before voice-consistent approved fallback,
+video parts strictly <600s and actual spoken-element visual
+highlight remain mandatory; no Whisper/ASR/GCS lease.
+
+---
+
 # Latest checkpoint — PR158 explicit source crop-to-slide pixel hypothesis
 
 20 October 2026, Malaysia. Dell-115 ONLY. PR157 parent exact
