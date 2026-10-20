@@ -1,3 +1,25 @@
+# Latest checkpoint — PR171 black ink geometry required for figure reflow
+
+20 October 2026, Dell-115 only. PR171 isolated checkout
+`20261020_pr171_black_ink_validation_1730`, branch
+`feature/figure-reflow-black-ink-guard-20261020`,
+stacked on PR170 exact head
+`7b5b82162549e542f601846427c0a0b9a8bbd091`.
+Original three-graph Figure 8.3 retains colored-curve
+coherence AND needs independent black axes/label ink
+geometry presence/shape before automatically dismissing
+a false whole-figure aspect mismatch. Real black ink
+scores 0.02017/0.004777/0.035422 remain plausible.
+Synthetic black-ink erasure fails closed. No mathematical
+character semantics certified. All MP4 duration (<600s),
+narrated highlight, academic QA, student publication and
+source figure exact completeness gates remain separate.
+No G: originals, dirty worktree, other PCs, paid calls,
+Whisper/ASR/GCS external lease or protected main changed.
+See docs/FIGURE_BLACK_INK_REFLOW_GUARD_20261020.md.
+
+---
+
 # Latest checkpoint — PR170 integration of automatic Figure 8.3 reflow triage
 
 20 Oct 2026; Dell-115 ONLY. Parent latest PR169 was
