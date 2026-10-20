@@ -60,7 +60,10 @@ class PrintedInverseIdentityTests(unittest.TestCase):
                 "selenium_pipeline.math_aware_slide5_figure_candidates.audit_real_three_graph_reflow",
                 return_value=graph),patch(
                 "selenium_pipeline.math_aware_slide5_figure_candidates.propose",
-                return_value=scripted):
+                return_value=scripted),patch(
+                "selenium_pipeline.math_aware_slide5_figure_candidates.audit_source_to_slide_inverse_glyphs",
+                return_value={"original_source_sha256":"a","existing_slides_sha256":"a",
+                    "all_three_source_inverse_operator_glyphs_in_slide_verified":True}):
             result=audit(source=Path("original.pdf"),slides=Path("slide.pdf"),
                          script=Path("script.txt"))
         self.assertEqual(result["utterances"][0]["candidate_ordered_graph_panel"],2)
