@@ -1,3 +1,9 @@
+# Latest checkpoint — PR184 fail-closed per-element TTS preflight
+
+20 Oct 2026 Dell-115 only; branch `feature/verified-element-tts-handoff-20261020` isolated checkout `20261020_pr184_tts_handoff_2105`, on parent PR183 SHA `52bf848643078619f9fdc5a380d660f33093e49e`. Paid Gemini Flash-Lite/Kore is permitted only when exact text-only source evidence or independently reviewed source/element selection validates through existing bridge. Preflight itself never makes paid calls. Real Thomas 8.4 returns BLOCKED, 71 utterances all unreviewed; no element WAVs or synced final MP4s claimed. 20 focused existing TTS and new adversarial tests passed. All source and original media intact; Dell-only, no Whisper/ASR/GCS lease, student publication, main merge or unsafe voice change.
+
+---
+
 # Latest checkpoint — PR183 immutable narration utterance manifest
 
 20 Oct 2026 Dell-115 only; `20261020_pr183_narration_manifest_2050`, branch `feature/immutable-element-utterance-manifest-20261020`, parent PR182 SHA `ab769589b72719a72b88a762564a7998123c77bd`. Generated staged `%LOCALAPPDATA%\MicroGen_AI_Web_Checkpoints\thomas_84_original_utterance_manifest_20261020.json`: 17 slides / 71 verbatim original script utterances, 71 with source math/visual mapping still unresolved. Source/slides/script SHA frozen, no TTS billed; manifest explicitly NOT approved for any clip generation. This prevents weak lexical ranking becoming a paid job. Existing per-element TTS requires stronger original/slide mathematical evidence. All originals, Dell-only restriction, strict <600s encoded videos and spoken-element highlight contract preserved.
