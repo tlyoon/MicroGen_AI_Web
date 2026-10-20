@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import tempfile
 import unittest
+import wave
 from pathlib import Path
 from unittest.mock import patch
 
@@ -89,6 +90,44 @@ class JointOriginalLectureTests(unittest.TestCase):
             "--slide-page", "1",
             "--figure-id", "8.3",
         ]), 2)
+
+    def test_available_original_wav_plan_is_actionable_not_encoded_acceptance(self):
+        with wave.open(str(self.folder/"slide1.wav"),"wb") as f:
+            f.setnchannels(1)
+            f.setsampwidth(2)
+            f.setframerate(100)
+            f.writeframes(bytes(200*100))
+        receipt=self.audit()
+        self.assertTrue(receipt["source_bound_wav_repair_plan_available"])
+        proposal=receipt["original_wav_multipart_repair_plan"]
+        self.assertEqual(proposal["proposed_part_count"],1)
+        self.assertEqual(proposal["proposed_parts"][0]["slide_start"],1)
+        self.assertFalse(receipt["replacement_encoded_mp4_created"])
+        self.assertFalse(receipt["replacement_highlighted_mp4_verified"])
+        self.assertFalse(receipt["student_publication_authorized"])
+
+    def test_missing_slide_wav_plan_is_named_blocker_not_crash(self):
+        receipt=self.audit()
+        self.assertFalse(receipt["source_bound_wav_repair_plan_available"])
+        self.assertIn("MISSING_OR_INVALID_ORIGINAL_SLIDE_WAV_BOUNDARY_EVIDENCE",
+                      receipt["blocker_codes"])
+        self.assertFalse(receipt["student_publication_authorized"])
+
+    def test_forged_original_wav_plan_hash_cannot_bypass_acceptance(self):
+        from selenium_pipeline import joint_original_lecture_acceptance as mod
+        forged={
+            "status":"ORIGINAL_SLIDE_WAV_MULTIPART_CANDIDATE_NOT_RENDERED",
+            "source_sha256":"0"*64,
+            "slides_sha256":"0"*64,
+            "student_publication_authorized":False,
+            "encoded_video_part_strictly_below_600_verified":False,
+        }
+        with patch.object(mod,"inspect_original_slide_wav_plan",return_value=forged):
+            receipt=self.audit()
+        self.assertFalse(receipt["source_bound_wav_repair_plan_available"])
+        self.assertIn("MISSING_OR_INVALID_ORIGINAL_SLIDE_WAV_BOUNDARY_EVIDENCE",
+                      receipt["blocker_codes"])
+        self.assertFalse(receipt["all_video_parts_strictly_under_600_certified"])
 
     def test_corrupt_encoded_video_is_unmeasured_and_never_accepted(self):
         """Fake MP4 bytes must not gain a synthetic sub-600-second duration."""

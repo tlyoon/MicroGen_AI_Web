@@ -4,7 +4,8 @@ import argparse
 import json
 from pathlib import Path
 
-from .figure_source_identity import _sha, require
+from .figure_source_identity import _sha, require, FigureIdentityReviewRequired
+from .original_wav_multipart_plan import inspect_original_slide_wav_plan
 from .figure_real_source_slide_gate import assess_real_source_slide_figure
 from .lecture_acceptance_audit import (
     _regular_path, _scan_mp4, inspect_real_lecture_acceptance,
@@ -40,6 +41,23 @@ def inspect_joint_original_lecture(*, folder: Path, source_page: int,
     require(figure["status"] == "REAL_SOURCE_SLIDE_FIGURE_EVIDENCE_BLOCKED"
             and figure["figure_video_authorized"] is False,
             "Original figure audit has unexpected status")
+    # Independent, immutable WAV evidence offers an actionable whole-slide
+    # replacement plan, never a video acceptance or publication shortcut.
+    try:
+        audio_plan=inspect_original_slide_wav_plan(root)
+        require(audio_plan["source_sha256"]==before[str(source)]
+                and audio_plan["slides_sha256"]==before[str(slides)]
+                and audio_plan["student_publication_authorized"] is False
+                and audio_plan["encoded_video_part_strictly_below_600_verified"] is False,
+                "Invalid or ungrounded original-WAV multipart plan")
+    except (FigureIdentityReviewRequired,OSError,ValueError) as exc:
+        audio_plan={
+            "status":"SLIDE_WAV_MULTIPART_BOUNDARY_PRECHECK_UNAVAILABLE",
+            "diagnostic_exception_type":type(exc).__name__,
+            "proposed_parts":[],
+            "encoded_video_part_strictly_below_600_verified":False,
+            "student_publication_authorized":False,
+        }
     videos = media["video_candidates"]
     require(isinstance(videos, list) and len(videos) == len(originals),
             "Media inventory differs between independent audits")
@@ -72,6 +90,10 @@ def inspect_joint_original_lecture(*, folder: Path, source_page: int,
         blockers.append("SOURCE_CAPTION_OVERLAPS_UNRELATED_PROSE")
     if violations:
         blockers.append("MEASURED_ENCODED_VIDEO_AT_OR_ABOVE_600_SECONDS")
+        if audio_plan["status"]=="ORIGINAL_SLIDE_WAV_MULTIPART_CANDIDATE_NOT_RENDERED":
+            blockers.append("REENCODE_MULTIPART_WITH_SOURCE_WAV_BOUNDARIES_AND_VERIFY")
+    if audio_plan["status"]!="ORIGINAL_SLIDE_WAV_MULTIPART_CANDIDATE_NOT_RENDERED":
+        blockers.append("MISSING_OR_INVALID_ORIGINAL_SLIDE_WAV_BOUNDARY_EVIDENCE")
     if unmeasured:
         blockers.append("UNMEASURED_ENCODED_VIDEO")
     if not media["multipart_media_verified"]:
@@ -92,6 +114,11 @@ def inspect_joint_original_lecture(*, folder: Path, source_page: int,
             figure["source_pre_caption_drawing_count"],
         "video_candidates": videos,
         "strict_duration_violations": violations,
+        "original_wav_multipart_repair_plan":audio_plan,
+        "source_bound_wav_repair_plan_available":(
+            audio_plan["status"]=="ORIGINAL_SLIDE_WAV_MULTIPART_CANDIDATE_NOT_RENDERED"),
+        "replacement_encoded_mp4_created":False,
+        "replacement_highlighted_mp4_verified":False,
         "unmeasured_video_candidates": unmeasured,
         "multipart_media_verified": media["multipart_media_verified"],
         "multipart_media_failure_reason": media["multipart_media_failure_reason"],

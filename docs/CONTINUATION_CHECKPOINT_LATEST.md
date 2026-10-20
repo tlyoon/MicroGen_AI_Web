@@ -1,3 +1,33 @@
+# Latest checkpoint — PR175 integrated source-figure and real WAV repair QA
+
+20 Oct 2026 Malaysia; Dell-115 only. Isolated branch
+`feature/joint-lecture-verified-wav-repair-triage-20261020`
+in `20261020_pr175_joint_media_repair_triage_1850`
+on parent PR174 exact SHA
+`6ac6e26f18e5387c631beaa126f186a288f298d2`.
+Actual original Thomas Calculus 8.4 combined QA now
+automatically recognizes Figure 8.3's 3 original
+vertically stacked graphs moved to horizontal slide 5,
+including independent colored-curve and black axis-ink
+geometry corroboration, AND proposes from the original
+17 slideWAVs two balanced audio parts: slides 1–8
+321.8927s and slides 9–17 310.818s, without cutting
+audio or regenerating TTS. This is actionable
+`REENCODE_MULTIPART_WITH_SOURCE_WAV_BOUNDARIES_AND_VERIFY`
+but explicitly NOT generated MP4 or verified timed
+element highlighting. Historical ~633.93s original
+MP4 still violates strict <600s. Mathematical
+axis/label completeness and caption-prose review
+remain outstanding. All original files SHA preserved;
+no safe automatic semantic figure replacement, main
+merge or student publication; voice consistency
+and independent listening QA continue to apply.
+No other PC, dirty G: repo, paid TTS, Whisper/ASR
+or GCS lease access. See
+docs/JOINT_ORIGINAL_MP4_WAV_REPAIR_TRIAGE_20261020.md.
+
+---
+
 # Latest checkpoint — PR174 real original-WAV multipart boundary plan
 
 20 Oct 2026, Dell-115 ONLY. Isolated checkout
