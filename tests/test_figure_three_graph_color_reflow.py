@@ -106,6 +106,37 @@ class ThreeGraphReflowTests(unittest.TestCase):
         self.assertFalse(result["original_complete_axes_labels_legend_certified"])
         self.assertFalse(result["video_or_publication_authorized"])
 
+    def test_two_to_six_original_graphs_support_different_panel_counts(self):
+        for count in range(2,7):
+            with self.subTest(count=count):
+                original=np.full((count*125+20,180,3),255,dtype=np.uint8)
+                slide=np.full((115,count*150+5,3),255,dtype=np.uint8)
+                for i in range(count):
+                    panel=self.panel(i%3)
+                    original[10+i*125:110+i*125,30:150]=panel
+                    slide[8:108,10+i*150:130+i*150]=panel
+                report=compare_reflowed_graph_color_shapes(
+                    original,slide,source_bounds=(0,original.shape[0],25,155),
+                    slide_bounds=(0,slide.shape[1]))
+                self.assertEqual(report["detected_graph_count"],count)
+                self.assertTrue(report["three_graph_curve_shape_sequence_coherent"])
+                self.assertTrue(report["three_graph_black_ink_geometry_plausible"])
+                self.assertFalse(report["video_or_publication_authorized"])
+
+    def test_seven_graphs_are_not_promoted_as_supported_layout(self):
+        count=7
+        original=np.full((count*125+20,180,3),255,dtype=np.uint8)
+        slide=np.full((115,count*150+5,3),255,dtype=np.uint8)
+        for i in range(count):
+            panel=self.panel(i%3)
+            original[10+i*125:110+i*125,30:150]=panel
+            slide[8:108,10+i*150:130+i*150]=panel
+        report=compare_reflowed_graph_color_shapes(
+            original,slide,source_bounds=(0,original.shape[0],25,155),
+            slide_bounds=(0,slide.shape[1]))
+        self.assertFalse(report["three_graph_black_ink_geometry_plausible"])
+        self.assertFalse(report["video_or_publication_authorized"])
+
     def test_invalid_pixels_or_bounds_rejected(self):
         source,target=self.fixture()
         with self.assertRaises(FigureIdentityReviewRequired):

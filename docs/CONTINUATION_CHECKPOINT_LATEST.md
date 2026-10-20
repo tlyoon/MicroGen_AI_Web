@@ -1,3 +1,27 @@
+# Latest checkpoint — PR172 bounded multi-graph figure reflow
+
+20 October 2026, Dell-115 only. Isolated branch
+`feature/figure-multigraph-reflow-2to6-20261020`
+on parent PR171 SHA
+`5a47dd7353b4f9b8b13c5d12b817f64e6a2f7838`.
+Expand PR171 three vertically stacked textbook graphs
+→ horizontal slide graph reflow verification to **two
+through six** separately segmented ordered graph regions.
+Independent blue/pink curve shape plus mandatory black
+ink presence/geometry, same panel counts and exact
+correspondence count required. Seven/one/invalid cases
+remain fail-closed. Tested actual Thomas 8.4 Figure 8.3
+still recognized without source/media changes. Synthetic
+2,3,4,5,6 panel original-to-slide cases pass.
+No source axes/labels academic correctness accepted,
+no video strictly under 600s proven or element-level
+highlight sync verified, no human listening QA claimed.
+Only Dell-115 permitted, no other PCs/dirty G: copies,
+paid TTS, Whisper/ASR/GCS lease or student publication.
+See docs/MULTI_GRAPH_REFLOW_GENERALIZATION_20261020.md.
+
+---
+
 # Latest checkpoint — PR171 black ink geometry required for figure reflow
 
 20 October 2026, Dell-115 only. PR171 isolated checkout

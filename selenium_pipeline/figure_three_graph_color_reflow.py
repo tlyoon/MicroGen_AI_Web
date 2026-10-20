@@ -170,17 +170,19 @@ def compare_reflowed_graph_color_shapes(source_rgb, slide_rgb, *,
             "blue_red_curve_shapes_coherent":bool(score_ok),
             "original_math_axis_and_labels_verified":False,
         })
-    all_curves = (len(src_runs)==len(dst_runs)==3
-                  and len(panels)==3
+    count = len(src_runs)
+    all_curves = (2 <= count <= 6 and count == len(dst_runs) == len(panels)
                   and all(row["blue_red_curve_shapes_coherent"]
                           for row in panels))
     all_black = (all_curves and all(row["black_ink_geometry_plausible"]
                                     for row in panels))
+    prefix = "THREE_GRAPH" if count == 3 else "MULTI_GRAPH"
     return {
         "schema_version":1,
-        "status":("THREE_GRAPH_COLOR_AND_BLACK_INK_REFLOW_CORROBORATED_REVIEW_REQUIRED"
-                  if all_black else "THREE_GRAPH_BLACK_INK_INCOMPLETE_REVIEW_REQUIRED"
-                  if all_curves else "THREE_GRAPH_CURVE_REFLOW_INCOMPLETE_REVIEW_REQUIRED"),
+        "status":(f"{prefix}_COLOR_AND_BLACK_INK_REFLOW_CORROBORATED_REVIEW_REQUIRED"
+                  if all_black else f"{prefix}_BLACK_INK_INCOMPLETE_REVIEW_REQUIRED"
+                  if all_curves else f"{prefix}_CURVE_REFLOW_INCOMPLETE_REVIEW_REQUIRED"),
+        "detected_graph_count":count,
         "original_vertical_graph_run_count":len(src_runs),
         "slide_horizontal_graph_run_count":len(dst_runs),
         "three_graph_curve_shape_sequence_coherent":bool(all_curves),

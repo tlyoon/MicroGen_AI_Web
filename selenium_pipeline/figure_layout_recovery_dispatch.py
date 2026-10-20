@@ -14,15 +14,20 @@ from .figure_source_identity import FigureIdentityReviewRequired
 
 def classify_layout_evidence(report: dict) -> dict:
     """Return a bounded disposition, never production authorization."""
+    count = report.get("detected_graph_count", report.get("original_vertical_graph_run_count")) if type(report) is dict else None
     matched = (type(report) is dict and
-               report.get("status") ==
-               "THREE_GRAPH_COLOR_AND_BLACK_INK_REFLOW_CORROBORATED_REVIEW_REQUIRED" and
+               type(count) is int and 2 <= count <= 6 and
+               report.get("status") in {
+                   "THREE_GRAPH_COLOR_AND_BLACK_INK_REFLOW_CORROBORATED_REVIEW_REQUIRED",
+                   "MULTI_GRAPH_COLOR_AND_BLACK_INK_REFLOW_CORROBORATED_REVIEW_REQUIRED",
+               } and
+               (count == 3 or report["status"].startswith("MULTI_GRAPH_")) and
                report.get("three_graph_black_ink_geometry_plausible") is True and
-               report.get("original_vertical_graph_run_count") == 3 and
-               report.get("slide_horizontal_graph_run_count") == 3 and
+               report.get("original_vertical_graph_run_count") == count and
+               report.get("slide_horizontal_graph_run_count") == count and
                report.get("three_graph_curve_shape_sequence_coherent") is True and
                type(report.get("graph_correspondence_evidence")) is list and
-               len(report["graph_correspondence_evidence"]) == 3 and
+               len(report["graph_correspondence_evidence"]) == count and
                all(type(x) is dict and x.get("blue_red_curve_shapes_coherent") is True
                    and x.get("black_ink_geometry_plausible") is True
                    and type(x.get("black_axes_and_label_ink_shape_diagnostic")) in (int,float)
@@ -36,6 +41,7 @@ def classify_layout_evidence(report: dict) -> dict:
         "status": ("THREE_GRAPH_REFLOW_DETECTED_SEMANTIC_REVIEW_PENDING"
                    if matched else "FIGURE_LAYOUT_REQUIRES_MORE_EVIDENCE"),
         "layout_reflow_detected": bool(matched),
+        "detected_graph_count": count if matched else None,
         "previous_whole_source_crop_aspect_mismatch_resolved_as_layout_only": bool(matched),
         "safe_automatic_resolution": (
             "DISMISS_ASPECT_ONLY_REJECTION_PRESERVE_ORIGINAL_SLIDE"
