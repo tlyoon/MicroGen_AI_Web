@@ -1,3 +1,30 @@
+# Latest checkpoint — PR168 read-only original/slide evidence packet
+
+20 October 2026 Malaysia. Dell-115-only isolated checkout
+`20261020_pr168_readonly_review_packet_1300`,
+branch `feature/figure-readonly-rendered-review-packet-20261020`,
+parent PR167 exact head `72d76554ddda733ac7147ac5563d83e66a25eef9`.
+New read-only real textbook/slide **rendered review packet**
+provides isolated original source page PNG, original existing
+slide page PNG and hash-bound review_manifest.json in a NEW
+non-overlapping scratch location, with zero-height source
+vector **index 30** visibly marked for investigation.
+Tested actual Thomas 8.4 source page 2/slide 5 on Dell-115,
+review outputs 134154/49280 PNG bytes and 1002-byte manifest;
+scratch outputs deleted after verification. Exact original
+source/slides hashes preserved. This visual packet does
+NOT certify author complete panels, scientific axis/curve
+labels, spoken narration synchronized highlight, encoded
+<600s MP4 replacement or publishing; status REVIEW,
+CLI exit 2. All G: teaching originals / dirty trees,
+older unfinished checkout, other PCs and protected main
+untouched. No paid TTS, Whisper/ASR/GCS lease.
+Flash-Lite/Kore primary, approved same voice fallback
+after 3 genuine failures, separate listening QA retained.
+See docs/RENDERED_FIGURE_REVIEW_PACKET_20261020.md.
+
+---
+
 # Latest checkpoint — PR167 component-to-registration overlap
 
 20 October 2026, Dell-115 only, isolated branch
