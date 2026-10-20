@@ -1,3 +1,10 @@
+# Latest checkpoint — PR176 source-grounded mathematical figure words
+
+20 Oct 2026, Dell-115 only. Isolated checkout `20261020_pr176_figure_label_ink_1930`, branch `feature/figure-original-math-ink-evidence-20261020`, on parent PR175 exact SHA `0b671bacf0585ecbfbe402b6a945b4108fe0208c`.
+Read-only PDF original page text extraction catalogs actual mathematical figure words and bounding boxes separately by the independently determined source panel bands. No OCR, mathematical semantic identity or original-to-slide label equivalence claimed for the bitmap on slide 5; mathematical content QA remains blocked. Real Figure 8.3 has inverse tangent, sine, secant words and axis ticks. Source/slides original SHA verified unchanged. Only Dell-115, no dirty G: worktree, HP/Yoga6, paid TTS, Whisper/ASR or GCS lease. All MP4 parts <600s, encoded timed element highlights and academic listening QA required before publication.
+
+---
+
 # Latest checkpoint — PR175 integrated source-figure and real WAV repair QA
 
 20 Oct 2026 Malaysia; Dell-115 only. Isolated branch

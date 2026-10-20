@@ -1,0 +1,5 @@
+# PR176 — original textbook mathematics word evidence for Figure 8.3
+
+The original source PDF includes separately extracted tokens inside its three independent figure graph bands. This module inventories every such original word and original PDF bounding rectangle without OCR, without guessing the slide bitmap's rendered text, and without changing the original. Real original Figure 8.3 (Thomas 8.4 p2) has inverses tan⁻¹, sin⁻¹ and sec⁻¹ plus axis tick values and mathematical variables. Their exact placement can be compared later to the slide independently. Source word extraction *does not* prove these words or axes are mathematically correctly present in the slide's flattened raster. The whole mathematical verification gate therefore remains blocked, notwithstanding source colored graph and black-ink shape corroboration.
+
+Only Dell-115. Original PDFs, WAV, MP4 untouched, no other PCs, paid TTS, ASR/Whisper, GCS lease or production publication. Parent PR175 exact head 0b671bacf0585ecbfbe402b6a945b4108fe0208c. This is lexical source evidence, no student approval.
