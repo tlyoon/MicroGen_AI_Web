@@ -1,3 +1,22 @@
+# Latest checkpoint — PR187 source-grounded spoken trig-branch figure candidates
+
+20 Oct 2026 Malaysia. Dell-115 ONLY. Branch
+`feature/math-function-narration-figure-anchors-20261020` in isolated
+`20261020_pr187_math_figure_anchor_2200`, stacked on PR186
+`124f3a7b335353e15e3248051e6242de94141594`.
+Original Thomas Calculus 8.4 slide5 Figure 8.3, textbook source p2:
+three original vertically stacked plots reflowed horizontally.
+8 verbatim slide5 narration utterances: four contain exactly one of
+tangent/sine/secant, four contain none or multiple. Candidate ordered
+panel hypotheses are review aids, NOT mathematically verified
+original-to-slide equivalence or spoken-element alignment. All
+paid TTS, actual production MP4 release and publication remain
+blocked pending independent figure and utterance review. Original
+source.pdf/slides.pdf/script.txt hashes frozen; HP/Yoga6 excluded,
+no Whisper/ASR, GCS, paid calls or G: original changes.
+
+---
+
 # Latest checkpoint — PR186 cross-subchapter original-audio semantic highlight acceptance
 
 20 Oct 2026 Malaysia, Dell-115 ONLY. Isolated `20261020_pr186_batch_source_acceptance_2145`,
