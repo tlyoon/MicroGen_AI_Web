@@ -1,3 +1,67 @@
+# Latest checkpoint — PR160 actual source-to-slide local-feature correspondence
+
+20 October 2026, Malaysia. Only Dell-115 is authorized for local
+code changes/tests. Latest live draft PR159 branch
+`feature/declared-panel-reflow-pixel-evidence-20261020`,
+exact parent commit `6a04ef71740ba74b407914c53bb9fbdf0cc59049`.
+Its GitHub Actions reliability regressions passed.
+New isolated branch
+`feature/figure-source-slide-local-features-20261020`
+checkout `20261020_pr160_source_slide_registration_1100`.
+Older unfinished `20261020_pr155_source_vector_visibility_0055`
+checkout and G: Drive shared repositories NOT touched.
+
+Independent image-feature audit:
+`figure_local_feature_correspondence.py` works read-only on
+original vector textbook PDF and independently verified
+visible embedded slide raster. ORB feature nearest-neighbor
+ratio test + RANSAC similarity transforms in FOUR ARBITRARY
+EQUAL-WIDTH SLIDE SCAN BINS (NOT actual mathematical panels).
+For original Thomas Calculus 8.4 source page 2 Figure 8.3
+and original lecture slides.pdf page 5:
+1999 original-source ORB keypoints, 733 slide-bitmap
+keypoints, **202 tentative correspondence descriptors**.
+Four slide-bitmap scan bins have **58,18,31,20** coherent
+RANSAC inliers. Approximate fitted scale ~0.5, with differing
+translations consistent with separate original artwork portions
+repositioned in slide. Source PDF matched-keypoint extents:
+bin0 [51.84,92.897,118.245,161.05];
+bin1 [75.247,202.383,102.021,249.628];
+bin2 [105.339,199.757,154.276,251.818];
+bin3 [90.774,320.717,152.285,348.365].
+Bins 1 and 2 overlap in original source y and are not
+two verified source panels. These keypoint boxes do not
+define complete original figure region or scientific panels.
+Full panel source ownership, axis/curve/label completeness,
+math semantics and original-to-slide full coverage remain
+UNCERTIFIED. No production TTS/video or publication authorized.
+CLI exits 2 even when geometric patterns match.
+Original source SHA
+`b695018baa55f69ae3c9c875e7b1cb8ed284123d5a4b43f31314e659b1f22068`,
+slide SHA `f6219ee18be4e347132d59be0d55e19765f325efed0b9d3d6544959a6dda68d1`.
+All original assets unchanged. Technical data in
+`docs/SOURCE_SLIDE_LOCAL_FEATURE_CORRESPONDENCE_20261020.md`.
+Optional cv2/numpy available on Dell; unavailable environments
+fail closed rather than inventing feature evidence.
+Dell-115 complete figure-specific tests plus both joint/lecture
+acceptance modules: **213 passed, 3 skipped, 0 failed**;
+6 new focused adversarial tests passed. These are scoped
+regressions, not the complete repository-wide no-exclusion suite.
+GitHub CI must be separately verified for the exact pushed head.
+
+Next: independently establish full-coverage per original
+source panel and source-to-slide mapping, with true panel
+labels and matching math content. Only then verify genuine
+narrated highlight and individual encoded MP4 parts <600s.
+Original legacy 8.4 slides.mp4 is 633.93s and remains
+noncompliant. Contract: no HP/Yoga6/Zenbook, Whisper/ASR,
+GCS external lease, paid TTS calls, publication or dirty G:
+worktree changes. Primary Flash-Lite/Kore with 3 genuine
+failures before homogeneous approved fallback. Human
+academic/listening QA remains separate from technical evidence.
+
+---
+
 # Latest checkpoint — PR159 declared vector-panel to slide-tile reflow evidence
 
 20 Oct 2026 Malaysia. New isolated Dell-115 branch
