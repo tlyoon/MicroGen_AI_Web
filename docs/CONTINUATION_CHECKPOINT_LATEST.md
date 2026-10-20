@@ -1,3 +1,13 @@
+# Latest checkpoint — PR180 independent real multipart media re-audit + 8.5/8.6 preflight
+
+20 Oct 2026; Dell-115 ONLY. New isolated branch `feature/independent-real-multipart-recovery-audit-20261020` in `20261020_pr180_staged_reaudit_2100`, parent PR179 SHA `ca66f93b8a6d60ca880dd4cdcb7b2272707b53f5`.
+Actual Thomas Calculus 8.4 TWO independently re-audited H.264/AAC review-only MP4s: part 1 slides 1–8 321.89s, part 2 slides 9–17 310.82s, all individual original WAV PCM samples exact, original PDF/WAV hashes unchanged, actual encoded strict <600s, FFmpeg decoded reference highlighted pixels independently corroborated. **Critical incomplete**: no actual spoken-element semantic alignment verified, six fallback visual-highlight slides, no mathematical/figure academic completeness or human listening QA, no production approval/publication.
+Old original 8.4 slides.mp4 SHA unchanged (~633.93s invalid).
+Read-only future subchapter recovery preflight: Thomas 8.5 (20 WAVs) proposes slides 1–11 398.6187s + 12–20 362.538s; Thomas 8.6 (17 WAVs) proposes slides 1–9 330.708s + 10–17 298.4927s. Neither 8.5 nor 8.6 replacement generated/QA'd.
+No original media touched, no other PC, paid TTS, Whisper/ASR, external GCS lease, dirty G: worktree, main merge or publishing. Flash-Lite/Kore primary, approved voice-consistent Cloud TTS fallback only after 3 genuine failures. See docs/INDEPENDENT_REAL_MULTIPART_REAUDIT_20261020.md.
+
+---
+
 # Latest checkpoint — PR179 real complete 8.4 multipart review MP4s
 
 20 October 2026; Dell-115 only; isolated checkout `20261020_pr179_real_multipart_video_2030`, branch `feature/real-thomas8-4-multipart-review-video-20261020`, parent PR178 exact commit `56a95093616bc6438a6499851fb1dca22f7e5635`.
