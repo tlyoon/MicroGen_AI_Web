@@ -86,6 +86,31 @@ def validate_glyph_matrix(matrix:list,*,min_score:float=.75,
             all(x["original_to_existing_bitmap_operator_glyph_correspondence_verified"]
                 for x in panels)}
 
+def validate_scale_coherence(details:list,*,max_ratio:float=2.0)->dict:
+    """Check that the three matching original glyphs have plausible common scale.
+
+    This is supplemental image-registration consistency, not math correctness.
+    """
+    require(type(max_ratio) in (int,float) and math.isfinite(max_ratio)
+            and 1 <= max_ratio <= 3,
+            "Invalid bounded scale coherence threshold")
+    require(type(details) is list and len(details)==3
+            and all(type(row) is list and len(row)==3 for row in details),
+            "Expected all nine independent original-to-slide image searches")
+    values=[]
+    for i,row in enumerate(details):
+        match=row[i]
+        require(type(match) is dict
+                and type(match.get("relative_pixel_scale")) in (float,int)
+                and math.isfinite(match["relative_pixel_scale"])
+                and .25 <= match["relative_pixel_scale"] <= .9,
+                "Missing bounded diagonal source-to-slide glyph pixel scale")
+        values.append(float(match["relative_pixel_scale"]))
+    ratio=max(values)/min(values)
+    return {"diagonal_original_operator_pixel_scales":values,
+            "max_operator_scale_ratio":round(ratio,5),
+            "matched_operator_label_scales_consistent":ratio<=max_ratio}
+
 def audit_source_to_slide_inverse_glyphs(*,source:Path,slides:Path,
                                         source_page:int=2,slide_page:int=5,
                                         figure_id:str="8.3")->dict:
@@ -146,8 +171,11 @@ def audit_source_to_slide_inverse_glyphs(*,source:Path,slides:Path,
     details=[[_best_template(a,b,cv2,np) for b in regions] for a in templates]
     scores=[[e["normalized_correlation"] for e in row] for row in details]
     compared=validate_glyph_matrix(scores)
+    scale_evidence=validate_scale_coherence(details)
     require([_sha(source),_sha(slides)]==list(before),
             "Original Figure 8.3 sources changed during glyph matching")
+    require(scale_evidence["matched_operator_label_scales_consistent"],
+            "Three original-to-slide operator glyph scales disagree")
     return {"schema_version":1,
         "status":("SOURCE_AND_SLIDE_INVERSE_OPERATOR_GLYPHS_CORROBORATED_REVIEW_REQUIRED"
                   if compared["all_three_source_inverse_operator_glyphs_in_slide_verified"]
@@ -159,6 +187,7 @@ def audit_source_to_slide_inverse_glyphs(*,source:Path,slides:Path,
         "original_to_slide_operator_match_score_matrix":scores,
         "original_to_slide_operator_match_locations":details,
         **compared,
+        **scale_evidence,
         "complete_equation_x_over_a_and_theta_glyphs_verified":False,
         "all_axes_and_ticks_mathematically_correct_verified":False,
         "source_plot_mathematical_curve_equivalence_verified":False,
