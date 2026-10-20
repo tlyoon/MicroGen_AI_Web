@@ -1,3 +1,26 @@
+# Latest checkpoint — PR161 measured registration transform grouping
+
+20 Oct 2026. Dell-115-only isolated branch
+`feature/figure-ransac-transform-grouping-20261020`
+stacked on PR160 exact commit
+`8d0ba76dc068388edaaa23aa2492e9a60d62cece`.
+Grouped PR160's four arbitrary image-feature slide scan bins
+(58/18/31/20 inliers) into three candidate transforms:
+[0] 58, [1,2] 49, [3] 20. Scan bins and transform groups
+are NOT verified author-intended mathematical panels or
+complete figure crops. Real original source page 2 and
+slide 5 remain unmodified, no MP4/TTS regeneration.
+All source/figure/panel/scientific/video and publication
+approvals remain false, CLI exits 2.
+See docs/FIGURE_TRANSFORM_GROUPS_20261020.md.
+No HP/Yoga6/Zenbook, paid TTS, Whisper/ASR, GCS lease,
+dirty G: checkout changes or publication. Strict <600s
+per encoded video part; actual spoken-element highlights;
+Flash-Lite/Kore primary, approved consistent-voice
+fallback after three genuine failures unchanged.
+
+---
+
 # Latest checkpoint — PR160 actual source-to-slide local-feature correspondence
 
 20 October 2026, Malaysia. Only Dell-115 is authorized for local
