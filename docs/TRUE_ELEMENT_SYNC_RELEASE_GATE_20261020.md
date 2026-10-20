@@ -1,0 +1,7 @@
+# PR185 — block provisional slide-WAV MP4 from true element-synchronized release
+
+Introduces a strictly fail-closed actual technical production bridge. It requires an original source PDF, original slides PDF, immutable original narration script and a **complete source-bound element-level WAV plan**, frozen audio directory and original-per-element encoded/pixel-reviewed video output before invoking the existing `sourcebound_production_video.accept_candidate`. All source/voice and actual on-disk plan hashes are verified by the established `source_bound_plan` and `check_production_anchor_provenance` functions. The production bridge rechecks actual encoded <600s multipart durations, sample-timed source-highlight correspondence and production candidate copies.
+
+Real Thomas Calculus 8.4 has no such trusted element-level audio, so this stage returns `ELEMENT_SYNC_RELEASE_BLOCKED_NO_SOURCE_BOUND_AUDIO` with `encoded_production_candidate_exists=False`; no false release, original MP4 overwritten or student publishing. Earlier two staged review MP4s totaling 17 slides remain intact: their 86 visually correct provisional events are **not proven narrated meaning**.
+
+The same module can accept a complete independently authenticated element-level plan in future. No new or paid TTS used in this PR, no ASR/Whisper/GCS lease, no HP or Yoga6 access. Dell-115 only, parent PR184 exact SHA `cf0cf685eff87198a28479fc315528513ea809b7`. Verified 27 source-bound video and new guard tests on Dell-115.
