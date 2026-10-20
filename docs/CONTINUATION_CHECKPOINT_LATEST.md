@@ -1,3 +1,9 @@
+# Latest checkpoint — PR189 full-source mathematical element decision ledger
+
+Dell-115 only. The 71-utterance original Thomas 8.4 script is hash-bound to original source/slides, with four independent Figure 8.3 tangent/sine/secant candidate hints. No utterances have independently verified mathematical source/element matches, so all 71 remain blocked from TTS and publication. Report preserved separately in LOCALAPPDATA, originals unchanged.
+
+---
+
 # Latest checkpoint — PR188 source-PDF and slide Fig. 8.3 review montage
 
 20 Oct 2026 Dell-115 only. Isolated PR188 based on PR187; actual source/slide pixel comparison and all eight speech-to-panel candidate hypotheses staged outside teaching source. Full mathematical axes/labels and speech alignment remain unverified; never permit premature TTS/publication. Original assets preserved.
