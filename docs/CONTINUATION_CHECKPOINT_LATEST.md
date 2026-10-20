@@ -1,3 +1,30 @@
+# Latest checkpoint — PR157 source PDF panel-token negative evidence
+
+20 October 2026 Malaysia. Parent PR156
+`feature/source-slide-raster-match-candidates-20261020` exact
+HEAD `a175cf68de4e58f1be1c166d343a7b7cf28ab335`,
+GitHub CI passed. Dell-115-only isolated branch
+`feature/figure-source-panel-text-evidence-20261020`
+in `20261020_pr157_source_panel_text_0930`.
+Original Thomas 8.4 Figure 8.3 source page 2 has 39 text lines
+and 23 vector objects in conservative pre-caption corridor,
+but **zero isolated extractable (a)-(f) printed panel marker lines**.
+This is negative extraction evidence, not proof that visible panel
+labels are absent: vector glyphs/text may not be extractable.
+New read-only source panel-marker inventory rejects duplicates,
+neighboring column and below-caption labels as panel proof.
+Original source PDF hash `b695018baa55f69ae3c9c875e7b1cb8ed284123d5a4b43f31314e659b1f22068`
+unchanged. No author-complete panel/figure/semantic, original-to-slide,
+highlighted narration or video approval. CLI exit 2.
+No original G: production assets, older uncommitted independent
+raster-visibility checkout, other machines, paid calls, protected
+main or publication touched. Contract under-600s encoded parts,
+audio-synchronized visual elements, Flash-Lite/Kore and genuine
+3-failure voice-consistent fallback, no Whisper/ASR/GCS lease.
+See docs/SOURCE_PANEL_TEXT_EVIDENCE_20261020.md.
+
+---
+
 # Latest continuation checkpoint — PR156 slide raster visibility
 
 20 October 2026, Malaysia. Dell-115 is the ONLY authorized local
