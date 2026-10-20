@@ -1,3 +1,41 @@
+# Latest checkpoint — PR170 integration of automatic Figure 8.3 reflow triage
+
+20 Oct 2026; Dell-115 ONLY. Parent latest PR169 was
+corrected for missing OpenCV in GitHub Actions; commit
+`5491175d4b35ebead557a3410be8727ab49dc804`,
+GitHub full reliability CI **PASSED** (Ubuntu + Windows).
+New isolated PR170 checkout
+`20261020_pr170_figure_layout_auto_triage_1600`,
+branch `feature/figure-reflow-auto-triage-integration-20261020`.
+The official source-to-slide figure gate automatically
+dispatches substantial slide-raster figures for bounded
+three-graph color-shape layout analysis. Graphs legitimately
+rearranged vertical (textbook) to horizontal (slide) clear
+the *false whole-crop aspect-only* blocker, NEVER full
+original mathematical/semantic/visual or encoded-video
+approval. A recursion guard disables nested auto dispatch
+when `figure_slide_raster_visibility` calls its parent gate.
+Real original Thomas 8.4 source page 2 / slide 5 automatically
+returned `THREE_GRAPH_REFLOW_DETECTED_SEMANTIC_REVIEW_PENDING`;
+actual joint acceptance now distinguishes unresolved
+axis-label/content completeness from resolved layout shape,
+retaining original caption-prose collision and historical
+633.93s MP4 / highlight-synchronization violations.
+Original/slide/media not modified, all acceptance flags
+remain false, CLI exits 2. Dell-115 combined figure and original
+lecture acceptance regression: **269 passed, 3 skipped,
+0 failed**; complete repository no-exclusion suite pending
+GitHub CI. Optional dependency absence or
+geometry mismatch fails closed; user-supplied imagery
+cannot be silently substituted. See
+`docs/FIGURE_LAYOUT_AUTOMATIC_TRIAGE_20261020.md`.
+No other PCs, dirty working trees, main merges, paid calls,
+Whisper/ASR/GCS lease or publication. Strict <600s parts,
+voice-consistent Flash-Lite/Kore primary + approved fallback
+only after 3 genuine failures and human listening QA retained.
+
+---
+
 # Latest checkpoint — PR169 alternative layout-aware Figure 8.3 algorithm
 
 20 October 2026 Malaysia; Dell-115 ONLY. Latest checked

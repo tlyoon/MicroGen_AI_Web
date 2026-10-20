@@ -59,7 +59,14 @@ def inspect_joint_original_lecture(*, folder: Path, source_page: int,
                   and not v["duration_below_strict_600_s"]]
     unmeasured = [v["relative_path"] for v in videos
                   if not v["duration_measured_from_actual_media"]]
-    blockers = ["UNVERIFIED_SOURCE_FIGURE_AND_SLIDE_CORRESPONDENCE"]
+    # Valid source-to-slide graph reflow resolves the old *aspect-only*
+    # objection, not the original mathematical content or media QA.
+    reflow_found = figure["automatically_detected_layout_reflow"]
+    blockers = ([
+        "UNVERIFIED_MATH_AXES_LABELS_AND_WHOLE_FIGURE_CONTENT"
+    ] if reflow_found else [
+        "UNVERIFIED_SOURCE_FIGURE_AND_SLIDE_CORRESPONDENCE"
+    ])
     if figure["source_caption_layout_status"] == (
             "CAPTION_PARALLEL_PROSE_COLLISION_REVIEW_REQUIRED"):
         blockers.append("SOURCE_CAPTION_OVERLAPS_UNRELATED_PROSE")
@@ -77,6 +84,10 @@ def inspect_joint_original_lecture(*, folder: Path, source_page: int,
         "source_page": source_page, "slide_page": slide_page,
         "figure_id": figure_id,
         "figure_caption_layout_status": figure["source_caption_layout_status"],
+        "automatically_detected_layout_reflow":reflow_found,
+        "source_layout_automatic_disposition":figure["layout_recovery_diagnostic"]["status"],
+        "legacy_whole_crop_aspect_rejection_resolved_as_layout_only":
+            figure["legacy_whole_crop_aspect_rejection_resolved_as_layout_only"],
         "original_vector_objects_unassigned":
             figure["source_pre_caption_drawing_count"],
         "video_candidates": videos,

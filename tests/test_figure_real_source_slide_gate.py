@@ -5,6 +5,7 @@ import hashlib
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import pymupdf
 
@@ -77,6 +78,46 @@ class RealSourceSlideGateTests(unittest.TestCase):
             with self.subTest(kwargs=kwargs):
                 with self.assertRaises(FigureIdentityReviewRequired):
                     self.inspect(**kwargs)
+
+    def test_material_bitmap_triggers_optional_safe_reflow_diagnostic(self):
+        self.create()
+        with pymupdf.open() as image:
+            page = image.new_page(width=150, height=100)
+            page.draw_line((10, 20), (140, 80))
+            bitmap = page.get_pixmap(alpha=False).tobytes("png")
+        with pymupdf.open(self.slide) as deck:
+            deck[0].insert_image(pymupdf.Rect(50, 90, 280, 230),
+                                 stream=bitmap, keep_proportion=False)
+            deck.saveIncr()
+        before = (hashlib.sha256(self.source.read_bytes()).hexdigest(),
+                  hashlib.sha256(self.slide.read_bytes()).hexdigest())
+        def observe(**kwargs):
+            return {
+                "status":"THREE_GRAPH_REFLOW_DETECTED_SEMANTIC_REVIEW_PENDING",
+                "layout_reflow_detected":True,
+                "previous_whole_source_crop_aspect_mismatch_resolved_as_layout_only":True,
+                "source_sha256":before[0], "slides_sha256":before[1],
+                "publication_authorized":False,
+            }
+        with patch("selenium_pipeline.figure_layout_recovery_dispatch."
+                   "discover_source_slide_reflow", side_effect=observe) as mock:
+            report = self.inspect()
+        self.assertEqual(mock.call_count, 1)
+        self.assertTrue(report["automatically_detected_layout_reflow"])
+        self.assertEqual(report["status"], "REAL_SOURCE_SLIDE_FIGURE_EVIDENCE_BLOCKED")
+        self.assertFalse(report["source_to_slide_figure_identity_verified"])
+        self.assertFalse(report["student_publication_authorized"])
+        self.assertEqual(before, (
+            hashlib.sha256(self.source.read_bytes()).hexdigest(),
+            hashlib.sha256(self.slide.read_bytes()).hexdigest()))
+
+    def test_non_raster_source_slide_does_not_invoke_vision(self):
+        self.create()
+        with patch("selenium_pipeline.figure_layout_recovery_dispatch."
+                   "discover_source_slide_reflow") as mock:
+            report = self.inspect()
+        mock.assert_not_called()
+        self.assertFalse(report["automatically_detected_layout_reflow"])
 
     def test_cli_explicit_nonzero_blocked_exit(self):
         self.create()
