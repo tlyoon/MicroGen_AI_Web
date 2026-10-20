@@ -1,3 +1,28 @@
+# Latest checkpoint — PR162 independent AKAZE corroboration
+
+20 October 2026; Dell-115 ONLY, stacked on PR161 exact
+`95d21224683fd3495ebe01716c2ed78ec23606b3`.
+Isolated checkout `20261020_pr162_akaze_crosscheck_1200`;
+branch `feature/independent-feature-detector-consensus-20261020`.
+Second local AKAZE feature detector independently corroborates
+ORB/RANSAC mapping; real Thomas 8.4 original source page 2
+and slide PDF page 5 yield 23 AKAZE descriptor candidates.
+Independent geometry consistent in scan bins 0,3 (9,5
+AKAZE RANSAC inliers), not sufficiently supported in bins 1,2.
+Arbitrary scan bins are NOT original author panels.
+No complete graph/panel/semantic/source-slide coverage
+or narrated-highlight/video acceptance. All approvals False;
+CLI exit 2. Original source/slide SHA preserved.
+Only Dell-115; prior uncommitted checkout and G: teaching
+assets unchanged. No HP/Yoga6/Zenbook, paid TTS,
+Whisper/ASR, GCS external lease or publication.
+Contract: MP4 parts strictly <600s, actual highlight sync,
+Flash-Lite/Kore primary, voice-consistent fallback after
+three genuine failures. Academic listening QA separate.
+See docs/INDEPENDENT_DETECTOR_CONSENSUS_20261020.md.
+
+---
+
 # Latest checkpoint — PR161 measured registration transform grouping
 
 20 Oct 2026. Dell-115-only isolated branch
