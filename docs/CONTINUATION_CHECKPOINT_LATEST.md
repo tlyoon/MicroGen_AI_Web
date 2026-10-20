@@ -1,3 +1,9 @@
+# Latest checkpoint — PR183 immutable narration utterance manifest
+
+20 Oct 2026 Dell-115 only; `20261020_pr183_narration_manifest_2050`, branch `feature/immutable-element-utterance-manifest-20261020`, parent PR182 SHA `ab769589b72719a72b88a762564a7998123c77bd`. Generated staged `%LOCALAPPDATA%\MicroGen_AI_Web_Checkpoints\thomas_84_original_utterance_manifest_20261020.json`: 17 slides / 71 verbatim original script utterances, 71 with source math/visual mapping still unresolved. Source/slides/script SHA frozen, no TTS billed; manifest explicitly NOT approved for any clip generation. This prevents weak lexical ranking becoming a paid job. Existing per-element TTS requires stronger original/slide mathematical evidence. All originals, Dell-only restriction, strict <600s encoded videos and spoken-element highlight contract preserved.
+
+---
+
 # Latest checkpoint — PR182 strict source-grounded utterance/element mapping
 
 20 Oct 2026 Dell-115 only; isolated `20261020_pr182_strict_element_mapping_2035`, branch `feature/strict-source-element-mapping-disambiguation-20261020`, based on PR181 exact SHA `a63e5557607f8477922cced624a2905f6c558fac` (GitHub CI passed). Recomputed exact narration PDF anchors, source original page words and original text candidate hashes. Real Thomas 8.4 71 utterances, 53 previously ranked ambiguous; zero satisfy *verbatim full utterance* match to exactly one rendered element on exactly one original textbook page. All 71 still require semantic source review and none can enter paid TTS on weak lexical hints. Source/slides/script untouched; no other PCs, paid calls, Whisper/ASR, GCS lease, production overwrite or publication. See docs/STRICT_ELEMENT_SOURCE_MAPPING_20261020.md.
