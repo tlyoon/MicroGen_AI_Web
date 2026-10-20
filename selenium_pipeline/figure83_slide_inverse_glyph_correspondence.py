@@ -36,7 +36,7 @@ def _best_template(original_black,target_black,cv2,np)->dict:
             and int((original_black>0).sum())>=15
             and int((target_black>0).sum())>=15,
             "Missing/malformed original or displayed label black ink")
-    best=(-1.,0.,[0,0])
+    best=(-1.,0.,[0,0],[0,0])
     for scale in range(27,90,3):
         factor=scale/100.
         template=cv2.resize(original_black,None,fx=factor,fy=factor,
@@ -48,11 +48,14 @@ def _best_template(original_black,target_black,cv2,np)->dict:
         metric=cv2.matchTemplate(target_black,template,cv2.TM_CCOEFF_NORMED)
         _,peak,_,position=cv2.minMaxLoc(metric)
         if math.isfinite(peak) and peak>best[0]:
-            best=(float(peak),factor,[int(position[0]),int(position[1])])
+            best=(float(peak),factor,[int(position[0]),int(position[1])],
+                  [int(template.shape[1]),int(template.shape[0])])
     require(best[0]>=0,"No reliable bounded original glyph search")
     return {"normalized_correlation":round(best[0],5),
             "relative_pixel_scale":best[1],
-            "panel_local_top_left_px":best[2]}
+            "panel_local_top_left_px":best[2],
+            "template_size_px":best[3],
+            "panel_size_px":[int(target_black.shape[1]),int(target_black.shape[0])]}
 
 def validate_glyph_matrix(matrix:list,*,min_score:float=.75,
                           min_margin:float=.075)->dict:
@@ -110,6 +113,43 @@ def validate_scale_coherence(details:list,*,max_ratio:float=2.0)->dict:
     return {"diagonal_original_operator_pixel_scales":values,
             "max_operator_scale_ratio":round(ratio,5),
             "matched_operator_label_scales_consistent":ratio<=max_ratio}
+
+def derive_slide_operator_boxes(details:list, bands:list, *,width:int,height:int)->list[dict]:
+    """Map matched ORIGINAL glyph pixels into actual EXISTING slide-bitmap pixels.
+
+    Bounding boxes are review anchors, never spoken-word timing evidence.
+    """
+    require(type(width) is int and type(height) is int
+            and 0<width<=3000 and 0<height<=3000
+            and type(details) is list and len(details)==3
+            and type(bands) is list and len(bands)==3,
+            "Untrusted slide figure pixel canvas")
+    boxes=[]
+    for i in range(3):
+        require(type(details[i]) is list and len(details[i])==3,
+                "Missing glyph comparison row")
+        point=details[i][i]
+        require(type(point) is dict
+                and type(point.get("panel_local_top_left_px")) is list
+                and type(point.get("template_size_px")) is list
+                and type(point.get("panel_size_px")) is list
+                and type(bands[i]) in (list,tuple) and len(bands[i])==2,
+                "Incomplete matched original glyph location")
+        x,y=point["panel_local_top_left_px"]
+        tw,th=point["template_size_px"]
+        pw,ph=point["panel_size_px"]
+        start,end=bands[i]
+        require(all(type(n) is int for n in (x,y,tw,th,pw,ph,start,end))
+                and 0<=start<end<=width and pw==end-start and ph==height
+                and tw>0 and th>0 and 0<=x<x+tw<=pw
+                and 0<=y<y+th<=height,
+                "Original operator glyph template escaped its actual slide panel")
+        boxes.append({"panel_index":i+1,
+            "matched_original_glyph_bbox_on_existing_slide_bitmap_px":
+              [start+x,y,start+x+tw,y+th],
+            "mathematical_complete_equation_verified":False,
+            "narrated_spoken_word_timing_verified":False})
+    return boxes
 
 def audit_source_to_slide_inverse_glyphs(*,source:Path,slides:Path,
                                         source_page:int=2,slide_page:int=5,
@@ -171,6 +211,11 @@ def audit_source_to_slide_inverse_glyphs(*,source:Path,slides:Path,
     details=[[_best_template(a,b,cv2,np) for b in regions] for a in templates]
     scores=[[e["normalized_correlation"] for e in row] for row in details]
     compared=validate_glyph_matrix(scores)
+    actual_bands=[x["slide_bitmap_scan_band_px"]
+                  for x in geometry["graph_correspondence_evidence"]]
+    operator_boxes=derive_slide_operator_boxes(
+        details,actual_bands,width=int(displayed.shape[1]),
+        height=int(displayed.shape[0]))
     scale_evidence=validate_scale_coherence(details)
     require([_sha(source),_sha(slides)]==list(before),
             "Original Figure 8.3 sources changed during glyph matching")
@@ -188,6 +233,7 @@ def audit_source_to_slide_inverse_glyphs(*,source:Path,slides:Path,
         "original_to_slide_operator_match_locations":details,
         **compared,
         **scale_evidence,
+        "source_operator_target_pixel_boxes_for_review":operator_boxes,
         "complete_equation_x_over_a_and_theta_glyphs_verified":False,
         "all_axes_and_ticks_mathematically_correct_verified":False,
         "source_plot_mathematical_curve_equivalence_verified":False,
