@@ -1,3 +1,28 @@
+# Latest checkpoint — PR174 real original-WAV multipart boundary plan
+
+20 Oct 2026, Dell-115 ONLY. Isolated checkout
+`20261020_pr174_real_wav_boundary_preflight_1830`,
+branch `feature/real-slide-wav-multipart-boundary-plan-20261020`,
+parent PR173 exact head
+`79a8084b522937b7ddc973003091e74361adee12`.
+Real Thomas Calculus 8.4: original 17 slideWAV
+sample durations sum 632.7107s. Deterministic
+whole-slide no-cut balancing with 540-second
+audio-only preflight budget proposes two parts:
+slides 1–8 321.8927s, slides 9–17 310.8180s.
+No MP4 rendered, no actual MP4 duration or
+narration-time visual highlight verified; old
+original 633.93s slides.mp4 remains noncompliant.
+No source, PDF, WAV or media mutated, no paid
+TTS call, other-PC access, Whisper/ASR, GCS
+external lease, main merge, or publication.
+Actual encoded parts MUST be strictly <600s,
+and technical highlight QC and listening QA
+remain separate. See
+docs/REAL_WAV_MULTIPART_BOUNDARIES_20261020.md.
+
+---
+
 # Latest checkpoint — PR173 isolated source-to-slide graph review montage
 
 20 Oct 2026, Dell-115 only, branch
