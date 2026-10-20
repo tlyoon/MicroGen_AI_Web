@@ -3,8 +3,9 @@ from __future__ import annotations
 
 import math
 import unittest
-import cv2
-import numpy as np
+import pytest
+cv2 = pytest.importorskip("cv2", reason="optional OpenCV figure QA dependency")
+np = pytest.importorskip("numpy", reason="optional array figure QA dependency")
 
 from selenium_pipeline.figure_source_identity import FigureIdentityReviewRequired
 from selenium_pipeline.figure_three_graph_color_reflow import (

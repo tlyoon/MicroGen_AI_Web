@@ -129,7 +129,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install offline test dependencies
-        run: python -m pip install selenium pymupdf pypdf pillow imageio-ffmpeg pytest jsonschema 'google-genai>=2.25,<3'
+        run: python -m pip install selenium pymupdf pypdf pillow imageio-ffmpeg pytest jsonschema opencv-python-headless 'google-genai>=2.25,<3'
       - name: Full historical and Stage 3 fault-injection regression suite
         env:
           PYTHONIOENCODING: utf-8
