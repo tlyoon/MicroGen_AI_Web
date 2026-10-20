@@ -1,3 +1,30 @@
+# Latest checkpoint — PR158 explicit source crop-to-slide pixel hypothesis
+
+20 October 2026, Malaysia. Dell-115 ONLY. PR157 parent exact
+HEAD `3bad1a505a7afc45ec8612f12db35cdf898e0c01`.
+New isolated branch `feature/vector-crop-raster-comparison-20261020`,
+checkout `20261020_pr158_source_crop_slide_compare_0945`.
+Bounded source vector-render-vs-actual slide bitmap RGB equality
+requires a caller-declared original source bbox that is independently
+checked for page and caption-heading containment. It is NOT
+authoritative figure geometry. Real original Thomas 8.4 source
+page 2 candidate `[30,85,180,381]` is only coarse hypothesis;
+aspect ratio 0.506757 vs slide-5 material raster 4.300578.
+Status `DECLARED_SOURCE_CROP_SLIDE_ASPECT_MISMATCH`, no automatic
+reflow mapping or graph identity. Generated adversarial tests prove
+identical pixel source render can be observed, while manipulated
+bitmap/crop/overlay invalidates evidence. Original source and slide
+SHA hashes preserved. All scientific figure/panel/semantic/tts/
+highlight/MP4 and student publication approvals false; CLI exit 2.
+Contract and machine protection as PR157 and preceding checkpoints:
+Dell-115 only; no production originals or dirty G: repos, paid
+TTS, HP/Yoga6/Zenbook, Whisper/ASR/GCS lease. Strict <600s encoded
+video parts, spoken-element highlight, primary Flash-Lite/Kore
+with three genuine failures before approved homogeneous fallback.
+See docs/DECLARED_VECTOR_SOURCE_CROP_COMPARE_20261020.md.
+
+---
+
 # Latest checkpoint — PR157 source PDF panel-token negative evidence
 
 20 October 2026 Malaysia. Parent PR156
