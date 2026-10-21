@@ -1,3 +1,32 @@
+# Latest checkpoint — PR203 actual math source-fraction and Figure 8.3 fail-closed release
+
+21 October 2026 Malaysia; Dell-115 only; isolated stacked draft PRs
+#199–#203 on exact PR198 head b33a4ee44be336fe0d465de3414a61c768d085cd.
+PR199 independently geometrically disambiguates source textbook x/a
+inverse-function fractions from axis labels; original SOURCE printed
+equation mathematics only. PR200 compares whole original printed
+u = inverse(x/a) expressions against all 3 displayed slide panels:
+real image correlation matrix has ambiguous matches including SECANT
+source preferring SINE slide, so strict complete-equation pixel
+uniqueness BLOCKED. PR201 independent source/slide operator-position
+cross-registration agrees at 0.44, 0.57, 0.74 bitmap pixels, but
+does NOT certify full displayed equation content or mathematics.
+PR202 carries complete-expression bitmap REVIEW CANDIDATE boxes to
+four named slide5 utterances, with four other utterances still
+unresolved. PR203 blocks student publication and paid TTS even if
+malformed/fake evidence tries to turn review-only positions into
+spoke-element/technical approval. Genuine element audio jobs zero.
+Two staged Thomas8.4 multipart visually checked MP4s remain
+REVIEW ONLY; no accepted production output. Thomas 8.5 and 8.6
+remain pending. No changes to original source/slides/script/WAV/MP4,
+no other PCs, paid calls, Whisper/ASR, GCS lease or protected main
+merge. Next: actual whole-equation mathematical/axis review and
+independently proven spoken-to-element segmentation before
+same-voice Flash-Lite TTS and true synchronized video.
+See docs/FIGURE83_SOURCE_MATH_NARRATION_GATE_20261021.md.
+
+---
+
 # Latest checkpoint — PR198 source-grounded Figure 8.3 operator narration review anchors
 
 21 October 2026 Malaysia, Dell-115 ONLY; isolated development, stacked
