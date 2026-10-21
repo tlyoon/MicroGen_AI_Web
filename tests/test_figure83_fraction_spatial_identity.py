@@ -10,6 +10,8 @@ def real_evidence():
     return audit_original_graph_labels(source=p/'source.pdf',slides=p/'slides.pdf',
                                       source_page=2,slide_page=5,figure_id='8.3')["panels"]
 
+ROOT=Path(r'G:\My Drive\Projects\Thomas_calculus_13ed\8\8.4')
+@unittest.skipUnless((ROOT/"source.pdf").is_file() and (ROOT/"slides.pdf").is_file(), "Real Thomas PDFs are only available on authorized Dell-115")
 class SourceFractionSpatialIdentityTests(unittest.TestCase):
     def test_real_source_fraction_assignment(self):
         result=disambiguate_original_fraction(real_evidence())
@@ -43,3 +45,36 @@ class SourceFractionSpatialIdentityTests(unittest.TestCase):
             if w["text"]!="x" or w["original_bbox_pt"][0]<145]
         with self.assertRaises(FigureIdentityReviewRequired):
             disambiguate_original_fraction(p)
+
+
+def _fake_source_three_panels():
+    result=[]
+    for i,name in enumerate(("tan−1","sin−1","sec−1"),1):
+        dy=(i-1)*130
+        specs=[
+          ("u",[103,74,107,82]),("x",[177,121,181,129]),
+          ("a",[177,128,181,136]),("u",[51,116,55,124]),
+          ("=",[57,116,64,125]),(name,[66,115,84,125]),
+          ("x",[85,113,89,121]),("a",[85,120,89,128])]
+        result.append({"graph_index":i,"original_printed_tokens":[
+          {"text":label,"original_bbox_pt":[x0,y0+dy,x1,y1+dy]}
+          for label,(x0,y0,x1,y1) in specs]})
+    return result
+
+class PortableSyntheticFractionGeometryTests(unittest.TestCase):
+    def test_unique_source_fraction_separated_from_axis(self):
+        p=_fake_source_three_panels()
+        out=disambiguate_original_fraction(p)
+        self.assertEqual(len(out),3)
+        self.assertTrue(all(x["source_fraction_x_over_a_spatially_disambiguated"] for x in out))
+        self.assertTrue(all(not x["existing_slide_bitmap_equation_verified"] for x in out))
+    def test_duplicate_or_missing_fraction_fails_closed(self):
+        p=_fake_source_three_panels()
+        p[0]["original_printed_tokens"].append(deepcopy(p[0]["original_printed_tokens"][-1]))
+        with self.assertRaises(FigureIdentityReviewRequired):
+            disambiguate_original_fraction(p)
+        p=_fake_source_three_panels()
+        p[2]["original_printed_tokens"].pop()
+        with self.assertRaises(FigureIdentityReviewRequired):
+            disambiguate_original_fraction(p)
+
