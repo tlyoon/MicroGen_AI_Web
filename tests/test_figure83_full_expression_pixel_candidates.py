@@ -4,6 +4,7 @@ from selenium_pipeline.figure83_full_expression_pixel_candidates import extract_
 from selenium_pipeline.figure_source_identity import FigureIdentityReviewRequired
 
 ROOT=Path(r'G:\My Drive\Projects\Thomas_calculus_13ed\8\8.4')
+@unittest.skipUnless((ROOT/"source.pdf").is_file() and (ROOT/"slides.pdf").is_file(), "Real Thomas PDFs are only available on authorized Dell-115")
 class EquationPixelReviewTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -28,3 +29,12 @@ class EquationPixelReviewTests(unittest.TestCase):
         with self.assertRaises((IndexError,FigureIdentityReviewRequired,ValueError)):
             extract_real_equation_pixel_matrix(source=ROOT/'source.pdf',
                                                slides=ROOT/'slides.pdf',source_page=9999)
+
+
+class PortableEquationReviewBoundaryTests(unittest.TestCase):
+    def test_missing_untrusted_source_fails_before_any_media_acceptance(self):
+        with self.assertRaises((OSError,FigureIdentityReviewRequired,ValueError)):
+            extract_real_equation_pixel_matrix(
+                source=Path("definitely_missing_source_figure83.pdf"),
+                slides=Path("definitely_missing_slides_figure83.pdf"))
+
