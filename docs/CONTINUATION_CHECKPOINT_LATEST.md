@@ -1,3 +1,43 @@
+# Latest checkpoint — PR214 authentic element WAV boundary / encoded video pilot
+
+21 October 2026; Dell-115 ONLY, new isolated stacked draft PRs
+#210–#214 on PR209 head d1e4417d0b50553fcd7dd5ffe733648601df4fd2.
+The original Figure 8.3 layout/crop bug is RESOLVED (PR169/170),
+original three operator glyphs matched (PR193). Do NOT spend another
+five PRs endlessly retesting resolved graph layout. Separate actual
+mathematical QA from spoken timing and encoded video contract.
+
+PR210: real Thomas 8.4 17 PDF slides / 71 original utterances yielded
+162 source-hashed slide-visible candidate mapping hints, not math
+approvals. PR211: strict exact textbook+PDF-block literal fast lane
+shows 0/71 approved in actual 8.4 (explanatory paraphrased narration);
+this is NOT a failed Figure 8.3 graphic. PR212: source-quoted explicit
+reviewer decisions validate independent original page, exact spoken SHA
+and selected real slide PDF target for nonliteral narration; no reviewer
+decisions invented. PR213: reviewed segment text and PDF element
+geometry become ready-to-dispatch Gemini Flash-Lite/Kore chunk TTS
+MANIFESTS, with paid execution still unauthorized. PR214: actual
+source-bound per-element WAV-based technical HIGHLIGHT VIDEO ENCODER
+and synthetic two-chunk 0.5+0.7 s example on Dell; fixed-fps frames
+and independently decoded MP4 midpoint pixels/encoded duration
+checked. Earlier faulty VFR concat was caught/replaced before PR214.
+Synthetic audio proves technical AV plumbing, NOT actual 8.4 spoken
+words or human mathematical/listening acceptance.
+
+Real Thomas Calculus 8.4 / 8.5 / 8.6 remain at 54 complete original
+slides, 218 original utterances and safe 2-part AUDIO-ONLY candidate
+plans from PR209; approved element-level narration WAVs currently 0,
+full real sub600-second synchronized replacement MP4s 0. Preserve
+original PDFs/WAV/MP4s. No HP/Yoga6/Zenbook, paid TTS, Whisper/ASR,
+external GCS lease, protected main merge or student publication.
+Next: use source-grounded math element selections across 8.4–8.6,
+review/authorize TTS inputs using existing contract and billing guard,
+produce genuine same-voice segment WAVs then apply the PR214 real
+encoded highlight encoder and independent encoded pixel/duration QA.
+See docs/SEGMENT_AUDIO_SYNC_PRODUCTION_PILOT_20261021.md.
+
+---
+
 # Latest checkpoint — PR209 independent 8.4–8.6 narration-sync execution queue
 
 21 October 2026, Dell-115 ONLY. PR209 stacked on exact PR208 head
