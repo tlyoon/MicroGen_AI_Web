@@ -1,3 +1,45 @@
+# Latest checkpoint — PR224 original-source-reviewed element PCM technical pilot
+
+22 October 2026, Dell-115 ONLY; autonomous hourly development task
+EXPLICITLY DISABLED at user's request; manual five-PR execution.
+Draft stack #220–#224 on #219 SHA 2808a5f91fb6e4703898f30eaf117d014e3639b2.
+
+PR220: independently checks source/slides/script immutable SHA,
+real PDF visible text-block geometry and bounded original textbook
+page LEXICAL source hints across 218 utterances (8.4=71,8.5=78,
+8.6=69), WITHOUT automatic maths semantic approval.
+PR221: source-hashed complete original-utterance JSON review packets
+and explicit accountable PDF page/quote/element selection bridge.
+Real packets produced external to G: source root with 218 total
+UNREVIEWED decisions, zero original maths reviews invented:
+%LOCALAPPDATA%\MicroGen_AI_Web_Checkpoints\20261022_thomas_8_4_unreviewed_source_element_packet.json
+and _8_5_, _8_6_ versions.
+PR222: import only genuine original textbook-cited decisions and
+stage unpaid Flash-Lite/Kore per-element job manifests, NO provider
+calls. Paid and Cloud TTS fallback cannot auto-activate.
+PR223: separately supplied per-element PCM WAV SHA/format/duration
+verifier, rejects original WAV path reuse/voice claims/tampering.
+Actual spoken-word fidelity and acoustic voice still NOT certified.
+PR224: integrated element review-only MP4 generator from source-
+reviewed choices plus independently staged separate PCM WAV samples;
+actual encoded pixel transition and strict duration checked using
+PR214/215. Positive test uses SYNTHETIC WAV tones and synthetic
+human reviewer fixture, NOT actual paid Kore speech, original
+Thomas element mapping or human academic acceptance.
+
+Earlier #215–#219 real original WAV whole-slide technical
+MP4 previews remain six and all strictly <600s; STILL NOT real
+element-level narrated highlights. Production/student authorization
+FALSE. Figure 8.3 original layout already fixed in #169/#170.
+Read docs/ACTUAL_THOMAS_ELEMENT_SOURCE_REVIEW_CHECKPOINT_20261022.md.
+Next substantive bottleneck is human source-verified nonliteral
+math-to-visible-element decisions for 218 utterances, then authentic
+consistent-voice individual Flash-Lite audio, per-element decoded
+rendering, independent listening/semantic QA. No Whisper, GCS, any
+other PC, originals mutation, protected main merge or publication.
+
+---
+
 # Latest checkpoint — PR219 REAL six-part Thomas 8.4/8.5/8.6 AUDIO VIDEO previews
 
 21 Oct 2026, Dell-115 ONLY. Draft PR stack #215–#219 from
