@@ -26,7 +26,7 @@ def candidate_map(*,folder:Path, queue:dict|None=None)->dict:
         for index,(page,row) in enumerate(zip(deck,record["slides"]),1):
             require(row["slide"]==index,"Out-of-order source-bound slide")
             targets=[]
-            for block in page.get_text("blocks"):
+            for source_block_index, block in enumerate(page.get_text("blocks")):
                 if len(block)<5 or not isinstance(block[4],str) or not block[4].strip():
                     continue
                 x0,y0,x1,y1=(float(v) for v in block[:4])
@@ -39,7 +39,7 @@ def candidate_map(*,folder:Path, queue:dict|None=None)->dict:
                     "kind":"text_block","visible_text":block[4].strip(),
                     "bbox_pdf_pt":[round(x0,3),round(y0,3),round(x1,3),round(y1,3)],
                     "panel_identity_review_required":False,
-                    "anchor":{"type":"text_block","index":len(targets)},
+                    "anchor":{"type":"text_block","index":source_block_index},
                 })
             refs=[]
             for utterance in row["original_verbatim_utterances"]:
