@@ -65,8 +65,8 @@ def rehearse_original_slide(*,folder:Path,slide_number:int,
     command=[runner,"-hide_banner","-loglevel","error","-nostdin",
         "-loop","1","-framerate","10","-i",str(destination/"slide.png"),
         "-i",str(wav),"-c:v","libx264","-preset","ultrafast",
-        "-pix_fmt","yuv420p","-c:a","aac","-shortest",
-        "-y",str(movie)]
+        "-pix_fmt","yuv420p","-c:a","aac","-t",f"{seconds:.6f}",
+        "-shortest","-y",str(movie)]
     result=subprocess.run(command,capture_output=True,timeout=120)
     require(result.returncode==0 and movie.is_file(),"Original slide audio rehearsal encode failed")
     encoded=probe_mp4(movie,exe=runner)
