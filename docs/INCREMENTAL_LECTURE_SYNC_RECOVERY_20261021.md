@@ -35,7 +35,7 @@ Dell-115 **actual source** 8.4 / 8.5 / 8.6 audit (complete run):
 
 All 54 slides / 218 utterances are individually accessible from the durable,
 read-only queue written **outside** the original teaching directory at:
-`%LOCALAPPDATA%\MicroGen_AI_Web_Checkpoints\thomas_84_85_86_sync_queue_20261021_1608.json`.
+`%LOCALAPPDATA%\MicroGen_AI_Web_Checkpoints\thomas_84_85_86_sync_queue_20261021_1621.json`.
 
 These six windows are **audio-only plans**, not encoded video acceptance.
 The historical unsplit MP4s fail the strict <600-second requirement and are
@@ -60,3 +60,7 @@ No student publication, no automatic claim that all math/figures are correct.
    HP/Yoga6/Zenbook, Whisper/ASR or GCS lease.
 
 The queue itself is not an academic review or permission to synthesize.
+
+The queue CLI exits 0 after a new, valid REVIEW-ONLY worklist is
+written. A completed read-only staging task is not a production
+release; its status and all approval flags remain explicitly blocked.

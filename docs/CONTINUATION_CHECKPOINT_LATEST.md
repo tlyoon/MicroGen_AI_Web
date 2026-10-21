@@ -8,7 +8,9 @@ Do NOT endlessly re-open its layout issue. Full source/slide mathematical
 correctness and acoustic narration-to-visible element timing remain
 DISTINCT genuine QA requirements.
 
-New independent incremental lecture-sync queue works per-slide,
+The worklist CLI now returns SUCCESS on completed review queue
+creation, not a misleading scheduler failure; video/TTS approval remains
+FALSE. New independent incremental lecture-sync queue works per-slide,
 per-original-verbatim narration segment, real original WAV PCM durations,
 immutable source/slide/script/WAV hashes. ACTUAL Dell data across Thomas
 Calculus 8.4 / 8.5 / 8.6: 54 slides, 54 complete slide-level WAVs,
@@ -16,7 +18,7 @@ Calculus 8.4 / 8.5 / 8.6: 54 slides, 54 complete slide-level WAVs,
 audio-only parts 321.8927+310.818s; 8.5 has 20 slides/78 segments with
 398.6187+362.538s; 8.6 has 17 slides/69 segments with
 330.708+298.4927s. Original manifest is safely outside lesson folders at
-%LOCALAPPDATA%\MicroGen_AI_Web_Checkpoints\thomas_84_85_86_sync_queue_20261021_1608.json
+%LOCALAPPDATA%\MicroGen_AI_Web_Checkpoints\thomas_84_85_86_sync_queue_20261021_1621.json
 (note these are audio-only split candidates, NOT approved MP4s).
 No original media changed, no paid TTS, no other PCs, Whisper/ASR,
 GCS lease, protected-main merge or student publication.

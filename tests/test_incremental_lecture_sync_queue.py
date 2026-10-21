@@ -88,7 +88,7 @@ class IncrementalLectureSyncQueueTests(unittest.TestCase):
             output=Path(t)/"queue.json"
             result=main(["--root",str(base),"--subchapters","8.4",
                          "--out",str(output)])
-            self.assertEqual(result,2)
+            self.assertEqual(result,0)
             self.assertTrue(output.is_file())
             with self.assertRaises(FigureIdentityReviewRequired):
                 main(["--root",str(base),"--subchapters","8.4",

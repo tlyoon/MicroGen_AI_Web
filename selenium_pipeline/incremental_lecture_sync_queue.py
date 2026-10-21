@@ -178,7 +178,10 @@ def main(argv=None)->int:
                                       for p in result["subchapters"]},
         "no_automatic_paid_tts":not result["paid_tts_authorized"],
     },indent=2))
-    return 2
+    # Creating a correctly marked REVIEW-ONLY execution queue is a successful
+    # bounded task. A nonzero exit made unattended schedulers misclassify
+    # this safe result as an execution stall, despite zero production authority.
+    return 0
 
 
 if __name__=="__main__":
