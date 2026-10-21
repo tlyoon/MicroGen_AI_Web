@@ -69,7 +69,18 @@ class PrintedInverseIdentityTests(unittest.TestCase):
                         for i in (1,10,20)]}),patch(
                 "selenium_pipeline.math_aware_slide5_figure_candidates.audit_original_equation_components",
                 return_value={"source_sha256":"a","slides_sha256":"a",
-                    "source_math_equation_components_inventory_complete":True}):
+                    "source_math_equation_components_inventory_complete":True}),patch(
+                "selenium_pipeline.math_aware_slide5_figure_candidates.extract_real_equation_pixel_matrix",
+                return_value={"source_sha256":"a","slides_sha256":"a",
+                    "unambiguous_full_equation_pixel_matching_detected":False,
+                    "image_match_details":[
+                        [{"panel_local_top_left_px":[1,2],"template_size_px":[8,5]}
+                         for _ in range(3)] for _ in range(3)],
+                    "printed_source_equations":[{}, {}, {}],
+                    "existing_slide_bitmap_bounds":[[0,100],[100,200],[200,300]]}),patch(
+                "selenium_pipeline.math_aware_slide5_figure_candidates.compare_equation_operator_anchors",
+                return_value={
+                    "every_full_expression_template_registration_agrees_with_operator":True}):
             result=audit(source=Path("original.pdf"),slides=Path("slide.pdf"),
                          script=Path("script.txt"))
         self.assertEqual(result["utterances"][0]["candidate_ordered_graph_panel"],2)
@@ -78,6 +89,10 @@ class PrintedInverseIdentityTests(unittest.TestCase):
         self.assertFalse(result["utterances"][0]["complete_equation_label_and_axis_mathematics_verified"])
         self.assertTrue(result["original_source_printed_function_labels_verified"])
         self.assertFalse(result["figure_element_tts_authorized"])
+        self.assertFalse(result["full_equation_bitmap_pixel_uniqueness_verified"])
+        self.assertTrue(result["utterances"][0]["source_x_over_a_fraction_position_disambiguated"])
+        self.assertEqual(result["utterances"][0]["candidate_full_expression_bitmap_bbox_for_review"],
+                         [101,2,109,7])
 
     def test_unknown_function_and_noninverse_not_accepted(self):
         with self.assertRaises(FigureIdentityReviewRequired):
