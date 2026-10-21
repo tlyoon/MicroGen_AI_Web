@@ -20,6 +20,15 @@ class OriginalWholeSlideBatchTests(unittest.TestCase):
             with self.assertRaises(FigureIdentityReviewRequired):
                 stage_original_preview_batch(root=original,
                     subchapters=("8.4",),destination=root/"review")
+    def test_out_of_range_second_part_reports_unprocessed_not_success(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base=Path(tmp);root=base/"teaching"
+            make_subchapter(root,"8.6")
+            report=stage_original_preview_batch(root=root,subchapters=("8.6",),
+                destination=base/"second_only",start_part=2,max_parts_per_subchapter=1)
+            self.assertEqual(report["subchapters"][0]["parts"],[])
+            self.assertEqual(report["subchapters"][0]["status"],
+                             "PARTIAL_OR_BLOCKED_TECHNICAL_PREVIEW")
     def test_invalid_names_and_original_destination_fail(self):
         with tempfile.TemporaryDirectory() as t:
             root=Path(t);original=root/"teaching"

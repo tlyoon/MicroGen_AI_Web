@@ -1,3 +1,44 @@
+# Latest checkpoint — PR219 REAL six-part Thomas 8.4/8.5/8.6 AUDIO VIDEO previews
+
+21 Oct 2026, Dell-115 ONLY. Draft PR stack #215–#219 from
+PR214 exact 7b789eca9e5b863c2a51a26e8ac29dc8120f272a.
+#215 independent real encoded highlight transition inspection around
+original separate PCM WAV boundaries, not just synthetic midpoint claim.
+#216 real original 8.4 slide1 source-PDF + recorded WAV preview MP4:
+3.8653s PCM, 3.87s MP4.
+#217 real 8.4 slides1-2 original-WAV review MP4 43.5 seconds, detected
+and fixed -shortest long-slide drift with PCM -t duration cap.
+#218 independent bounded multi-subchapter original-WAV multipart
+preview staging with durable per-subchapter receipts.
+#219 separate second-part staging / independently reprobed dual-stage
+receipt audit on genuine Thomas 8.4,8.5,8.6 original files. Six
+ACTUAL review MP4s on Dell-115 were created and individually checked,
+ALL encoded <600s:
+8.4 [321.88, 310.78] s; 8.5 [398.53, 362.57] s;
+8.6 [330.66, 298.46] s.
+Local read-only audit:
+%LOCALAPPDATA%\MicroGen_AI_Web_Checkpoints\genuine_84_85_86_all_six_parts_verified_20261021.json
+Part preview folders:
+%LOCALAPPDATA%\MicroGen_AI_Web_Checkpoints\genuine_84_85_86_first_parts_preview_1909
+%LOCALAPPDATA%\MicroGen_AI_Web_Checkpoints\genuine_84_85_86_second_parts_preview_1916
+
+CRITICAL: these six previews use REAL ORIGINAL SLIDE-LEVEL audio and
+show slide pages; they DO NOT satisfy word-synchronized element-level
+highlighting, independent source-mathematics QA, or academic listening.
+Production/student release remains BLOCKED. Flash-Lite/Kore element
+TTS not generated, no paid calls made. Original textbook PDF,
+slides/script/WAV/MP4 unchanged. Figure 8.3 LAYOUT issue long
+SOLVED by #169/#170; do not reopen. No HP/Yoga6/Zenbook,
+Whisper/ASR, GCS lease, main merge or student publication.
+
+Next: independently source-review actual 218 nonliteral narrated
+utterance visual element mappings, then genuine reviewed Flash-Lite
+consistent voice per-element WAVs, actual PCM synchronized element
+video rendering (#214/#215) and academic/listening QA.
+See docs/GENUINE_THOMAS_84_86_SIXPART_REVIEW_CHECKPOINT_20261021.md.
+
+---
+
 # Latest checkpoint — PR214 authentic element WAV boundary / encoded video pilot
 
 21 October 2026; Dell-115 ONLY, new isolated stacked draft PRs
