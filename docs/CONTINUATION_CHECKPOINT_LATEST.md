@@ -1,3 +1,36 @@
+# Latest checkpoint — PR209 independent 8.4–8.6 narration-sync execution queue
+
+21 October 2026, Dell-115 ONLY. PR209 stacked on exact PR208 head
+f0482d6134bf46e2a07521efca63944dfe7a43b7. Source-verified
+Figure 8.3 graph layout/cropping issue was ALREADY RESOLVED by #169/#170
+and original inverse operator labels independently verified by #193.
+Do NOT endlessly re-open its layout issue. Full source/slide mathematical
+correctness and acoustic narration-to-visible element timing remain
+DISTINCT genuine QA requirements.
+
+New independent incremental lecture-sync queue works per-slide,
+per-original-verbatim narration segment, real original WAV PCM durations,
+immutable source/slide/script/WAV hashes. ACTUAL Dell data across Thomas
+Calculus 8.4 / 8.5 / 8.6: 54 slides, 54 complete slide-level WAVs,
+218 original narration utterances; 8.4 has 17 slides/71 segments with
+audio-only parts 321.8927+310.818s; 8.5 has 20 slides/78 segments with
+398.6187+362.538s; 8.6 has 17 slides/69 segments with
+330.708+298.4927s. Original manifest is safely outside lesson folders at
+%LOCALAPPDATA%\MicroGen_AI_Web_Checkpoints\thomas_84_85_86_sync_queue_20261021_1608.json
+(note these are audio-only split candidates, NOT approved MP4s).
+No original media changed, no paid TTS, no other PCs, Whisper/ASR,
+GCS lease, protected-main merge or student publication.
+
+NEXT: execute source-verified element-to-verbatim narration mapping
+independently on accessible slides (do not globally block on a
+single mathematically complex slide), produce same-voice Gemini Flash-Lite
+per-element audio ONLY after verified source mapping; build genuine
+element-synchronized, <600s encoded videos, check actual timing and
+academic/listening before student publication. Maintain original assets.
+See docs/INCREMENTAL_LECTURE_SYNC_RECOVERY_20261021.md.
+
+---
+
 # Latest checkpoint — PR208 read-only Figure 8.3 slide-page/element-WAV audit
 
 21 October 2026, Dell-115 ONLY, new isolated stacked PRs #204–#208
