@@ -1,3 +1,29 @@
+# Latest checkpoint — PR208 read-only Figure 8.3 slide-page/element-WAV audit
+
+21 October 2026, Dell-115 ONLY, new isolated stacked PRs #204–#208
+on authoritative PR203 exact SHA 7072b12838727851867c3adb1d886058ee3d1a88.
+PR204 independently establishes existing source-matched bitmap element
+boxes transformed into slide PDF page coordinates using original
+image placement. PR205 SHA-binds actual 8 original slide-5 utterances
+to review-only PDF-point math hypotheses, four named and four unresolved.
+PR206 separately stages annotated PNG review images without modifying
+any teaching source or approving figures. PR207 physically checks
+source-declared element WAV PCM/hashes/voice consistency and disallows
+premature Cloud fallback, but does NOT infer spoken-element alignment.
+PR208 combines source-bound math and real audio inventory into a
+fail-closed production acceptance preflight. Real Thomas 8.4 remains
+REVIEW ONLY, with 0 verified element-level audio clips, 0 approved paid
+TTS jobs, and NO student-publishable replacement. Full mathematical
+axis/tick/printed equation equivalence and true spoken timing remain
+unverified; two already staged under-600s parts are for visual review.
+Original source/slides/script/WAV/MP4 hashes preserved. No HP/Yoga6,
+Zenbook, Whisper/ASR, external GCS lease, paid calls, protected main
+merge or student publication. See
+docs/FIGURE83_PAGE_AUDIO_ACCEPTANCE_20261021.md. Always verify live
+newest PR stack and its CI before proposing next increments.
+
+---
+
 # Latest checkpoint — PR203 actual math source-fraction and Figure 8.3 fail-closed release
 
 21 October 2026 Malaysia; Dell-115 only; isolated stacked draft PRs
