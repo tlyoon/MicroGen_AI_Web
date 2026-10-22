@@ -1,3 +1,11 @@
+# Latest checkpoint — PR256: Produce original-source math and media readiness ledger with explicit fail-closed release blockers
+
+Independently reconcile real original queue hashes, one-pass and separately challenged source-math decisions, exact utterance accounting and pending/disputed units. The report refuses to infer real PCM, decoded highlight verification, human academic/aural approval or student publication from automated evidence alone.
+
+Dell-115 isolated staged evidence and adversarial focused regression. The actual 8.4 second academic review remains 0/71 verified; this increment does not fabricate approvals, generate paid Kore TTS, overwrite original G: teaching files, merge main, or publish. The hourly development task remains disabled.
+
+---
+
 # Latest checkpoint — PR255: Precheck distinct original PCM WAV sample containers and strict safe video-part duration
 
 Read only actual WAV headers/frames and SHA256, reject duplicate utterance files, wrong mono-16/24kHz format, truncated frames and >=540-second pre-encoding programs. Never substitute signal quality for speech correctness or same-voice proof.
