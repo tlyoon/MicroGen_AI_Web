@@ -1,3 +1,11 @@
+# Latest checkpoint — PR248: Link quarantined Gemini attempts to verified original owned response receipts
+
+Original failed-attempt JSON is checked against its exact immutable source quarantine SHA, basename, owned directory and attempt number; tampered/moved receipts fail closed. No raw model text is disclosed.
+
+READ-ONLY offline evidence; reviewer authority remains unverified for real Thomas 8.4 (0/71) and no new model/TTS requests or student publication were performed. Dell-115 isolated worktree only; original teaching assets and protected main untouched.
+
+---
+
 # Latest checkpoint ? staged PR247 original Gemini response quarantine integrity
 
 Read-only verification of original Gemini quarantine metadata versus raw SHA and
