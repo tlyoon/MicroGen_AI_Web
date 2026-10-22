@@ -93,6 +93,46 @@ def response_snapshot_with_scoped_copy(
     return snapshot
 
 
+def poll_existing_owned_response(
+    read_snapshot, *, accept_fn, wait_s=45, poll_s=3,
+    clock=None, sleep=None,
+) -> tuple[str | None, dict]:
+    """Observe ONLY the already submitted owned-tab response after strict capture fails.
+
+    No prompt resend, tab creation, model switch, or browser-side click occurs
+    here. In-progress replies are never accepted; once generation stops,
+    complete schema-acceptable text may be returned for normal downstream
+    source-validation. A changed/unowned tab fails closed.
+    """
+    import time
+    if (not callable(read_snapshot) or not callable(accept_fn)
+            or not isinstance(wait_s, (int, float)) or not 1 <= wait_s <= 90
+            or not isinstance(poll_s, (int, float)) or not 0 < poll_s <= 10):
+        raise ValueError("Bounded owned-response observation required")
+    clock = clock or time.monotonic
+    sleep = sleep or time.sleep
+    deadline = clock() + wait_s
+    last = {"text": "", "generating": False, "capture_status": "unavailable"}
+    while True:
+        current = read_snapshot()
+        if not isinstance(current, dict):
+            return None, last
+        last = current
+        if current.get("capture_status") not in (
+                "visible_model_response", "empty_model_response",
+                "vendor_verified_response_copy"):
+            return None, last
+        if not current.get("generating"):
+            raw = current.get("text")
+            if isinstance(raw, str) and raw.strip() and accept_fn(raw):
+                return raw, last
+            return None, last
+        remaining = deadline - clock()
+        if remaining <= 0:
+            return None, last
+        sleep(min(poll_s, remaining))
+
+
 def default_quarantine_dir() -> Path:
     """A per-user local directory, never the textbook or cloned repo."""
     return Path(os.getenv("LOCALAPPDATA") or (Path.home() / ".cache")) / "Microvid" / "gemini_quarantine"

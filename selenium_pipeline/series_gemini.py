@@ -110,7 +110,8 @@ def _browser_request(instruction: str,attachments: list[Path],
                 capture_error = exc
             if not response:
                 from .gemini_response_recovery import (
-                    response_snapshot_with_scoped_copy, quarantine_snapshot,
+                    latest_owned_response, response_snapshot_with_scoped_copy,
+                    quarantine_snapshot, poll_existing_owned_response,
                 )
                 # This vendor helper verifies the Copy button belongs
                 # to the latest MODEL response, not a user prompt.
@@ -122,6 +123,24 @@ def _browser_request(instruction: str,attachments: list[Path],
                     client.driver, getattr(client, "_automation_tab", None),
                     copy_response=verified_copy,
                 )
+                # The strict capture may fail while the same Gemini tab is
+                # STILL generating. Observe only that owned tab for a bounded
+                # grace period; do not submit an additional model request.
+                # Completed text must pass the same JSON acceptance function.
+                if snapshot.get("generating"):
+                    owned = getattr(client, "_automation_tab", None)
+                    def observe_owned_reply():
+                        current = latest_owned_response(client.driver, owned)
+                        if (not current.get("generating") and
+                                current.get("capture_status") != "unavailable"):
+                            return response_snapshot_with_scoped_copy(
+                                client.driver, owned, copy_response=verified_copy)
+                        return current
+                    recovered, snapshot = poll_existing_owned_response(
+                        observe_owned_reply, accept_fn=(accept_fn or _looks_complete),
+                        wait_s=45, poll_s=3)
+                    if recovered is not None:
+                        return recovered
                 reason = (
                     "strict_json_capture_exception" if capture_error is not None
                     else "strict_json_capture_timeout"
