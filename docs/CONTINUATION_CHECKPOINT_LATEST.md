@@ -1,3 +1,11 @@
+# Latest checkpoint — PR252: Independently verify all original textbook pages survive Gemini challenge excerpt construction
+
+Re-read each physical original textbook PDF page and the original slide PDF, comparing exact source hashes, page text and page coverage against the compact independent-review evidence. Alternative pages and image-only math cannot be silently omitted or marked academically approved.
+
+Dell-115 isolated staged evidence and adversarial focused regression. The actual 8.4 second academic review remains 0/71 verified; this increment does not fabricate approvals, generate paid Kore TTS, overwrite original G: teaching files, merge main, or publish. The hourly development task remains disabled.
+
+---
+
 # Latest checkpoint — PR251: Classify quarantined Gemini JSON against exact original utterance scope without promoting results
 
 Hash-preserved offline complete JSON parser rejects malformed, duplicate-key, omitted-utterance and wrong-scope responses. Even well-formed model output remains unapproved until original PDF quotes, geometries and independent math checks succeed.
