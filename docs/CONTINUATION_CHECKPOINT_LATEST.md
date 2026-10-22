@@ -1,3 +1,67 @@
+# Latest checkpoint — PR244 resumable original-textbook AI QA and real video robustness
+
+22 October 2026, Dell-115 ONLY. SIX stacked draft PRs
+#239–#244 from latest verified #238 commit a79647a709a51c750bb16877a9d0bd68793249e1.
+
+PR239: real original-source SHA-bound persistent initial/challenge Gemini
+academic queue, no resubmitting completed work; at most three explicitly
+observed and quarantined failed attempts.
+PR240: CLI and authenticated import of prior actual textbook-source
+AI review receipts preserving exact original slide/PDF geometry.
+PR241: independently reverify two distinct original-book quotations,
+spoken-text SHA, visible slide PDF bbox and different reasoning;
+only matching mathematically supported element survives.
+PR242: full-source original-verbatim Flash-Lite/Kore element-audio
+worklist constructed only from verified two-pass consensus.
+PR243: corrected real MP4 verification for consecutive narrated
+segments highlighting the SAME original equation rectangle;
+real two-WAV encode/decode and original PCM spectrum verified.
+PR244: compact source-hashed textbook PDF page + original slide
+text excerpt challenge fallback; figure-only semantics remain
+unreviewed if absent from extracted text.
+
+REAL Thomas 8.4 isolated external review queue: 71 original
+utterances / 17 original slides; prior original first-pass
+Gemini title review reverified and imported (1 first-pass reviewed).
+Actual full-PDF challenge attempt #1 failed due no stable Gemini
+JSON and is quarantined. Actual independently submitted compact
+original-PDF-text challenge attempt #2 ALSO failed with no stable
+Gemini response after its bounded wait, quarantined.
+NO challenge mathematical agreement is evidenced. Do NOT claim
+manual or independent academic QA passed. Third attempt intentionally
+not blindly retried during service unavailability.
+All original source/PDF script/WAV preserved.
+
+Actual review-only Thomas 8.4 single original title WAV/slide
+highlight MP4 remains 3.85 seconds, original WAV vs encoded
+audio spectral similarity 0.9905, actual decoded intended
+element highlight visually checked. NOT a full synchronized lecture
+or proof of independently reviewed phonetics.
+
+Real QA truth: 0/71 independently source-agreed 8.4 utterances,
+0 newly generated per-element Kore WAVs,
+0 final publishable element-synchronized Thomas subchapter videos.
+Previous six true original audio whole-slide <600s previews remain
+review-only, not final element synchronization.
+No paid API work, original G: file replacements, merges into main
+or student publication. Use Dell-115 ONLY; not HP, Yoga6, Zenbook;
+no Whisper/ASR, no GCS distributed lease. Maintain disabled
+MicroGen Autonomous Development hourly task.
+
+Full report:
+docs/REAL_THOMAS_SOURCE_QA_RESUMABLE_PR239_244_20261022.md
+
+NEXT REAL COMPLETION: restore a verifiably working independent
+mathematical challenger or genuinely reviewed alternative source
+checker rather than lowering proof gates; obtain actual supported
+71 original utterance-to-PDF target mappings, Flash-Lite/Kore
+per-element WAVs with QA, and produce independently encoded and
+decoded <600-second synchronized multimedia with complete academic
+and phonetic QA. Do not manufacture approvals or silently
+publish student assets.
+
+---
+
 # Latest checkpoint — PR238 genuine AI-reviewed source and real original audio highlighted MP4 pilot
 
 22 October 2026, Dell-115 ONLY. Four stacked DRAFT PRs #235–#238 on PR234.
