@@ -117,6 +117,7 @@ def encode_segment_highlight_review(*,slides:Path,jobs:dict,
          "-f","rawvideo","-pix_fmt","rgb24","-video_size",f"{width}x{height}",
          "-framerate",str(frame_rate),"-i","pipe:0","-i",str(audio_path),
          "-c:v","libx264","-preset","ultrafast","-pix_fmt","yuv420p",
+         "-vf","pad=ceil(iw/2)*2:ceil(ih/2)*2",
          "-c:a","aac","-shortest","-y",str(target)],
         cwd=str(destination),stdin=subprocess.PIPE,stdout=subprocess.DEVNULL,
         stderr=subprocess.PIPE)
