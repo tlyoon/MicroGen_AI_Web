@@ -1,3 +1,11 @@
+# Latest checkpoint — PR249: Audit all queued original textbook slides and narration hashes before reviewer continuation
+
+Read-only whole-plan source/slides/script byte-hash check, exact sorted unique physical slide numbers and full original utterance accounting. Drift, duplicate or missing evidence fails before any new AI submission.
+
+READ-ONLY offline evidence; reviewer authority remains unverified for real Thomas 8.4 (0/71) and no new model/TTS requests or student publication were performed. Dell-115 isolated worktree only; original teaching assets and protected main untouched.
+
+---
+
 # Latest checkpoint — PR248: Link quarantined Gemini attempts to verified original owned response receipts
 
 Original failed-attempt JSON is checked against its exact immutable source quarantine SHA, basename, owned directory and attempt number; tampered/moved receipts fail closed. No raw model text is disclosed.
