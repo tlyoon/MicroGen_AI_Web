@@ -1,3 +1,11 @@
+# Latest checkpoint — PR255: Precheck distinct original PCM WAV sample containers and strict safe video-part duration
+
+Read only actual WAV headers/frames and SHA256, reject duplicate utterance files, wrong mono-16/24kHz format, truncated frames and >=540-second pre-encoding programs. Never substitute signal quality for speech correctness or same-voice proof.
+
+Dell-115 isolated staged evidence and adversarial focused regression. The actual 8.4 second academic review remains 0/71 verified; this increment does not fabricate approvals, generate paid Kore TTS, overwrite original G: teaching files, merge main, or publish. The hourly development task remains disabled.
+
+---
+
 # Latest checkpoint — PR254: Independently validate original-verbatim non-billed Flash-Lite Kore audio-job manifests
 
 Protect exact original-source PDF/slides/script hashes, non-billed primary model and voice, every original utterance, unique job IDs, exact spoken-text SHA and valid element geometry. No job is silently authorized for source-unreviewed speech.
