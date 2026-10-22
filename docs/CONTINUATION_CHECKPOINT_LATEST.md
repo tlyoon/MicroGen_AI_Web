@@ -1,3 +1,49 @@
+# Latest checkpoint — PR238 genuine AI-reviewed source and real original audio highlighted MP4 pilot
+
+22 October 2026, Dell-115 ONLY. Four stacked DRAFT PRs #235–#238 on PR234.
+#235 authentic Gemini web Selenium original Thomas source.pdf + slides.pdf
+source-cited mathematical candidate reviewer (no paid API); verified true
+8.4 slide1 s001.utterance.001 title to actual PDF visible element and
+verbatim original textbook page1 heading. #236 separate challenge pass
+consensus gate and original PDF vector options for zero-text targets.
+ACTUAL Gemini independent challenge request was submitted but service
+returned 'hard time fulfilling your request', response quarantined;
+do NOT claim independent mathematical approval from that pass.
+#237 original-verbatim AI-reviewed Flash-Lite/Kore TTS request and
+external actual WAV physical-audio defect and source SHA verification.
+No paid TTS requests occurred. #238 REAL original 8.4 slide1 WAV
+one-to-one narration (one original utterance on that slide) highlighted
+in a real encoded 3.85-second MP4; independently checked actual encoded
+red element highlight and decoded encoded PCM spectral similarity
+0.9905 to original slide1.wav. Genuine production rendering defect
+found and fixed: original PDF page becomes 726x545 pixels, H.264
+yuv420p demands even dimensions; FFmpeg pad now preserves real PDF
+highlight coordinates and odd-dimension adversarial regression passes.
+
+Real review output:
+%LOCALAPPDATA%\MicroGen_AI_Web_Checkpoints\real_84_slide1_source_cited_evenframe_pilot_20261022\element_highlight_review.mp4
+Real detailed isolated checkpoint:
+docs/REAL_THOMAS_AI_REVIEW_ORIGINAL_AUDIO_PILOT_PR235_238_20261022.md
+
+QA truth: initial source-cited original AI reviews 1/71 in 8.4;
+successful separately challenged math reviews 0/71;
+new separate TTS audio utterances 0; completed contractual full-length
+element-synchronized publishable subtopics 0. The original WAV used
+for a genuine 1:1 single-utterance intro technical pilot is NOT
+claimed as freshly synthesized new per-element Kore TTS.
+No final academic, aural or voice QA asserted; no student publication.
+Preserve original G: dirty repository/PDF/slides/MP4/WAV and all SHA,
+no HP, Yoga6, Zenbook, Whisper/ASR/GCS; only Dell-115, no main merge.
+AUTONOMOUS HOURLY DEVELOPMENT SCHEDULE REMAINS DISABLED.
+
+Next: robust independent AI challenge capture and source-grounded
+mathematical proof or repair for every original utterance; real
+per-element Flash-Lite voice-homogeneous speech and full actual
+encoded synchronized <600s multipart lesson output, independent
+visual/audio QA and scoped source exceptions.
+
+---
+
 # Latest checkpoint — PR234 real 218-segment evidence / PCM technical gates
 
 22 October 2026, Dell-115 ONLY. The user permitted all manual-check

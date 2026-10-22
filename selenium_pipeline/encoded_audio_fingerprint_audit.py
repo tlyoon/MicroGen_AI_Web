@@ -16,7 +16,7 @@ def audit_muxed_audio_segment_fingerprints(*,mp4:Path,wavs:list[Path],
     wavs=[Path(x).absolute() for x in wavs]
     require(mp4.is_file() and type(score_threshold) is float
             and .5<=score_threshold<=.95
-            and 2<=len(wavs)<=40 and len(set(wavs))==len(wavs),
+            and 1<=len(wavs)<=40 and len(set(wavs))==len(wavs),
             "Independently addressable original PCM chunks required")
     signals=[];rate=None;durations=[]
     for f in wavs:
