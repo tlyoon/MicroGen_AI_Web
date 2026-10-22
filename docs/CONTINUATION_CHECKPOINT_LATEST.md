@@ -1,3 +1,11 @@
+# Latest checkpoint — PR251: Classify quarantined Gemini JSON against exact original utterance scope without promoting results
+
+Hash-preserved offline complete JSON parser rejects malformed, duplicate-key, omitted-utterance and wrong-scope responses. Even well-formed model output remains unapproved until original PDF quotes, geometries and independent math checks succeed.
+
+READ-ONLY offline evidence; reviewer authority remains unverified for real Thomas 8.4 (0/71) and no new model/TTS requests or student publication were performed. Dell-115 isolated worktree only; original teaching assets and protected main untouched.
+
+---
+
 # Latest checkpoint — PR250: Stage safe manual-only Gemini retry decisions using immutable attempt history
 
 Offline exact one-to-three observed attempt sequence and successful-review terminal state; no further dispatch without an explicit decision. Blocks challenge absent a saved first pass and rejects skipped or forged attempt receipts.
