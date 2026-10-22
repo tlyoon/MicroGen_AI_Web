@@ -1,3 +1,14 @@
+# Latest checkpoint ? staged PR247 original Gemini response quarantine integrity
+
+Read-only verification of original Gemini quarantine metadata versus raw SHA and
+byte length, with explicit pending-vs-stopped classifications; zero text copied
+into reports. Empty still-generating Gemini reviews are NOT proof of service failure,
+and neither recovered nor pending text authorizes academic approval or new requests.
+Only Dell-115, no original teaching assets modified, no new TTS/Gemini calls, no
+publication or merge. Independently accepted 8.4 utterances remain 0/71.
+
+---
+
 # Latest checkpoint ? PR246 no-new-request owned Gemini response recovery
 
 22 October 2026, Dell-115 ONLY. Stack on PR245 SHA
