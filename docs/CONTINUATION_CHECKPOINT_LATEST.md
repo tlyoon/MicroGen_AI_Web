@@ -1,3 +1,52 @@
+# Latest checkpoint — PR234 real 218-segment evidence / PCM technical gates
+
+22 October 2026, Dell-115 ONLY. The user permitted all manual-check
+work, but no fabricated individual academic approval. Ten genuine
+stacked DRAFT PRs #225–#234 on PR224 SHA
+b69911254970318e718097a09df8a74c8da349e7.
+These implement original-source+visible-element geometry completeness,
+original-slide drawing candidates for missed text targets, exact
+textbook quotation page witness, owner-authorized mathematical
+review triage without invented signatures, individual source-attested
+decision validation, actual Flash-Lite/Kore three-failure receipt
+policy, external same-model/voice PCM sample SHA provenance,
+sample-accurate <540s PCM multipart planning, ACTUAL independently
+decoded MP4 audio segment fingerprint crosscheck, and the
+real original Thomas source readiness audit.
+
+ACTUAL Dell 8.4/8.5/8.6 ORIGINAL DOCUMENT audit: 71+78+69=218
+original utterances verified by SHA and original slide geometry;
+195 have text-element hint candidates, 23 without text-element
+text candidate. Actual PDF drawing-region review hints discovered:
+8.4=6, 8.5=18, 8.6=42; none mathematically accepted.
+Signed author-reviewed original utterance mappings 0/218;
+genuine separately generated element Flash-Lite/Kore utterance WAVs 0;
+verified real spoken-to-individual-element final production MP4s 0.
+Do not promote earlier six REAL WHOLE-SLIDE original WAV
+sub600-second multipart review MP4s to production synchronization.
+
+Source readiness report:
+%LOCALAPPDATA%\MicroGen_AI_Web_Checkpoints\real_thomas_84_85_86_source_proof_readiness_20261022.json
+Technical batch report:
+docs/REAL_THOMAS_SOURCE_PCM_BATCH_225_234_20261022.md
+
+User expressly requests continue autonomously for ten PRs in this
+manual session. The previously disabled hourly development task
+MUST remain disabled unless expressly changed by user. Never touch
+HP/Yoga6/Zenbook, original source/MP4/WAV/slides/dirty G: checkout,
+Whisper/ASR, external GCS lease, protected main merge or student
+publication. No paid TTS calls in the ten-PR work.
+
+Next: authoritative independent per-segment mathematical review,
+legitimate original-textbook quotation and figure-to-narration
+semantic matching; same-voice real per-element TTS only within
+existing owner contract with observed three-failure fallback;
+independent decoded encoded <600s element-highlight pixel+audio,
+actual academic/listening QA. Figure 8.3 original layout issue
+already resolved historically; don't repeat.
+
+---
+
 # Latest checkpoint — PR224 original-source-reviewed element PCM technical pilot
 
 22 October 2026, Dell-115 ONLY; autonomous hourly development task
