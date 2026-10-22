@@ -166,8 +166,15 @@ def encode_segment_highlight_review(*,slides:Path,jobs:dict,
                         "Encoded target rectangle escaped actual video frame")
                 r,g,b=rgb.getpixel(px)
                 red.append(r>170 and r>g+65 and r>b+65)
-        require(red[i] and sum(red)==1,
-                "Encoded review frame highlights incorrect narrated element")
+        # Distinct narrated utterances may legitimately point to the same
+        # original equation/figure. Deduplicate identical target geometry
+        # when checking an encoded frame: a persistent highlight is correct,
+        # not evidence of an incorrectly highlighted second element.
+        wanted=tuple(event["element_bbox_pdf_pt"])
+        require(red[i] and all(
+                    not is_red or tuple(target_event["element_bbox_pdf_pt"])==wanted
+                    for is_red,target_event in zip(red,segments)),
+                "Encoded review frame highlights incorrect DISTINCT narrated element")
         decoded.append({"event_index":i+1,"frame_time_s":round(at,5),
                         "only_expected_encoded_target_red":True})
     require(_sha(slides)==before,"Original PDF modified during video rendering")
