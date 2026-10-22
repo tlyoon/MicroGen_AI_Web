@@ -1,4 +1,5 @@
 import json,tempfile,unittest,wave
+import pymupdf
 from pathlib import Path
 from selenium_pipeline.ai_compact_original_challenge import (
  write_bounded_challenge_evidence,execute_compact_original_challenge)
@@ -8,8 +9,13 @@ from selenium_pipeline.figure_source_identity import FigureIdentityReviewRequire
 from test_original_packet_evidence_audit import fixture
 from test_ai_academic_web_review import response
 class TextExcerptReview(unittest.TestCase):
- def setup(self,t):
+ def setup(self,t,extra_source_pages=0):
   root=Path(t);folder=root/"src";fixture(folder)
+  if extra_source_pages:
+   with pymupdf.open(folder/"source.pdf") as book:
+    for n in range(extra_source_pages):
+     page=book.new_page();page.insert_text((20,30),f"Independent alternative textbook page {n+2}")
+    book.saveIncr()
   (folder/"script.txt").write_text("**Slide 1 [1 sec]:\nA visible equation**\n")
   with wave.open(str(folder/"slide1.wav"),"wb") as w:
    w.setnchannels(1);w.setsampwidth(2);w.setframerate(24000);w.writeframes(b"\x03\x04"*24000)
@@ -31,6 +37,24 @@ class TextExcerptReview(unittest.TestCase):
    self.assertEqual(report["status"],"GEMINI_SOURCE_REVIEW_ONE_SLIDE_COMPLETED")
    self.assertTrue((root/"source_excerpt.txt").is_file())
    self.assertFalse(report["figure_math_semantics_without_visual_qa_verified"])
+ def test_independent_challenge_sees_uncited_alternative_original_pages(self):
+  with tempfile.TemporaryDirectory() as t:
+   root,folder,q,j,proposal=self.setup(t,extra_source_pages=2)
+   report=write_bounded_challenge_evidence(queue_root=q,folder=folder,
+       slide=1,output=root/"complete_excerpt.txt")
+   packet=(root/"complete_excerpt.txt").read_text(encoding="utf8")
+   self.assertEqual(report["original_book_pages"],[1,2,3])
+   self.assertIn("ORIGINAL TEXTBOOK PDF PHYSICAL PAGE 2",packet)
+   self.assertIn("Independent alternative textbook page 2",packet)
+   self.assertIn("ORIGINAL TEXTBOOK PDF PHYSICAL PAGE 3",packet)
+   self.assertFalse(report["image_only_figure_semantics_verified"])
+ def test_nine_page_original_requires_bounded_independent_packet(self):
+  with tempfile.TemporaryDirectory() as t:
+   root,folder,q,j,proposal=self.setup(t,extra_source_pages=8)
+   with self.assertRaises(FigureIdentityReviewRequired):
+    write_bounded_challenge_evidence(queue_root=q,folder=folder,
+        slide=1,output=root/"oversize.txt")
+   self.assertFalse((root/"oversize.txt").exists())
  def test_no_prior_first_pass_or_source_drift_fails_closed(self):
   with tempfile.TemporaryDirectory() as t:
    root,folder,q,j,proposal=self.setup(t)

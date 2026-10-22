@@ -1,3 +1,40 @@
+# Latest checkpoint — PR245 independent whole-source textbook challenge evidence
+
+22 October 2026, Dell-115 ONLY. Stacked DRAFT follow-up on PR244 exact
+HEAD `d959f82fb5f63e849ccdb693663f7e2c95c29149`.
+Corrects PR244's first-reviewer-citation-dependent compact textbook
+source page selection: the independent challenger now receives all
+extractable original physical PDF book pages (up to eight), without
+silent textual truncation or omission of alternative source pages.
+Strict 65,000-character cap; fail closed on larger books/packets,
+preserve actual original hashes and figure-only unresolved status.
+No new third Gemini attempt, paid services or publication.
+
+Real Dell-115 original Thomas 8.4 source.pdf was READ ONLY: six
+physical textbook pages, all captured in 37,519-byte original-source
+packet at %LOCALAPPDATA%\MicroGen_AI_Web_Checkpoints\
+pr245_real_84_fullsource_excerpt_verified.txt; SHA256
+90e8591a0b2d1ad9ff93562fe7cd90780ea61af924646e988562d54ea6817333.
+Four focused adversarial tests PASS. Broader local AI test discovery:
+14 tests without assertion failures, three Python import errors due
+missing NumPy, NOT claimed as a clean pass; use GitHub CI for broad QA.
+
+Original real production truth unchanged: 8.4 1/71 verified first
+pass, 0/71 independently challenged-agreed, zero new per-element
+Kore WAVs, zero final element-synchronized publishable MP4s.
+Original Figure 8.3 layout was already repaired; no regression
+asserted. Keep original G: assets, main, prior audio/video immutable.
+No HP/Yoga6/Zenbook, Whisper/ASR, GCS lease, unattended paid TTS,
+Moodle/YouTube publication or task re-enablement.
+
+Detailed report:
+docs/INDEPENDENT_WHOLE_SOURCE_CHALLENGE_PR245_20261022.md
+NEXT: diagnose failing Gemini service responses without consuming
+retry #3, then only authentic math/source agreement, per-element
+Flash-Lite/Kore PCM, encoded synchronization, academic/listening QA.
+
+---
+
 # Latest checkpoint — PR244 resumable original-textbook AI QA and real video robustness
 
 22 October 2026, Dell-115 ONLY. SIX stacked draft PRs
