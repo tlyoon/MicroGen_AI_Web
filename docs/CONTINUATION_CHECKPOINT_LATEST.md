@@ -1,3 +1,21 @@
+# Latest checkpoint ? PR246 no-new-request owned Gemini response recovery
+
+22 October 2026, Dell-115 ONLY. Stack on PR245 SHA
+6ba0cdc1f9dfa64acddd885340c4e409138fc7e3.
+Actual quarantined 8.4 challenge attempts #1 and #2 were both
+ZERO-character captures while the model was observed STILL generating.
+Implement bounded 45-second same-owned-tab observation after strict
+capture failure: return only a completed strict JSON response for the
+ordinary full source-evidence/math gates. No resubmission or attempt #3.
+Any incomplete or changed-tab result remains quarantined, not accepted.
+Original teaching assets/main, TTS/YouTube/Moodle untouched.
+Real independently agreed utterances remain 0/71 pending a genuine
+completed separate model review. Focused regressions required.
+
+Details: docs/BOUNDED_OWNED_GEMINI_RESPONSE_RECOVERY_PR246_20261022.md
+
+---
+
 # Latest checkpoint — PR245 independent whole-source textbook challenge evidence
 
 22 October 2026, Dell-115 ONLY. Stacked DRAFT follow-up on PR244 exact
