@@ -25,9 +25,9 @@ def write_bounded_challenge_evidence(*,queue_root:Path,folder:Path,
     first=json.loads((queue_root/f"slide_{slide:03d}_initial_review.json").read_text(encoding="utf8"))
     prior=_independently_check_saved_pass(folder=folder,job=j,record=first,
                                           mode="INITIAL_REVIEW")
-    page_ids=sorted({r["source_page"] for r in prior
-                     if type(r.get("source_page")) is int})
-    require(1<=len(page_ids)<=4,"Original textbook page evidence missing or unbounded")
+    first_cited_pages=sorted({r["source_page"] for r in prior
+                              if type(r.get("source_page")) is int})
+    require(bool(first_cited_pages),"Initial source page evidence missing")
     evidence=[f"ORIGINAL SOURCE SHA256 {j['source_sha256']}",
               f"ORIGINAL SLIDE SHA256 {j['slides_sha256']}",
               f"ORIGINAL SCRIPT SHA256 {j['script_sha256']}",
@@ -35,13 +35,19 @@ def write_bounded_challenge_evidence(*,queue_root:Path,folder:Path,
               "This text was extracted programmatically from the actual original PDFs;",
               "visible PDF figures/equations inaccessible to text extraction MUST be marked UNRESOLVED."]
     with pymupdf.open(folder/"source.pdf") as book,pymupdf.open(folder/"slides.pdf") as deck:
+        # A second reviewer must have a fair chance to disagree with the first
+        # reviewer's page choice. Never cherry-pick only its cited source pages.
+        require(1<=len(book)<=8,
+                "Independent compact challenge requires a separately bounded packet for sources over eight pages")
+        page_ids=list(range(1,len(book)+1))
+        require(all(pg in page_ids for pg in first_cited_pages),
+                "First source quote references nonexistent physical textbook page")
         for pg in page_ids:
-            require(1<=pg<=len(book),"Source quote references nonexistent physical book page")
             txt=book[pg-1].get_text(sort=True)
             require(txt.strip(),"Source page has no extractable mathematical text")
-            evidence.append(f"\nORIGINAL TEXTBOOK PDF PHYSICAL PAGE {pg}\n"+txt[:12000])
+            evidence.append(f"\nORIGINAL TEXTBOOK PDF PHYSICAL PAGE {pg}\n"+txt)
         page=deck[slide-1]
-        evidence.append(f"\nORIGINAL SLIDE PDF PHYSICAL PAGE {slide}\n"+page.get_text(sort=True)[:12000])
+        evidence.append(f"\nORIGINAL SLIDE PDF PHYSICAL PAGE {slide}\n"+page.get_text(sort=True))
     for unit in j["slides"][0]["utterances"]:
         evidence.append("\nEXACT ORIGINAL SPEECH "+unit["id"]+" SHA "+unit["spoken_sha256"]
                         +"\n"+unit["spoken_text"])
