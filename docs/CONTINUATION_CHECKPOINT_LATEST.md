@@ -1,3 +1,11 @@
+# Latest checkpoint — PR250: Stage safe manual-only Gemini retry decisions using immutable attempt history
+
+Offline exact one-to-three observed attempt sequence and successful-review terminal state; no further dispatch without an explicit decision. Blocks challenge absent a saved first pass and rejects skipped or forged attempt receipts.
+
+READ-ONLY offline evidence; reviewer authority remains unverified for real Thomas 8.4 (0/71) and no new model/TTS requests or student publication were performed. Dell-115 isolated worktree only; original teaching assets and protected main untouched.
+
+---
+
 # Latest checkpoint — PR249: Audit all queued original textbook slides and narration hashes before reviewer continuation
 
 Read-only whole-plan source/slides/script byte-hash check, exact sorted unique physical slide numbers and full original utterance accounting. Drift, duplicate or missing evidence fails before any new AI submission.
