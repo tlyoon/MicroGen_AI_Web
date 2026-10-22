@@ -47,6 +47,13 @@ def _independently_check_saved_pass(*,folder:Path,job:dict,record:dict,mode:str)
         rows.append(guess)
     return rows
 
+def _canonical_academic_rationale(text:str)->str:
+    """Different casing and whitespace are NOT independent scientific reasoning."""
+    if type(text) is not str:
+        raise ValueError("Mathematical explanation must be text")
+    return " ".join(text.casefold().split())
+
+
 def reconcile_actual_review_queue(*,queue_root:Path,folder:Path)->dict:
     queue_root,folder=Path(queue_root).absolute(),Path(folder).absolute()
     plan=json.loads((queue_root/"queue.json").read_text(encoding="utf8"))
@@ -82,7 +89,8 @@ def reconcile_actual_review_queue(*,queue_root:Path,folder:Path)->dict:
                     and x["source_page"]==y["source_page"]
                     and x["exact_textbook_quote_verified"] is True
                     and y["exact_textbook_quote_verified"] is True
-                    and x["math_explanation"].strip()!=y["math_explanation"].strip())
+                    and _canonical_academic_rationale(x["math_explanation"]) !=
+                    _canonical_academic_rationale(y["math_explanation"]))
             if not agreed:
                 unresolved.append({"utterance_id":original["id"],"reason":"UNRESOLVED_SOURCE_MATH_AI_DISAGREEMENT"})
                 continue
