@@ -1,3 +1,19 @@
+# Latest checkpoint ? PR269 separately approved original mathematical review window
+
+23 October 2026, Dell-115 only. Real Thomas 8.4 slide-1 original historical
+3 failure receipts remain immutable. A NEW explicit user-approved source-review
+window with separate external durable checkpoint is STAGED: 0/3 new confirmed
+submissions. Its source hash and historical-queue fingerprint match originals.
+Live new 544-character text-only Gemini probe submitted normally but failed
+to capture any complete response even after ~149 seconds: provider overload
+plausible but unproved. The window must not dispatch until a fresh full-size
+(1,200-3,000 characters) same-owned-tab structured JSON transport-health
+probe passes. No automatic task reenabled, paid TTS, source asset edit, final
+math agreement or student publication. Details:
+docs/NEW_EXPLICIT_ORIGINAL_SOURCE_REVIEW_WINDOW_PR269_20261023.md
+
+---
+
 # PR 268: Audit original Thomas source-math, retry budget, Kore, and video gates together
 
 Consolidate live read-only original queue review count, retry status, nonbilled Kore eligibility, genuine PCM, decoded element highlights and human QA gaps without declaring publishability from synthetic demonstrations.
