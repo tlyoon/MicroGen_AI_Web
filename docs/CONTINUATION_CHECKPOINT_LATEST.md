@@ -1,3 +1,18 @@
+# Latest checkpoint ? PR270 one-shot Gemini transport health checker
+
+23 October 2026; Dell-115 only, stacked on PR269.
+A separate source- and original-history-bound 8.4 slide-1 review window
+already exists with 0/3 NEW model submissions and old 3 attempts preserved.
+The only real new 544-character diagnostic failed (no stable Gemini
+response after 149 seconds). A one-shot source-sized TEXT-ONLY probe now
+has a 3600-second cooldown, durable record, non-stealable ownership lock,
+exact JSON response SHA and scope preflight. No newly successful Gemini
+source mathematics, Kore TTS, decoded production video or publication.
+No recurring task activated by this code change. See
+docs/ONE_SHOT_GEMINI_HEALTH_PROBE_PR270_20261023.md
+
+---
+
 # Latest checkpoint ? PR269 separately approved original mathematical review window
 
 23 October 2026, Dell-115 only. Real Thomas 8.4 slide-1 original historical
