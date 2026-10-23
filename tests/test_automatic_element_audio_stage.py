@@ -35,7 +35,13 @@ def synth_fixture(work:Path,provider:str,model:str,voice:str):
             out.setnchannels(1)
             out.setsampwidth(2)
             out.setframerate(24000)
-            out.writeframes(b"\x10\x11"*24000)
+            # Deterministic voiced changing samples: a constant-valued
+            # placeholder has zero variance and cannot test encoded AAC audio.
+            import math,struct
+            samples=[int(10000*(.63*math.sin(2*math.pi*(125+30*n)*t/24000)
+                       +.28*math.sin(2*math.pi*(430+25*n)*t/24000)))
+                     for t in range(24000)]
+            out.writeframes(struct.pack("<24000h",*samples))
     receipt={"version":2,"primary":DEFAULT,"slides":[
         {"slide":n,"source_text":text,"tts_text":text,
          "provider":"gemini","model":model,"voice":voice,
