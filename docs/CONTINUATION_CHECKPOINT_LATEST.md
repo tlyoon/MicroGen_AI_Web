@@ -1,3 +1,19 @@
+# Latest checkpoint ? PR271 real original WAV-vs-MP4 temporal audio QA
+
+23 Oct 2026, Dell-115 ONLY, stacked on PR270. User instructed stop
+Gemini prompt-length tests and advance unrelated valid development.
+Original Thomas 8.4 slide-1 archived review MP4 (3.85s), source WAV
+SHA and actual decoded PCM timing independently checked: three
+window correlations 0.97186, 0.99966, 0.99984 with zero sample offset.
+Reject substituted WAV, delayed audio and source or MP4 hash drift.
+Actual math review unchanged: 0/71 independently accepted mappings,
+0/3 submissions in the new slide-1 retry window. This was original
+slide narration WAV, NOT new Flash-Lite/Kore per-element speech.
+Student publication and academic/listening approval remain blocked.
+See docs/REAL_ORIGINAL_AUDIO_TEMPORAL_MP4_FIDELITY_PR271_20261023.md
+
+---
+
 # Latest checkpoint ? PR270 one-shot Gemini transport health checker
 
 23 October 2026; Dell-115 only, stacked on PR269.
