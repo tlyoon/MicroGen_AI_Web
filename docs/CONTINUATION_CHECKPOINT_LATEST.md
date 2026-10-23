@@ -1,3 +1,20 @@
+# Latest checkpoint ? PR273 independent encoded audio on production candidate
+
+23 Oct 2026, Dell-115 only. Starting from exact live CI-passing
+PR272 head 78801fb9e926b1f87c5c5c58ea68a2e74a02be29 in new isolated
+worktree. Production candidate verification now decodes EVERY actual
+accepted part's AAC soundtrack and its preserved narration WAV, compares
+full decoded duration and independent beginning/mid/end waveform windows
+against ONE common alignment shift. Missing, substituted, delayed or
+truncated audio fails technical acceptance even when metadata claims
+source integrity. This is encoder/technical sound fidelity only; it
+does NOT validate spoken math/text, Kore voice or human listening QA.
+No real Gemini provider call or paid TTS, original file edit or
+student publishing. Subsequent PRs plan multi-event pixels, near-600s
+partitioning, fallback voice recovery and unified release-gate report.
+
+---
+
 # Latest checkpoint ? PR272 original media review FFmpeg 4 compatibility
 
 23 Oct 2026; Dell-115 isolated stacked draft on PR271. Actual Dell-115
