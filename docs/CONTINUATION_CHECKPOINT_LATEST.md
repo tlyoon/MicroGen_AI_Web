@@ -1,3 +1,11 @@
+# PR 259: Reject impossible Gemini checkpoint states and forged retry ownership
+
+Validate checkpoint status-to-claim ownership and next-due invariants on every read before dispatch; malformed or terminal states cannot be promoted to READY.
+
+Safe isolated Dell-115 code/testing only; no live Gemini or TTS request, no reset of real original-review quota, no source/MP4/WAV edit, no student release, no main merge or automatic schedule enabled.
+
+---
+
 # Latest checkpoint ? PR258 original-bound Gemini capacity retry foundation
 
 23 October 2026; Dell-115 ONLY. Gemini overload plausible but not proven.

@@ -65,6 +65,43 @@ def _locked(file:Path):
         try:lock.unlink()
         except FileNotFoundError:pass
 
+
+def _validate_checkpoint_invariants(state:dict)->None:
+    """Stop impossible state transitions before scheduling or mutation."""
+    status=state.get("status")
+    claim=state.get("active_claim")
+    next_due=state.get("next_due_unix_utc")
+    if (type(state.get("job_id")) is not str or
+        not state["job_id"].startswith("slide_") or
+        type(state.get("history")) is not list or
+        len(state["history"])>1000 or
+        any(type(x) is not dict or type(x.get("event")) is not str
+            for x in state["history"])):
+        raise ValueError("Untrusted checkpoint identity/history")
+    pending=status in ("CLAIMED_NOT_SENT","IN_FLIGHT","RECONCILIATION_REQUIRED")
+    if pending:
+        if type(claim) is not str or len(claim)!=32 or not all(
+                c in "0123456789abcdef" for c in claim):
+            raise ValueError("Pending Gemini checkpoint has no valid claim owner")
+        if next_due is not None:
+            raise ValueError("Pending Gemini may never carry a due resend time")
+    else:
+        if claim is not None:
+            raise ValueError("Completed/waiting Gemini checkpoint retains a claim")
+        if status in ("READY","WAITING"):
+            if type(next_due) not in (float,int) or not 0<=next_due<=1e11:
+                raise ValueError("Ready Gemini job lacks usable UTC due timestamp")
+        elif next_due is not None:
+            raise ValueError("Terminal checkpoint cannot be scheduled for retry")
+    if (status=="EXHAUSTED" and
+        state["confirmed_submissions"]<MAX_CONFIRMED_SUBMISSIONS and
+        state["unsent_failures"]<MAX_UNSENT_FAILURES and
+        not state.get("queue_root")):
+        raise ValueError("Exhaustion lacks confirmed quota evidence")
+    if status=="IN_FLIGHT" and state["confirmed_submissions"]<1:
+        raise ValueError("In-flight Gemini has no confirmed submission")
+
+
 def _read(file:Path,folder:Path)->dict:
     _check_destination(file,folder)
     payload=json.loads(file.read_text(encoding="utf8"))
@@ -78,6 +115,7 @@ def _read(file:Path,folder:Path)->dict:
         or payload.get("student_publication_authorized") is not False
         or payload.get("original_sha256")!=_origins(folder)):
         raise ValueError("Untrusted, stale or tampered Gemini review checkpoint")
+    _validate_checkpoint_invariants(payload)
     if payload.get("queue_root") is not None:
         checked=_prior_review_queue(queue_root=Path(payload["queue_root"]),
                                      original_folder=folder,
@@ -194,6 +232,7 @@ def claim_due(*,checkpoint:Path,original_folder:Path, now:float|None=None)->str|
             return None
         nonce=uuid.uuid4().hex
         state["status"]="CLAIMED_NOT_SENT"
+        state["next_due_unix_utc"]=None
         state["active_claim"]=nonce
         state["history"].append({"event":"RESERVED_NO_MODEL_SUBMISSION",
                                  "at":at,"claim":nonce})
