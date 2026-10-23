@@ -1,3 +1,14 @@
+# Latest checkpoint ? PR257 original-source 8.4 pilot with inline Gemini mathematical challenge
+
+23 October 2026. Dell-115 only. Opt-in full-original source browser path tested, but actual Gemini independent challenge remains blocked. The recorded third queued attempt did NOT submit: Send stayed hidden with 39,529-character inline source. A 5,398-char single-page attempt also did not submit. A 3,236-char test submitted only after ~3s Quill settle, but Gemini responded with zero characters over 75s. Actual independent 8.4 mathematics agreements remain 0/71. A single original source WAV / MP4 technical preview remains review-only. Future inline >8,500 chars rejected before consuming a queue attempt. No genuine per-element Kore TTS or final publication.\n\n23 October 2026. Dell-115 only. One genuine text-only Gemini canary succeeded while
+the same browser with one tiny file attachment failed to return model text. Added
+opt-in browser calls without file uploads and complete-original-textbook-source
+independent challenge. No academic review approved yet, no WAV claimed as new
+Kore TTS, no student publication. Exact original source hash and safe original
+queue retained. See docs/REAL_SINGLE_SOURCE_TEXT_ONLY_GEMINI_PILOT_20261023.md.
+
+---
+
 # Latest checkpoint — PR256: Produce original-source math and media readiness ledger with explicit fail-closed release blockers
 
 Independently reconcile real original queue hashes, one-pass and separately challenged source-math decisions, exact utterance accounting and pending/disputed units. The report refuses to infer real PCM, decoded highlight verification, human academic/aural approval or student publication from automated evidence alone.

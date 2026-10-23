@@ -37,6 +37,27 @@ class TextExcerptReview(unittest.TestCase):
    self.assertEqual(report["status"],"GEMINI_SOURCE_REVIEW_ONE_SLIDE_COMPLETED")
    self.assertTrue((root/"source_excerpt.txt").is_file())
    self.assertFalse(report["figure_math_semantics_without_visual_qa_verified"])
+ def test_text_only_challenge_preserves_all_original_pages_without_upload(self):
+  with tempfile.TemporaryDirectory() as t:
+   root,folder,q,j,proposal=self.setup(t,extra_source_pages=2)
+   proposal["rows"][0]["math_explanation"]="An independent mathematical assessment explains why the original visible equation matches."
+   seen=[]
+   def text_only_transport(prompt,files):
+    seen.append((prompt,files))
+    self.assertEqual(files,[])
+    self.assertIn("ORIGINAL TEXTBOOK PDF PHYSICAL PAGE 1",prompt)
+    self.assertIn("ORIGINAL TEXTBOOK PDF PHYSICAL PAGE 2",prompt)
+    self.assertIn("ORIGINAL TEXTBOOK PDF PHYSICAL PAGE 3",prompt)
+    self.assertIn(j["source_sha256"],prompt)
+    self.assertIn("Independent alternative textbook page",prompt)
+    return json.dumps(proposal)
+   result=execute_compact_original_challenge(
+       queue_root=q,folder=folder,slide=1,attempt=1,
+       excerpt=root/"all_original_pages.txt",
+       transport=text_only_transport,inline_source_in_prompt=True)
+   self.assertEqual(result["status"],"GEMINI_SOURCE_REVIEW_ONE_SLIDE_COMPLETED")
+   self.assertEqual(len(seen),1)
+   self.assertFalse(result["figure_math_semantics_without_visual_qa_verified"])
  def test_independent_challenge_sees_uncited_alternative_original_pages(self):
   with tempfile.TemporaryDirectory() as t:
    root,folder,q,j,proposal=self.setup(t,extra_source_pages=2)
