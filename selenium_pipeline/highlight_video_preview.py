@@ -21,6 +21,7 @@ from PIL import Image
 from .highlight_frames import render_highlight_frames
 from .pdf_element_geometry import URI_PREFIX
 from .storyboard_gate import canonical_sha256
+from .ffmpeg_fps_mode_compat import fps_mode_flags
 
 
 class HighlightVideoError(ValueError):
@@ -212,7 +213,7 @@ def compose_highlight_preview(
          # H.264 yuv420p requires both dimensions divisible by two. Pad by
          # at most one pixel; never rescale or crop source figure panels.
          "-vf","pad=ceil(iw/2)*2:ceil(ih/2)*2",
-         "-pix_fmt","yuv420p","-fps_mode","vfr",
+          "-pix_fmt","yuv420p",*fps_mode_flags(exe,"vfr"),
          "-c:a","aac","-b:a","160k",
          "-movflags","+faststart","-t",f"{wav_length:.6f}",
          str(tmp)]
