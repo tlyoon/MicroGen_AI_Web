@@ -1,3 +1,19 @@
+# Latest checkpoint ? PR272 original media review FFmpeg 4 compatibility
+
+23 Oct 2026; Dell-115 isolated stacked draft on PR271. Actual Dell-115
+FFmpeg 4.0.2 lacks modern -fps_mode, used by original highlight pilot
+and highlight preview. Added safe detected version switch to equivalent
+legacy -vsync cfr/vfr only on FFmpeg <5; modern >=5 preserves current
+flags. Correct original import and use pre-existing Miniconda Python
+with numpy/PyMuPDF. Eight relevant suites, 25 tests all passed,
+including newly independent real recorded WAV-versus-MP4 temporal
+continuity and all previously blocked preview/regression cases.
+Original Thomas 8.4 mathematical agreement remains 0/71, with no
+new Kore per-element TTS or production-video publication.
+See docs/FFMPEG4_VIDEO_FRAME_TIMING_COMPATIBILITY_PR272_20261023.md
+
+---
+
 # Latest checkpoint ? PR271 real original WAV-vs-MP4 temporal audio QA
 
 23 Oct 2026, Dell-115 ONLY, stacked on PR270. User instructed stop

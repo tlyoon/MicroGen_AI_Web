@@ -10,6 +10,7 @@ from PIL import Image,ImageDraw
 import pymupdf
 from .original_wav_element_cues import propose_wav_pdf_element_highlights
 from .highlight_video_preview import ffmpeg_path,probe_mp4
+from .ffmpeg_fps_mode_compat import fps_mode_flags
 from .figure_source_identity import require,_sha
 
 def _reference_frames(slides:Path,idx:int,events:list,out:Path,scale:float=2.0)->list[Path]:
@@ -91,7 +92,7 @@ def stage_original_slide_highlight_pilot(*,slides:Path,wav:Path,
             exe,"-hide_banner","-loglevel","error","-y","-safe","0",
             "-f","concat","-i",str(timeline),
             "-i",str(wav),"-map","0:v:0","-map","1:a:0",
-            "-vf","fps=5","-fps_mode","cfr","-c:v","libx264",
+            "-vf","fps=5",*fps_mode_flags(exe,"cfr"),"-c:v","libx264",
             "-crf","19","-preset","ultrafast",
             "-pix_fmt","yuv420p","-c:a","aac","-b:a","128k",
             "-movflags","+faststart","-t",f"{cues['original_wav_duration_s']:.5f}",
