@@ -1,3 +1,17 @@
+# Latest checkpoint ? PR276 homogeneous fallback plan after exactly 3 primary failures
+
+23 Oct 2026; stacked on PR275. Offline source-reviewed Gemini Flash-Lite
+Kore per-original-utterance attempt planner permits staging full-batch
+Google Cloud TTS Corey regeneration only when EVERY original element
+has exactly THREE independently evidence-backed terminal primary
+failures; unconfirmed provider calls halt. Never mix Kore and Corey
+WAV chunks or count success as failure; after permitted fallback,
+full single-voice replacement and independent listening are required.
+No provider call, billing consent or student publishing is granted.
+Actual Thomas 8.4 independent mathematical mappings remain 0/71.
+
+---
+
 # Latest checkpoint ? PR275 strict PCM split and measured real MP4 600s boundary
 
 23 Oct 2026, stacked on PR274. Offline sample-exact partition
