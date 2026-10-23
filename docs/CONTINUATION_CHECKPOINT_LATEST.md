@@ -1,3 +1,11 @@
+# PR 263: Preserve exact same-session Gemini source-chunk acknowledgements without replay
+
+Record only source-text chunk SHA, physical page offset and owned session ID in durable external JSONL; skipped, duplicated, forged or cross-session ACKs cannot silently advance mathematical review.
+
+Safe isolated Dell-115 code/testing only; no live Gemini or TTS request, no reset of real original-review quota, no source/MP4/WAV edit, no student release, no main merge or automatic schedule enabled.
+
+---
+
 # PR 262: Split original textbook PDF text into lossless Gemini-sized physical-page chunks
 
 Construct strictly source-hashed contiguous text fragments with exact page offsets; reject omissions, duplicates or corrupted chunks while preserving figure/visual-math review as unresolved.
