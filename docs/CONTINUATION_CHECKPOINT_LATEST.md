@@ -1,3 +1,11 @@
+# PR 266: Hold shared Gemini requests during independently evidenced capacity bursts
+
+Provide a deterministic read-only circuit breaker for repeated independently verified terminal 429/503 receipts; unproven activity or UI timeout cannot trip or clear provider status.
+
+Dell-115 offline contract verification only; original lesson files and academic attempt history untouched. Real 8.4 slide 1 has exhausted its 3 attempt receipts; no retry permit, model call, synthesized audio, student release, main merge or disabled-task reactivation.
+
+---
+
 # PR 265: Enforce a single durable claimed Gemini send with ambiguous-outcome quarantine
 
 Use an explicitly supplied owned-browser callback only after atomic claim; count confirmed user-turn/composer evidence and quarantine callback exceptions or contradictory results rather than retrying.
