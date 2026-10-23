@@ -1,3 +1,11 @@
+# PR 260: Classify Gemini terminal capacity errors without equating timeouts with provider failure
+
+Require the same owned browser tab, stopped generation and structured transport/terminal error evidence before making 429 or 503 retryable; timeouts and free-form text stay reconciliation-required.
+
+Safe isolated Dell-115 code/testing only; no live Gemini or TTS request, no reset of real original-review quota, no source/MP4/WAV edit, no student release, no main merge or automatic schedule enabled.
+
+---
+
 # PR 259: Reject impossible Gemini checkpoint states and forged retry ownership
 
 Validate checkpoint status-to-claim ownership and next-due invariants on every read before dispatch; malformed or terminal states cannot be promoted to READY.
