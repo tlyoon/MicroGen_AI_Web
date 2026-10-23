@@ -1,3 +1,15 @@
+# Latest checkpoint ? PR275 strict PCM split and measured real MP4 600s boundary
+
+23 Oct 2026, stacked on PR274. Offline sample-exact partition
+tests prove original utterance IDs and PCM frames preserved exactly,
+strict 540s soft cap, and true new part before exact boundary.
+Independent actual FFmpeg-encoded sparse 599s and 600s MP4 videos
+exercise the strict <600s decoder/container acceptance boundary.
+No modifications to math text, per-voice TTS, original Thomas media
+or academic approval status (0/71 mappings); review-only validation.
+
+---
+
 # Latest checkpoint ? PR274 actual three-event PCM-highlight video QA
 
 23 October 2026. Stacked on PR273. Use original synthetic test PDF,
