@@ -265,6 +265,14 @@ def verify_production_candidate(candidate: Path) -> dict:
             frames_dir=directory/"scratch_frames",
             geometry=read(directory/"element_geometry.json"),
             timeline=read(directory/"narration_timeline.json"))
+        # Acceptance requires the actual decoded MP4 soundtrack to match the
+        # preserved original narration WAV, not merely a source/WAV hash.
+        from .encoded_part_audio_fidelity import verify_encoded_part_audio
+        sound=verify_encoded_part_audio(
+            mp4=directory/(part["part_id"]+".mp4"),
+            wav=directory/"narration.wav")
+        require(sound["status"]=="ACTUAL_DECODED_PART_AUDIO_TEMPORAL_INTEGRITY",
+                "Encoded part audio fails real waveform comparison")
         stored=read(directory/"encoded_pixel_qa.json")
         require(rebuilt["count_events"]==stored["count_events"]
                 and rebuilt["time_window_samples_checked"]

@@ -46,7 +46,14 @@ class GenericHighlightWorkflowTests(unittest.TestCase):
                 with wave.open(str(self.audio/name),"wb") as w:
                     w.setnchannels(1);w.setsampwidth(2)
                     w.setframerate(24000)
-                    w.writeframes(b"\x10\x11"*24000)
+                    # Deterministic nonconstant audio is necessary for real
+                    # decoded AAC-vs-source waveform timing validation.
+                    import math,struct
+                    sample_rate=24000
+                    waveform=[int(12000*(.6*math.sin(2*math.pi*
+                       (145+23*i)*t/sample_rate)+.27*math.sin(2*math.pi*
+                       (380+11*i)*t/sample_rate))) for t in range(sample_rate)]
+                    w.writeframes(struct.pack("<24000h",*waveform))
                 entries.append({"slide":i,"source_page":1,
                     "source_evidence":"Mathematical concept slide 1",
                     "elements":[{"anchor":{"type":"text_block","index":0,
