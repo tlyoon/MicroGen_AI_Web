@@ -1,3 +1,11 @@
+# PR 268: Audit original Thomas source-math, retry budget, Kore, and video gates together
+
+Consolidate live read-only original queue review count, retry status, nonbilled Kore eligibility, genuine PCM, decoded element highlights and human QA gaps without declaring publishability from synthetic demonstrations.
+
+Dell-115 offline contract verification only; original lesson files and academic attempt history untouched. Real 8.4 slide 1 has exhausted its 3 attempt receipts; no retry permit, model call, synthesized audio, student release, main merge or disabled-task reactivation.
+
+---
+
 # PR 267: Block genuine Flash-Lite Kore stage until all source-reviewed utterances are proven
 
 Reconcile all original narration units and audited source/slide/script hashes before any nonbilled Kore manifest; unresolved independent mathematics strictly prevents provider calls.
