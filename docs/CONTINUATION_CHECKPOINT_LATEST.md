@@ -1,3 +1,18 @@
+# Latest checkpoint ? PR258 original-bound Gemini capacity retry foundation
+
+23 October 2026; Dell-115 ONLY. Gemini overload plausible but not proven.
+Persist job stage/source hashes/attempt counts/next due at external
+AppData checkpoint; 5/15/45-minute staggered backoff with provider
+Retry-After, explicit confirmed-submission receipts, exclusive job
+claim and UNKNOWN outcome never automatically repeated. Original
+8.4 slide-1 independent mathematical review has 3 historical failed
+attempt receipts; real newly initialized checkpoint is EXHAUSTED,
+not authorized to send. No automatic scheduled task enabled and
+no TTS/video/student publication advanced. Implementation details:
+docs/GEMINI_CAPACITY_CHECKPOINT_BACKOFF_PR258_20261023.md
+
+---
+
 # Latest checkpoint ? PR257 original-source 8.4 pilot with inline Gemini mathematical challenge
 
 23 October 2026. Dell-115 only. Opt-in full-original source browser path tested, but actual Gemini independent challenge remains blocked. The recorded third queued attempt did NOT submit: Send stayed hidden with 39,529-character inline source. A 5,398-char single-page attempt also did not submit. A 3,236-char test submitted only after ~3s Quill settle, but Gemini responded with zero characters over 75s. Actual independent 8.4 mathematics agreements remain 0/71. A single original source WAV / MP4 technical preview remains review-only. Future inline >8,500 chars rejected before consuming a queue attempt. No genuine per-element Kore TTS or final publication.\n\n23 October 2026. Dell-115 only. One genuine text-only Gemini canary succeeded while
