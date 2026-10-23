@@ -1,3 +1,11 @@
+# PR 264: Plan one due Gemini retry per worker tick without sending or mutating
+
+Inspect original-hash-bound external checkpoints and sort only eligible jobs by due UTC time; reject duplicate jobs and batch dispatch so an external scheduler can safely poll without traffic.
+
+Dell-115 offline contract verification only; original lesson files and academic attempt history untouched. Real 8.4 slide 1 has exhausted its 3 attempt receipts; no retry permit, model call, synthesized audio, student release, main merge or disabled-task reactivation.
+
+---
+
 # PR 263: Preserve exact same-session Gemini source-chunk acknowledgements without replay
 
 Record only source-text chunk SHA, physical page offset and owned session ID in durable external JSONL; skipped, duplicated, forged or cross-session ACKs cannot silently advance mathematical review.
