@@ -10,7 +10,7 @@ from pathlib import Path
 import pymupdf
 from .figure_source_identity import require,_sha
 from .ai_academic_review_queue import _check_queue,execute_one_review
-from .ai_academic_web_review import build_review_job
+from .ai_academic_web_review import build_review_job,review_instructions
 from .ai_academic_review_consensus import _independently_check_saved_pass
 from .series_gemini import _browser_request
 
@@ -70,10 +70,21 @@ def write_bounded_challenge_evidence(*,queue_root:Path,folder:Path,
 
 def execute_compact_original_challenge(*,queue_root:Path,folder:Path,
                                        slide:int,attempt:int,
-                                       excerpt:Path,transport=None)->dict:
+                                       excerpt:Path,transport=None,
+                                       inline_source_in_prompt:bool=False)->dict:
     # Caller has explicitly inspected prior quarantine and selected attempt.
     context=write_bounded_challenge_evidence(
         queue_root=queue_root,folder=folder,slide=slide,output=excerpt)
+    if inline_source_in_prompt:
+        # PRE-SUBMISSION: do not consume an immutable queued review attempt on
+        # known-to-fail oversized Gemini Quill editor input. Use the bounded
+        # complete-page conversation protocol instead.
+        estimate=len(Path(excerpt).read_text(encoding="utf8"))+len(
+            review_instructions(build_review_job(folder=folder,slide_numbers=[slide]),
+                                mode="INDEPENDENT_CHALLENGE"))+600
+        require(estimate<=8500,
+                "Inline original-source prompt exceeds 8500 characters; "
+                "use independently page-bounded transport rather than submit")
     def call(original_prompt,original_files):
         intro=("The attachment is a source-hash-bound extract from the ORIGINAL PDF "
                "and original slide. Challenge mathematics and exact slide target "
@@ -83,6 +94,22 @@ def execute_compact_original_challenge(*,queue_root:Path,folder:Path,
                "Original job/schema follows:\n")
         service=transport or (lambda prompt,files:_browser_request(
             prompt,files,port=9222,wait_cap_s=240,min_chars=80))
+        if inline_source_in_prompt:
+            intro=("Challenge mathematics independently from the following "
+                   "source-hashed ORIGINAL textbook and original slide text. "
+                   "All physical source pages are included; no attachment "
+                   "is necessary. Quote exact original source and report "
+                   "the physical PDF page. For image-only mathematical "
+                   "elements mark UNRESOLVED. Produce only complete JSON "
+                   "matching the supplied schema.\n")
+            # The same complete, SHA-bound physical PDF evidence is embedded
+            # as text, not uploaded: this avoids the observed stuck Gemini
+            # attachment path without omitting alternative physical pages.
+            evidence=Path(excerpt).read_text(encoding="utf8")
+            require(len(evidence)<=65000, "Original source prompt exceeds proven bound")
+            return service(intro+original_prompt+
+                           "\n\nCOMPLETE ORIGINAL PDF TEXT EVIDENCE FROM ALL PHYSICAL PAGES:\n"+
+                           evidence,[])
         return service(intro+original_prompt,[Path(excerpt)])
     r=execute_one_review(queue_root=queue_root,folder=folder,slide=slide,
                          mode="INDEPENDENT_CHALLENGE",attempt=attempt,transport=call)

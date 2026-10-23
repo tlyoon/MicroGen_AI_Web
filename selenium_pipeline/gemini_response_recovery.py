@@ -133,6 +133,61 @@ def poll_existing_owned_response(
         sleep(min(poll_s, remaining))
 
 
+
+_SEND_METADATA_ONLY_JS = """
+const editor=document.querySelector('[role="textbox"][contenteditable="true"]');
+const buttons=[...document.querySelectorAll('button[aria-label="Send message"]')];
+let visible=0;
+for(const button of buttons){
+  let e=button, hidden=false;
+  while(e && e.nodeType===1){
+    const style=getComputedStyle(e);
+    if(style.display==='none'||style.visibility==='hidden'||
+       Number(style.opacity)<=0.01){hidden=true;break;}
+    e=e.parentElement;
+  }
+  if(!hidden)visible++;
+}
+return {doc_visible:document.visibilityState==='visible',
+        composer_present:Boolean((editor?.innerText||'').trim()),
+        send_count:buttons.length,visible_send_count:visible};
+"""
+
+def await_owned_gemini_send_visible(driver, owned_handle: str | None, *,
+                                     wait_s: float=10, poll_s: float=0.5,
+                                     clock=None, sleep=None) -> bool:
+    """Observe ordinary Send visibility after Quill updates; NEVER force click.
+
+    No content or other-tab data is read. Fail closed on changed browser ownership,
+    unexpected page or no normal visible Send control. This does not submit.
+    """
+    import time
+    if (not owned_handle or not 0<=wait_s<=20 or not 0<poll_s<=5):
+        return False
+    clock=clock or time.monotonic
+    sleep=sleep or time.sleep
+    deadline=clock()+wait_s
+    while True:
+        try:
+            if (driver.current_window_handle!=owned_handle or
+                not driver.current_url.startswith("https://gemini.google.com/")):
+                return False
+            state=driver.execute_script(_SEND_METADATA_ONLY_JS)
+            if not isinstance(state,dict) or not state.get("doc_visible"):
+                return False
+            if (state.get("composer_present") is True and
+                type(state.get("visible_send_count")) is int and
+                state["visible_send_count"]>0):
+                return True
+            if not state.get("composer_present") or not state.get("send_count"):
+                return False
+        except Exception:
+            return False
+        remaining=deadline-clock()
+        if remaining<=0:return False
+        sleep(min(poll_s,remaining))
+
+
 def default_quarantine_dir() -> Path:
     """A per-user local directory, never the textbook or cloned repo."""
     return Path(os.getenv("LOCALAPPDATA") or (Path.home() / ".cache")) / "Microvid" / "gemini_quarantine"

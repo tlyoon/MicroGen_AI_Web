@@ -71,11 +71,17 @@ def _browser_request(instruction: str,attachments: list[Path],
     from .gemini_model import ensure_mode
 
     vendor=_vendor_module()
+    cache=Path(os.getenv("LOCALAPPDATA") or (Path.home()/".cache"))/"Microvid"
+    # Explicit text-only Gemini request mode: original-source evidence may be
+    # embedded directly in a bounded prompt when document upload stalls.
+    # No surrogate attachment, no unrelated Chrome tab, no new paid API.
+    if type(attachments) is not list or any(not isinstance(p,Path) for p in attachments):
+        raise SeriesBridgeError("Browser request attachments must be paths")
+    request_root=Path(attachments[0]).parent if attachments else cache
     cfg=vendor.Config(
-        root=attachments[0].parent,debug_port=port,
+        root=request_root,debug_port=port,
         use_persistent_chrome=True,force_kill_chrome_to_free_port=False,
     )
-    cache=Path(os.getenv("LOCALAPPDATA") or (Path.home()/".cache"))/"Microvid"
     with LocalInstanceLock(f"gemini_port_{port}",cache/"browser_locks"):
         client=vendor.GeminiSeleniumClient(cfg)
         try:
@@ -91,9 +97,17 @@ def _browser_request(instruction: str,attachments: list[Path],
                 observed, requested_mode=selected,
                 requested_model_id=os.getenv(
                     "MICROGEN_LLM_MODEL","gemini-3.8-flash"))
-            client.upload_files(attachments)
+            if attachments:
+                client.upload_files(attachments)
             if not client.type_prompt_text(instruction,retries=3):
                 raise SeriesBridgeError("Could not type Gemini storyboard instruction")
+            # A live Dell-115 test showed Quill can need ~3 seconds to
+            # reveal the *ordinary* Send control after a large CDP insert.
+            # Do not override hidden UI or submit if still hidden.
+            from .gemini_response_recovery import await_owned_gemini_send_visible
+            await_owned_gemini_send_visible(
+                client.driver,getattr(client,"_automation_tab",None),
+                wait_s=10,poll_s=0.5)
             if not client.click_send_with_fallbacks(retries=3):
                 raise SeriesBridgeError("Could not submit Gemini storyboard instruction")
             # Long Gemini replies may time out or raise before the strict
