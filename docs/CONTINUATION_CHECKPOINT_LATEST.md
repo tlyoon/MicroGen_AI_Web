@@ -1,3 +1,11 @@
+# PR 262: Split original textbook PDF text into lossless Gemini-sized physical-page chunks
+
+Construct strictly source-hashed contiguous text fragments with exact page offsets; reject omissions, duplicates or corrupted chunks while preserving figure/visual-math review as unresolved.
+
+Safe isolated Dell-115 code/testing only; no live Gemini or TTS request, no reset of real original-review quota, no source/MP4/WAV edit, no student release, no main merge or automatic schedule enabled.
+
+---
+
 # PR 261: Reconcile ambiguous owned Gemini replies before any retry
 
 Read-only verify a bounded same-session complete JSON candidate, retain source-math unverified status, and refuse automatic resend when the original tab or response outcome cannot be proven.
