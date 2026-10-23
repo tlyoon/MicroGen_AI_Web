@@ -1,3 +1,19 @@
+# Latest checkpoint ? PR277 unified original mathematical and multimedia acceptance
+
+23 Oct 2026; stacked on PR276. New read-only acceptance checker
+reconciles original textbook/slide/script hash and independently agreed
+mathematical narration counts against candidate source identity.
+When a candidate exists, reruns full actual decoded MP4 highlight pixel,
+source-WAV/audio fidelity and <600s verification introduced in
+PRs273-275, checks actual effective one-voice TTS source manifest,
+and then delegates to pre-existing explicit human and separately
+authorized student-publication approval gates. Never creates
+human review/consent, never publishes or synthesizes text/voice.
+Real original Thomas 8.4 remains 0/71 reviewed mathematical
+mappings, no qualifying candidate or Kore clips; blocked.
+
+---
+
 # Latest checkpoint ? PR276 homogeneous fallback plan after exactly 3 primary failures
 
 23 Oct 2026; stacked on PR275. Offline source-reviewed Gemini Flash-Lite
