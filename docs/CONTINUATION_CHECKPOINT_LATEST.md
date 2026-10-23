@@ -1,3 +1,16 @@
+# Latest checkpoint ? PR274 actual three-event PCM-highlight video QA
+
+23 October 2026. Stacked on PR273. Use original synthetic test PDF,
+three independent source-sha-bound PCM WAV clips and true FFmpeg
+H.264/AAC render in an isolated temporary folder, then decode three
+distinct element highlight midpoint frames at original measured
+PCM boundaries. Verify per-element WAV-to-MP4 sample fidelity and no
+missing/duplicated segment; missing audio fails before rendering.
+Test-only fixture does not constitute mathematical source agreement,
+human listening QA or original Thomas 8.4 production readiness.
+
+---
+
 # Latest checkpoint ? PR273 independent encoded audio on production candidate
 
 23 Oct 2026, Dell-115 only. Starting from exact live CI-passing
