@@ -1,3 +1,11 @@
+# PR 267: Block genuine Flash-Lite Kore stage until all source-reviewed utterances are proven
+
+Reconcile all original narration units and audited source/slide/script hashes before any nonbilled Kore manifest; unresolved independent mathematics strictly prevents provider calls.
+
+Dell-115 offline contract verification only; original lesson files and academic attempt history untouched. Real 8.4 slide 1 has exhausted its 3 attempt receipts; no retry permit, model call, synthesized audio, student release, main merge or disabled-task reactivation.
+
+---
+
 # PR 266: Hold shared Gemini requests during independently evidenced capacity bursts
 
 Provide a deterministic read-only circuit breaker for repeated independently verified terminal 429/503 receipts; unproven activity or UI timeout cannot trip or clear provider status.
