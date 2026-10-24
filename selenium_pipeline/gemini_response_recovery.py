@@ -58,6 +58,7 @@ def latest_owned_response(driver, owned_handle: str | None) -> dict:
 
 def response_snapshot_with_scoped_copy(
     driver, owned_handle: str | None, *, copy_response=None,
+    accept_fn=None,
 ) -> dict:
     """Prefer the longer vendor-verified response over a short DOM placeholder.
 
@@ -82,14 +83,25 @@ def response_snapshot_with_scoped_copy(
         copied = copy_response(driver)
     except Exception:
         return snapshot
-    if isinstance(copied, str) and len(copied.strip()) > max(
-        len(snapshot["text"].strip()), 60
-    ):
-        return {
-            "text": copied[:MAX_CAPTURE_CHARS],
-            "generating": snapshot["generating"],
-            "capture_status": "vendor_verified_response_copy",
-        }
+    if isinstance(copied, str):
+        # The exact source-transport canary JSON is ~40 characters. A
+        # historical 60-character floor discarded it, even when the Copy
+        # action belonged to the actual owned model-response toolbar.
+        # Permit short replies ONLY if the caller's strict structured
+        # response validator independently accepts them.
+        try:
+            short_structured = callable(accept_fn) and bool(accept_fn(copied))
+        except Exception:
+            short_structured = False
+        longer_than_dom = len(copied.strip()) > len(snapshot["text"].strip())
+        if longer_than_dom and (
+            len(copied.strip()) > 60 or short_structured
+        ):
+            return {
+                "text": copied[:MAX_CAPTURE_CHARS],
+                "generating": snapshot["generating"],
+                "capture_status": "vendor_verified_response_copy",
+            }
     return snapshot
 
 
