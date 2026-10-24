@@ -4,6 +4,7 @@ import hashlib,re
 from pathlib import Path
 import pymupdf
 from .figure_source_identity import require,_sha
+from .quote_spatial_continuity import coherent_quote_occurrence
 
 def prove_source_quote_occurrence(*,source_pdf:Path,expected_sha256:str,
                                   page_number:int,verbatim_quote:str,
@@ -30,6 +31,9 @@ def prove_source_quote_occurrence(*,source_pdf:Path,expected_sha256:str,
                      0<=occurrence_index<len(hits)),
             "Ambiguous or unlocatable exact original textbook quote")
     index=0 if occurrence_index is None else occurrence_index
+    with pymupdf.open(source_pdf) as pdf:
+        require(coherent_quote_occurrence(pdf[page_number-1],needle,index,len(hits)),
+                "Extracted quote crosses a distant PDF text region or column")
     require(_sha(source_pdf)==expected_sha256,"Source changed after checking")
     return {"status":"EXACT_ORIGINAL_PDF_PAGE_QUOTE_PRESENT",
         "source_sha256":expected_sha256,"source_page":page_number,
