@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 from pathlib import Path
 
 from .scoped_original_math_review_window import inspect_window, historical_evidence
@@ -18,6 +19,32 @@ from .ai_academic_review_consensus import (
 
 def _sha(file: Path) -> str:
     return hashlib.sha256(Path(file).read_bytes()).hexdigest()
+
+
+def _agreed_evidence_kind(*, job:dict, original:dict,
+                           first:dict, challenge:dict) -> str:
+    """Do not mistake a verified lecture title for verified mathematics.
+
+    Recognition is intentionally NARROW: only slide 1, the identical
+    original speech, actual visible title text, and two identical source
+    heading quotations. Everything else remains unclassified; a text
+    match cannot prove a mathematical derivation or figure semantics.
+    """
+    slides=job.get("slides") or []
+    if (len(slides)!=1 or slides[0].get("slide")!=1
+        or type(original.get("spoken_text")) is not str):
+        return "UNCLASSIFIED_DOMAIN_CLAIM"
+    spoken=" ".join(original["spoken_text"].split())
+    target=first.get("target_id")
+    visible=next((t.get("visible_text") for t in slides[0].get("visual_targets",[])
+                  if t.get("id")==target),None)
+    if (spoken and re.fullmatch(r"[0-9]+(?:\.[0-9]+)+\s+[^\n]{3,120}",spoken)
+        and type(visible) is str
+        and spoken==" ".join(visible.split())
+        and first.get("verbatim_source_quote")==challenge.get("verbatim_source_quote")
+        and first.get("verbatim_source_quote")==original["spoken_text"].strip()):
+        return "ORIGINAL_SECTION_TITLE_METADATA_ONLY"
+    return "UNCLASSIFIED_DOMAIN_CLAIM"
 
 
 def reconcile_approved_original_math_window(*, window_root:Path)->dict:
@@ -86,6 +113,7 @@ def reconcile_approved_original_math_window(*, window_root:Path)->dict:
                 "source_page":x["source_page"],
                 "target_id":x["target_id"],
                 "bbox_pdf_pt":x["text_target_pdf_bbox_pt"],
+                "evidence_kind":_agreed_evidence_kind(job=job,original=unit,first=x,challenge=y),
                 "human_academic_approval":False,
             })
         else:
@@ -100,12 +128,21 @@ def reconcile_approved_original_math_window(*, window_root:Path)->dict:
     accepted=len(all_base_ids)+len(extra_ids)
     if accepted>total:
         raise ValueError("Untrusted source mathematics agreement count")
+    title_agreements=sum(
+        unit["evidence_kind"]=="ORIGINAL_SECTION_TITLE_METADATA_ONLY"
+        for unit in source_agreement)
+    # Original-queue rows lack a claim-type witness; do not automatically
+    # classify their consensus as a proven mathematical derivation.
+    unclassified_agreements=accepted-title_agreements
     return {
         "status":"ORIGINAL_SOURCE_TWO_PASS_AI_CONSENSUS_REVALIDATED",
         "original_utterances":total,
         "original_queue_ai_agreements":len(all_base_ids),
         "approved_separate_window_ai_agreements":len(extra_ids),
         "combined_independent_source_witnessed_ai_agreements":accepted,
+        "title_metadata_only_ai_agreements":title_agreements,
+        "other_ai_agreements_not_classified_as_proven_math":unclassified_agreements,
+        "formally_proven_mathematical_derivations":0,
         "combined_math_pending_or_disputed":total-accepted,
         "approved_window_disputed_utterances":unresolved,
         "approved_source_evidence":source_agreement,
