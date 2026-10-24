@@ -1,3 +1,9 @@
+# Latest checkpoint — PR283 genuine Thomas 8.4 source-math challenge captured (24 Oct 2026)
+
+Dell-115 only, stacked on CI-passing PR282 head 16d13a06e84122bb383d5ea2d52272259ddb80d5. New source-bound original slide-1 approved-window dispatch and durable no-automatic-approval receipt, after positive source upload and confirmed Gemini web user-turn+composer-cleared at 16:38:55 local. Actual model returned complete 1-utterance original source-witnessed independent mathematical challenge, saved separately to prior approved AppData window; checkpoint RESPONSE_CAPTURED_UNVERIFIED and new confirmed submissions now 1/3; historical original three failures intact. Initial & challenge cite actual textbook PDF page1 and title target; independent AI agreement NOT YET promoted until separate cross-pass verification, source math legacy count 0/71. 30 focused Dell-115 local tests passed. No new Kore TTS, element-level published MP4, human review or student release. See docs/REAL_THOMAS84_SOURCE_REVIEW_CAPTURE_PR283_20261024.md.
+
+---
+
 # Latest checkpoint — PR282 short owned Gemini response Copy recovery (24 Oct 2026)
 
 Dell-115 isolated PR282 on exact PR281 6d1af8543c98e0efdfce1b982400f683b6c17c0b. Found the original vendor response toolbar-copy fallback rejected any candidate under 60 chars; exact required 40-character structured Gemini health canary was shorter, and real Thomas 8.4 original response DOM placeholder was only 11-char Gemini said. Allow short vendor-verified owned model-response Copy only when larger than placeholder and independently accepted by existing strict structured JSON validator, then use existing PR281 no-resend grace. 40 local tests passed, zero new Gemini requests. Original Thomas math 0/71, no publication/voice source edits. See docs/SHORT_GEMINI_OWNED_COPY_HEALTH_PR282_20261024.md.
