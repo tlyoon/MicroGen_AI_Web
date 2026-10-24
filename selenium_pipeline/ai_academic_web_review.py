@@ -110,13 +110,18 @@ def validate_model_review(*,folder:Path,job:dict,response:dict,mode:str)->dict:
             "tts_authorized":False,"student_publication_authorized":False}
 
 def run_web_review(*,folder:Path,job:dict,mode:str,
-                   chrome_port:int=9222,wait_cap_s:int=240,transport=None)->dict:
+                   chrome_port:int=9222,wait_cap_s:int=240,transport=None,
+                   response_observer=None)->dict:
     require(chrome_port in range(1,65536) and 60<=wait_cap_s<=600,
             "Browser request must be bounded")
     call=transport or (lambda prompt,files:_browser_request(
         prompt,files,port=chrome_port,wait_cap_s=wait_cap_s,min_chars=80))
     raw=call(review_instructions(job,mode=mode),
              [Path(folder)/"source.pdf",Path(folder)/"slides.pdf"])
+    # This callback establishes only that the owned transport returned a
+    # response. Never persist the private model text in public receipts.
+    if callable(response_observer):
+        response_observer(raw)
     return validate_model_review(folder=folder,job=job,
                                  response=decode_storyboard_response(raw),mode=mode)
 
