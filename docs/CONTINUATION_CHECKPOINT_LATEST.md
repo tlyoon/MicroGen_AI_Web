@@ -1,3 +1,9 @@
+# Latest checkpoint — PR280 Gemini bridge failure stage triage (24 Oct 2026)
+
+Dell-115 isolated stacked PR280 on PR279 b241f6e4ce6f26f2bd133ed8b75ac82bfed31b49. Added privacy-safe failure stage classification of existing one-shot Gemini Selenium browser probe: composer, Send, owned response, quarantine write, local browser client, timeout or unknown. Error class and safe stage only; no raw model text/account paths/owned tab info or false provider 429/503 overload inference. Actual previous two Thomas 8.4 health attempts both had UNKNOWN/FAILED outcomes; prior SeriesBridgeError lacked stage evidence and cannot be retroactively categorized. No new Gemini request sent. Local focused tests 31 passed; 0/71 independent original mathematical agreements unchanged. No paid API, TTS, protected source assets, old receipts or publishing changes. See docs/GEMINI_BRIDGE_FAILURE_STAGE_TRIAGE_PR280_20261024.md.
+
+---
+
 # Latest checkpoint — PR279 exact Gemini health and journal integrity (24 Oct 2026)
 
 Dell-115 isolated PR279 on PR278 ea89a015975d40701e8a2688b2b515e426d857cc. Fixed false green health receipts: only strict directly JSON-parsable exact expected canary may create a health success proof; fenced/prose-wrapped replies fail closed. Added bounded paired chronological unique-ID journal validation before any subsequent health attempt, without changing 1-hour cooldown or unknown-response quarantine. 28 local focused tests passed. Independently checked four real archived Thomas 8.4 probe journal records: two starts, both terminal FAILED_UNKNOWN. Zero new live Gemini requests or source-math approvals; actual original math remains 0/71, no new Kore or publishable video. No original assets, historical ledger or protected main modified. See docs/GEMINI_HEALTH_PROOF_JOURNAL_INTEGRITY_PR279_20261024.md.

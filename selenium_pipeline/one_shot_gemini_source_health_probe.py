@@ -147,13 +147,19 @@ def run_one_health_probe(*,window_root:Path,transport,
                     "academic_review_attempt_consumed":False,
                     "student_publication_authorized":False}
         except Exception as error:
+            from .gemini_bridge_failure_triage import classify_owned_gemini_failure
+            triage=classify_owned_gemini_failure(error)
             _append_log(log,{"event":"HEALTH_PROBE_FAILED_UNKNOWN","at":time_now,
-                             "id":proof_id,"error_type":type(error).__name__})
-            # A diagnostic failure cannot reset an earlier green receipt.
-            # The separate scoped dispatcher enforces freshness <=30 min.
+                             "id":proof_id,"error_type":type(error).__name__,
+                             "failure_stage":triage["stage"],
+                             "gemini_provider_overload_proven":False})
+            # Diagnostic stage never implies a confirmed backend 429/503,
+            # authorizes academic review, or permits automatic resubmission.
             return {"status":"GEMINI_TRANSPORT_STILL_UNHEALTHY",
                     "model_request_sent":None,
                     "model_submission_outcome":"UNKNOWN_OR_INCOMPLETE",
+                    "transport_failure_stage":triage["stage"],
+                    "gemini_provider_overload_proven":False,
                     "academic_review_attempt_consumed":False,
                     "student_publication_authorized":False}
     finally:
