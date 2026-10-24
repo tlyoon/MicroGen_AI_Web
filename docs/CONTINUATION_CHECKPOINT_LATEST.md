@@ -1,3 +1,9 @@
+# Latest checkpoint — PR278 real mathematical-review recovery (24 Oct 2026)
+
+Dell-115 isolated PR278 on exact PR277 head 03f419f4e912328cee86e4f41e6dcdf07dd60c40. Added read-only original_math_review_recovery CLI with source, queue, external approved-window/checkpoint hashes, real consensus counts and no-steal worker lock verification. 23 focused tests passed. Real unchanged Thomas Calculus 8.4: 71 original mappings; 0 agreed, 71 pending; 3 immutable historical failures; 0 new separate-window confirmed submissions. Checkpoint READY, no lock, but no fresh verified same-owned-tab Gemini transport response; zero new dispatch. No new Kore, no publishable element-level MP4, no human approval, no original asset editing, no paid API or publication. See docs/ORIGINAL_MATH_REVIEW_RECOVERY_PR278_20261024.md.
+
+---
+
 # Latest checkpoint ? PR277 unified original mathematical and multimedia acceptance
 
 23 Oct 2026; stacked on PR276. New read-only acceptance checker
