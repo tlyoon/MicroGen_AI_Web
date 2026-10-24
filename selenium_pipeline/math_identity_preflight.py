@@ -5,7 +5,7 @@ check, NOT a formal proof or source correspondence. No eval, exec, SymPy,
 network, TTS or generated rewriting of math formulas.
 """
 from __future__ import annotations
-import argparse,ast,hashlib,json,math,operator
+import argparse,ast,hashlib,json,math,operator,re
 from pathlib import Path
 
 OPS={ast.Add:operator.add,ast.Sub:operator.sub,ast.Mult:operator.mul,
@@ -49,6 +49,25 @@ def numeric(expr:str,values:dict)->float:
     if not math.isfinite(result):raise ValueError("Nonfinite mathematical expression")
     return result
 
+def checked_constants(raw:dict)->dict:
+    """Refuse x/pi/function shadowing and invalid fixed symbol bindings.
+
+    A constant named x previously overwrote the sample x in the target
+    integrand, while the derivative was sampled at the intended x. Thus
+    an invalid antiderivative could produce a false numerical PASS.
+    """
+    if type(raw) is not dict or len(raw)>16:
+        raise ValueError("Bounded numeric constants object required")
+    reserved={"x","pi",*FNS}
+    for name,value in raw.items():
+        if (type(name) is not str or not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]{0,30}",name)
+            or name in reserved
+            or type(value) not in (int,float)
+            or abs(value)>1e4 or not math.isfinite(value)):
+            raise ValueError("Unsafe or shadowing mathematical constant")
+    return raw
+
+
 def verify(manifest:Path,source:Path,slides:Path)->dict:
     inp=json.loads(manifest.read_text(encoding="utf8"))
     if (inp.get("schema_version")!=1
@@ -63,11 +82,12 @@ def verify(manifest:Path,source:Path,slides:Path)->dict:
     for item in items:
         name=item["name"]
         points=item["points"]
-        constants=item.get("constants",{})
+        constants=checked_constants(item.get("constants",{}))
         if (not isinstance(points,list) or not 2<=len(points)<=30
-            or any(type(x) not in (int,float) or abs(x)>1e4 for x in points)
-            or not isinstance(constants,dict)):
-            raise ValueError("Invalid check points or constants")
+            or any(type(x) not in (int,float) or abs(x)>1e4
+                   or not math.isfinite(x) for x in points)
+            or len(set(points)) != len(points)):
+            raise ValueError("Invalid, non-finite or repeated sample points")
         errors=[]
         for x in points:
             bindings={"x":float(x),**constants}
