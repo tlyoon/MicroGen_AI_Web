@@ -8,7 +8,6 @@ from __future__ import annotations
 import hashlib,json,os,time,uuid
 from pathlib import Path
 from .scoped_original_math_review_window import inspect_window
-from .series_gemini import decode_storyboard_response
 
 EXPECTED={"probe":"microgen_source_transport_ok"}
 MIN_INTERVAL_SECONDS=3600
@@ -26,6 +25,46 @@ def _append_log(log:Path,entry:dict):
     with log.open("a",encoding="utf8") as f:
         f.write(json.dumps(entry,sort_keys=True)+"\n")
         f.flush();os.fsync(f.fileno())
+
+def _validated_probe_history(log:Path,now:float)->list[dict]:
+    """Reject malformed, unpaired, reordered or future-dated attempt evidence."""
+    if not log.exists():
+        return []
+    if log.is_symlink() or not log.is_file() or log.stat().st_size>2000000:
+        raise ValueError("Untrusted external health history")
+    raw=log.read_text(encoding="utf8")
+    lines=raw.splitlines()
+    if len(lines)>2000 or (raw and not raw.endswith("\n")):
+        raise ValueError("Incomplete or unbounded health history")
+    records=[]
+    open_claim=None
+    ids=set()
+    last_at=-1.0
+    for line in lines:
+        record=json.loads(line)
+        if type(record) is not dict:
+            raise ValueError("Health record is not an object")
+        event=record.get("event")
+        ident=record.get("id")
+        at=record.get("at")
+        if (event not in ("HEALTH_PROBE_BEGIN","HEALTH_PROBE_SUCCESS",
+                          "HEALTH_PROBE_FAILED_UNKNOWN")
+            or type(ident) is not str or not ident or len(ident)>128
+            or type(at) not in (int,float) or not last_at<=at<=now+60):
+            raise ValueError("Malformed, reordered or future health attempt")
+        if event=="HEALTH_PROBE_BEGIN":
+            if open_claim is not None or ident in ids:
+                raise ValueError("Overlapping or duplicate Gemini transport probe")
+            ids.add(ident)
+            open_claim=ident
+        else:
+            if open_claim!=ident:
+                raise ValueError("Terminal health record has no matching start")
+            open_claim=None
+        last_at=float(at)
+        records.append(record)
+    return records
+
 
 def _atomic_json(path:Path,payload:dict):
     tmp=path.with_name(path.name+"."+uuid.uuid4().hex+".tmp")
@@ -55,12 +94,7 @@ def run_one_health_probe(*,window_root:Path,transport,
         with os.fdopen(fd,"w",encoding="utf8") as handle:
             handle.write("owned one-shot probe\n")
             handle.flush();os.fsync(handle.fileno())
-        if log.exists():
-            if log.is_symlink() or log.stat().st_size>2000000:
-                raise ValueError("Untrusted external health history")
-            records=[json.loads(line) for line in log.read_text(encoding="utf8").splitlines()]
-        else:
-            records=[]
+        records=_validated_probe_history(log,time_now)
         if records:
             last=records[-1]
             if last.get("event")=="HEALTH_PROBE_BEGIN":
@@ -82,9 +116,15 @@ def run_one_health_probe(*,window_root:Path,transport,
                 result.get("model_stopped_generating") is not True or
                 type(result.get("raw")) is not str):
                 raise ValueError("Unproven terminal owned-session model response")
-            decoded=decode_storyboard_response(result["raw"])
-            if decoded!=EXPECTED:
-                raise ValueError("Gemini returned incomplete or unexpected diagnostic JSON")
+            # The downstream scoped dispatcher verifies the persisted bytes
+            # using plain json.loads, not a permissive Markdown/JSON extractor.
+            # A fenced or prose-wrapped answer MUST NOT produce a green receipt.
+            try:
+                exact=json.loads(result["raw"])
+            except (ValueError,UnicodeError) as error:
+                raise ValueError("Gemini diagnostic was not exact JSON") from error
+            if type(exact) is not dict or exact!=EXPECTED:
+                raise ValueError("Gemini returned extra or unexpected diagnostic content")
             raw=result["raw"].encode("utf8")
             if len(raw)>4096:
                 raise ValueError("Model response cannot exceed bounded health receipt")

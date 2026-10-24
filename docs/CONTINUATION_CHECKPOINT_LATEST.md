@@ -1,3 +1,9 @@
+# Latest checkpoint — PR279 exact Gemini health and journal integrity (24 Oct 2026)
+
+Dell-115 isolated PR279 on PR278 ea89a015975d40701e8a2688b2b515e426d857cc. Fixed false green health receipts: only strict directly JSON-parsable exact expected canary may create a health success proof; fenced/prose-wrapped replies fail closed. Added bounded paired chronological unique-ID journal validation before any subsequent health attempt, without changing 1-hour cooldown or unknown-response quarantine. 28 local focused tests passed. Independently checked four real archived Thomas 8.4 probe journal records: two starts, both terminal FAILED_UNKNOWN. Zero new live Gemini requests or source-math approvals; actual original math remains 0/71, no new Kore or publishable video. No original assets, historical ledger or protected main modified. See docs/GEMINI_HEALTH_PROOF_JOURNAL_INTEGRITY_PR279_20261024.md.
+
+---
+
 # Latest checkpoint — PR278 real mathematical-review recovery (24 Oct 2026)
 
 Dell-115 isolated PR278 on exact PR277 head 03f419f4e912328cee86e4f41e6dcdf07dd60c40. Added read-only original_math_review_recovery CLI with source, queue, external approved-window/checkpoint hashes, real consensus counts and no-steal worker lock verification. 23 focused tests passed. Real unchanged Thomas Calculus 8.4: 71 original mappings; 0 agreed, 71 pending; 3 immutable historical failures; 0 new separate-window confirmed submissions. Checkpoint READY, no lock, but no fresh verified same-owned-tab Gemini transport response; zero new dispatch. No new Kore, no publishable element-level MP4, no human approval, no original asset editing, no paid API or publication. See docs/ORIGINAL_MATH_REVIEW_RECOVERY_PR278_20261024.md.
