@@ -86,18 +86,30 @@ def execute_one_review(*,queue_root:Path,folder:Path,
         require(previous.is_file(),"Cannot skip missing observed failure")
         prior=json.loads(previous.read_text(encoding="utf8"))
         require(prior.get("status")=="FAILED_GEMINI_REVIEW_ATTEMPT_QUARANTINED"
-                and prior.get("attempt")==i,
-                "No duplicate successful or unaccounted earlier attempts")
+                and prior.get("attempt")==i
+                and prior.get("provider_submission_state")=="RETURNED_RESPONSE_INVALID"
+                and prior.get("manual_retry_eligible") is True,
+                "Ambiguous or unaccounted provider attempt requires reconciliation")
     job=build_review_job(folder=folder,slide_numbers=[slide])
     require(job["utterance_count"]==row["utterance_count"],"Narration coverage changed")
+    returned_response=False
+    def witness_model_return(raw):
+        nonlocal returned_response
+        returned_response=type(raw) is str and bool(raw.strip())
     try:
-        response=run_web_review(folder=folder,job=job,mode=mode,transport=transport)
+        response=run_web_review(folder=folder,job=job,mode=mode,
+                                transport=transport,
+                                response_observer=witness_model_return)
     except (RuntimeError,ValueError,OSError) as exc:
         # Preserve only a concise bounded type/error description, never private tab text.
         fail={"status":"FAILED_GEMINI_REVIEW_ATTEMPT_QUARANTINED",
               "slide":slide,"mode":mode,"attempt":attempt,
               "error_type":type(exc).__name__,"reason":str(exc)[:450],
               "requires_explicit_next_attempt":True,
+              "provider_submission_state":("RETURNED_RESPONSE_INVALID" if returned_response
+                                           else "UNKNOWN_AFTER_POSSIBLE_SUBMISSION"),
+              "manual_retry_eligible":returned_response,
+              "requires_owner_reconciliation":not returned_response,
               "academically_approved":False,"student_publication_authorized":False}
         with evidence_file.open("x",encoding="utf8") as f:
             json.dump(fail,f,indent=2);f.write("\n")
