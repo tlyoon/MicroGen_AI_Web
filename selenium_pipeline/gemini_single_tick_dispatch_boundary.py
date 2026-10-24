@@ -38,5 +38,21 @@ def one_authorized_tick(*,checkpoint:Path,original_folder:Path,
   return {"status":"SUBMISSION_NOT_BOTH_VERIFIED","auto_retry_authorized":False}
  state=submitted(checkpoint=checkpoint,original_folder=original_folder,claim=token,
                  user_turn_created=True,composer_cleared=True,now=now)
+ # A trusted owned-tab callback may already have a fully captured,
+ # externally persisted response. Bind it to the SAME active claim rather
+ # than leaving the genuine captured result stranded as IN_FLIGHT.
+ receipt=proof.get("captured_response_receipt")
+ if receipt is not None:
+  from .gemini_review_backoff_checkpoint import captured_unreviewed
+  try:
+   state=captured_unreviewed(
+    checkpoint=checkpoint,original_folder=original_folder,claim=token,
+    response_receipt=Path(receipt),now=now)
+  except (ValueError,OSError):
+   # A missing or unsafe receipt must remain an unresolved IN_FLIGHT
+   # submission. No automatic resend, no academic approval.
+   return {"status":"CAPTURE_REQUIRES_OWNER_RECONCILIATION",
+           "model_request_sent":True,"auto_retry_authorized":False,
+           "review_validated":False,"student_publication_authorized":False}
  return {"status":state["status"],"model_request_sent":True,
          "review_validated":False,"student_publication_authorized":False}
