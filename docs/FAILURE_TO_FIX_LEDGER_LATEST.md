@@ -1,0 +1,17 @@
+# MicroGen_AI_Web failure-to-fix ledger — current continuation
+
+Updated 2026-10-24 (Asia/Kuala_Lumpur). Live latest head at authoring time: PR284; PR285 is an isolated draft increment.
+
+| Incident | Source evidence | Durable correction | Regression or real outcome | Current status |
+| --- | --- | --- | --- | --- |
+| MG-GEMINI-001 stopped 11-character placeholder | Original 2026-10-23 quarantine: `Gemini said`, generation=false, incomplete JSON | PR281 bounded same-owned-tab no-resend grace | 41 focused local tests; later 2026-10-24 health probe completed | Resolved for evidenced client-side condition; provider-wide reliability unproven |
+| MG-GEMINI-002 short valid JSON lost | Original vendor verified toolbar-copy code discarded under-60-character responses; expected canary shorter | PR282 accept exact structured short response from verified owned model Copy only | 40 focused tests; real subsequent health probe succeeded | Resolved for evidenced client-side condition |
+| MG-GEMINI-003 ambiguous cause | Older historical `SeriesBridgeError` without separate stage | PR280 privacy-safe classified stage reporting | 31 focused tests; old errors not retroactively classified | Generalized guard in source, historical cause remains unproven |
+| MG-REVIEW-004 original three failures | Immutable Oct 2026 historical slide-1 reviews exhausted, fresh separate approval and zero agreements | PR278 recovery reconciliation, PR279 journal validation, PR283 scoped new-window source challenge | Real PDF upload, owned Send and exact candidate captured; one fresh submission, original three preserved | Scoped slide 1 challenge captured; no general approval for further slides |
+| MG-REVIEW-005 AI title inflated as mathematics | PR284 1/71 two-pass source agreements actually title `8.4 Trigonometric Substitutions` | PR285 metadata vs domain evidence typing in **normal read-only audit**, conservative title recognition | 27 focused/neighbor local tests; real source run required on final HEAD | Resolved when PR285 source audit and CI green; full math domain still pending |
+| MG-REVIEW-006 substantive mathematical and figure review | Original 71 utterances; only slide-1 title independently AI-agreed | No permitted broad new request window created; retain source-math/figure quality acceptance gates | 70 pending original utterances; no real substantive math agreement, no figure semantics pass | Blocked for production, pursue source-bound review with relevant consent |
+| MG-MEDIA-007 original lecture acceptance | Previous 8.4 single MP4 over duration; element-level highlighting unproven | PR273–277 decoded waveform/encoded highlight/fidelity/duration, voice gates | Synthetic technical checks were not a fully accepted genuine original lesson | Open: original Kore real TTS, source-bound highlight video, academic/listening and release gates |
+
+**Required interpretation:** a model response is not an academic approval, a CI pass is not a real encoded lecture or independent expert/listening QA, and an AI agreement on a section heading is not a verified integral. No background agent, paid model use, protected branch merge or publication is implied.
+
+**Next independent action:** Verify the exact status of the latest PR and production baseline, then design source-valid mathematical and geometry evidence for the smallest real slide. Never reset original review attempt quota, reuse an exhausted original consent window for another slide, or mutate historical output.
