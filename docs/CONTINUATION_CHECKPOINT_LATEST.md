@@ -1,3 +1,9 @@
+# Latest checkpoint — PR281 actual owned Gemini placeholder recovery (24 Oct 2026)
+
+Dell-115 isolated, stacked on PR280 exact 7ed71b13853782ea5aee25c9d06856c52ec99100. For actual Thomas 8.4 October 23 diagnostic quarantine, proved response had 11-character Gemini said placeholder with generating=false and incomplete JSON. Fixed prior stopped-generation short-circuit: bounded 12-second no-resend owned-tab polling after inactive incomplete reply; active generating retains existing 45 seconds. Accept only complete strict JSON after generation stops, reject changed or unavailable tabs, quarantine unresolved. 41 local focused/neighbor tests passed. No new Gemini or paid model requests, no original asset changes, 0/71 independently agreed original math, no Kore audio or student video publication. See docs/OWNED_GEMINI_PLACEHOLDER_RECOVERY_PR281_20261024.md.
+
+---
+
 # Latest checkpoint — PR280 Gemini bridge failure stage triage (24 Oct 2026)
 
 Dell-115 isolated stacked PR280 on PR279 b241f6e4ce6f26f2bd133ed8b75ac82bfed31b49. Added privacy-safe failure stage classification of existing one-shot Gemini Selenium browser probe: composer, Send, owned response, quarantine write, local browser client, timeout or unknown. Error class and safe stage only; no raw model text/account paths/owned tab info or false provider 429/503 overload inference. Actual previous two Thomas 8.4 health attempts both had UNKNOWN/FAILED outcomes; prior SeriesBridgeError lacked stage evidence and cannot be retroactively categorized. No new Gemini request sent. Local focused tests 31 passed; 0/71 independent original mathematical agreements unchanged. No paid API, TTS, protected source assets, old receipts or publishing changes. See docs/GEMINI_BRIDGE_FAILURE_STAGE_TRIAGE_PR280_20261024.md.

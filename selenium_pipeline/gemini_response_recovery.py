@@ -126,7 +126,10 @@ def poll_existing_owned_response(
             raw = current.get("text")
             if isinstance(raw, str) and raw.strip() and accept_fn(raw):
                 return raw, last
-            return None, last
+            # A short model DOM placeholder can say "Gemini said" even
+            # while the normal Stop control is absent. Keep observing the
+            # *same* owned tab for the bounded grace; never submit again.
+            # This is NOT evidence of a complete provider response.
         remaining = deadline - clock()
         if remaining <= 0:
             return None, last

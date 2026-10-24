@@ -171,7 +171,7 @@ class GeminiQuarantineTests(unittest.TestCase):
         self.assertEqual(result["text"], full)
         self.assertEqual(spy, [])
 
-    def test_live_transport_timeout_quarantines_before_owned_tab_shutdown(self):
+    def test_live_transport_recovers_valid_owned_copy_before_shutdown(self):
         from unittest.mock import patch
         from types import SimpleNamespace
         from contextlib import nullcontext
@@ -211,17 +211,15 @@ class GeminiQuarantineTests(unittest.TestCase):
                    side_effect=lambda *a, **kw: nullcontext()), \
              patch("selenium_pipeline.gemini_model.ensure_mode", return_value="Open mode picker, currently Gemini Flash"), \
              patch.dict("os.environ",{"LOCALAPPDATA":str(self.dir)}):
-            with self.assertRaisesRegex(
-                SeriesBridgeError, "quarantined"
-            ):
-                series_gemini._browser_request(
-                    "A synthetic prompt",[self.dir/"source.pdf"],
-                    port=9222,wait_cap_s=90,
-                )
-        self.assertEqual(order,["copy","shutdown"])
+            recovered=series_gemini._browser_request(
+                "A synthetic prompt",[self.dir/"source.pdf"],
+                port=9222,wait_cap_s=90,
+            )
+        self.assertEqual(recovered,full)
+        self.assertEqual(order[-1],"shutdown")
+        self.assertGreaterEqual(order.count("copy"),2)
         snapshots=list((self.dir/"Microvid"/"gemini_quarantine").glob("*.raw.txt"))
-        self.assertEqual(len(snapshots),1)
-        self.assertEqual(read_quarantined_response(snapshots[0]),full)
+        self.assertEqual(snapshots,[])
 
 
 if __name__ == "__main__":

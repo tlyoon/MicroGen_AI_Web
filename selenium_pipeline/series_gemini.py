@@ -141,7 +141,7 @@ def _browser_request(instruction: str,attachments: list[Path],
                 # STILL generating. Observe only that owned tab for a bounded
                 # grace period; do not submit an additional model request.
                 # Completed text must pass the same JSON acceptance function.
-                if snapshot.get("generating"):
+                if snapshot.get("capture_status") != "unavailable":
                     owned = getattr(client, "_automation_tab", None)
                     def observe_owned_reply():
                         current = latest_owned_response(client.driver, owned)
@@ -150,9 +150,15 @@ def _browser_request(instruction: str,attachments: list[Path],
                             return response_snapshot_with_scoped_copy(
                                 client.driver, owned, copy_response=verified_copy)
                         return current
+                    # Real original 8.4 diagnostic preserved the short
+                    # non-generating "Gemini said" placeholder after 149 s.
+                    # Give this owned tab a *short* no-resend observation
+                    # window even when no Stop button is visible. Continuing
+                    # generation retains the longer existing 45 s grace.
                     recovered, snapshot = poll_existing_owned_response(
                         observe_owned_reply, accept_fn=(accept_fn or _looks_complete),
-                        wait_s=45, poll_s=3)
+                        wait_s=(45 if snapshot.get("generating") else 12),
+                        poll_s=2)
                     if recovered is not None:
                         return recovered
                 reason = (
