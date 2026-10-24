@@ -1,3 +1,9 @@
+# Latest checkpoint — PR282 short owned Gemini response Copy recovery (24 Oct 2026)
+
+Dell-115 isolated PR282 on exact PR281 6d1af8543c98e0efdfce1b982400f683b6c17c0b. Found the original vendor response toolbar-copy fallback rejected any candidate under 60 chars; exact required 40-character structured Gemini health canary was shorter, and real Thomas 8.4 original response DOM placeholder was only 11-char Gemini said. Allow short vendor-verified owned model-response Copy only when larger than placeholder and independently accepted by existing strict structured JSON validator, then use existing PR281 no-resend grace. 40 local tests passed, zero new Gemini requests. Original Thomas math 0/71, no publication/voice source edits. See docs/SHORT_GEMINI_OWNED_COPY_HEALTH_PR282_20261024.md.
+
+---
+
 # Latest checkpoint — PR281 actual owned Gemini placeholder recovery (24 Oct 2026)
 
 Dell-115 isolated, stacked on PR280 exact 7ed71b13853782ea5aee25c9d06856c52ec99100. For actual Thomas 8.4 October 23 diagnostic quarantine, proved response had 11-character Gemini said placeholder with generating=false and incomplete JSON. Fixed prior stopped-generation short-circuit: bounded 12-second no-resend owned-tab polling after inactive incomplete reply; active generating retains existing 45 seconds. Accept only complete strict JSON after generation stops, reject changed or unavailable tabs, quarantine unresolved. 41 local focused/neighbor tests passed. No new Gemini or paid model requests, no original asset changes, 0/71 independently agreed original math, no Kore audio or student video publication. See docs/OWNED_GEMINI_PLACEHOLDER_RECOVERY_PR281_20261024.md.

@@ -136,6 +136,7 @@ def _browser_request(instruction: str,attachments: list[Path],
                 snapshot = response_snapshot_with_scoped_copy(
                     client.driver, getattr(client, "_automation_tab", None),
                     copy_response=verified_copy,
+                    accept_fn=(accept_fn or _looks_complete),
                 )
                 # The strict capture may fail while the same Gemini tab is
                 # STILL generating. Observe only that owned tab for a bounded
@@ -148,7 +149,8 @@ def _browser_request(instruction: str,attachments: list[Path],
                         if (not current.get("generating") and
                                 current.get("capture_status") != "unavailable"):
                             return response_snapshot_with_scoped_copy(
-                                client.driver, owned, copy_response=verified_copy)
+                                client.driver, owned, copy_response=verified_copy,
+                                accept_fn=(accept_fn or _looks_complete))
                         return current
                     # Real original 8.4 diagnostic preserved the short
                     # non-generating "Gemini said" placeholder after 149 s.
