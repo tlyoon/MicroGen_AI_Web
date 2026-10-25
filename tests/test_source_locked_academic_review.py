@@ -72,7 +72,10 @@ def fixture():
 class StrictOriginalSourceReview(unittest.TestCase):
     def test_five_exact_whitelists_and_unresolved_root(self):
         job,packet,response=fixture()
-        self.assertEqual(len(review_quote_whitelist(job=job,packet=packet)),5)
+        whitelist=review_quote_whitelist(job=job,packet=packet)
+        self.assertEqual(len(whitelist),5)
+        self.assertEqual([w["source_verified_target_id"] for w in whitelist],
+                         [f"s004.text.{i:03d}" for i in range(1,6)])
         require_quote_locked_model_reply(job=job,packet=packet,response=response)
         prompt=review_instructions(job,mode="INITIAL_REVIEW",verified_source_evidence=packet)
         self.assertIn("verified_source_quote_whitelist",prompt)
