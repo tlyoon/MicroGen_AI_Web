@@ -35,7 +35,10 @@ def plan_manual_review_attempt(queue_root:Path,*,slide:int,mode:str)->dict:
     elif any(e[1]!="FAILED_GEMINI_REVIEW_ATTEMPT_QUARANTINED" for e in failures):
         status="BLOCKED_UNVERIFIED_ATTEMPT_RECEIPT"
     elif len(failures)==3:status="MAX_THREE_ATTEMPTS_EXHAUSTED"
-    elif any(e[2]!="RETURNED_RESPONSE_INVALID" or e[3] is not True
+    elif any(e[2] not in (
+            "RETURNED_RESPONSE_INVALID",
+            "CONFIRMED_PRE_SUBMISSION_MODEL_SELECTION_FAILURE",
+        ) or e[3] is not True
              for e in failures):
         status="BLOCKED_AMBIGUOUS_PROVIDER_REQUEST_NEEDS_RECONCILIATION"
     elif failures:status="EXPLICIT_MANUAL_RETRY_DECISION_REQUIRED"

@@ -10,6 +10,7 @@ from pathlib import Path
 from .figure_source_identity import require,_sha
 from .ai_academic_web_review import build_review_job,run_web_review
 from .series_gemini import decode_storyboard_response
+from .gemini_model import GeminiModelError
 
 def _receipt_name(slide:int,mode:str)->str:
     require(type(slide) is int and 1<=slide<=200
@@ -87,7 +88,10 @@ def execute_one_review(*,queue_root:Path,folder:Path,
         prior=json.loads(previous.read_text(encoding="utf8"))
         require(prior.get("status")=="FAILED_GEMINI_REVIEW_ATTEMPT_QUARANTINED"
                 and prior.get("attempt")==i
-                and prior.get("provider_submission_state")=="RETURNED_RESPONSE_INVALID"
+                and prior.get("provider_submission_state") in (
+                    "RETURNED_RESPONSE_INVALID",
+                    "CONFIRMED_PRE_SUBMISSION_MODEL_SELECTION_FAILURE",
+                )
                 and prior.get("manual_retry_eligible") is True,
                 "Ambiguous or unaccounted provider attempt requires reconciliation")
     job=build_review_job(folder=folder,slide_numbers=[slide])
@@ -101,15 +105,25 @@ def execute_one_review(*,queue_root:Path,folder:Path,
                                 transport=transport,
                                 response_observer=witness_model_return)
     except (RuntimeError,ValueError,OSError) as exc:
+        # Model-family errors from the built-in browser transport are raised
+        # BEFORE upload, typing and click-send. Injected transports are NOT
+        # trusted as evidence that a request remained unsent.
+        model_failure_before_send=(transport is None and
+                                   isinstance(exc,GeminiModelError)
+                                   and not returned_response)
         # Preserve only a concise bounded type/error description, never private tab text.
         fail={"status":"FAILED_GEMINI_REVIEW_ATTEMPT_QUARANTINED",
               "slide":slide,"mode":mode,"attempt":attempt,
               "error_type":type(exc).__name__,"reason":str(exc)[:450],
               "requires_explicit_next_attempt":True,
-              "provider_submission_state":("RETURNED_RESPONSE_INVALID" if returned_response
-                                           else "UNKNOWN_AFTER_POSSIBLE_SUBMISSION"),
-              "manual_retry_eligible":returned_response,
-              "requires_owner_reconciliation":not returned_response,
+              "provider_submission_state":(
+                  "RETURNED_RESPONSE_INVALID" if returned_response else
+                  "CONFIRMED_PRE_SUBMISSION_MODEL_SELECTION_FAILURE"
+                  if model_failure_before_send else
+                  "UNKNOWN_AFTER_POSSIBLE_SUBMISSION"),
+              "manual_retry_eligible":(returned_response or model_failure_before_send),
+              "requires_owner_reconciliation":not (
+                  returned_response or model_failure_before_send),
               "academically_approved":False,"student_publication_authorized":False}
         with evidence_file.open("x",encoding="utf8") as f:
             json.dump(fail,f,indent=2);f.write("\n")
