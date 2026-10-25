@@ -1,5 +1,5 @@
 """Source-locked academic review must never accept model-created source citations."""
-import os,copy,json
+import os,copy,json,hashlib
 from pathlib import Path
 from unittest.mock import patch
 import unittest
@@ -41,10 +41,12 @@ def fixture():
           {"original_utterance_id":u["id"],
            "spoken_sha256":u["spoken_sha256"],
            "exact_original_spoken_text":u["spoken_text"],
+           "review_target_id":f"s004.text.{i:03d}",
            "exact_source_quote_count":2,
            "source_evidence":[{"source_physical_page":1,
                  "exact_extracted_pdf_quote":f"The original book sentence {i} example {j}.",
-                 "source_quote_sha256":f"{i*10+j:064x}",
+                 "source_quote_sha256":hashlib.sha256(
+                     f"The original book sentence {i} example {j}.".encode()).hexdigest(),
                  "original_pdf_spatial_coherence_verified":True}
                     for j in range(1,3)],
            "evidence_kind":categories[i-1],
@@ -84,6 +86,8 @@ class StrictOriginalSourceReview(unittest.TestCase):
         m=copy.deepcopy(response);m["rows"][1]["verbatim_source_quote"]=response["rows"][0]["verbatim_source_quote"];cases.append(m)
         m=copy.deepcopy(response);m["rows"][2]["source_page"]=99;cases.append(m)
         m=copy.deepcopy(response);m["rows"][3]["target_id"]="fabricated.figure";cases.append(m)
+        m=copy.deepcopy(response);m["rows"][2]["target_id"]="s004.text.002";cases.append(m)
+        m=copy.deepcopy(response);m["rows"][0]["source_page"]=True;cases.append(m)
         m=copy.deepcopy(response);m["rows"][4]["verdict"]="SUPPORTED";cases.append(m)
         m=copy.deepcopy(response);m["rows"][0]["verbatim_source_quote"]=None;cases.append(m)
         for i,bad in enumerate(cases):
@@ -108,6 +112,15 @@ class StrictOriginalSourceReview(unittest.TestCase):
             bad=copy.deepcopy(packet);bad[field]=value
             with self.subTest(field=field),self.assertRaises(ValueError):
                 require_quote_locked_model_reply(job=job,packet=bad,response=response)
+        bad=copy.deepcopy(packet)
+        bad["original_utterance_evidence"][0]["review_target_id"]="fabricated.figure"
+        with self.assertRaises(ValueError):
+            require_quote_locked_model_reply(job=job,packet=bad,response=response)
+        bad=copy.deepcopy(packet)
+        bad["original_utterance_evidence"][0]["source_evidence"][0][
+            "exact_extracted_pdf_quote"]="Forged source text with stale quote digest."
+        with self.assertRaises(ValueError):
+            require_quote_locked_model_reply(job=job,packet=bad,response=response)
 
     def test_format_only_recovery_exactly_one_json_no_math_rewrite(self):
         _,_,response=fixture()
