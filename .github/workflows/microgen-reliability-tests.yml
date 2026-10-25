@@ -17,7 +17,7 @@ on:
 
 jobs:
   offline-regressions:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -27,107 +27,108 @@ jobs:
       - name: Install minimal offline test dependencies
         run: python -m pip install selenium pymupdf pypdf pillow imageio-ffmpeg jsonschema 'google-genai>=2.25,<3'
       - name: Verify known historical failure protections
+        shell: pwsh
         run: |
-          python -m unittest -v \
-            tests.test_browser_port_lock \
-            tests.test_gemini_mode_recovery \
-            tests.test_hardening_regressions \
-            tests.test_figure_recovery_candidates \
-            tests.test_reliability_audit \
-            tests.test_env_key_conflicts \
-            tests.test_downstream_invalidation \
-            tests.test_dell_tts_deadlines \
-            tests.test_narration_retry_feedback \
-            tests.test_video_ffmpeg_assembly \
-            tests.test_stage2_video_recovery \
-            tests.test_stage3_fault_injection \
-            tests.test_source_aware_lesson_planner \
-            tests.test_storyboard_contract \
-            tests.test_rfh_composite_figure_guard \
-            tests.test_rfh_beamer_graphic_bounds \
-            tests.test_rfh_figure_legibility \
-            tests.test_tall_figure_legibility \
-            tests.test_rfh_figure_pipeline_integration \
-            tests.test_pdf_geometry_and_timing \
-            tests.test_real_beamer_geometry \
-            tests.test_highlight_video_preview \
-            tests.test_production_video_contract \
-            tests.test_series_review_preview \
-            tests.test_pdf_visual_clearance \
-            tests.test_pdf_footer_clearance \
-            tests.test_spoken_math_review \
-            tests.test_tts_duration_preflight \
-            tests.test_runtime_doctor \
-            tests.test_series_bridge \
-            tests.test_gemini_send_recovery \
-            tests.test_gemini_hidden_send_guard \
-            tests.test_gemini_owned_tab_focus \
-            tests.test_gemini_response_recovery \
-            tests.test_runner_doctor_gates \
-            tests.test_figure_mapping_source_only_prompt \
-            tests.test_figure_mapping_checkpoints \
-            tests.test_figure_practice_disposition \
-            tests.test_tts_cli_bootstrap
+          $regressionModules = @(
+            "tests.test_browser_port_lock"
+            "tests.test_gemini_mode_recovery"
+            "tests.test_hardening_regressions"
+            "tests.test_figure_recovery_candidates"
+            "tests.test_reliability_audit"
+            "tests.test_env_key_conflicts"
+            "tests.test_downstream_invalidation"
+            "tests.test_dell_tts_deadlines"
+            "tests.test_narration_retry_feedback"
+            "tests.test_video_ffmpeg_assembly"
+            "tests.test_stage2_video_recovery"
+            "tests.test_stage3_fault_injection"
+            "tests.test_source_aware_lesson_planner"
+            "tests.test_storyboard_contract"
+            "tests.test_rfh_composite_figure_guard"
+            "tests.test_rfh_beamer_graphic_bounds"
+            "tests.test_rfh_figure_legibility"
+            "tests.test_tall_figure_legibility"
+            "tests.test_rfh_figure_pipeline_integration"
+            "tests.test_pdf_geometry_and_timing"
+            "tests.test_real_beamer_geometry"
+            "tests.test_highlight_video_preview"
+            "tests.test_production_video_contract"
+            "tests.test_series_review_preview"
+            "tests.test_pdf_visual_clearance"
+            "tests.test_pdf_footer_clearance"
+            "tests.test_spoken_math_review"
+            "tests.test_tts_duration_preflight"
+            "tests.test_runtime_doctor"
+            "tests.test_series_bridge"
+            "tests.test_gemini_send_recovery"
+            "tests.test_gemini_hidden_send_guard"
+            "tests.test_gemini_owned_tab_focus"
+            "tests.test_gemini_response_recovery"
+            "tests.test_runner_doctor_gates"
+            "tests.test_figure_mapping_source_only_prompt"
+            "tests.test_figure_mapping_checkpoints"
+            "tests.test_figure_practice_disposition"
+            "tests.test_tts_cli_bootstrap"
+          )
+          python -m unittest -v @regressionModules
       - name: Syntax-check updated Python entry points
+        shell: pwsh
         run: |
-          python -m py_compile \
-            selenium_pipeline/runner.py \
-            selenium_pipeline/tts.py \
-            selenium_pipeline/three_pc_worker.py \
-            selenium_pipeline/gemini_model.py \
-            selenium_pipeline/figure_recovery_candidates.py \
-            selenium_pipeline/figure_audit.py \
-            selenium_pipeline/reliability_audit.py \
-            selenium_pipeline/video_ffmpeg.py \
-            selenium_pipeline/domains/registry.py \
-            selenium_pipeline/domains/__main__.py \
-            selenium_pipeline/planning/source_scan.py \
-            selenium_pipeline/planning/lesson_planner.py \
-            selenium_pipeline/planning/draft_outline.py \
-            selenium_pipeline/planning/__main__.py \
-            selenium_pipeline/storyboard_gate.py \
-            selenium_pipeline/storyboard_authoring.py \
-            selenium_pipeline/storyboard_cli.py \
-            selenium_pipeline/beamer_anchor_contract.py \
-            selenium_pipeline/figure_composites.py \
-            selenium_pipeline/latex_graphics_bounds.py \
-            selenium_pipeline/figure_legibility.py \
-            selenium_pipeline/pdf_element_geometry.py \
-            selenium_pipeline/spoken_math_review.py \
-            selenium_pipeline/tts_duration_preflight.py \
-            selenium_pipeline/runtime_doctor.py \
-            selenium_pipeline/pdf_visual_clearance.py \
-            selenium_pipeline/speech_segment_timing.py \
-            selenium_pipeline/highlight_frames.py \
-            selenium_pipeline/geometry_cli.py \
-            selenium_pipeline/highlight_video_preview.py \
-            selenium_pipeline/production_video_contract.py \
-            selenium_pipeline/series_review_preview.py \
-            selenium_pipeline/encoded_highlight_pixels.py \
-            selenium_pipeline/series_review_cli.py \
-            selenium_pipeline/series_bridge.py \
-            selenium_pipeline/series_gemini.py \
-            selenium_pipeline/vendor_template_v2/selenium.py \
-            selenium_pipeline/gemini_response_recovery.py \
-            selenium_pipeline/figure_mapping_checkpoints.py \
-            selenium_pipeline/figure_practice_disposition.py \
-            selenium_pipeline/series_cli.py \
-            selenium_pipeline/vendor_template_v2/selenium.py
+          $pythonEntrypoints = @(
+            "selenium_pipeline/runner.py"
+            "selenium_pipeline/tts.py"
+            "selenium_pipeline/three_pc_worker.py"
+            "selenium_pipeline/gemini_model.py"
+            "selenium_pipeline/figure_recovery_candidates.py"
+            "selenium_pipeline/figure_audit.py"
+            "selenium_pipeline/reliability_audit.py"
+            "selenium_pipeline/video_ffmpeg.py"
+            "selenium_pipeline/domains/registry.py"
+            "selenium_pipeline/domains/__main__.py"
+            "selenium_pipeline/planning/source_scan.py"
+            "selenium_pipeline/planning/lesson_planner.py"
+            "selenium_pipeline/planning/draft_outline.py"
+            "selenium_pipeline/planning/__main__.py"
+            "selenium_pipeline/storyboard_gate.py"
+            "selenium_pipeline/storyboard_authoring.py"
+            "selenium_pipeline/storyboard_cli.py"
+            "selenium_pipeline/beamer_anchor_contract.py"
+            "selenium_pipeline/figure_composites.py"
+            "selenium_pipeline/latex_graphics_bounds.py"
+            "selenium_pipeline/figure_legibility.py"
+            "selenium_pipeline/pdf_element_geometry.py"
+            "selenium_pipeline/spoken_math_review.py"
+            "selenium_pipeline/tts_duration_preflight.py"
+            "selenium_pipeline/runtime_doctor.py"
+            "selenium_pipeline/pdf_visual_clearance.py"
+            "selenium_pipeline/speech_segment_timing.py"
+            "selenium_pipeline/highlight_frames.py"
+            "selenium_pipeline/geometry_cli.py"
+            "selenium_pipeline/highlight_video_preview.py"
+            "selenium_pipeline/production_video_contract.py"
+            "selenium_pipeline/series_review_preview.py"
+            "selenium_pipeline/encoded_highlight_pixels.py"
+            "selenium_pipeline/series_review_cli.py"
+            "selenium_pipeline/series_bridge.py"
+            "selenium_pipeline/series_gemini.py"
+            "selenium_pipeline/vendor_template_v2/selenium.py"
+            "selenium_pipeline/gemini_response_recovery.py"
+            "selenium_pipeline/figure_mapping_checkpoints.py"
+            "selenium_pipeline/figure_practice_disposition.py"
+            "selenium_pipeline/series_cli.py"
+            "selenium_pipeline/vendor_template_v2/selenium.py"
+          )
+          python -m py_compile @pythonEntrypoints
 
   full-regressions:
-    name: Full offline suite (${{ matrix.os }}, Python ${{ matrix.python-version }})
-    runs-on: ${{ matrix.os }}
+    name: Full offline suite (Windows, Python 3.12)
+    runs-on: windows-latest
     timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-        python-version: ['3.12']
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: '3.12'
       - name: Install offline test dependencies
         run: python -m pip install selenium pymupdf pypdf pillow imageio-ffmpeg pytest jsonschema opencv-python-headless 'google-genai>=2.25,<3'
       - name: Full historical and Stage 3 fault-injection regression suite
