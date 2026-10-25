@@ -18,11 +18,15 @@ from .figure_source_identity import _sha, require
 from .original_slide4_figure_highlight_candidates import (
     inspect_original_slide4_highlight_candidates,
 )
+from .original_slide4_five_visual_candidates import (
+    inspect_original_slide4_five_visual_candidates,
+)
 
 
 def summarize_slide4_audio_gate(*,job:dict,candidates:dict,
                                 independently_reconciled:dict,
-                                per_utterance_deliveries:list|None=None)->dict:
+                                per_utterance_deliveries:list|None=None,
+                                complete_visual_review:dict|None=None)->dict:
     require(job.get("status")=="SOURCE_BOUND_AI_REVIEW_REQUEST_NOT_DISPATCHED"
             and job.get("utterance_count")==5
             and len(job.get("slides",[]))==1
@@ -87,8 +91,54 @@ def summarize_slide4_audio_gate(*,job:dict,candidates:dict,
                 and receipt["job_id"] in present and receipt["job_id"] not in seen,
                 "Duplicate or foreign original element audio receipt")
         seen.add(receipt["job_id"])
+    # A second source-bound layer may propose two additional ORIGINAL slide
+    # text candidates. Such hints never establish exact speech timing or QA.
+    expanded=None
+    if complete_visual_review is not None:
+        full=complete_visual_review
+        require(type(full) is dict
+                and full.get("status")
+                    =="FIVE_ORIGINAL_SLIDE4_VISUAL_CANDIDATES_NOT_TIMED_OR_APPROVED"
+                and all(full.get(f"{n}_sha256")==job.get(f"{n}_sha256")
+                        for n in ("source","slides","script"))
+                and full.get("utterance_candidate_count")==5
+                and full.get("source_matched_figure_region_candidate_count")==3
+                and full.get("original_slide_text_region_candidate_count")==2
+                and full.get("unmapped_visual_candidate_count")==0
+                and full.get("source_mathematical_review_approved") is False
+                and full.get("narration_timing_verified") is False
+                and full.get("highlighted_video_verified") is False
+                and full.get("student_publication_authorized") is False,
+                "Expanded visual candidate report cannot confer approvals")
+        expanded=full.get("utterance_candidates")
+        require(type(expanded) is list and len(expanded)==5,
+                "Expanded report must preserve all five original utterances")
+        for j,(unit,old,new) in enumerate(zip(original,mapped,expanded)):
+            require(new.get("utterance_id")==unit["id"]
+                    and new.get("original_spoken_sha256")==unit["spoken_sha256"]
+                    and new.get("source_math_independently_agreed") is False
+                    and new.get("actual_audio_start_s") is None
+                    and new.get("actual_audio_end_s") is None
+                    and new.get("speech_to_visual_sync_verified") is False
+                    and new.get("actual_highlighted_video_frames_verified") is False
+                    and type(new.get("review_target_id")) is str
+                    and type(new.get("candidate_highlight_bbox_pdf_pt")) is list,
+                    "Expanded original visual target lost identity or invented times")
+            if j in (1,2,3):
+                require(new["candidate_panel_id"]==old["candidate_panel_id"]
+                        and new["candidate_highlight_bbox_pdf_pt"]
+                            ==old["candidate_highlight_bbox_pdf_pt"]
+                        and new.get("original_source_strip_sha256")
+                            ==old.get("original_source_strip_sha256"),
+                        "Previously source-matched triangle strip altered")
+            else:
+                require(new["candidate_panel_id"] is None
+                        and new["candidate_kind"] in (
+                            "VISIBLE_SLIDE_TEXT_REGION",
+                            "MULTILINE_RADICAL_AND_ABSOLUTE_VALUE_TEXT_REGION"),
+                        "Introduction/root explanation must target source text")
     rows=[]
-    for u,c in zip(original,mapped):
+    for index,(u,c) in enumerate(zip(original,mapped)):
         uid=u["id"]
         require(c.get("utterance_id")==uid
                 and c.get("original_spoken_sha256")==u["spoken_sha256"]
@@ -100,12 +150,18 @@ def summarize_slide4_audio_gate(*,job:dict,candidates:dict,
         if approved:
             require(approved["original_spoken_sha256"]==u["spoken_sha256"],
                     "Accepted academic review refers to other original narration")
-        visual=c.get("candidate_panel_id") is not None
+        visual=(expanded[index].get("review_target_id") is not None
+                if expanded is not None
+                else c.get("candidate_panel_id") is not None)
         rows.append({
             "original_utterance_id":uid,
             "original_spoken_sha256":u["spoken_sha256"],
             "original_source_math_double_pass_agreed":bool(approved),
             "source_authenticated_visual_candidate_present":visual,
+            "visual_candidate_kind":(expanded[index].get("candidate_kind")
+                                     if expanded is not None
+                                     else "SOURCE_MATCHED_TRIANGLE_RASTER_STRIP"
+                                     if visual else None),
             "original_visual_target_academically_approved":False,
             "specific_provider_receipt_supplied_unverified":uid in seen,
             "real_element_WAV_bytes_validated":False,
@@ -134,6 +190,8 @@ def summarize_slide4_audio_gate(*,job:dict,candidates:dict,
             r["source_authenticated_visual_candidate_present"] for r in rows),
         "unmapped_visual_utterances":sum(
             not r["source_authenticated_visual_candidate_present"] for r in rows),
+        "original_source_text_visual_candidates":(2 if expanded is not None else 0),
+        "all_visual_candidates_only_not_media_approval":True,
         "provider_deliveries_presented_not_validated":len(asserted),
         "audited_original_element_WAV_count":0,
         "original_slide_level_archived_WAV_existence_here":"NOT_CHECKED",
@@ -154,11 +212,13 @@ def inspect_original_slide4_audio_readiness(*,folder:Path,
     hashes=tuple(_sha(root/name) for name in names)
     job=build_review_job(folder=root,slide_numbers=[4])
     candidates=inspect_original_slide4_highlight_candidates(folder=root)
+    complete=inspect_original_slide4_five_visual_candidates(folder=root)
     consensus=reconcile_actual_review_queue(
         queue_root=Path(queue_root),folder=root)
     report=summarize_slide4_audio_gate(
         job=job,candidates=candidates,
-        independently_reconciled=consensus)
+        independently_reconciled=consensus,
+        complete_visual_review=complete)
     require(tuple(_sha(root/name) for name in names)==hashes,
             "Protected original files changed during read-only audio eligibility")
     require((report["source_sha256"],report["slides_sha256"],
