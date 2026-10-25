@@ -146,5 +146,28 @@ class StrictOriginalSourceReview(unittest.TestCase):
         with self.assertRaises(ValueError):
             require_quote_locked_model_reply(job=job,packet=packet,response=received)
 
+    def test_actual_original_target_packet_consistency(self):
+        root=os.environ.get("MICROGEN_ORIGINAL_THOMAS84_FOLDER")
+        if not root:
+            self.skipTest("Genuine original PDF requires owner Dell-115")
+        job=build_review_job(folder=Path(root),slide_numbers=[4])
+        packet=build_five_original_source_evidence(folder=Path(root))
+        source_rows=assert_original_slide4_source_packet(job=job,packet=packet)
+        allowed={x["id"] for x in job["slides"][0]["visual_targets"]}
+        self.assertTrue(all(r["review_target_id"] in allowed for r in source_rows))
+        answer={"status":"ORIGINAL_TEXTBOOK_AI_REVIEW_CANDIDATE",
+                "rows":[{"utterance_id":r["original_utterance_id"],
+                    "spoken_sha256":r["spoken_sha256"],
+                    "target_id":r["review_target_id"],
+                    "source_page":None,"verbatim_source_quote":None,
+                    "verdict":"UNRESOLVED",
+                    "math_explanation":"The supplied quotations cannot independently settle mathematical correctness."}
+                        for r in source_rows]}
+        require_quote_locked_model_reply(job=job,packet=packet,response=answer)
+        bad=copy.deepcopy(answer)
+        bad["rows"][1]["target_id"]=source_rows[0]["review_target_id"]
+        with self.assertRaises(ValueError):
+            require_quote_locked_model_reply(job=job,packet=packet,response=bad)
+
 if __name__=="__main__":
     unittest.main()
