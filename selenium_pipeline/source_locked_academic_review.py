@@ -105,6 +105,7 @@ def review_quote_whitelist(*,job:dict,packet:dict)->list:
     rows=assert_original_slide4_source_packet(job=job,packet=packet)
     return [{"utterance_id":r["original_utterance_id"],
              "spoken_sha256":r["spoken_sha256"],
+             "source_verified_target_id":r["review_target_id"],
              "source_evidence_kind":r["evidence_kind"],
              "allowed_citations":[{"source_page":q["source_physical_page"],
                        "verbatim_source_quote":q["exact_extracted_pdf_quote"],
