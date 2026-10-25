@@ -69,6 +69,9 @@ def classify_panel_segments(segments, *, label_x:float)->dict:
         "explicit_diagonal_count":1,
         "diagonal_width_pt":round(diag_width,4),
         "diagonal_height_pt":round(diag_height,4),
+        "triangle_vertex_bounds_pdf_pt":[round(v,4) for v in (
+            min(diagonal[0],diagonal[2]),min(diagonal[1],diagonal[3]),
+            max(diagonal[0],diagonal[2]),max(diagonal[1],diagonal[3]))],
         "explicit_axis_aligned_corner_witnessed":explicit_right_angle,
         "all_three_triangle_edges_explicitly_witnessed":explicit_right_angle,
         "side_length_label_meanings_verified":False,
