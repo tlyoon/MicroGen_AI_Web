@@ -3,10 +3,11 @@ import os,copy,json,hashlib
 from pathlib import Path
 from unittest.mock import patch
 import unittest
-from selenium_pipeline.ai_academic_web_review import review_instructions,build_review_job
+from selenium_pipeline.ai_academic_web_review import review_instructions,build_review_job,validate_model_review
 from selenium_pipeline.source_locked_academic_review import (
     assert_original_slide4_source_packet,review_quote_whitelist,
     require_quote_locked_model_reply,recover_rendered_json_format_only,
+    _ORIGINAL_SLIDE4_REVIEW_TARGETS,
 )
 from selenium_pipeline.original_slide4_exact_source_evidence import (
     build_five_original_source_evidence,
@@ -41,7 +42,8 @@ def fixture():
           {"original_utterance_id":u["id"],
            "spoken_sha256":u["spoken_sha256"],
            "exact_original_spoken_text":u["spoken_text"],
-           "review_target_id":f"s004.text.{i:03d}",
+           "review_target_id":_ORIGINAL_SLIDE4_REVIEW_TARGETS[i-1][0],
+           "review_target_bbox_pdf_pt":list(_ORIGINAL_SLIDE4_REVIEW_TARGETS[i-1][1]),
            "exact_source_quote_count":2,
            "source_evidence":[{"source_physical_page":1,
                  "exact_extracted_pdf_quote":f"The original book sentence {i} example {j}.",
@@ -59,7 +61,7 @@ def fixture():
         q=packet["original_utterance_evidence"][i-1]["source_evidence"][1]
         rows.append({"utterance_id":u["id"],
            "spoken_sha256":u["spoken_sha256"],
-           "target_id":f"s004.text.{i:03d}",
+           "target_id":_ORIGINAL_SLIDE4_REVIEW_TARGETS[i-1][0],
            "source_page":q["source_physical_page"],
            "verbatim_source_quote":q["exact_extracted_pdf_quote"],
            "verdict":"SUPPORTED" if i<5 else "UNRESOLVED",
@@ -75,7 +77,7 @@ class StrictOriginalSourceReview(unittest.TestCase):
         whitelist=review_quote_whitelist(job=job,packet=packet)
         self.assertEqual(len(whitelist),5)
         self.assertEqual([w["source_verified_target_id"] for w in whitelist],
-                         [f"s004.text.{i:03d}" for i in range(1,6)])
+                         [identity for identity,_ in _ORIGINAL_SLIDE4_REVIEW_TARGETS])
         require_quote_locked_model_reply(job=job,packet=packet,response=response)
         prompt=review_instructions(job,mode="INITIAL_REVIEW",verified_source_evidence=packet)
         self.assertIn("verified_source_quote_whitelist",prompt)
@@ -120,6 +122,10 @@ class StrictOriginalSourceReview(unittest.TestCase):
         with self.assertRaises(ValueError):
             require_quote_locked_model_reply(job=job,packet=bad,response=response)
         bad=copy.deepcopy(packet)
+        bad["original_utterance_evidence"][1]["review_target_bbox_pdf_pt"]=[0.0,0.0,1.0,1.0]
+        with self.assertRaises(ValueError):
+            require_quote_locked_model_reply(job=job,packet=bad,response=response)
+        bad=copy.deepcopy(packet)
         bad["original_utterance_evidence"][0]["source_evidence"][0][
             "exact_extracted_pdf_quote"]="Forged source text with stale quote digest."
         with self.assertRaises(ValueError):
@@ -157,7 +163,9 @@ class StrictOriginalSourceReview(unittest.TestCase):
         packet=build_five_original_source_evidence(folder=Path(root))
         source_rows=assert_original_slide4_source_packet(job=job,packet=packet)
         allowed={x["id"] for x in job["slides"][0]["visual_targets"]}
-        self.assertTrue(all(r["review_target_id"] in allowed for r in source_rows))
+        self.assertEqual(source_rows[0]["review_target_id"],"s004.text.002")
+        self.assertIn(source_rows[0]["review_target_id"],allowed)
+        self.assertTrue(all(r["review_target_id"] not in allowed for r in source_rows[1:]))
         answer={"status":"ORIGINAL_TEXTBOOK_AI_REVIEW_CANDIDATE",
                 "rows":[{"utterance_id":r["original_utterance_id"],
                     "spoken_sha256":r["spoken_sha256"],
@@ -167,6 +175,12 @@ class StrictOriginalSourceReview(unittest.TestCase):
                     "math_explanation":"The supplied quotations cannot independently settle mathematical correctness."}
                         for r in source_rows]}
         require_quote_locked_model_reply(job=job,packet=packet,response=answer)
+        actual=validate_model_review(folder=Path(root),job=job,response=answer,
+              mode="INITIAL_REVIEW",verified_source_evidence=packet)
+        self.assertEqual(actual["review_count"],5)
+        self.assertEqual(actual["rows"][1]["text_target_pdf_bbox_pt"],
+                         source_rows[1]["review_target_bbox_pdf_pt"])
+        self.assertFalse(actual["academic_mathematics_independently_verified"])
         bad=copy.deepcopy(answer)
         bad["rows"][1]["target_id"]=source_rows[0]["review_target_id"]
         with self.assertRaises(ValueError):
