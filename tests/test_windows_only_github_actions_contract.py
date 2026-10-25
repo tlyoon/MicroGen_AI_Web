@@ -46,7 +46,7 @@ class WindowsOnlyGitHubActionsContract(unittest.TestCase):
         self.assertIn("python -m py_compile @pythonEntrypoints",src)
         modules=re.findall(r'^            "(tests\.test_[A-Za-z0-9_]+)"$',src,re.M)
         entrypoints=re.findall(r'^            "(selenium_pipeline/[^"]+\.py)"$',src,re.M)
-        self.assertGreaterEqual(len(modules),47)
+        self.assertGreaterEqual(len(modules),49)
         self.assertGreaterEqual(len(entrypoints),40)
         self.assertEqual(len(modules),len(set(modules)))
         for required in (
@@ -64,6 +64,8 @@ class WindowsOnlyGitHubActionsContract(unittest.TestCase):
             "tests.test_original_slide4_external_pcm_receipt_gate",
             "tests.test_original_slide4_untimed_highlight_preview",
             "tests.test_original_slide4_reconciled_once",
+            "tests.test_original_slide4_exact_source_evidence",
+            "tests.test_source_locked_academic_review",
         ):
             self.assertIn(required,modules)
         self.assertNotIn("python -m unittest -v \\",src)
