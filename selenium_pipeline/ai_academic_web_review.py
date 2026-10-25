@@ -66,7 +66,7 @@ def review_instructions(job:dict,*,mode:str,verified_source_evidence:dict|None=N
     locked=(
         {"verified_source_quote_whitelist":review_quote_whitelist(
             job=job,packet=verified_source_evidence),
-         "review_rules":"Cite ONLY an exact page and verbatim quotation from the matching listed utterance; no created quotations or citation paraphrases. Mark UNRESOLVED when the passages do not establish a claim. For the principal-root and absolute-value final utterance, use UNRESOLVED until independently verified original PDF math glyphs are available. Context-only source text is not proof."}
+         "review_rules":"For each utterance, use ONLY its source_verified_target_id as target_id, or null if unsupported; never select another real element from the same slide. Cite ONLY an exact page and verbatim quotation from the matching listed utterance; no created quotations or citation paraphrases. Mark UNRESOLVED when the passages do not establish a claim. For the principal-root and absolute-value final utterance, use UNRESOLVED until independently verified original PDF math glyphs are available. Context-only source text is not proof."}
         if verified_source_evidence is not None else {})
     return ("Examine the attached ORIGINAL source.pdf AND slides.pdf; no fabricated PDF page or "
             "math claims. Match the exact original narration to a precise visible slide element; "
