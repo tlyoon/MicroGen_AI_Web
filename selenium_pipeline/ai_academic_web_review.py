@@ -12,7 +12,8 @@ from .incremental_element_candidate_map import candidate_map
 from .pdf_text_source_span_witness import prove_source_quote_occurrence
 from .series_gemini import decode_storyboard_response,_browser_request
 from .source_locked_academic_review import (review_quote_whitelist,
-    require_quote_locked_model_reply,recover_rendered_json_format_only)
+    require_quote_locked_model_reply,recover_rendered_json_format_only,
+    assert_original_slide4_source_packet)
 
 def build_review_job(*,folder:Path,slide_numbers:list[int])->dict:
     folder=Path(folder).absolute()
@@ -66,7 +67,7 @@ def review_instructions(job:dict,*,mode:str,verified_source_evidence:dict|None=N
     locked=(
         {"verified_source_quote_whitelist":review_quote_whitelist(
             job=job,packet=verified_source_evidence),
-         "review_rules":"Cite ONLY an exact page and verbatim quotation from the matching listed utterance; no created quotations or citation paraphrases. Mark UNRESOLVED when the passages do not establish a claim. For the principal-root and absolute-value final utterance, use UNRESOLVED until independently verified original PDF math glyphs are available. Context-only source text is not proof."}
+         "review_rules":"For each utterance, use ONLY its source_verified_target_id as target_id, or null if unsupported; never select another real element from the same slide. Cite ONLY an exact page and verbatim quotation from the matching listed utterance; no created quotations or citation paraphrases. Mark UNRESOLVED when the passages do not establish a claim. For the principal-root and absolute-value final utterance, use UNRESOLVED until independently verified original PDF math glyphs are available. Context-only source text is not proof."}
         if verified_source_evidence is not None else {})
     return ("Examine the attached ORIGINAL source.pdf AND slides.pdf; no fabricated PDF page or "
             "math claims. Match the exact original narration to a precise visible slide element; "
@@ -93,6 +94,20 @@ def validate_model_review(*,folder:Path,job:dict,response:dict,mode:str,
         require(_sha(folder/file)==job[field],"Original source changed during AI review")
     originals=[u for s in job["slides"] for u in s["utterances"]]
     target={s["slide"]:{x["id"]:x for x in s["visual_targets"]} for s in job["slides"]}
+    # Immutable source-registered Figure8.2 strips and the combined radical
+    # text union are review-only PDF regions, not raw single text element IDs.
+    # Admit them ONLY for their exact independently source-locked packet.
+    if verified_source_evidence is not None:
+        for r in assert_original_slide4_source_packet(
+                job=job,packet=verified_source_evidence):
+            identity=r["review_target_id"]
+            bbox=r["review_target_bbox_pdf_pt"]
+            if identity in target[4]:
+                require(tuple(target[4][identity]["bbox_pdf_pt"])==tuple(bbox),
+                        "Original source review bbox changed from PDF text target")
+            else:
+                target[4][identity]={"id":identity,"bbox_pdf_pt":bbox,
+                                      "kind":"source_verified_review_region"}
     results=[]
     for original,guess in zip(originals,response["rows"]):
         require(type(guess) is dict
