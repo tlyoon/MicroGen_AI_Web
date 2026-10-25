@@ -55,6 +55,17 @@ def _matches_mode(label: str, mode: str) -> bool:
             and not re.search(r"\b(?:flash|lite)\b", selected))
 
 
+def _eligible_mode_menu_text(text: str, mode: str) -> bool:
+    """Choose the intended Flash family, never Flash-Lite or mixed menus."""
+    if not isinstance(text,str) or mode not in MODEL_SPECS:
+        return False
+    first=text.splitlines()[0].strip().casefold()
+    if mode=="flash":
+        return (bool(re.search(r"\bflash\b",first))
+                and not re.search(r"\b(?:lite|pro)\b",first))
+    return bool(first.startswith(MODEL_SPECS[mode]["menu_prefix"].casefold()))
+
+
 def browser_model_evidence(label: str, *, requested_mode: str,
                            requested_model_id: str) -> dict:
     """Honest UI-only provenance. No API/provider version claim.
@@ -176,7 +187,8 @@ def ensure_mode(port: int = 9222, mode: str | None = None, timeout: float = 15) 
 
         target = None
         prefix = MODEL_SPECS[target_mode]["menu_prefix"]
-        while time.monotonic() < deadline:
+        selection_deadline=time.monotonic()+max(3.0,min(timeout,20.0))
+        while time.monotonic() < selection_deadline:
             items = []
             for selector in (
                 '[role="menuitem"]',
@@ -188,7 +200,7 @@ def ensure_mode(port: int = 9222, mode: str | None = None, timeout: float = 15) 
                     pass
             for item in items:
                 try:
-                    if item.is_displayed() and ((target_mode == "flash" and "flash" in (item.text or "").lower() and "pro" not in (item.text or "").lower()) or (target_mode != "flash" and (item.text or "").strip().startswith(prefix))):
+                    if item.is_displayed() and _eligible_mode_menu_text(item.text or "",target_mode):
                         target = item
                         break
                 except Exception:
@@ -207,7 +219,8 @@ def ensure_mode(port: int = 9222, mode: str | None = None, timeout: float = 15) 
         except Exception:
             driver.execute_script("arguments[0].click();", target)
 
-        while time.monotonic() < deadline:
+        confirmation_deadline=time.monotonic()+max(3.0,min(timeout,20.0))
+        while time.monotonic() < confirmation_deadline:
             try:
                 found = driver.find_elements(
                     By.CSS_SELECTOR, 'button[aria-label^="Open mode picker"]'
