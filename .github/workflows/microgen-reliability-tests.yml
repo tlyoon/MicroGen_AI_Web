@@ -76,6 +76,7 @@ jobs:
             "tests.test_original_slide4_audio_five_visual_integration"
             "tests.test_original_slide4_external_pcm_receipt_gate"
             "tests.test_original_slide4_untimed_highlight_preview"
+            "tests.test_original_slide4_reconciled_once"
           )
           python -m unittest -v @regressionModules
       - name: Syntax-check updated Python entry points
