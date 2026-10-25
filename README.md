@@ -1,5 +1,7 @@
 # MicroGen_AI_Web
 
+**Current owner platform contract (25 October 2026): Windows only.** All GitHub Actions checks run on Windows; Dell-115 remains the sole authorized local development/test machine. See [Windows-only contract and CI migration](docs/WINDOWS_ONLY_CONTRACT_PR303_20261025.md). This does not relax mathematical correctness, figure/audio fidelity, source preservation, strict video duration, or release safeguards.
+
 **Draft PR #139 — exact multi-element narration:** [Verified distinct spoken slide blocks](docs/VERIFIED_MULTI_ELEMENT_NARRATION_20261018.md). The source-bound planner now supports multiple separate, sequential, verbatim narrated blocks on one slide; no vector/raster/multipanel figure or source/reading-order ambiguity is approved. The immutable WAV/TTS policy and automatic QA remain in force.
 
 **Standing owner-authorized autonomy:** [Development protocol](docs/AUTONOMOUS_DEVELOPMENT_PROTOCOL_20261018.md). Continue contract-safe engineering steps without per-stage 'Proceed' requests; checkpoint and seek discretion only at genuine authorization boundaries.
