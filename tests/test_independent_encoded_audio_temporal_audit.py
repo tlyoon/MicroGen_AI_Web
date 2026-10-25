@@ -37,7 +37,7 @@ class ActualEncodedAudioQA(unittest.TestCase):
 
  def encode(self,audio,output):
     p=subprocess.run([ffmpeg_path(),"-nostdin","-v","error",
-        "-f","lavfi","-i","color=c=black:s=160x120:r=5",
+        "-f","lavfi","-i","color=c=black:s=160x120:r=25",
         "-i",str(audio),"-shortest","-c:v","mpeg4","-q:v","5",
         "-pix_fmt","yuv420p","-c:a","aac","-b:a","160k",
         "-y",str(output)],capture_output=True,timeout=40)
