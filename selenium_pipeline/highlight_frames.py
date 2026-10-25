@@ -13,6 +13,28 @@ from .pdf_element_geometry import ElementGeometryError
 from .storyboard_gate import canonical_sha256
 
 
+def emphasize_source_rectangles(image: Image.Image, rectangles: list, *,
+                                scale: float) -> Image.Image:
+    """Draw the exact normal highlight style, with NO invented timecode."""
+    if not (0.5<=scale<=4.0) or not rectangles:
+        raise ElementGeometryError("Invalid visual emphasis scale or empty regions")
+    rgba=image.convert("RGBA")
+    overlay=Image.new("RGBA",rgba.size,(0,0,0,0))
+    draw=ImageDraw.Draw(overlay,"RGBA")
+    for rect in rectangles:
+        if not (type(rect) in (tuple,list) and len(rect)==4):
+            raise ElementGeometryError("Expected four PDF point coordinates")
+        x0,y0,x1,y1=(v*scale for v in rect)
+        m=min(3*scale,x0,y0,rgba.width-x1,rgba.height-y1)
+        if m<=0 or x0>=x1 or y0>=y1:
+            raise ElementGeometryError("Highlight box invalid or clips page boundary")
+        draw.rounded_rectangle(
+            (x0-m,y0-m,x1+m,y1+m),radius=3*scale,
+            fill=(245,197,42,25),
+            outline=(235,151,7,240),width=max(2,round(2*scale)))
+    return Image.alpha_composite(rgba,overlay).convert("RGB")
+
+
 def render_highlight_frames(
     clean_pdf: str | Path, storyboard: dict, geometry: dict,
     alignment: dict, *, output_dir: str | Path, scale: float = 2.0,
@@ -53,21 +75,8 @@ def render_highlight_frames(
         result = []
         for event, page_index, boxes, output in plans:
             pix = pdf[page_index].get_pixmap(matrix=pymupdf.Matrix(scale, scale), alpha=False)
-            image = Image.frombytes("RGB", (pix.width, pix.height), pix.samples).convert("RGBA")
-            overlay = Image.new("RGBA", image.size, (0, 0, 0, 0))
-            draw = ImageDraw.Draw(overlay, "RGBA")
-            for rect in boxes:
-                x0, y0, x1, y1 = (v * scale for v in rect)
-                # Outline slightly OUTSIDE the content: text and formulas remain readable.
-                m = min(3*scale, x0, y0, pix.width-x1, pix.height-y1)
-                if m <= 0:
-                    raise ElementGeometryError("Highlight box touches/clips page boundary")
-                draw.rounded_rectangle(
-                    (x0-m, y0-m, x1+m, y1+m),
-                    radius=3*scale, fill=(245, 197, 42, 25),
-                    outline=(235, 151, 7, 240), width=max(2, round(2*scale)),
-                )
-            image = Image.alpha_composite(image, overlay).convert("RGB")
+            base = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
+            image = emphasize_source_rectangles(base, boxes, scale=scale)
             with output.open("xb") as stream:
                 image.save(stream, format="PNG")
             result.append({
