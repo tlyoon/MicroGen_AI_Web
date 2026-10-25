@@ -10,6 +10,17 @@ from .figure_source_identity import require
 
 import hashlib,json,re
 
+# Exact independently source-registered review regions on immutable original
+# Thomas8.4 Slide4. Figure strips and a multi-text radical union are NOT
+# ordinary element IDs from the PDF text candidate list.
+_ORIGINAL_SLIDE4_REVIEW_TARGETS=(
+    ("s004.text.002",(10.909,57.794,339.762,82.252)),
+    ("s004.figure82.strip.001",(48.421,91.9534,126.4618,179.099)),
+    ("s004.figure82.strip.002",(126.4618,91.9534,208.4046,179.099)),
+    ("s004.figure82.strip.003",(208.4046,91.9534,314.4101,179.099)),
+    ("s004.text.003-through-s004.text.006",(32.727,186.691,126.5,240.062)),
+)
+
 def recover_rendered_json_format_only(raw:str)->dict:
     """Fix embedded string whitespace only; never repair scientific content."""
     require(type(raw) is str and len(raw)<=12000,
@@ -65,7 +76,6 @@ def assert_original_slide4_source_packet(*,job:dict,packet:dict)->list:
             "Original five-unit quotation packet cannot be stale or approved")
     rows=packet.get("original_utterance_evidence")
     original=job["slides"][0]["utterances"]
-    allowed_targets={x["id"] for x in job["slides"][0]["visual_targets"]}
     require(type(rows) is list and len(rows)==5,
             "Five immutable original quote sets required")
     for i,(p,u) in enumerate(zip(rows,original)):
@@ -73,8 +83,9 @@ def assert_original_slide4_source_packet(*,job:dict,packet:dict)->list:
                 and p.get("original_utterance_id")==u.get("id")
                 and p.get("spoken_sha256")==u.get("spoken_sha256")
                 and p.get("exact_original_spoken_text")==u.get("spoken_text")
-                and type(p.get("review_target_id")) is str
-                and p["review_target_id"] in allowed_targets
+                and p.get("review_target_id")==_ORIGINAL_SLIDE4_REVIEW_TARGETS[i][0]
+                and type(p.get("review_target_bbox_pdf_pt")) in (list,tuple)
+                and tuple(p["review_target_bbox_pdf_pt"])==_ORIGINAL_SLIDE4_REVIEW_TARGETS[i][1]
                 and p.get("exact_source_quote_count")==2
                 and type(p.get("source_evidence")) is list
                 and len(p["source_evidence"])==2
@@ -106,6 +117,7 @@ def review_quote_whitelist(*,job:dict,packet:dict)->list:
     return [{"utterance_id":r["original_utterance_id"],
              "spoken_sha256":r["spoken_sha256"],
              "source_verified_target_id":r["review_target_id"],
+             "source_verified_target_bbox_pdf_pt":r["review_target_bbox_pdf_pt"],
              "source_evidence_kind":r["evidence_kind"],
              "allowed_citations":[{"source_page":q["source_physical_page"],
                        "verbatim_source_quote":q["exact_extracted_pdf_quote"],
@@ -135,8 +147,7 @@ def require_quote_locked_model_reply(*,job:dict,packet:dict,response:dict)->None
                 "Model cited a made-up, out-of-scope or cross-unit source quotation")
         selected=model.get("target_id")
         require(selected is None or
-                (type(selected) is str and selected in allowed_targets
-                 and selected==entry["review_target_id"]),
+                (type(selected) is str and selected==entry["review_target_id"]),
                 "Model selected a target not source-bound to this exact utterance")
         if model["verdict"] in ("SUPPORTED","INCORRECT"):
             require(value in accepted and selected is not None,
