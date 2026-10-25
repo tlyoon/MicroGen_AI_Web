@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from .figure_source_identity import require
 
-import json
+import hashlib,json,re
 
 def recover_rendered_json_format_only(raw:str)->dict:
     """Fix embedded string whitespace only; never repair scientific content."""
@@ -65,6 +65,7 @@ def assert_original_slide4_source_packet(*,job:dict,packet:dict)->list:
             "Original five-unit quotation packet cannot be stale or approved")
     rows=packet.get("original_utterance_evidence")
     original=job["slides"][0]["utterances"]
+    allowed_targets={x["id"] for x in job["slides"][0]["visual_targets"]}
     require(type(rows) is list and len(rows)==5,
             "Five immutable original quote sets required")
     for i,(p,u) in enumerate(zip(rows,original)):
@@ -72,6 +73,8 @@ def assert_original_slide4_source_packet(*,job:dict,packet:dict)->list:
                 and p.get("original_utterance_id")==u.get("id")
                 and p.get("spoken_sha256")==u.get("spoken_sha256")
                 and p.get("exact_original_spoken_text")==u.get("spoken_text")
+                and type(p.get("review_target_id")) is str
+                and p["review_target_id"] in allowed_targets
                 and p.get("exact_source_quote_count")==2
                 and type(p.get("source_evidence")) is list
                 and len(p["source_evidence"])==2
@@ -85,7 +88,9 @@ def assert_original_slide4_source_packet(*,job:dict,packet:dict)->list:
                     and type(q.get("exact_extracted_pdf_quote")) is str
                     and len(q["exact_extracted_pdf_quote"])>=8
                     and type(q.get("source_quote_sha256")) is str
-                    and len(q["source_quote_sha256"])==64
+                    and q["source_quote_sha256"] == hashlib.sha256(
+                        re.sub(r"\\s+"," ",q["exact_extracted_pdf_quote"]).strip().encode()
+                    ).hexdigest()
                     and q.get("original_pdf_spatial_coherence_verified") is True,
                     "Unverified source passage injected")
         require(p.get("evidence_kind")==(
@@ -123,12 +128,15 @@ def require_quote_locked_model_reply(*,job:dict,packet:dict,response:dict)->None
         value=(model.get("source_page"),model.get("verbatim_source_quote"))
         accepted={(q["source_physical_page"],q["exact_extracted_pdf_quote"])
                   for q in entry["source_evidence"]}
-        require(value==(None,None) or value in accepted,
+        require((value==(None,None) or
+                 (type(value[0]) is int and type(value[1]) is str
+                  and value in accepted)),
                 "Model cited a made-up, out-of-scope or cross-unit source quotation")
         selected=model.get("target_id")
         require(selected is None or
-                (type(selected) is str and selected in allowed_targets),
-                "Model selected a nonexistent original slide target")
+                (type(selected) is str and selected in allowed_targets
+                 and selected==entry["review_target_id"]),
+                "Model selected a target not source-bound to this exact utterance")
         if model["verdict"] in ("SUPPORTED","INCORRECT"):
             require(value in accepted and selected is not None,
                     "Definitive judgment requires a permitted source quote and original slide target")
