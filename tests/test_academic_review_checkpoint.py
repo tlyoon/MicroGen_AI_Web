@@ -61,6 +61,17 @@ class OnceOnlyAcademicReview(unittest.TestCase):
             submit_once(**self.kw,transport=transport,validator=self.validate)
         self.assertEqual(len(calls),1)
 
+    def test_duplicate_window_in_same_local_appdata_root_is_blocked(self):
+        prepare(**self.kw)
+        mark_submission_maybe(self.window,expected_fingerprint=self.fp)
+        duplicate=self.path/"different_session_same_prompt"
+        prepare(**{**self.kw,"checkpoint":duplicate})
+        with self.assertRaises(FileExistsError):
+            mark_submission_maybe(duplicate,expected_fingerprint=self.fp)
+        self.assertFalse((duplicate/"dispatch_attempted.claim").exists())
+        self.assertTrue((self.path/".microgen_academic_review_once"/
+                         (self.fp+".claim")).is_file())
+
     def test_uncertain_transport_crash_requires_explicit_reconciliation(self):
         seen=[]
         def explode(prompt,files):
