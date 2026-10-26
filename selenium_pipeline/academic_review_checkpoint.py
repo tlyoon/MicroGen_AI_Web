@@ -132,8 +132,18 @@ def mark_submission_maybe(checkpoint:Path,*,expected_fingerprint:str)->dict:
              "Different corrected text / source / review mode")
     _require(state["status"]=="PREPARED_NOT_SENT",
              "Request already attempted, failed, or imported; never auto-resubmit")
-    # O_EXCL is the durable interprocess reservation; if a crash happens
-    # between claim and state update, it still blocks another browser request.
+    # Reserve across ALL request windows under the same AppData parent, not
+    # merely the same child directory. A new chat/checkpoint directory with
+    # identical prompt and source must not bypass the one-submit contract.
+    # If a crash occurs between either durable exclusive claim, conservatively
+    # treat the request as possibly submitted. A different review mode or a
+    # specifically changed authorization-bound prompt yields a new identity.
+    index=root.parent/".microgen_academic_review_once"
+    index.mkdir(exist_ok=True)
+    with (index/(expected_fingerprint+".claim")).open("x",encoding="utf8") as f:
+        f.write("ONCE-ONLY academic Gemini send claim\n")
+        f.flush()
+        os.fsync(f.fileno())
     with (root/CLAIM_NAME).open("x",encoding="utf8") as f:
         f.write(expected_fingerprint+"\n")
         f.flush()
