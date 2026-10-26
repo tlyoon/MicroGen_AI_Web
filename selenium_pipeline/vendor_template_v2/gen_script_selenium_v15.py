@@ -571,6 +571,30 @@ def find_tts_risk_warnings(script_path: Path) -> list[str]:
         return [f"TTS-risk validator failed: {type(exc).__name__}: {exc}"]
 
 
+def find_math_domain_warnings(script_path: Path) -> list[str]:
+    """Automatic bounded Gemini retry feedback, WITHOUT fabricated math approval."""
+    if not script_path.is_file():
+        return ["Mathematical domain QA: no script available"]
+    try:
+        from selenium_pipeline.automatic_math_semantic_qa import (
+            inspect_math_semantics,
+        )
+        source_hash = None
+        if SOURCE_PDF.is_file():
+            source_hash = hashlib.sha256(SOURCE_PDF.read_bytes()).hexdigest()
+        report = inspect_math_semantics(
+            script_path.read_text(encoding="utf-8"), source_sha256=source_hash)
+        return [
+            "Mathematical domain QA slide "
+            f"{item['slide']} ({item['rule']}): {item['reason']} "
+            f"Correction: {item['revision_guidance']}"
+            for item in report["findings"] if item["severity"] == "blocking"
+        ]
+    except Exception as exc:
+        # A crashed or missing checker must never silently certify a script.
+        return [f"Mathematical domain QA unavailable: {type(exc).__name__}: {exc}"]
+
+
 def collect_all_warnings(script_path: Path, slides_pdf_path: Path, exact_titles: list[str]) -> list[str]:
     page_texts = extract_page_texts(slides_pdf_path)
     return (
@@ -583,6 +607,7 @@ def collect_all_warnings(script_path: Path, slides_pdf_path: Path, exact_titles:
         + find_symbolic_math_warnings(script_path)
         + find_citation_artifact_warnings(script_path)
         + find_tts_risk_warnings(script_path)
+        + find_math_domain_warnings(script_path)
     )
 
 
@@ -802,7 +827,10 @@ def build_instruction(rendered_prompt_name: str, slide_count: int) -> str:
         "Use 'source.pdf' only as background reference for the same topic.\n"
         f"There are exactly {slide_count} slide pages, so return exactly {slide_count} slide blocks.\n"
         "Return only the plain-text script. No code fences, no commentary before Slide 1, and no commentary after the last block.\n"
-        "Math must be verbalized in plain English only. Do not use LaTeX, TeX, Markdown math, backslash commands, dollar-delimited math, subscripts, superscripts, or symbolic equation strings anywhere in the narration."
+        "Math must be verbalized in plain English only. Do not use LaTeX, TeX, Markdown math, backslash commands, dollar-delimited math, subscripts, superscripts, or symbolic equation strings anywhere in the narration. "
+        "Before narrating a triangle or radical, check angle branch signs, nonnegative geometric lengths, a positive parameter when required, and principal square roots. "
+        "Before cancellation or inverse functions, state excluded values and one-to-one intervals. "
+        "If a claim is not justified by the original PDF, do not invent a proof; mark it unresolved and revise the explanation conservatively."
     )
 
 
