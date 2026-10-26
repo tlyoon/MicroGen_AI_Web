@@ -1,5 +1,6 @@
 """Regression and adversarial tests for generic narration math-domain QA."""
-import hashlib,os,unittest
+import hashlib,json,os,tempfile,unittest
+from unittest.mock import patch
 from pathlib import Path
 from selenium_pipeline.automatic_math_semantic_qa import inspect_math_semantics,repair_prompt
 
@@ -59,6 +60,64 @@ class GeneralMathDomainGuard(unittest.TestCase):
             inspect_math_semantics("**Slide 1 [1 sec]:\nOk\n**Slide 1 [1 sec]:\nDuplicate")
         with self.assertRaises(ValueError):
             inspect_math_semantics("")
+
+    def test_production_runner_rejects_stale_semantic_receipts(self):
+        from selenium_pipeline.runner import valid
+        from selenium_pipeline.automatic_math_semantic_qa import inspect_math_semantics
+        with tempfile.TemporaryDirectory() as td:
+            p=Path(td)
+            (p/"source.pdf").write_bytes(b"Source-only fixture")
+            source_hash=hashlib.sha256(b"Source-only fixture").hexdigest()
+            body=grammar("This right triangle has a known acute angle.")
+            (p/"script.txt").write_text(body,encoding="utf8")
+            (p/"script_risk_report.json").write_text(
+                json.dumps({"summary":{"blocking":0}}),encoding="utf8")
+            (p/"script_risk_report.md").write_text("TTS risks checked",encoding="utf8")
+            (p/"math_semantic_repair_prompt.json").write_text("{}",encoding="utf8")
+            self.assertFalse(valid("script_qa",p))
+            report=inspect_math_semantics(body,source_sha256=source_hash)
+            (p/"math_semantic_report.json").write_text(json.dumps(report),encoding="utf8")
+            self.assertTrue(valid("script_qa",p))
+            (p/"script.txt").write_text(body+" Another new sentence.",encoding="utf8")
+            self.assertFalse(valid("script_qa",p))
+            (p/"script.txt").write_text(body,encoding="utf8")
+            (p/"math_semantic_report.json").write_text(
+                json.dumps({**report,"blocking_count":1}),encoding="utf8")
+            self.assertFalse(valid("script_qa",p))
+
+    def test_normal_gemini_regeneration_receives_scientific_feedback(self):
+        from selenium_pipeline.vendor_template_v2 import gen_script_selenium_v15 as gen
+        original=grammar(
+            "For tangent u, our reference triangles always use acute angle u. "
+            "When x equals a tangent u, x and a represent the opposite and adjacent legs.")
+        with tempfile.TemporaryDirectory() as td:
+            p=Path(td)/"script.txt"
+            p.write_text(original,encoding="utf8")
+            with patch.object(gen,"SOURCE_PDF",Path(td)/"absent_source.pdf"):
+                warnings=gen.find_math_domain_warnings(p)
+            self.assertGreaterEqual(len(warnings),2)
+            self.assertIn("signed_angle_not_always_acute"," ".join(warnings))
+            revised=gen.retry_instruction("Existing Gemini instruction",warnings)
+            self.assertIn("Regenerate the COMPLETE script",revised)
+            self.assertIn("Mathematical domain QA",revised)
+            self.assertEqual(p.read_text(encoding="utf8"),original)
+
+    def test_cli_receipt_and_no_mutation_for_blocking_math(self):
+        import subprocess,sys
+        script=grammar("For tangent u, reference triangles always use acute angle u. "
+                       "When x equals a tangent u, x and a represent the opposite and adjacent legs.")
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);src=root/"script.txt";src.write_text(script,encoding="utf8")
+            report=root/"scientific.json";instructions=root/"repair.json"
+            outcome=subprocess.run([sys.executable,"-m","selenium_pipeline.automatic_math_semantic_qa",
+                       "--script",str(src),"--report",str(report),
+                       "--repair-prompt",str(instructions),"--strict"],
+                      capture_output=True,text=True)
+            self.assertEqual(outcome.returncode,2,outcome.stderr)
+            self.assertTrue(report.is_file())
+            self.assertGreaterEqual(json.loads(report.read_text())["blocking_count"],2)
+            self.assertFalse(json.loads(instructions.read_text())["model_web_dispatch_performed"])
+            self.assertEqual(src.read_text(encoding="utf8"),script)
 
     def test_real_original_thomas_84_is_flagged_before_TTS(self):
         root=os.environ.get("MICROGEN_ORIGINAL_THOMAS84_FOLDER")
