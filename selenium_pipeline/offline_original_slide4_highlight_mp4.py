@@ -9,7 +9,7 @@ from __future__ import annotations
 from io import BytesIO
 import hashlib,json,math,subprocess,wave
 from pathlib import Path
-from PIL import Image,ImageChops,ImageDraw,ImageStat
+from PIL import Image,ImageChops,ImageDraw,ImageStat,ImageOps
 from .offline_corrected_bundle_verify import verify_original_five_bundle,strict_json
 from .original_replacement_video_handoff import _sha
 from .production_video_contract import _mp4_duration
@@ -63,6 +63,12 @@ def create_original_slide4_highlight_pilot(*,original:Path,bundle:Path,
              "Original source PNG changed after revalidation")
         with Image.open(input_png) as im:
             actual=im.convert("RGB")
+            # Real original Slide4 source raster is 726x545; H.264 4:2:0
+            # requires even dimensions. Pad ONLY this external review copy.
+            if actual.width%2 or actual.height%2:
+                actual=ImageOps.expand(
+                    actual,border=(0,0,actual.width%2,actual.height%2),
+                    fill=(255,255,255))
             drawing=ImageDraw.Draw(actual)
             drawing.rectangle((0,0,min(actual.width-1,480),24),
                               fill=(120,0,0))
