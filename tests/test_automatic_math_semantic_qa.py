@@ -46,6 +46,31 @@ class GeneralMathDomainGuard(unittest.TestCase):
                      "On the positive cosine domain, the square root of secant squared simplifies to secant.")
         self.assertEqual(inspect_math_semantics(safe)["blocking_count"],0)
 
+    def test_exact_constant_root_is_not_a_branch_sign_issue(self):
+        constant=grammar(
+            "Substituting four gives two over the square root of four, which simplifies to one.",
+            "The square root of nine simplifies to three.",
+            "The square root of four plus five equals three.")
+        self.assertEqual(inspect_math_semantics(constant)["blocking_count"],0)
+        conditional=grammar("The square root of x squared simplifies to x.")
+        self.assertIn("unchecked_principal_root_sign",
+                      [x["rule"] for x in inspect_math_semantics(conditional)["findings"]])
+
+    def test_independent_original_sections_do_not_create_false_positive_stalls(self):
+        root=os.environ.get("MICROGEN_ORIGINAL_THOMAS84_FOLDER")
+        if not root:
+            self.skipTest("Original Thomas 8.5 and 8.6 exist only on Dell-115")
+        chapter=Path(root).parent
+        for subchapter in ("8.5","8.6"):
+            candidate=chapter/subchapter
+            if not (candidate/"script.txt").is_file():
+                self.skipTest("Original independently generated subchapter absent")
+            transcript=(candidate/"script.txt").read_text(encoding="utf8")
+            checked=inspect_math_semantics(transcript)
+            with self.subTest(subchapter=subchapter):
+                self.assertEqual(checked["blocking_count"],0)
+                self.assertFalse(checked["independent_source_math_ai_review_approved"])
+
     def test_benign_physics_and_arithmetic_not_blocked(self):
         text=grammar("A right triangle with a known acute angle has two legs.",
                      "The factor of two cancels against the denominator.",
