@@ -25,10 +25,10 @@ _ORIGINAL_SPEECH_SHAS = (
     "9e97fb9c5384787ee7ad811d1e44e63023e5519ec4ba5287f6428611b6a51a67",
 )
 _REVISED_NARRATION = (
-    "The three trigonometric substitutions can be visualized with reference right triangles. Their geometric side lengths are non-negative. When the substitution angle is negative, the diagram uses a positive reference angle, not the signed angle itself.",
-    "Assume a is positive. For x equals a tangent u, the adjacent leg is a, and the opposite leg has length the absolute value of x. The hypotenuse is the square root of a squared plus x squared. On the interval between negative pi over two and pi over two, secant u is positive.",
-    "For x equals a sine u, with u between negative pi over two and pi over two inclusive, a is the hypotenuse and the opposite side has length the absolute value of x. The other leg is the square root of a squared minus x squared. Cosine u is non-negative on this interval.",
-    "For x equals a secant u, restrict to x at least a, and u between zero inclusive and pi over two exclusive. The hypotenuse has length x and the adjacent leg is a. The opposite leg is the square root of x squared minus a squared, and tangent u is non-negative.",
+    "For these substitutions, the reference triangle has nonnegative side lengths, even when the algebraic substitution angle is negative. Use the absolute value of a signed leg, and use a nonnegative reference angle. At an endpoint where a leg becomes zero, the triangle is degenerate; the algebraic identities still hold.",
+    "Assume a is positive. When x equals a tangent u, with u strictly between negative pi over two and pi over two, the adjacent leg has length a and the opposite leg has length the absolute value of x. The hypotenuse is the square root of a squared plus x squared, and secant u is positive. At x equals zero, corresponding to u equals zero, the opposite leg is zero and the triangle is degenerate.",
+    "For x equals a sine u, take u between negative pi over two and pi over two, including the endpoints. The hypotenuse has length a, the opposite leg has length the absolute value of x, and the remaining leg is the square root of a squared minus x squared. Cosine u is nonnegative. At x equals zero or at either extreme where the absolute value of x equals a, a leg is zero, so the reference triangle is degenerate.",
+    "For x equals a secant u, restrict to x at least a, and u between zero inclusive and pi over two exclusive. The hypotenuse has length x, the adjacent leg has length a, and the opposite leg has length the square root of x squared minus a squared. Tangent u is nonnegative. At x equals a, corresponding to u equals zero, the opposite leg vanishes and the triangle is degenerate.",
     "For positive a, the principal square root is non-negative. The three radicals simplify to a times the absolute value of secant u, a times the absolute value of cosine u, and a times the absolute value of tangent u, respectively. On the specified restricted domains these absolute values reduce to secant u, cosine u and tangent u.",
 )
 def exact_math_counterexamples() -> dict:
@@ -43,6 +43,14 @@ def exact_math_counterexamples() -> dict:
     x_sine=s.simplify(a*s.sin(-s.pi/6))
     require(x_tan==-2 and x_sine==-1 and bool(neg < 0),
             "Exact negative-angle and negative-length counterexample failed")
+    # Inclusive substitution domains contain exact zero-leg degeneracies:
+    # the trigonometric identities remain valid, but a reference *right*
+    # triangle with a zero leg is not a nondegenerate geometric triangle.
+    require(s.simplify(a*s.tan(0))==0
+            and s.simplify(a*s.sin(0))==0
+            and s.simplify(a*s.cos(s.pi/2))==0
+            and s.simplify(a*s.sec(0)-a)==0,
+            "Exact zero-leg boundary degeneracy invariant failed")
     theorem=audit_exact_principal_root_domains()
     require(theorem["conditional_principal_root_branches_proven"] is True
             and theorem["conditional_principal_root_branch_count"]==3
@@ -64,6 +72,8 @@ def exact_math_counterexamples() -> dict:
         ],
         "positive_parameter_condition":"a>0",
         "conditional_principal_root_forms_verified":3,
+        "right_triangle_degenerate_boundary_cases_proven":4,
+        "all_included_boundary_triangles_nondegenerate":False,
         "source_pdf_glyph_independently_approved":False,
         "narration_claim_all_angles_acute_refuted":True,
         "mathematical_derivation_exact":True,
