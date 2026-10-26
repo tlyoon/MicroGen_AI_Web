@@ -83,6 +83,7 @@ jobs:
             "tests.test_academic_review_checkpoint"
             "tests.test_original_replacement_video_handoff"
             "tests.test_original_slide4_corrected_segment_handoff"
+            "tests.test_offline_corrected_bundle_verify"
           )
           python -m unittest -v @regressionModules
       - name: Syntax-check updated Python entry points
