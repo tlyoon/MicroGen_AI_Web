@@ -43,6 +43,14 @@ def exact_math_counterexamples() -> dict:
     x_sine=s.simplify(a*s.sin(-s.pi/6))
     require(x_tan==-2 and x_sine==-1 and bool(neg < 0),
             "Exact negative-angle and negative-length counterexample failed")
+    # Inclusive substitution domains contain exact zero-leg degeneracies:
+    # the trigonometric identities remain valid, but a reference *right*
+    # triangle with a zero leg is not a nondegenerate geometric triangle.
+    require(s.simplify(a*s.tan(0))==0
+            and s.simplify(a*s.sin(0))==0
+            and s.simplify(a*s.cos(s.pi/2))==0
+            and s.simplify(a*s.sec(0)-a)==0,
+            "Exact zero-leg boundary degeneracy invariant failed")
     theorem=audit_exact_principal_root_domains()
     require(theorem["conditional_principal_root_branches_proven"] is True
             and theorem["conditional_principal_root_branch_count"]==3
@@ -64,6 +72,8 @@ def exact_math_counterexamples() -> dict:
         ],
         "positive_parameter_condition":"a>0",
         "conditional_principal_root_forms_verified":3,
+        "right_triangle_degenerate_boundary_cases_proven":4,
+        "all_included_boundary_triangles_nondegenerate":False,
         "source_pdf_glyph_independently_approved":False,
         "narration_claim_all_angles_acute_refuted":True,
         "mathematical_derivation_exact":True,
