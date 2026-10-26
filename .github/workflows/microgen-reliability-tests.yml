@@ -88,6 +88,7 @@ jobs:
             "tests.test_offline_replacement_replanner"
             "tests.test_offline_original_six_clip_remux"
             "tests.test_offline_original_production_readiness"
+            "tests.test_real_source_figure82_and_encoded_slide4_highlight"
           )
           python -m unittest -v @regressionModules
       - name: Syntax-check updated Python entry points
@@ -136,6 +137,8 @@ jobs:
             "selenium_pipeline/gemini_response_recovery.py"
             "selenium_pipeline/academic_review_checkpoint.py"
             "selenium_pipeline/original_replacement_video_handoff.py"
+            "selenium_pipeline/original_figure82_raster_math_packet.py"
+            "selenium_pipeline/offline_original_slide4_highlight_mp4.py"
             "selenium_pipeline/original_slide4_corrected_segment_handoff.py"
             "selenium_pipeline/original_slide4_math_correction_pilot.py"
             "selenium_pipeline/ai_academic_web_review.py"
