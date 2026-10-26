@@ -5,7 +5,9 @@ Read only; never turn an unreviewed image into an accepted spoken video.
 from __future__ import annotations
 import hashlib,json
 from pathlib import Path
-from PIL import Image
+from PIL import Image,ImageChops
+import pymupdf
+from .highlight_frames import emphasize_source_rectangles
 from .original_slide4_math_correction_pilot import prepare_corrected_original_slide4
 from .original_slide4_five_visual_candidates import inspect_original_slide4_five_visual_candidates
 
@@ -54,6 +56,10 @@ def verify_original_five_bundle(*,original:Path,bundle:Path)->dict:
     allowed={"UNAPPROVED_source_slide4_candidate_%03d.png"%i for i in range(1,6)}
     need({p.name for p in preview.iterdir()}==allowed,
          "Extra/missing source preview images")
+    with pymupdf.open(root/"slides.pdf") as slides:
+        need(len(slides)>=4,"Original source Slide4 missing")
+        pix=slides[3].get_pixmap(matrix=pymupdf.Matrix(2,2),alpha=False)
+        original_rgb=Image.frombytes("RGB",(pix.width,pix.height),pix.samples)
     for i,(u,expected,figure) in enumerate(zip(units,plan["corrected_utterances"],
                                                figures["utterance_candidates"]),1):
         need(type(u) is dict and
@@ -80,7 +86,13 @@ def verify_original_five_bundle(*,original:Path,bundle:Path)->dict:
         with Image.open(image) as actual:
             need(actual.format=="PNG" and actual.width>=500
                  and actual.height>=250,"Corrupted source visual")
-            actual.verify()
+            actual.load()
+            expected_pixels=emphasize_source_rectangles(
+                original_rgb,[u["bbox_pdf_pt"]],scale=2)
+            need(actual.size==expected_pixels.size
+                 and ImageChops.difference(actual.convert("RGB"),
+                                           expected_pixels).getbbox() is None,
+                 "Real original PDF highlight pixels differ despite manifest/hash")
         need(not (dest/u["tts_audio_relative_path_expected"]).exists(),
              "Unregistered new audio appeared; requires separate ingestion")
     need(all(sha(root/name)==digest for name,digest in original_sha.items()),
