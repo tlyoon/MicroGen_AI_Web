@@ -108,7 +108,8 @@ RESOURCE_FILES = ("beamerthemeGelugor.sty", "usmlg.jpg", "usmemb.jpg", "logotype
 OUTPUTS = {
     "slides": ("slides.tex", "slides.pdf"),
     "narration": ("script.txt",),
-    "script_qa": ("script_risk_report.json", "script_risk_report.md"),
+    "script_qa": ("script_risk_report.json", "script_risk_report.md",
+                  "math_semantic_report.json", "math_semantic_repair_prompt.json"),
     "tts_qa": ("tts_fidelity_report.json", "tts_fidelity_report.md"),
     "video": ("lecture_completion.json",),
 }
@@ -356,7 +357,18 @@ def valid(stage: str, folder: Path) -> bool:
         return len(blocks((folder / "script.txt").read_text(encoding="utf-8"))) == slide_pages(folder)
     if stage == "script_qa":
         report = json.loads((folder / "script_risk_report.json").read_text(encoding="utf-8"))
-        return int(report.get("summary", {}).get("blocking", 1)) == 0
+        math_path = folder / "math_semantic_report.json"
+        if not math_path.is_file():
+            return False
+        math = json.loads(math_path.read_text(encoding="utf-8"))
+        from .automatic_math_semantic_qa import inspect_math_semantics
+        current = inspect_math_semantics((folder / "script.txt").read_text(encoding="utf-8"),
+            source_sha256=digest(folder / "source.pdf"))
+        return (int(report.get("summary", {}).get("blocking", 1)) == 0
+                and math.get("script_sha256") == current["script_sha256"]
+                and math.get("source_sha256") == current["source_sha256"]
+                and math.get("ruleset") == current["ruleset"]
+                and math.get("blocking_count") == current["blocking_count"] == 0)
     if stage == "tts":
         count = len(blocks((folder / "script.txt").read_text(encoding="utf-8")))
         return all((folder / f"slide{i}.wav").is_file() and
@@ -510,7 +522,8 @@ def archive_existing_outputs(stage: str, folder: Path) -> None:
     names = {
         "slides": ("slides.tex", "slides.pdf"),
         "narration": ("script.txt",),
-        "script_qa": ("script_risk_report.json", "script_risk_report.md"),
+        "script_qa": ("script_risk_report.json", "script_risk_report.md",
+                      "math_semantic_report.json", "math_semantic_repair_prompt.json"),
         "tts_qa": ("tts_fidelity_report.json", "tts_fidelity_report.md"),
         "video": ("slides.mp4",),
     }.get(stage, ())
@@ -843,7 +856,7 @@ def _execute_unlocked(s: Settings) -> Path:
         browser_model = {"figures": DEFAULT_CAPTION_MODEL, "slides": DEFAULT_SLIDE_MODEL,
                          "narration": DEFAULT_NARRATION_MODEL}.get(stage, "deterministic-local")
         if stage == "script_qa":
-            model_stamp = "script-risk-v1"
+            model_stamp = "script-risk-v1:math-domain-sign-v1"
         elif stage == "tts":
             model_stamp = f"{s.tts_provider}:{s.tts_model}:{s.tts_voice}"
         elif stage == "tts_qa":
@@ -883,6 +896,18 @@ def _execute_unlocked(s: Settings) -> Path:
                 # candidate passes stream and duration validation.
                 archive_existing_outputs(stage, folder)
             if stage == "script_qa":
+                # The generic, source-hash-bound math gate precedes acoustic
+                # risk/TTS. Blocking mathematical claims generate bounded
+                # repair instructions and STOP instead of becoming WAVs.
+                run_cmd(
+                    [sys.executable, "-m", "selenium_pipeline.automatic_math_semantic_qa",
+                     "--script", str(folder / "script.txt"),
+                     "--source-pdf", str(folder / "source.pdf"),
+                     "--report", str(folder / "math_semantic_report.json"),
+                     "--repair-prompt", str(folder / "math_semantic_repair_prompt.json"),
+                     "--strict"],
+                    REPO, log_file, env,
+                )
                 run_cmd(
                     [
                         sys.executable,
