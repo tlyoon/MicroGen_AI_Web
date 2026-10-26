@@ -51,6 +51,13 @@ def _detect(slide: int, body: str) -> list[dict]:
     # *another* sentence somewhere mentions a reference angle.
     for sentence in lines:
         if (triangle and signed
+                and re.search(r"\b(?:u|x|theta)\s+(?:equals|is)\s+zero\b|\b(?:u|x)\s*=\s*0\b",sentence)
+                and re.search(r"\b(?:forms?|makes?|is)\s+(?:an?\s+)?(?:ordinary\s+|nondegenerate\s+)?(?:acute\s+)?right\s+triangle\b",sentence)
+                and not re.search(r"\b(?:degenerate|zero-length|collapses|limit)\b",sentence)):
+            add("zero_leg_triangle_degeneracy",sentence.strip(),
+                "At zero substitution angle/variable one drawn right-triangle leg can vanish; a nondegenerate triangle no longer exists.",
+                "Keep algebraic endpoint identities but explain the collapsed or limiting reference triangle.")
+        if (triangle and signed
                 and re.search(r"\bacute angle\s+(?:u|theta|θ)\b",sentence)
                 and not re.search(r"\b(reference angle|positive reference angle|only when|provided|restricted to|if)\b",sentence)):
             add("signed_angle_not_always_acute",sentence.strip(),
