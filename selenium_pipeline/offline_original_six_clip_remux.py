@@ -1,4 +1,4 @@
-"""Actually split original encoded lessons into external REVIEW_ONLY MP4 clips.
+"""Accurately transcode original encoded lessons into external REVIEW_ONLY MP4 clips.
 
 This is an infrastructure/encoding proof, NOT corrected narration or synced
 highlighted production media. Splits use approximate original WAV clock and
@@ -59,14 +59,15 @@ def encode_six_original_review_clips(*,chapter:Path,output_dir:Path,
             cmd=[exe,"-hide_banner","-nostdin","-loglevel","error","-n",
                  "-ss",f"{start:.4f}","-i",str(mp4),
                  "-t",f"{end-start:.4f}","-map","0:v:0","-map","0:a:0",
-                 "-c","copy","-avoid_negative_ts","make_zero",
+                 "-c:v","libx264","-preset","ultrafast","-crf","30",
+                 "-pix_fmt","yuv420p","-c:a","aac","-b:a","80k",
                  "-movflags","+faststart",str(target)]
             run=subprocess.run(cmd,capture_output=True,text=True,timeout=90)
             require(run.returncode==0 and target.is_file() and target.stat().st_size>2000,
-                    "FFmpeg historical preview remux failed: "+run.stderr[-320:])
+                    "FFmpeg historical preview transcode failed: "+run.stderr[-320:])
             actual=_mp4_duration(target,ffmpeg=exe)
-            require(0<actual<600,
-                    "Preview encoded container does not meet safe <600s technical cap")
+            require(0<actual<600 and abs(actual-(end-start))<1.2,
+                    "Actual transcoded duration is not aligned with requested original window")
             encoded.append({"section":topic,"part_id":f"part_{i:02d}",
                             "path":str(target),"sha256":sha(target),
                             "provisional_requested_original_start_s":round(start,4),
