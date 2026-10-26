@@ -75,8 +75,18 @@ def _detect(slide: int, body: str) -> list[dict]:
             add("unsigned_secant_hypotenuse",sentence.strip(),
                 "A hypotenuse is nonnegative; x=a sec(u) may have negative x unless the positive branch is declared.",
                 "State a>0 and x>=a (or use |x| for a separately justified negative branch).")
+        # sqrt(4) = 2 is NOT the sign-sensitive identity sqrt(z²)=|z|.
+        # Require an explicitly squared nonconstant expression OR a bounded
+        # trigonometric radical-elimination assertion from the same slide.
+        squared_variable=bool(re.search(
+            r"\b(?:[a-z]|variable|quantity|sine|cosine|secant|tangent|sin|cos|sec|tan)\s+squared\b",
+            sentence))
+        trig_root_shortcut=bool(
+            re.search(r"\b(?:taking|take)\s+the\s+square\s+root\b",sentence)
+            and re.search(r"\b(?:eliminates?|removes?)\s+the\s+radical\b",sentence)
+            and re.search(r"\b(?:tangent|sine|secant|trigonometr)\b",low))
         if (re.search(r"\b(?:square root|principal root|radical)\b.{0,120}?\b(?:eliminates? the radical|removes? the radical|simplifies? to|equals?)\b",sentence)
-                and re.search(r"\b(squared|square|secant|tangent|cosine|sin[e]?)\b",sentence)
+                and (squared_variable or trig_root_shortcut)
                 and not re.search(r"\b(absolute value|nonnegative|non-negative|on the restricted|positive|domain|provided|assuming)\b",sentence)):
             add("unchecked_principal_root_sign",sentence.strip(),
                 "sqrt(z squared) = |z|, not z for arbitrary real z.",
