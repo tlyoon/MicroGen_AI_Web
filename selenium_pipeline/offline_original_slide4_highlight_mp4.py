@@ -7,7 +7,7 @@ The visible watermark and evidence prevent accidental learner release.
 """
 from __future__ import annotations
 from io import BytesIO
-import hashlib,json,math,subprocess,wave
+import hashlib,json,math,re,subprocess,wave
 from pathlib import Path
 from PIL import Image,ImageChops,ImageDraw,ImageStat,ImageOps
 from .offline_corrected_bundle_verify import verify_original_five_bundle,strict_json
@@ -24,6 +24,19 @@ def ffmpeg_run(exe,args,*,timeout=90):
     need(p.returncode==0,"FFmpeg pilot failed: "+
          p.stderr.decode("utf8","replace")[-280:])
     return p.stdout
+
+def video_only_duration(path:Path,exe:str)->float:
+    """Measure intermediate H.264-only clips without falsely requiring audio."""
+    p=subprocess.run([exe,"-hide_banner","-i",str(path)],
+                     capture_output=True,text=True,timeout=25)
+    info=p.stderr+"\n"+p.stdout
+    m=re.search(r"Duration:\\s*(\\d+):(\\d+):(\\d+(?:\\.\\d+)?)",info)
+    need(m is not None and "Video:" in info,
+         "Intermediate source highlight segment has no encoded video")
+    duration=int(m[1])*3600+int(m[2])*60+float(m[3])
+    need(math.isfinite(duration) and 0<duration<600,
+         "Intermediate video-only segment invalid duration")
+    return duration
 
 def create_original_slide4_highlight_pilot(*,original:Path,bundle:Path,
                                             output_dir:Path)->dict:
@@ -87,7 +100,7 @@ def create_original_slide4_highlight_pilot(*,original:Path,bundle:Path,
                        "-an","-c:v","libx264","-preset","ultrafast",
                        "-crf","19","-pix_fmt","yuv420p","-r","2",
                        str(output)],timeout=60)
-        actual=_mp4_duration(output,ffmpeg=exe)
+        actual=video_only_duration(output,exe)
         need(actual>0 and abs(actual-block_time)<.65,
              "Actual frame segment duration mismatches the proposed time bin")
         segment_records.append({"segment_index":i,
