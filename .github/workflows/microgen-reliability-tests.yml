@@ -82,6 +82,7 @@ jobs:
             "tests.test_automatic_math_semantic_qa"
             "tests.test_academic_review_checkpoint"
             "tests.test_original_replacement_video_handoff"
+            "tests.test_original_slide4_corrected_segment_handoff"
           )
           python -m unittest -v @regressionModules
       - name: Syntax-check updated Python entry points
@@ -130,6 +131,8 @@ jobs:
             "selenium_pipeline/gemini_response_recovery.py"
             "selenium_pipeline/academic_review_checkpoint.py"
             "selenium_pipeline/original_replacement_video_handoff.py"
+            "selenium_pipeline/original_slide4_corrected_segment_handoff.py"
+            "selenium_pipeline/original_slide4_math_correction_pilot.py"
             "selenium_pipeline/ai_academic_web_review.py"
             "selenium_pipeline/figure_mapping_checkpoints.py"
             "selenium_pipeline/figure_practice_disposition.py"
