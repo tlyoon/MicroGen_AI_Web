@@ -1,6 +1,6 @@
 # PR323 genuine historical multimedia review clip remux — 26 Oct 2026
 
-Actual Windows FFmpeg stream-copy **six** new separate MP4 previews of *historical original audio/video*, from genuine three-section PCM-based split windows, with measured new container stream durations and source/clip SHA256. Every output is prefixed `REVIEW_ONLY_HISTORICAL`, under an exclusive empty external AppData folder. This NEVER uses corrected narration or per-element highlights: mathematical/voice/speech/image approval, video replacement and publication remain explicitly FALSE. No old MP4 is overwritten. This advances the physical multimedia encoding/splitting path without Gemini but not student-ready lectures. Stacked on PR322.
+Actual Windows FFmpeg **accurately transcodes** six separate historical MP4 previews (initial stream-copy duration drift was detected on Dell-115 and corrected) of *historical original audio/video*, from genuine three-section PCM-based split windows, with measured new container stream durations and source/clip SHA256. Every output is prefixed `REVIEW_ONLY_HISTORICAL`, under an exclusive empty external AppData folder. This NEVER uses corrected narration or per-element highlights: mathematical/voice/speech/image approval, video replacement and publication remain explicitly FALSE. No old MP4 is overwritten. This advances the physical multimedia encoding/splitting path without Gemini but not student-ready lectures. Stacked on PR322.
 
 ---
 
