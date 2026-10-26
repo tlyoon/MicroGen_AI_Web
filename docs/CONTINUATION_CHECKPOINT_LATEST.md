@@ -1,3 +1,9 @@
+# PR324 real offline multimedia acceptance outcome (26 Oct 2026)
+
+Dell-115 produced 6 actual new **review-only historical** H.264/AAC MP4 clips using accurate timestamp alignment: Thomas 8.4 322.00/312.04s, 8.5 399.00/364.50s, 8.6 331.00/300.25s, all actual containers strictly under 600s. They are **NOT corrected or element-level synchronized**. Exclusive AppData preview folder `%LOCALAPPDATA%\MicroGen_AI_Web_Checkpoints\20261026_pr323_GENUINE_HISTORICAL_SIX_REENCODED_REVIEW_MP4S`, each SHA attested, historical source video preserved. Original-source five corrected utterance PNGs were reverified and production-readiness ledger was created at `%LOCALAPPDATA%\MicroGen_AI_Web_Checkpoints\20261026_pr324_THOMAS_REAL_OFFLINE_PRODUCTION_READINESS.json`. Ledger explicitly reports six review previews, ZERO accepted corrected MP4s, five outstanding math/speech/sync/encoded acceptance blockers and no publication. Stacked PRs #320→#324 remain DRAFT; no Gemini or paid API calls in this batch. Hosted Windows CI and Dell fast-suite outcomes must be verified on latest heads; protected original G files and user dirty worktree untouched.
+
+---
+
 # PR324 full original three-section offline production-readiness audit — 26 Oct 2026
 
 Consolidates actual source PDF hashes, original MP4 durations, optional independently reverified 5-utterance highlighted PNG bundle, six actual historical FFmpeg preview clip hashes/decoded durations, and five explicit release blockers. Only real corrected, independently source-reviewed same-voice narration plus speech-to-element timing plus six new fully decoded/verified videos <600s could eventually permit further acceptance; NO such outputs exist now. Historical remux previews categorically stay unapproved. Entire audit is Windows/Dell read-only, writes only new private AppData receipt, sends no Gemini or paid API requests, touches no G: original media. Draft PR324 stacked on PR323. Independent future acceptance review required, not fabricated.
@@ -6,7 +12,7 @@ Consolidates actual source PDF hashes, original MP4 durations, optional independ
 
 # PR323 genuine historical multimedia review clip remux — 26 Oct 2026
 
-Actual Windows FFmpeg stream-copy **six** new separate MP4 previews of *historical original audio/video*, from genuine three-section PCM-based split windows, with measured new container stream durations and source/clip SHA256. Every output is prefixed `REVIEW_ONLY_HISTORICAL`, under an exclusive empty external AppData folder. This NEVER uses corrected narration or per-element highlights: mathematical/voice/speech/image approval, video replacement and publication remain explicitly FALSE. No old MP4 is overwritten. This advances the physical multimedia encoding/splitting path without Gemini but not student-ready lectures. Stacked on PR322.
+Actual Windows FFmpeg **accurately transcodes** six separate historical MP4 previews (initial stream-copy duration drift was detected on Dell-115 and corrected) of *historical original audio/video*, from genuine three-section PCM-based split windows, with measured new container stream durations and source/clip SHA256. Every output is prefixed `REVIEW_ONLY_HISTORICAL`, under an exclusive empty external AppData folder. This NEVER uses corrected narration or per-element highlights: mathematical/voice/speech/image approval, video replacement and publication remain explicitly FALSE. No old MP4 is overwritten. This advances the physical multimedia encoding/splitting path without Gemini but not student-ready lectures. Stacked on PR322.
 
 ---
 
