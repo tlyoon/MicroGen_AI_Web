@@ -104,6 +104,25 @@ def prepare(*,checkpoint:Path,original_folder:Path,request_text:str,
     actual=_source_proof(original,source_hashes)
     digest=fingerprint(request_text=request_text,source_hashes=actual,
                        review_mode=review_mode,revised_text_hashes=revised_text_hashes)
+    # Historical consumed windows can predate the current canonical
+    # three-file fingerprint. Block the SAME prompt/source/review mode based
+    # on their stored primitive hashes, instead of accidentally replaying
+    # an old Gemini request under a newly formatted checkpoint identifier.
+    for existing in root.parent.glob("*/"+STATE_NAME):
+        if existing.parent==root or existing.is_symlink():
+            continue
+        try:
+            previous=json.loads(existing.read_text(encoding="utf8"))
+        except (OSError,ValueError):
+            continue
+        if (type(previous) is dict
+                and previous.get("status")!="PREPARED_NOT_SENT"
+                and previous.get("prompt_sha256")==_sha(request_text.encode("utf8"))
+                and previous.get("source_sha256")==actual["source.pdf"]
+                and previous.get("review_mode")==review_mode):
+            raise ReviewCheckpointError(
+                "Identical source/prompt academic request has been attempted "
+                "in an earlier review window; no automatic re-submit")
     if root.exists():
         found=_load(root)
         _require(found["request_fingerprint"]==digest,
