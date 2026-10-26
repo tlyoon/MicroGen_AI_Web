@@ -1,5 +1,5 @@
 """Real original 8.4/8.5/8.6 media timing and no-false-acceptance tests."""
-import hashlib,os,tempfile,unittest
+import hashlib,os,tempfile,unittest,wave
 from pathlib import Path
 from selenium_pipeline.original_replacement_video_handoff import (
     build_original_replacement_handoff,check_replacement_audio_readiness,
@@ -65,11 +65,19 @@ class ProtectedMediaHandoff(unittest.TestCase):
         r=build_original_replacement_handoff(chapter_folder=chapter)
         with tempfile.TemporaryDirectory() as td:
             fake=Path(td)/"pretend.wav";fake.write_bytes(b"not real PCM")
+            row={"path":str(fake),"source_text_sha256":"a"*64,
+                 "voice_id":"Kore","provider":"Gemini Flash-Lite TTS",
+                 "source_math_passes":2}
+            with self.assertRaises(ValueError):
+                check_replacement_audio_readiness(handoff=r,
+                                                  replacements={"8.4/4":row})
+            with wave.open(str(fake),"wb") as stream:
+                stream.setnchannels(1)
+                stream.setsampwidth(2)
+                stream.setframerate(24000)
+                stream.writeframes(b"\x01\x00"*24000)
             proof=check_replacement_audio_readiness(handoff=r,
-                    replacements={"8.4/4":{
-                      "path":str(fake),"source_text_sha256":"a"*64,
-                      "voice_id":"Kore","provider":"Gemini Flash-Lite TTS",
-                      "source_math_passes":2}})
+                    replacements={"8.4/4":row})
             self.assertFalse(proof["student_publication_authorized"])
             self.assertFalse(proof["replaced"]["8.4/4"][
                                  "actual_spoken_words_independently_verified"])
