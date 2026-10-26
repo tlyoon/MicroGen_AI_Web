@@ -73,7 +73,7 @@ def verify_original_five_bundle(*,original:Path,bundle:Path)->dict:
         need(u.get("preview_png_relative_path")==relative
              and u.get("tts_audio_relative_path_expected")==f"new_Kore_utterance_{i:03d}.wav",
              "Stale or unexpected audio/PNG path")
-        image=preview/allowed.pop() if False else dest/relative
+        image=dest/relative
         need(image.is_file() and not image.is_symlink()
              and sha(image)==u.get("preview_png_sha256"),
              "Preview pixel bytes changed")
