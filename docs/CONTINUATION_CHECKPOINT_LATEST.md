@@ -1,3 +1,9 @@
+# PR324 full original three-section offline production-readiness audit — 26 Oct 2026
+
+Consolidates actual source PDF hashes, original MP4 durations, optional independently reverified 5-utterance highlighted PNG bundle, six actual historical FFmpeg preview clip hashes/decoded durations, and five explicit release blockers. Only real corrected, independently source-reviewed same-voice narration plus speech-to-element timing plus six new fully decoded/verified videos <600s could eventually permit further acceptance; NO such outputs exist now. Historical remux previews categorically stay unapproved. Entire audit is Windows/Dell read-only, writes only new private AppData receipt, sends no Gemini or paid API requests, touches no G: original media. Draft PR324 stacked on PR323. Independent future acceptance review required, not fabricated.
+
+---
+
 # PR323 genuine historical multimedia review clip remux — 26 Oct 2026
 
 Actual Windows FFmpeg stream-copy **six** new separate MP4 previews of *historical original audio/video*, from genuine three-section PCM-based split windows, with measured new container stream durations and source/clip SHA256. Every output is prefixed `REVIEW_ONLY_HISTORICAL`, under an exclusive empty external AppData folder. This NEVER uses corrected narration or per-element highlights: mathematical/voice/speech/image approval, video replacement and publication remain explicitly FALSE. No old MP4 is overwritten. This advances the physical multimedia encoding/splitting path without Gemini but not student-ready lectures. Stacked on PR322.
