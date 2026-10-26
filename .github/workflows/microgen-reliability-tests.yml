@@ -85,6 +85,7 @@ jobs:
             "tests.test_original_slide4_corrected_segment_handoff"
             "tests.test_offline_corrected_bundle_verify"
             "tests.test_offline_corrected_audio_intake"
+            "tests.test_offline_replacement_replanner"
           )
           python -m unittest -v @regressionModules
       - name: Syntax-check updated Python entry points

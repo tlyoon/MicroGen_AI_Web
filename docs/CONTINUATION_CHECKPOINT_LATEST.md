@@ -1,3 +1,9 @@
+# PR322 source-original three-topic WAV-duration replan — 26 Oct 2026
+
+Recompute all Thomas 8.4/8.5/8.6 multipart boundaries from *actual PCM frames*, using existing verified dynamic-programming split planner. Replacement chunks (five required for 8.4 Slide4) must be external unmodified files; absent chunks use original audio only as **unapproved** provisional timing. Checks unexpected keys, duplicate chunks and original WAV reuse. Actual video runtime, corrected words, Kore voice, academic math, highlight and publication all remain FALSE. No Gemini, no paid APIs, no G: media writes. Windows-only CI and Dell-only genuine original tests.
+
+---
+
 # PR321 offline corrected PCM intake — 26 Oct 2026
 
 Source/preview-bound five-utterance PCM intake blocks historical-WAV reuse, fake headers, linked/external paths, oversized/silent/non-16-bit candidates and extra WAVs; reports actual duration and SHA but keeps voice/Kore, actual words, source math review, TTS replacement, encoded video and student publication **false** even when bytes are present. Zero Gemini/paid API calls, original teaching materials unchanged. Windows tests included. No real new Kore audio was recorded; this is future-ingestion code. Stacked on PR320.\n\n---\n\n# PR320 offline five-segment handoff integrity recheck (26 October 2026)
