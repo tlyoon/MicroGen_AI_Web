@@ -20,6 +20,10 @@ Actual immutable source run succeeded and wrote `%LOCALAPPDATA%\MicroGen_AI_Web_
 
 New `original_slide4_pcm_provenance_pilot` measures actual historical `slide4.wav` bytes strictly read-only: SHA256 `2b95cc22bc097c53eb5c55f82a0e086b0c661530be97dfa4622cdc1e9bb25106`, genuine 24000Hz/16-bit mono, 1,087,088 PCM frames / 45.29533333s. It prevents a real *old* WAV being treated as accepted corrected speech, while preserving the genuine audio sample evidence. A 45.3-second original WAV is not a corrected audio clip, per-element speech timing, a finished synchronized video or independent voice-content attestation.
 
+## Actual entire-subchapter multimedia scope (read-only)
+
+The existing `original_wav_multipart_plan.inspect_original_slide_wav_plan` ran against the **real unchanged 17 original WAV files** on Dell-115. Measured total audio **632.7107 seconds**, already over the strict 600-second single-video limit. Its authentic audio-only candidate plan is Part 1 slides 1–8, **321.8927 seconds**, and Part 2 slides 9–17, **310.8180 seconds**. Both candidate parts are under the audio-only 600-second budget, but `encoded_MP4_duration_verified = false`, `narrated_element_highlight_verified = false`, `original_figure_math_verified = false`. The corrected Slide4 audio will necessarily alter the measurements; remeasure and partition the actual replacement WAVs prior to any encoded acceptance. Never release/rename historical `slides.mp4` as a conforming multipart lecture.
+
 ## Acceptance milestones still strictly BLOCKED
 
 This PR has **not** independently AI-reviewed the corrected narration, produced five corrected Kore audio segments, accepted voice/acoustic content, confirmed spoken element time boundaries, produced a genuinely synchronized encoded original-slide MP4, or released student video. It does not revise the original `script.txt`, original slide PDFs, historical `slide4.wav`/`slides.mp4`, protected dirty G working tree, original 71-unit academic receipts, prior provider quarantine, main or any playlist. No new Gemini send, TTS/API request, Whisper, Ubuntu/non-Windows CI, HP/Yoga/Zenbook.
