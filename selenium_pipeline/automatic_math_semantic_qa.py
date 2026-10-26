@@ -75,8 +75,7 @@ def _detect(slide: int, body: str) -> list[dict]:
             add("unsigned_secant_hypotenuse",sentence.strip(),
                 "A hypotenuse is nonnegative; x=a sec(u) may have negative x unless the positive branch is declared.",
                 "State a>0 and x>=a (or use |x| for a separately justified negative branch).")
-        if (re.search(r"\b(square root|principal root|radical)\b",sentence)
-                and re.search(r"\b(eliminates? the radical|removes? the radical|simplifies? to|equals?)\b",sentence)
+        if (re.search(r"\b(?:square root|principal root|radical)\b.{0,120}?\b(?:eliminates? the radical|removes? the radical|simplifies? to|equals?)\b",sentence)
                 and re.search(r"\b(squared|square|secant|tangent|cosine|sin[e]?)\b",sentence)
                 and not re.search(r"\b(absolute value|nonnegative|non-negative|on the restricted|positive|domain|provided|assuming)\b",sentence)):
             add("unchecked_principal_root_sign",sentence.strip(),
