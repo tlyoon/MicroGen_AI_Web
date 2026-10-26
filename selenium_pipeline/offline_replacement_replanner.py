@@ -22,10 +22,14 @@ def measured_replacement_replan(*,chapter:Path,replacements:dict|None=None,
     require(root.is_dir() and not root.is_symlink(),"Actual original chapter is required")
     changes={} if replacements is None else replacements
     require(type(changes) is dict and len(changes)<=200,"Bounded replacement WAV mapping required")
+    originals={topic:inspect_original_slide_wav_plan(root/topic,audio_budget_s=audio_budget_s)
+               for topic in ("8.4","8.5","8.6")}
+    all_historical_hashes={row["sha256"] for plan in originals.values()
+                           for row in plan["wav_evidence"]}
     used=set()
     sections=[]
     for topic in ("8.4","8.5","8.6"):
-        original=inspect_original_slide_wav_plan(root/topic,audio_budget_s=audio_budget_s)
+        original=originals[topic]
         frames=[]
         changed=[]
         for item in original["wav_evidence"]:
@@ -44,7 +48,7 @@ def measured_replacement_replan(*,chapter:Path,replacements:dict|None=None,
                             and not path.is_relative_to(root) and path.suffix.lower()==".wav",
                             "Replacement PCM must be external to original chapter")
                     hash_value=_sha(path)
-                    require(hash_value!=item["sha256"]
+                    require(hash_value not in all_historical_hashes
                             and hash_value not in used,
                             "Old/duplicate audio masquerading as newly narrated content")
                     used.add(hash_value)
