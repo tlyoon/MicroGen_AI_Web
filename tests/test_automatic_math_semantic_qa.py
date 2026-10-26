@@ -8,11 +8,11 @@ def grammar(*slides):
 
 class GeneralMathDomainGuard(unittest.TestCase):
     def test_negative_tangent_and_sine_reference_triangle_defects(self):
-        s=grammar(
+        s=grammar(" ".join((
            "These algebraic substitutions correspond directly to right triangles with acute angle u.",
            "When x equals a tangent u, x and a represent the opposite and adjacent legs, making the hypotenuse the square root of a-squared plus x-squared.",
            "For sine, x is the opposite leg and a is the hypotenuse.",
-           "For secant, the hypotenuse is x and the adjacent leg is a.")
+           "For secant, the hypotenuse is x and the adjacent leg is a.")))
         report=inspect_math_semantics(s)
         rules={x["rule"] for x in report["findings"]}
         self.assertTrue({"signed_angle_not_always_acute","signed_variable_as_side_length",
