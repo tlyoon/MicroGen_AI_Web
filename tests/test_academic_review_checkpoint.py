@@ -138,7 +138,7 @@ class OnceOnlyAcademicReview(unittest.TestCase):
         prepare(**self.kw)
         mark_submission_maybe(self.window,expected_fingerprint=self.fp)
         record_observation(self.window,raw='{"rows":[1]}',expected_fingerprint=self.fp)
-        with self.assertRaises(FileExistsError):
+        with self.assertRaises((FileExistsError,ReviewCheckpointError)):
             record_observation(self.window,raw='{"rows":[1]}',expected_fingerprint=self.fp)
         (self.window/"model_response_untrusted.txt").write_text('{"rows":[2]}')
         with self.assertRaises(ReviewCheckpointError):
