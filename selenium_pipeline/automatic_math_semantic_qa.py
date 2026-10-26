@@ -52,7 +52,7 @@ def _detect(slide: int, body: str) -> list[dict]:
     for sentence in lines:
         if (triangle and signed
                 and re.search(r"\bacute angle\s+(?:u|theta|θ)\b",sentence)
-                and not re.search(r"\b(reference|positive reference|only when|provided|restricted to|if)\b",sentence)):
+                and not re.search(r"\b(reference angle|positive reference angle|only when|provided|restricted to|if)\b",sentence)):
             add("signed_angle_not_always_acute",sentence.strip(),
                 "A signed trigonometric substitution may use negative angles; a physical triangle has an unsigned reference angle.",
                 "Describe the positive reference angle and show signed-domain counterexamples. State the selected angle interval.",
