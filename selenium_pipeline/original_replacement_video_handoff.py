@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import wave
 from pathlib import Path
 from .original_wav_multipart_plan import inspect_original_slide_wav_plan
 from .production_video_contract import _mp4_duration
@@ -142,6 +143,20 @@ def check_replacement_audio_readiness(*,handoff:dict,replacements:dict)->dict:
             _require(path.suffix.lower()==".wav"
                      and _sha(path)!=old,
                      "Historical slide WAV cannot masquerade as revised Kore speech")
+            try:
+                with wave.open(str(path),"rb") as audio:
+                    channels=audio.getnchannels()
+                    width=audio.getsampwidth()
+                    rate=audio.getframerate()
+                    frames=audio.getnframes()
+                    codec=audio.getcomptype()
+                    first=audio.readframes(min(frames,1024))
+            except (wave.Error,OSError,EOFError) as exc:
+                raise ValueError("Replacement WAV must decode to actual PCM") from exc
+            _require(codec=="NONE" and channels==1 and width==2
+                     and 16000<=rate<=48000 and frames>=rate//5
+                     and any(first),
+                     "Replacement WAV must contain nonempty, well-formed PCM narration")
             _require(type(candidate["source_text_sha256"]) is str
                      and len(candidate["source_text_sha256"])==64
                      and candidate["source_math_passes"]==2
@@ -155,7 +170,7 @@ def check_replacement_audio_readiness(*,handoff:dict,replacements:dict)->dict:
                          "actual_highlight_timing_verified":False,
                          "encoded_part_mp4_verified":False}
     _require(target,"No corrected audio; cannot mark genuine audio progress")
-    return {"status":"REPLACEMENT_WAV_BYTES_PRESENT_SPOKEN_CONTENT_UNREVIEWED",
+    return {"status":"PCM_REPLACEMENT_CANDIDATES_PRESENT_SPOKEN_CONTENT_UNREVIEWED",
             "replaced":target,"student_publication_authorized":False}
 
 def main(argv=None):
