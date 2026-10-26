@@ -1,0 +1,17 @@
+# PR325 — actual original Thomas §8.4 Figure8.2 glyph evidence and encoded five-source-highlight MP4 pilot (27 October 2026)
+
+## Contract and evidence
+
+Windows-only/Dell-115-only genuine original sources. Stacked draft on PR324 exact `3c9125a531081add98015cc9264bffc28af73a0e`. Do not touch the original `G:` protected source/slides/script/MP4/WAV, the three original checkout modifications, YouTube, Moodle, other PCs, Linux CI, Whisper or paid API.
+
+**Live Gemini check (27 Oct ~07:20 MYT):** new single harmless PONG request was accepted in authenticated browser but yielded **zero response characters** and a quarantined empty raw capture. The old Thomas academic source-review submission was NOT repeated. New external receipt `%LOCALAPPDATA%\MicroGen_AI_Web_Checkpoints\20261027_0720_GEMINI_ONE_SHOT_GENERIC_HEALTH\report.json`. Do not treat this failure as a completed independent academic review or TTS authorization.
+
+**Original-source radical glyphs resolved for visible review:** A real 3x crop of Figure 8.2 from authentic six-page Thomas source PDF page 1, pinned to SHA256 `b695018baa55f69ae3c9c875e7b1cb8ed284123d5a4b43f31314e659b1f22068`, captures the actual radical strokes, absolute-value bars and geometric reference triangles. Prior plain PDF text extraction misread the radicals. The visually observed equations are `sqrt(a²+x²)=a|sec θ|`, `sqrt(a²−x²)=a|cos θ|`, `sqrt(x²−a²)=a|tan θ|` for **a>0**. These require domain restriction for reducing abs; negative substitution angles cannot be used as unsigned physical triangle side lengths and zero-leg cases are degenerate. The new code produces real original PDF pixels and exact-source/conditional SymPy proof binding. The method **does not automatically assert AI math consensus**.
+
+**Actual highlighted MP4 technical pilot (no Gemini, no new audio):** independent reread of the PR319 five source-verified corrected visual PNGs with PR320 pixel reconstruction, retaining the historical unmodified `slide4.wav` (~45.295 seconds) solely as a test soundtrack. Construct five real source-highlight frames, overlay an unmistakable red `REVIEW ONLY - HISTORICAL AUDIO - NOT SPEECH SYNC` banner, transcode all five into H.264 video and mux the old WAV as AAC. Independently **decode five actual samples** from the final encoded MP4 and compare compressed frame pixels against their intended corresponding source-derived highlight frames. Verify duration strictly <600 seconds and no source/audio mutation. The five artificial equal-duration bins **DO NOT** verify actual utterance onset/offset; deliberately mark math acceptance, new Kore TTS, spoken content, semantic speech/highlight sync, replacement completion and student publication all **FALSE**.
+
+The exact output, hashes, FFmpeg container duration, decoded pixel errors and mathematical acceptance flags are stored in an external local AppData folder with a single explicit UNAPPROVED receipt; never publish the pilot.
+
+## Completion definition
+
+PR325 succeeds when: genuine Dell source tests prove original-source figure crop and five MP4 highlight pixels/stream, no old files change, all Windows hosted CI jobs green at final PR head. **Does not satisfy final production acceptance**. Next real step remains independent review on revised five-utterance text, genuine same-voice Kore TTS and its exact WAV chunk boundaries, source-verified speech-content and original-pixel timed encoded segment/video QA, six genuine replacements each strictly <600 seconds.
