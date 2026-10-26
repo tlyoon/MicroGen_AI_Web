@@ -48,7 +48,7 @@ def stage_corrected_five_unit_handoff(*, folder:Path, output_dir:Path)->dict:
                 for i in range(4))
             and "negative" in corrected[0]["revised_narration"].lower()
             and all("absolute value of x" in corrected[i]["revised_narration"].lower()
-                    for i in (0,1,2)) is False,
+                    for i in (1,2)),
             "Corrected narration lost zero-leg / sign branch explanation")
     dest.mkdir()
     images=dest/"source_visual_preview"
