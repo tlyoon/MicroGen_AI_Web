@@ -145,29 +145,42 @@ def validate_model_review(*,folder:Path,job:dict,response:dict,mode:str,
 
 def run_web_review(*,folder:Path,job:dict,mode:str,
                    chrome_port:int=9222,wait_cap_s:int=240,transport=None,
-                   response_observer=None,verified_source_evidence:dict|None=None)->dict:
+                   response_observer=None,verified_source_evidence:dict|None=None,
+                   checkpoint_dir:Path|None=None)->dict:
     require(chrome_port in range(1,65536) and 60<=wait_cap_s<=600,
             "Browser request must be bounded")
     call=transport or (lambda prompt,files:_browser_request(
         prompt,files,port=chrome_port,wait_cap_s=wait_cap_s,min_chars=80))
-    raw=call(review_instructions(job,mode=mode,
-                       verified_source_evidence=verified_source_evidence),
-             [Path(folder)/"source.pdf",Path(folder)/"slides.pdf"])
-    # This callback establishes only that the owned transport returned a
-    # response. Never persist the private model text in public receipts.
-    if callable(response_observer):
-        response_observer(raw)
-    try:
-        decoded=decode_storyboard_response(raw)
-    except (ValueError,RuntimeError,json.JSONDecodeError):
-        if verified_source_evidence is None:
-            raise
-        # Formatting-only rescue is never citation or math approval;
-        # downstream locked source validator must still reject bad claims.
-        decoded=recover_rendered_json_format_only(raw)
-    return validate_model_review(folder=folder,job=job,
-             response=decoded,mode=mode,
-             verified_source_evidence=verified_source_evidence)
+    instruction=review_instructions(job,mode=mode,
+                        verified_source_evidence=verified_source_evidence)
+    def strict_source_validator(raw):
+        if callable(response_observer):
+            response_observer(raw)
+        try:
+            decoded=decode_storyboard_response(raw)
+        except (ValueError,RuntimeError,json.JSONDecodeError):
+            if verified_source_evidence is None:
+                raise
+            # This is formatting-only; source validation still applies.
+            decoded=recover_rendered_json_format_only(raw)
+        return validate_model_review(folder=folder,job=job,response=decoded,
+              mode=mode,verified_source_evidence=verified_source_evidence)
+    if checkpoint_dir is not None:
+        from .academic_review_checkpoint import submit_once
+        return submit_once(
+            checkpoint=checkpoint_dir,original_folder=folder,
+            request_text=instruction,
+            source_hashes={"source.pdf":job["source_sha256"],
+                           "slides.pdf":job["slides_sha256"],
+                           "script.txt":job["script_sha256"]},
+            review_mode=mode,transport=call,validator=strict_source_validator)
+    # Live browser requests must ALWAYS have a crash-persistent claim.
+    # Fixture-injected transports without a checkpoint remain permitted
+    # for local offline tests only.
+    require(transport is not None,
+            "Live academic Gemini request requires isolated durable --checkpoint-dir")
+    return strict_source_validator(call(instruction,
+                  [Path(folder)/"source.pdf",Path(folder)/"slides.pdf"]))
 
 def main(argv=None):
     p=argparse.ArgumentParser(description=__doc__)
@@ -175,6 +188,8 @@ def main(argv=None):
     p.add_argument("--slides",type=int,nargs="+",required=True)
     p.add_argument("--out",type=Path,required=True)
     p.add_argument("--run-gemini-web",action="store_true")
+    p.add_argument("--checkpoint-dir",type=Path,
+                   help="Required exclusive request window for any live Gemini submission")
     p.add_argument("--review-mode",choices=["INITIAL_REVIEW","INDEPENDENT_CHALLENGE"],
                    default="INITIAL_REVIEW")
     a=p.parse_args(argv)
@@ -182,7 +197,8 @@ def main(argv=None):
             and not a.out.absolute().is_relative_to(a.folder.absolute()),
             "New review receipts must remain outside original textbook folders")
     job=build_review_job(folder=a.folder,slide_numbers=a.slides)
-    result=run_web_review(folder=a.folder,job=job,mode=a.review_mode) if a.run_gemini_web else job
+    result=(run_web_review(folder=a.folder,job=job,mode=a.review_mode,
+              checkpoint_dir=a.checkpoint_dir) if a.run_gemini_web else job)
     with a.out.open("x",encoding="utf8") as f:
         json.dump(result,f,indent=2,ensure_ascii=False);f.write("\n")
     print(json.dumps({"status":result["status"],"utterances":job["utterance_count"],
