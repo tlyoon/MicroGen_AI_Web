@@ -1,3 +1,9 @@
+# PR323 genuine historical multimedia review clip remux — 26 Oct 2026
+
+Actual Windows FFmpeg **accurately transcodes** six separate historical MP4 previews (initial stream-copy duration drift was detected on Dell-115 and corrected) of *historical original audio/video*, from genuine three-section PCM-based split windows, with measured new container stream durations and source/clip SHA256. Every output is prefixed `REVIEW_ONLY_HISTORICAL`, under an exclusive empty external AppData folder. This NEVER uses corrected narration or per-element highlights: mathematical/voice/speech/image approval, video replacement and publication remain explicitly FALSE. No old MP4 is overwritten. This advances the physical multimedia encoding/splitting path without Gemini but not student-ready lectures. Stacked on PR322.
+
+---
+
 # PR322 source-original three-topic WAV-duration replan — 26 Oct 2026
 
 Recompute all Thomas 8.4/8.5/8.6 multipart boundaries from *actual PCM frames*, using existing verified dynamic-programming split planner. Replacement chunks (five required for 8.4 Slide4) must be external unmodified files; absent chunks use original audio only as **unapproved** provisional timing. Checks unexpected keys, duplicate chunks and original WAV reuse. Actual video runtime, corrected words, Kore voice, academic math, highlight and publication all remain FALSE. No Gemini, no paid APIs, no G: media writes. Windows-only CI and Dell-only genuine original tests.
