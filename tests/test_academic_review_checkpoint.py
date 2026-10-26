@@ -65,9 +65,8 @@ class OnceOnlyAcademicReview(unittest.TestCase):
         prepare(**self.kw)
         mark_submission_maybe(self.window,expected_fingerprint=self.fp)
         duplicate=self.path/"different_session_same_prompt"
-        prepare(**{**self.kw,"checkpoint":duplicate})
-        with self.assertRaises(FileExistsError):
-            mark_submission_maybe(duplicate,expected_fingerprint=self.fp)
+        with self.assertRaises(ReviewCheckpointError):
+            prepare(**{**self.kw,"checkpoint":duplicate})
         self.assertFalse((duplicate/"dispatch_attempted.claim").exists())
         self.assertTrue((self.path/".microgen_academic_review_once"/
                          (self.fp+".claim")).is_file())
@@ -118,6 +117,23 @@ class OnceOnlyAcademicReview(unittest.TestCase):
                                   expected_fingerprint=a["request_fingerprint"])
         with self.assertRaises((FileExistsError,ReviewCheckpointError)):
             legacy_no_response(legacy_window=source,checkpoint=self.window)
+
+    def test_identical_legacy_consumed_prompt_is_not_reissued(self):
+        legacy=self.path/"prior_window"
+        legacy.mkdir()
+        (legacy/"failure_no_retry.json").write_text(json.dumps({
+            "status":"SINGLE_AUTHORIZED_WINDOW_EXHAUSTED",
+            "possible_browser_submission":True,"math_approval":False}))
+        (legacy/"request_sha256.json").write_text(json.dumps({
+            "prompt_sha256":hashlib.sha256(self.prompt.encode()).hexdigest(),
+            "attached_source_sha256":self.refs["source.pdf"]}))
+        (legacy/"review_window.json").write_text(json.dumps({
+            "original_source_sha256":self.refs["source.pdf"]}))
+        previous=self.path/"prior_imported_receipt"
+        legacy_no_response(legacy_window=legacy,checkpoint=previous)
+        with self.assertRaises(ReviewCheckpointError):
+            prepare(**self.kw)
+        self.assertFalse(self.window.exists())
 
     def test_valid_reply_must_be_source_checked_not_self_approved(self):
         prepare(**self.kw)
