@@ -22,3 +22,15 @@ The separately authorized **one** original Slide4 *corrected-script* Gemini acad
 **Media:** 17 original Thomas 8.4 WAVs total 632.7107s; historical encoded MP4 633.93s, fails <600s. PR314 staged 5 mathematically corrected narration/TTS candidates, not delivered WAV. Final per-unit Kore audio, exact element sync, approved multipart encoded <600s MP4 remain unverified. Protected original source/script/WAV/MP4 and dirty working tree remain untouched. No HP/Yoga/Zenbook, Whisper, paid API, Ubuntu checks, model resend or student release.
 
 **Next:** Keep original-source AI-review case deferred until a NEW explicit window can be initiated without duplicating the ambiguous submission; meanwhile implement stronger general source-provenanced media-timing acceptance and review routing for more generated sections rather than waiting on Gemini.
+
+## Verified genuine three-subchapter multimedia replacement scope
+
+Independently executed the maintained `original_wav_multipart_plan` and installed Windows FFmpeg metadata probe on each protected original subchapter **without any re-encode or source mutation**. All three historical files fail the strictly-less-than-600-second MP4 contract:
+
+| Thomas section | Actual original WAV total (s) | Encoded historical MP4 | Original-audio-only proposed splits (slides; s) |
+|---|---:|---|---|
+| 8.4 | 632.7107 | 10:33.93 | 1–8:321.8927, 9–17:310.8180 |
+| 8.5 | 761.1567 | 12:42.96 | 1–11:398.6187, 12–20:362.5380 |
+| 8.6 | 629.2007 | 10:30.96 | 1–9:330.7080, 10–17:298.4927 |
+
+**Six actual new encoded parts are needed** across the three sections once mathematical narration and genuinely timed per-element speech are accepted. These are strictly review-only proposals, NOT approved replacements; revised audio durations require fresh repartitioning and decoded pixel/audio sync proof. No historical MP4/WAV or source was overwritten.
