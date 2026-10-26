@@ -79,6 +79,7 @@ jobs:
             "tests.test_original_slide4_reconciled_once"
             "tests.test_original_slide4_exact_source_evidence"
             "tests.test_source_locked_academic_review"
+            "tests.test_automatic_math_semantic_qa"
           )
           python -m unittest -v @regressionModules
       - name: Syntax-check updated Python entry points
@@ -108,6 +109,8 @@ jobs:
             "selenium_pipeline/figure_legibility.py"
             "selenium_pipeline/pdf_element_geometry.py"
             "selenium_pipeline/spoken_math_review.py"
+            "selenium_pipeline/automatic_math_semantic_qa.py"
+            "selenium_pipeline/vendor_template_v2/gen_script_selenium_v15.py"
             "selenium_pipeline/tts_duration_preflight.py"
             "selenium_pipeline/runtime_doctor.py"
             "selenium_pipeline/pdf_visual_clearance.py"

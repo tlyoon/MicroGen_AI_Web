@@ -202,6 +202,12 @@ def stage_tts_job(
     if not destination.parent.is_dir():
         raise SeriesBridgeError("TTS staging parent missing")
     script=make_tts_script(storyboard)
+    from .automatic_math_semantic_qa import inspect_math_semantics
+    scientific=inspect_math_semantics(script,source_sha256=structural.get("source_sha256"))
+    if scientific["blocking_count"]:
+        raise SeriesBridgeError(
+            "Scientific domain/sign QA blocks TTS: "
+            + ", ".join(sorted({r["rule"] for r in scientific["findings"]})))
     from .vendor_template_v2.script_tts_risk import analyze_script_text
     report=analyze_script_text(script)
     if any(r["severity"]=="blocking" for r in report["findings"]):
