@@ -30,7 +30,7 @@ def video_only_duration(path:Path,exe:str)->float:
     p=subprocess.run([exe,"-hide_banner","-i",str(path)],
                      capture_output=True,text=True,timeout=25)
     info=p.stderr+"\n"+p.stdout
-    m=re.search(r"Duration:\\s*(\\d+):(\\d+):(\\d+(?:\\.\\d+)?)",info)
+    m=re.search(r"Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)",info)
     need(m is not None and "Video:" in info,
          "Intermediate source highlight segment has no encoded video")
     duration=int(m[1])*3600+int(m[2])*60+float(m[3])
