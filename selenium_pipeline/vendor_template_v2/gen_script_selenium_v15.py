@@ -24,6 +24,7 @@ Fixes versus the earlier v12:
 from __future__ import annotations
 
 import importlib.util
+import hashlib
 import json
 import os
 import re
