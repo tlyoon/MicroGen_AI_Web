@@ -8,7 +8,7 @@ import wave
 
 from selenium_pipeline.tts_flexible_pronunciation_contract import QA_VERSION
 from selenium_pipeline.tts_fidelity import (
-    evaluate_slide, _rescore_result, build_report,
+    evaluate_slide, _rescore_result, build_report, write_report,
 )
 from selenium_pipeline.runner import valid
 
@@ -73,8 +73,9 @@ class RealProductionSoundAlikeQA(unittest.TestCase):
                 self.assertEqual(report["tts_qa_policy_version"],QA_VERSION)
                 self.assertEqual(report["summary"]["passed"],1)
                 self.assertEqual(report["summary"]["blocking_failures"],0)
-                (folder/"tts_fidelity_report.json").write_text(
-                    json.dumps(report),encoding="utf8")
+                # The ordinary production stage requires BOTH JSON and
+                # Markdown reports: emulate the real report publisher.
+                write_report(folder,report)
                 self.assertTrue(valid("tts_qa",folder))
                 # Forged per-slide phonetic acceptance cannot pass a mere
                 # changed summary count or benign source audio label.
