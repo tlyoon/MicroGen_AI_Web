@@ -25,6 +25,7 @@ _PHONETIC_ASR = (
     (r"\bsee it\b", "secant"),
     (r"\bsee can't\b", "secant"),
     (r"\bac can't\b", "a secant"),
+    (r"\bac can t\b", "a secant"),  # Vosk apostrophe tokenization
     (r"\bpie\b", "pi"),
     (r"\beggs\b", "x"),
     (r"\bacts\b", "x"),
