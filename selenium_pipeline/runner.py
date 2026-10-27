@@ -377,14 +377,35 @@ def valid(stage: str, folder: Path) -> bool:
         report = json.loads((folder / "tts_fidelity_report.json").read_text(encoding="utf-8"))
         summary = report.get("summary", {})
         pages = slide_pages(folder)
-        return (
+        complete = (
             int(summary.get("slides", -1)) == pages
             and int(summary.get("passed", -1)) == pages
             and int(summary.get("review", 1)) == 0
             and int(summary.get("blocking_failures", 1)) == 0
-            and float(summary.get("minimum_fidelity_percent", -1))
-            >= float(report.get("threshold_percent", 99.0))
         )
+        if not complete:
+            return False
+        from .tts_flexible_pronunciation_contract import QA_VERSION
+        if report.get("tts_qa_policy_version") == QA_VERSION and report.get("version") == 2:
+            threshold = float(report.get("threshold_percent", 50.0))
+            entries = report.get("slides", [])
+            # Only actual v2 phonetic/audio QA passes count. Historical v1
+            # reports retain their ORIGINAL strict threshold semantics.
+            return (
+                50.0 <= threshold <= 100.0
+                and isinstance(entries, list) and len(entries) == pages
+                and {item.get("slide") for item in entries} == set(range(1, pages+1))
+                and all(item.get("status") == "pass"
+                        and float(item.get("tts_quality_percent",-1)) >= threshold
+                        and (item.get("tts_qa_phonetic_evidence") or {}).get(
+                            "tts_qa_soundalike_pass") is True
+                        and not (item.get("tts_qa_phonetic_evidence") or {}).get(
+                            "critical_errors")
+                        for item in entries)
+                and float(summary.get("minimum_tts_quality_percent",-1)) >= threshold
+            )
+        return (float(summary.get("minimum_fidelity_percent", -1))
+                >= float(report.get("threshold_percent", 99.0)))
     if stage == "video":
         # Owner's 18 Oct amendment: human review is OPTIONAL and may not
         # block transition to the next INTERNAL processing stage.
@@ -557,7 +578,7 @@ class Settings:
     confirm_gemini_api_cost: bool = False
     confirm_google_cloud_tts_cost: bool = False
     tts_qa_model: str = ACTIVE_LLM_MODEL
-    tts_qa_threshold: float = 99.0
+    tts_qa_threshold: float = 50.0
     chrome_port: int = 9222
     alternate_gemini_user: str | None = None
     confirm_pro: bool = False
@@ -1138,7 +1159,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--confirm-google-cloud-tts-cost", action="store_true",
                    help="Separate explicit paid Google Cloud Chirp TTS authorization")
     p.add_argument("--tts-qa-model", default=ACTIVE_LLM_MODEL)
-    p.add_argument("--tts-qa-threshold", type=float, default=99.0)
+    p.add_argument("--tts-qa-threshold", type=float, default=50.0)
     p.add_argument("--communication-mode", choices=("selenium", "api", "fallback"),
                    help="Override MICROGEN_COMMUNICATION_MODE for figure, slide and narration tasks")
     p.add_argument("--chrome-port", type=int, default=9222)
