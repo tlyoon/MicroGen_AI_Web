@@ -90,6 +90,18 @@ def lexical_math_risk_terms(expected:str,recognized:str)->dict:
     }
 
 
+def polarity_sequence(expected:str,recognized:str)->dict:
+    """Even one altered negative/nonnegative/zero keyword must block screening."""
+    risks={"absolute","negative","nonnegative","positive","zero","degenerate"}
+    a=[w for w in words(expected) if w in risks]
+    b=[w for w in words(recognized) if w in risks]
+    return {
+        "expected_math_polarity_sequence":a,
+        "recognized_math_polarity_sequence":b,
+        "critical_math_polarity_sequence_exact":a==b,
+    }
+
+
 def _real_source_and_model(*,original:Path,bundle:Path,audio_dir:Path,
                            model_dir:Path)->tuple[dict,dict,str]:
     evidence=inspect_five_original_pcm_chunks(
@@ -155,10 +167,12 @@ def transcribe_actual_five_corrected_wavs(
         expected_text=expected["corrected_tts_text"]
         metrics=word_error_rate(expected_text,recognized)
         terms=lexical_math_risk_terms(expected_text,recognized)
-        # This is a deliberately conservative screening threshold; an ASR
-        # PASS is NOT standalone evidence of exact every-word delivery.
+        polarity=polarity_sequence(expected_text,recognized)
+        # Even one mismatched sign/absolute/zero/degenerate term blocks.
+        # Passing still does not prove every acoustic word independently.
         good=(metrics["word_error_rate"]<=.20
               and terms["critical_term_recall"]>=.75
+              and polarity["critical_math_polarity_sequence_exact"]
               and metrics["recognized_token_count"]>=15)
         rows.append({
             "utterance_id":expected["original_utterance_id"],
@@ -170,7 +184,7 @@ def transcribe_actual_five_corrected_wavs(
             "recognized_verbatim":recognized,
             "recognized_words_sha256":
                 hashlib.sha256(recognized.encode("utf8")).hexdigest(),
-            **metrics,**terms,
+            **metrics,**terms,**polarity,
             "asr_math_words_screening_pass":good,
             "speaker_voice_identity_Kore_verified":False,
             "actual_exact_spoken_words_certified":False,
