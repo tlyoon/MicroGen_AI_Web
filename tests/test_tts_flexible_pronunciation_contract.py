@@ -74,6 +74,27 @@ class OwnerFlexibleTTSPronunciationContract(unittest.TestCase):
         self.assertIn("EXPLICIT_MATHEMATICAL_RELATION_DIRECTION_CHANGED",
                       result["critical_errors"])
 
+    def test_different_spoken_numbers_not_excused_as_phonetic_variants(self):
+        report=evaluate_tts_soundalike(
+            "The answer is two minus three.",
+            "the answer is three minus two")
+        self.assertFalse(report["tts_qa_soundalike_pass"])
+        self.assertIn("EXPLICIT_SPOKEN_NUMBER_CHANGED",report["critical_errors"])
+
+    def test_sine_vs_cosine_and_hypotenuse_vs_adjacent_are_not_allowed(self):
+        for source,heard,code in (
+            ("The sine of u is positive.",
+             "the cosine of you is positive",
+             "EXPLICIT_TRIGONOMETRIC_FUNCTION_CHANGED"),
+            ("The hypotenuse has length a.",
+             "the adjacent has length a",
+             "EXPLICIT_TRIANGLE_SIDE_ROLE_CHANGED"),
+        ):
+            with self.subTest(code=code):
+                report=evaluate_tts_soundalike(source,heard)
+                self.assertFalse(report["tts_qa_soundalike_pass"])
+                self.assertIn(code,report["critical_errors"])
+
     def test_unintelligible_audio_is_not_passed_as_soundalike(self):
         result=evaluate_tts_soundalike(
             "The hypotenuse is the square root of a squared plus x squared.",
