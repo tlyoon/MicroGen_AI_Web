@@ -34,6 +34,12 @@ class PragmaticPronunciationContract(unittest.TestCase):
         self.assertFalse(d["pronunciation_qa_pass"])
         self.assertIn("MATH_SIGN_OR_DOMAIN_CONTRADICTION_REVIEW",d["blocker_codes"])
 
+    def test_secant_phonetic_ac_cant_tokenization_accepted(self):
+        expected="For x equals a secant u, tangent u is nonnegative."
+        heard="For eggs equals ac can't you tangent you is non negative"
+        decision=flexible_pronunciation_screen(expected,heard)
+        self.assertTrue(decision["pronunciation_qa_pass"],decision)
+
     def test_trig_function_change_must_fail(self):
         expected="Cosine u is positive."
         heard="Sine you is positive."
