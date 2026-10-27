@@ -21,6 +21,10 @@ import sys
 import unicodedata
 import wave
 
+from .tts_flexible_pronunciation_contract import (
+    QA_VERSION, canonical_phonetic_tokens, evaluate_tts_soundalike,
+)
+
 
 def digest(path: Path) -> str:
     h = hashlib.sha256()
@@ -231,6 +235,7 @@ def screen(*, plan: Path, audio: Path, output: Path,
         recognized = None
         wer = None
         math_diff = None
+        phonetic_result = None
         evidence_state = "pending_independent_asr"
         flags = list(acoustics["perceptual_review_flags"])
         if job is not None:
@@ -249,20 +254,29 @@ def screen(*, plan: Path, audio: Path, output: Path,
                         entry.get("backend") != "selenium_flash_browser" or
                         entry.get("exact_web_model_version_unverified") is not True):
                     raise ValueError("Unverifiable Gemini web audio receipt")
-                wer = word_error_rate(script, recognized)
-                target = math_marks(script)
-                heard = math_marks(recognized)
+                wer = word_error_rate(script, recognized)  # raw diagnostic only
+                phonetic_result=evaluate_tts_soundalike(script,recognized)
+                normalized_expected,normalized_heard=canonical_phonetic_tokens(
+                    script,recognized)
+                target = math_marks(" ".join(normalized_expected))
+                heard = math_marks(" ".join(normalized_heard))
                 math_diff = {
                     "missing": dict(target - heard),
                     "extra": dict(heard - target),
                     "order_changed": (not (target - heard or heard - target)
-                        and math_token_order(script) != math_token_order(recognized)),
+                        and math_token_order(" ".join(normalized_expected)) !=
+                            math_token_order(" ".join(normalized_heard))),
                 }
-                evidence_state = ("machine_transcript_consistent" if wer <= .20
-                                  else "transcript_mismatch")
-                if wer > .20:
-                    flags.append("transcript_word_error_over_20_percent")
-                if any(math_diff.values()):
+                evidence_state=(
+                    "machine_transcript_consistent"
+                    if phonetic_result["tts_qa_soundalike_pass"]
+                    else "transcript_mismatch")
+                # Do not reject a correct-looking WAV merely because Vosk
+                # spells 'hypotenuse' as 'high pot news' or 'cosine' as
+                # 'coast sign'. Raw 20% WER is no longer a hard threshold.
+                if not phonetic_result["tts_qa_soundalike_pass"]:
+                    flags.append("tts_phonetic_content_requires_review")
+                if phonetic_result["critical_errors"]:
                     flags.append("mathematical_spoken_token_discrepancy")
         if evidence_state == "pending_independent_asr":
             flags.append("independent_transcript_unavailable")
@@ -272,6 +286,8 @@ def screen(*, plan: Path, audio: Path, output: Path,
             "acoustics": acoustics, "asr_status": evidence_state,
             "asr_model": job["model"] if job else None,
             "transcript": recognized, "word_error_rate": wer,
+            "word_error_rate_is_advisory": True,
+            "tts_qa_phonetic_evidence":phonetic_result,
             "math_token_discrepancy": math_diff,
             "human_listening_approved": False,
             "quality_state": (
@@ -285,7 +301,9 @@ def screen(*, plan: Path, audio: Path, output: Path,
     pending = sum(r["asr_status"] == "pending_independent_asr" for r in rows)
     review = sum(r["quality_state"] == "manual_review_required" for r in rows)
     summary = {
-        "schema_version": 1,
+        "schema_version": 2,
+        "tts_qa_policy_version": QA_VERSION,
+        "legacy_word_error_20_percent_hard_gate_removed": True,
         "status": "QUALITY_SCREEN_REVIEW_ONLY",
         "plan_sha256": digest(plan),
         "asr_job_sha256": digest(asr_dir / "asr_job.json") if job else None,
