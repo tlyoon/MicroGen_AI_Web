@@ -378,8 +378,10 @@ def encode_provisional_two_part_real_original_highlights(
             with concat_list.open("x",encoding="utf8") as f:
                 for row in rows:
                     f.write("file '"+Path(row["clip_file"]).as_posix()+"'\n")
-            movie=output/f"Thomas_8_4_{section['part_id']}_"
-                         "WORD_TIMED_PROVISIONAL_HIGHLIGHT_REVIEW_ONLY.mp4"
+            movie=output / (
+                f"Thomas_8_4_{section['part_id']}_"
+                "WORD_TIMED_PROVISIONAL_HIGHLIGHT_REVIEW_ONLY.mp4"
+            )
             ff(exe,["-n","-f","concat","-safe","0","-i",str(concat_list),
                     "-c","copy","-movflags","+faststart",str(movie)],timeout=180)
             real_seconds=_mp4_duration(movie,ffmpeg=exe)
