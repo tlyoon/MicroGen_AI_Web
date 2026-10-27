@@ -23,64 +23,73 @@ from pathlib import Path
 from typing import Any
 
 from .runner import blocks, load_microvid_env
-
-DEFAULT_MODEL = os.environ.get("MICROGEN_TTS_QA_MODEL", "gemini-3.8-flash")
-DEFAULT_THRESHOLD = float(
-    os.environ.get("MICROGEN_TTS_FIDELITY_MIN_PERCENT", "99.0")
+from .tts_flexible_pronunciation_contract import (
+    QA_VERSION, evaluate_tts_soundalike,
 )
 
-QA_PROMPT = """You are a strict quality-control listener for text-to-speech audio.
+DEFAULT_MODEL = os.environ.get("MICROGEN_TTS_QA_MODEL", "gemini-3.8-flash")
+# Owner 27 Oct 2026: reasonable phonetic similarity, not 99% ASR identity.
+# The old MICROGEN_TTS_FIDELITY_MIN_PERCENT setting governs only historical
+# v1 reports and must not silently reinstate strict transcript matching.
+DEFAULT_THRESHOLD = float(
+    os.environ.get("MICROGEN_TTS_PHONETIC_MIN_PERCENT", "50.0")
+)
 
-Listen to the attached WAV and compare it with the GROUND TRUTH SCRIPT below.
+QA_PROMPT = """You are a practical, pronunciation-aware TTS quality listener.
 
-Requirements:
-1. Put the words actually spoken in "transcript". Do not silently repair,
-   paraphrase, normalize, or improve the audio.
-2. Ignore only punctuation, capitalization, harmless pause differences, and
-   genuinely inaudible typography. Do not ignore a pronunciation difference.
-3. Treat omitted words, added words, repeated words, changed numbers, changed
-   scientific terms, changed signs or directions, and changed mathematical
-   meaning as fidelity errors.
-4. Independently verify pronunciation. A transcript that looks textually correct
-   does NOT prove the audio is correct.
-5. Pay special attention to scientific notation, units, variable names, single
-   letters, letter names, acronyms, abbreviations, signs, exponents, and proper
-   names.
-6. Historical Google Cloud TTS failure modes are examples of what to
-   inspect, not assumptions about the present Gemini Flash Lite TTS engine.
-   Listen empirically and report what this WAV actually does. In particular,
-   check whether:
-   - a token such as "c." is expanded to an unintended word such as "circa";
-   - a variable or label such as "Y" is pronounced as an unrelated word or
-     sound instead of the intended letter/variable;
-   - article "a" is read as the letter name "ay", or a genuine letter A is read
-     as the article;
-   - abbreviations or initials are expanded unexpectedly;
-   - a mathematical sign, unit, exponent, or variable is given the wrong spoken
-     value even when the rest of the sentence is correct.
-   Do not flag any of these merely because the token appears in the script; flag
-   them only when the audio itself is wrong, ambiguous, or defective.
-7. For every item in EXTRA PRONUNCIATION RISKS, listen specifically to that
-   span and report the actual spoken rendering. If it is ambiguous or wrong,
-   add a critical_token_issue even if the ordinary transcript otherwise matches.
-8. Do not infer missing speech from the script. Judge what is audibly present.
-9. Return JSON only with this shape:
+Listen to this real WAV without assuming its contents from the script.
+Judge whether the audible narration is intelligible and conveys substantially
+the intended teaching meaning. This is NOT a word-for-word spelling exam.
+
+OWNER-APPROVED RELAXED TTS PASS STANDARD:
+1. PASS when it sounds substantially similar to the script. Ordinary accents,
+   contractions, rhythm, harmless grammar, common alternate pronunciations,
+   similar-sounding word substitutions, ASR spelling/transcription variants,
+   and minor omissions of nonessential function words are acceptable.
+   Do NOT demand an exact transcript, 99% word fidelity, or perfection.
+2. Treat phonetic mathematical equivalents as acceptable when the audible
+   meaning is preserved: for example hypotenuse/'high pot news',
+   cosine/'coast sign', secant/'see get', x/'eggs', u/'you', pi/'pie'.
+   Those are often recognizer *spellings*, not evidence of wrong TTS speech.
+3. Only report a major pronunciation issue when you actually HEAR a materially
+   WRONG pronunciation, scientific word/number, changed mathematical sign or
+   inequality, wrong variable/unit/exponent, nontechnical mumbling, missing
+   important spoken clause, clearly different voice, severe clipping or silence.
+   A doubtful ASR rendering alone is NOT a major TTS defect.
+4. HARD EXCEPTION: the variable/letter C or 'c.' pronounced 'circa' is
+   unmistakably incorrect; always flag as MAJOR when it audibly occurs.
+   Similarly retain genuinely wrong letter names (e.g. variable Y pronounced
+   as unrelated 'wee'), material number/sign inversions and corrupted formulas.
+   The word 'c' pronounced as 'see' is correct and MUST NOT be flagged.
+5. If a pronunciation sounds similar/understandable, do NOT flag it merely
+   because one recognizer could produce a different spelling. When uncertain,
+   give a brief minor note; do not force regeneration of a good recording.
+6. Mark a critical_token_issue ONLY when the actual audio proves a
+   consequential error. Avoid generic warnings for tokens merely appearing
+   in the text. Report *actual* audible errors, not imagined risks.
+7. In 'transcript', reflect the words heard without silently replacing clearly
+   wrong content with the script. It is okay for math term spelling or natural
+   connected speech to differ from the written original.
+8. Return JSON only with the following shape:
 {
-  "transcript": "verbatim words actually heard",
+  "transcript": "best-effort unprompted words audibly heard",
   "pronunciation_issues": [
-    {"script_text": "...", "heard_as": "...", "severity": "minor|major", "note": "..."}
+    {"script_text": "...", "heard_as": "...", "severity": "minor|major",
+     "note": "why it is audibly important"}
   ],
   "critical_token_issues": [
-    {"script_text": "...", "heard_as": "...", "category": "letter|abbreviation|variable|unit|number|sign|exponent|name|other", "severity": "major", "note": "..."}
+    {"script_text": "...", "heard_as": "...", "category":
+     "letter|abbreviation|variable|unit|number|sign|exponent|name|other",
+     "severity": "major", "note": "evidence of a real critical error"}
   ],
-  "audio_defects": ["clipping, truncation, unexpected silence, repetition, or other defect"],
-  "notes": "brief optional QA note"
+  "audio_defects": ["only material clipping, truncation, unintended repetition or silence"],
+  "notes": "brief optional observation"
 }
 
-EXTRA PRONUNCIATION RISKS:
+EXTRA PRONUNCIATION RISKS (check ONLY if actually defective):
 <<<{risk_checks}>>>
 
-GROUND TRUTH SCRIPT:
+SOURCE-REGISTERED NARRATION (for intent, not for transcription substitution):
 <<<{script}>>>
 """
 
@@ -485,8 +494,12 @@ def evaluate_slide(
         and str(item.get("severity", "")).lower() == "major"
         for item in pronunciation
     )
+    acoustic = evaluate_tts_soundalike(script,transcript)
+    phonetic_percent = round(100.0*acoustic["phonetic_token_similarity"],3)
     status = "pass"
-    if stats["fidelity_percent"] < threshold or major_pronunciation or critical or defects:
+    if (not acoustic["tts_qa_soundalike_pass"] or
+            phonetic_percent < threshold or
+            major_pronunciation or critical or defects):
         status = "review"
 
     duration = wav_duration_seconds(wav_path)
@@ -502,6 +515,9 @@ def evaluate_slide(
         "ground_truth": script,
         "transcript": transcript,
         **stats,
+        "legacy_verbatim_fidelity_percent":stats["fidelity_percent"],
+        "tts_quality_percent":phonetic_percent,
+        "tts_qa_phonetic_evidence":acoustic,
         "status": status,
         "differences": diff_spans(script, transcript),
         "pronunciation_issues": pronunciation,
@@ -524,11 +540,17 @@ def _rescore_result(result: dict[str, Any], threshold: float) -> dict[str, Any]:
         and str(item.get("severity", "")).lower() == "major"
         for item in pronunciation
     )
+    acoustic = evaluate_tts_soundalike(script,transcript)
+    phonetic_percent = round(100.0*acoustic["phonetic_token_similarity"],3)
     result.update(stats)
+    result["legacy_verbatim_fidelity_percent"]=stats["fidelity_percent"]
+    result["tts_quality_percent"]=phonetic_percent
+    result["tts_qa_phonetic_evidence"]=acoustic
     result["differences"] = diff_spans(script, transcript)
     result["status"] = (
         "review"
-        if stats["fidelity_percent"] < threshold or major_pronunciation or critical or defects
+        if (not acoustic["tts_qa_soundalike_pass"] or
+            phonetic_percent < threshold or major_pronunciation or critical or defects)
         else "pass"
     )
     return result
@@ -536,7 +558,7 @@ def _rescore_result(result: dict[str, Any], threshold: float) -> dict[str, Any]:
 
 def _cache_key(wav_path: Path, script: str, model: str, threshold: float) -> str:
     digest = hashlib.sha256()
-    digest.update(b"microgen-tts-qa-v1\0")
+    digest.update(("microgen-tts-qa-"+QA_VERSION+"\0").encode("utf8"))
     digest.update(model.encode("utf-8"))
     digest.update(f"{threshold:.6f}".encode("ascii"))
     digest.update(QA_PROMPT.encode("utf-8"))
@@ -639,19 +661,21 @@ def build_report(
             results.append(result)
             print(
                 f"[tts-qa] slide{result['slide']}: "
-                f"{result['fidelity_percent']:.3f}% "
-                f"({result['word_errors']} word errors) -> {result['status']}",
+                f"phonetic={result['tts_quality_percent']:.3f}% "
+                f"(raw ASR WER={result['word_error_rate']:.3f} advisory) -> {result['status']}",
                 flush=True,
             )
 
     results.sort(key=lambda item: int(item["slide"]))
     fidelities = [float(item["fidelity_percent"]) for item in results]
+    soundalikes = [float(item["tts_quality_percent"]) for item in results]
     review = [item for item in results if item["status"] != "pass"]
     return {
-        "version": 1,
+        "version": 2,
+        "tts_qa_policy_version":QA_VERSION,
         "method": (
-            "Gemini native audio inspection + local normalized word edit "
-            "distance; no Whisper"
+            "Audio-derived transcript + context-aware phonetic similarity; "
+            "raw WER advisory only; hard real math/letter/audio defects; no Whisper"
         ),
         "model": model,
         "threshold_percent": threshold,
@@ -667,6 +691,14 @@ def build_report(
             "minimum_fidelity_percent": (
                 round(min(fidelities), 3) if fidelities else 0.0
             ),
+            "mean_tts_quality_percent": (
+                round(sum(soundalikes)/len(soundalikes),3)
+                if soundalikes else 0.0
+            ),
+            "minimum_tts_quality_percent": (
+                round(min(soundalikes),3) if soundalikes else 0.0
+            ),
+            "word_error_rate_is_advisory": True,
             "blocking_failures": len(review),
         },
         "slides": results,
@@ -687,11 +719,14 @@ def write_report(folder: Path, report: dict[str, Any]) -> tuple[Path, Path]:
         f"- Method: {report['method']}",
         f"- Model: {report['model']}",
         f"- Pass threshold: {report['threshold_percent']}%",
-        f"- Mean fidelity: {summary['mean_fidelity_percent']}%",
-        f"- Minimum fidelity: {summary['minimum_fidelity_percent']}%",
+        f"- Mean phonetic TTS quality: {summary['mean_tts_quality_percent']}%",
+        f"- Minimum phonetic TTS quality: {summary['minimum_tts_quality_percent']}%",
+        f"- Raw exact-word fidelity (advisory only): "
+        f"{summary['mean_fidelity_percent']}% mean / "
+        f"{summary['minimum_fidelity_percent']}% minimum",
         f"- Slides passed: {summary['passed']}/{summary['slides']}",
         "",
-        "| Slide | Fidelity | Word errors | Status | Main differences |",
+        "| Slide | Phonetic similarity | Raw WER advisory | Status | Main differences |",
         "|---:|---:|---:|---|---|",
     ]
     for item in report["slides"]:
@@ -700,8 +735,8 @@ def write_report(folder: Path, report: dict[str, Any]) -> tuple[Path, Path]:
             for d in item["differences"][:3]
         )
         lines.append(
-            f"| {item['slide']} | {item['fidelity_percent']:.3f}% | "
-            f"{item['word_errors']} | {item['status']} | {differences} |"
+            f"| {item['slide']} | {item['tts_quality_percent']:.3f}% | "
+            f"{item['word_error_rate']:.3f} | {item['status']} | {differences} |"
         )
     md_path = folder / "tts_fidelity_report.md"
     md_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -724,8 +759,8 @@ def main(argv: list[str] | None = None) -> int:
         "--strict",
         action="store_true",
         help=(
-            "Return non-zero if any slide is below threshold or has a major "
-            "audio or pronunciation issue."
+            "Return non-zero for genuine phonetic failures, wrong mathematical "
+            "speech/letters, serious audio defects, or inadequate sound similarity."
         ),
     )
     args = parser.parse_args(argv)
@@ -743,8 +778,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     summary = report["summary"]
     print(
-        f"[tts-qa] mean={summary['mean_fidelity_percent']:.3f}% "
-        f"minimum={summary['minimum_fidelity_percent']:.3f}% "
+        f"[tts-qa] phonetic_mean={summary['mean_tts_quality_percent']:.3f}% "
+        f"phonetic_min={summary['minimum_tts_quality_percent']:.3f}% "
         f"review={summary['review']}",
         flush=True,
     )
