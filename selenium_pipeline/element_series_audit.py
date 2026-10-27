@@ -98,7 +98,12 @@ def check_tts_quality(plan: dict, audio: Path, quality_report: Path | None,
                 "machine_complete": False, "human_certified": False}
     quality_report = Path(quality_report).resolve()
     report = load(quality_report)
-    require(report.get("schema_version") == 1
+    from .tts_flexible_pronunciation_contract import QA_VERSION
+    compatible_schema=(
+        report.get("schema_version")==2
+        and report.get("tts_qa_policy_version")==QA_VERSION
+    )
+    require(compatible_schema
             and report.get("status") == "QUALITY_SCREEN_REVIEW_ONLY"
             and report.get("plan_sha256") == authored_sha256
             and report.get("total_clips") == len(elements),
