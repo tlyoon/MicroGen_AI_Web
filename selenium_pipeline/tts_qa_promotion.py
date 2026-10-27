@@ -14,6 +14,7 @@ import tempfile
 from pathlib import Path
 
 from .runner import blocks
+from .tts_flexible_pronunciation_contract import QA_VERSION
 from .tts_pcm_contract import verify_pcm, TTSPCMContractError
 from .tts_effective_identity import (
     verify_effective_identity, TTSEffectiveIdentityError,
@@ -112,11 +113,16 @@ def audit(source: Path, review: Path) -> dict:
             raise AudioPromotionBlocked(
                 f"Unverified observed Gemini fallback attempts: {exc}") from exc
         observed_retry_digest = manifest["attempt_evidence"]["sha256"]
+    is_phonetic=(report.get("version")==2
+                 and report.get("tts_qa_policy_version")==QA_VERSION)
+    # Historical v1 reports keep their 99%-exact-word contract; genuinely
+    # new v2 reports use the owner's relaxed acoustic similarity standard.
+    lower_limit=50.0 if is_phonetic else 99.0
     if (any((receipt.get("provider") != effective["provider"],
              receipt.get("tts_model") != effective["model"],
              receipt.get("voice") != effective["voice"]))
             or receipt.get("fidelity_model") != report.get("model")
-            or threshold < 99.0 or threshold > 100.0
+            or threshold < lower_limit or threshold > 100.0
             or float(report.get("threshold_percent", -1)) != threshold):
         raise AudioPromotionBlocked("TTS provenance or QA threshold mismatch")
     changed = set()
@@ -157,15 +163,22 @@ def audit(source: Path, review: Path) -> dict:
             raise AudioPromotionBlocked("Original or proposed WAV digest mismatch")
         row = manifest_by_number[number]
         qa = row_by_number[number]
+        quality_field=("tts_quality_percent" if is_phonetic
+                       else "fidelity_percent")
+        evidence=qa.get("tts_qa_phonetic_evidence") or {}
         if (qa.get("status") != "pass"
                 or qa.get("audio_file") != name
                 or qa.get("ground_truth") != narration
-                or float(qa.get("fidelity_percent", -1)) < threshold
+                or float(qa.get(quality_field, -1)) < threshold
+                or (is_phonetic and (
+                    evidence.get("tts_qa_soundalike_pass") is not True
+                    or evidence.get("critical_errors")))
                 or qa.get("critical_token_issues")
                 or qa.get("audio_defects")
                 or any(str(p.get("severity", "")).lower() == "major"
                        for p in qa.get("pronunciation_issues", []))):
-            raise AudioPromotionBlocked(f"Slide {number} lacks strict QA acceptance")
+            raise AudioPromotionBlocked(
+                f"Slide {number} lacks soundalike/critical-pronunciation QA acceptance")
         if number not in changed and source_wav != review_wav:
             raise AudioPromotionBlocked("Unrepaired slide was changed in candidate")
         if number in changed and source_wav == review_wav:
