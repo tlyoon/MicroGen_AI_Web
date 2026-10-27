@@ -64,18 +64,32 @@ def reconcile(folder: Path, *, apply: bool = False) -> dict:
     summary = fidelity.get("summary", {})
     threshold = float(fidelity.get("threshold_percent", 99.0))
     entries = fidelity.get("slides")
+    from .tts_flexible_pronunciation_contract import QA_VERSION
+    phonetic=(fidelity.get("version")==2
+              and fidelity.get("tts_qa_policy_version")==QA_VERSION)
+    quality_key="tts_quality_percent" if phonetic else "fidelity_percent"
+    summary_key=("minimum_tts_quality_percent" if phonetic
+                 else "minimum_fidelity_percent")
     if (not isinstance(summary, dict)
             or summary.get("slides") != report["pages"]
             or summary.get("passed") != report["pages"]
             or summary.get("review") != 0
             or summary.get("blocking_failures") != 0
-            or float(summary.get("minimum_fidelity_percent", -1)) < threshold
+            or threshold < (50 if phonetic else 99)
+            or float(summary.get(summary_key, -1)) < threshold
             or not isinstance(entries, list)
             or len(entries) != report["pages"]
             or {x.get("slide") for x in entries} != set(range(1, report["pages"] + 1))
             or any(x.get("status") != "pass" or
-                   float(x.get("fidelity_percent", -1)) < threshold for x in entries)):
-        raise ValueError("TTS fidelity report does not independently certify every slide")
+                   float(x.get(quality_key, -1)) < threshold or
+                   (phonetic and (
+                       (x.get("tts_qa_phonetic_evidence") or {}).get(
+                           "tts_qa_soundalike_pass") is not True or
+                       (x.get("tts_qa_phonetic_evidence") or {}).get(
+                           "critical_errors")))
+                   for x in entries)):
+        raise ValueError(
+            "TTS report does not verify every original slide under its versioned QA policy")
 
     risk = _json(folder / "script_risk_report.json")
     if risk.get("summary", {}).get("blocking") != 0:
