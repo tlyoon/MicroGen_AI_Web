@@ -89,7 +89,7 @@ def reconcile(folder: Path, *, apply: bool = False) -> dict:
                            "critical_errors")))
                    for x in entries)):
         raise ValueError(
-            "TTS report does not verify every original slide under its versioned QA policy")
+            "TTS fidelity report does not verify every original slide under its versioned QA policy")
 
     risk = _json(folder / "script_risk_report.json")
     if risk.get("summary", {}).get("blocking") != 0:
