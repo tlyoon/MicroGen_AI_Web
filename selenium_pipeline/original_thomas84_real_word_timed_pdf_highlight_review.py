@@ -198,9 +198,10 @@ def exact_original_pcm_word_splits(*,wav:Path,begin_s:float,end_s:float
 def _write_pcm_window(*,path:Path,content:bytes):
     need(len(content)>0 and len(content)%2==0,
          "Original WAV split contains invalid PCM byte boundaries")
-    with wave.open(str(path),"xb") as w:
-        w.setnchannels(1);w.setsampwidth(2);w.setframerate(24000)
-        w.writeframes(content)
+    with path.open("xb") as raw:
+        with wave.open(raw,"wb") as w:
+            w.setnchannels(1);w.setsampwidth(2);w.setframerate(24000)
+            w.writeframes(content)
 
 
 def _highlight_picture(*,static:Path,target:dict,out:Path,page)->Path:
