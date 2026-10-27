@@ -23,6 +23,8 @@ from .video_ffmpeg import ffmpeg_executable
 
 MODEL_NAME="vosk-model-small-en-us-0.15"
 MODEL_ZIP_SHA256="30f26242c4eb449f948e42cb302dd7a686cb29a3423a8367f99ff41780942498"
+SPEAKER_MODEL_NAME="vosk-model-spk-0.4"
+SPEAKER_MODEL_ZIP_SHA256="a74d8f51144484813e16af689bb0f916b7a111e2347f467c4933c1166097b5a7"
 
 
 class OfflineMathSpeechReviewError(ValueError):
@@ -103,6 +105,21 @@ def polarity_sequence(expected:str,recognized:str)->dict:
     }
 
 
+def speaker_cosine(a:list[float],b:list[float])->float:
+    """A speaker-embedding similarity is NOT the voice name Kore."""
+    require(len(a)==len(b) and len(a)>=64,
+            "Speaker vectors require equal full embedding dimensions")
+    numerator=sum(float(x)*float(y) for x,y in zip(a,b))
+    norms=math.sqrt(sum(float(x)*float(x) for x in a)*
+                    sum(float(y)*float(y) for y in b))
+    require(math.isfinite(norms) and norms>1e-12,
+            "Missing or invalid voice embedding norm")
+    value=numerator/norms
+    require(math.isfinite(value) and -1.0001<=value<=1.0001,
+            "Unphysical speaker similarity")
+    return round(value,5)
+
+
 def _real_source_and_model(*,original:Path,bundle:Path,audio_dir:Path,
                            model_dir:Path)->tuple[dict,dict,str]:
     evidence=inspect_five_original_pcm_chunks(
@@ -122,6 +139,7 @@ def _real_source_and_model(*,original:Path,bundle:Path,audio_dir:Path,
 def transcribe_actual_five_corrected_wavs(
     *, original:Path,bundle:Path,audio_dir:Path,
     model_dir:Path,output_receipt:Path,
+    speaker_model_dir:Path|None=None,
 )->dict:
     """Independent ASR corroboration only, NEVER final academic release."""
     root=Path(original).absolute()
@@ -134,14 +152,24 @@ def transcribe_actual_five_corrected_wavs(
     evidence,source,model_zip_sha=_real_source_and_model(
         original=root,bundle=bundle,audio_dir=parent,model_dir=model_dir)
     try:
-        from vosk import Model,KaldiRecognizer,SetLogLevel
+        from vosk import Model,KaldiRecognizer,SpkModel,SetLogLevel
     except (ImportError,OSError) as exc:
         raise OfflineMathSpeechReviewError(
             "Vosk local Windows offline ASR unavailable; no speech acceptance"
         ) from exc
     SetLogLevel(-1)
     model=Model(str(model_dir))
+    speaker_model=None
+    if speaker_model_dir is not None:
+        sm=Path(speaker_model_dir).absolute()
+        z=sm.parent/(SPEAKER_MODEL_NAME+".zip")
+        require(sm.name==SPEAKER_MODEL_NAME and sm.is_dir()
+                and not sm.is_symlink() and z.is_file()
+                and _sha(z)==SPEAKER_MODEL_ZIP_SHA256,
+                "Official offline Vosk speaker reference model not verified")
+        speaker_model=SpkModel(str(sm))
     exe=ffmpeg_executable()
+    voice_vectors=[]
     rows=[]
     actual_shas=[]
     for expected,row in zip(source["source_verified_tts_highlight_units"],
@@ -158,11 +186,25 @@ def transcribe_actual_five_corrected_wavs(
                 "Cannot decode actual genuine new PCM WAV to offline ASR input")
         recognizer=KaldiRecognizer(model,16000)
         recognizer.SetWords(True)
+        if speaker_model is not None:
+            recognizer.SetSpkModel(speaker_model)
         chunks=[]
         for i in range(0,len(decoded.stdout),8000):
             if recognizer.AcceptWaveform(decoded.stdout[i:i+8000]):
                 chunks.append(json.loads(recognizer.Result()))
         chunks.append(json.loads(recognizer.FinalResult()))
+        if speaker_model is not None:
+            candidates=[q for q in chunks if isinstance(q.get("spk"),list)
+                        and int(q.get("spk_frames",0))>=60]
+            if candidates:
+                speaker=max(candidates,key=lambda q:int(q["spk_frames"]))
+                vector=speaker["spk"]
+                require(len(vector)>=64 and
+                        all(math.isfinite(float(v)) for v in vector),
+                        "Invalid/partial speaker embedding")
+                voice_vectors.append([float(x) for x in vector])
+            else:
+                voice_vectors.append([])
         data=[word for piece in chunks for word in piece.get("result",[])]
         recognized=" ".join(word.get("word","") for word in data)
         expected_text=expected["corrected_tts_text"]
@@ -199,6 +241,18 @@ def transcribe_actual_five_corrected_wavs(
     require(len(rows)==5 and actual_shas==[r["wav_sha256"]
              for r in evidence["units"]],
             "Five ASR source-audio identities incomplete")
+    similarities=[]
+    if speaker_model is not None:
+        require(len(voice_vectors)==5 and all(v for v in voice_vectors),
+                "Speaker embedding missing for one actual recording")
+        for i in range(5):
+            for j in range(i+1,5):
+                similarities.append({"utterance_pair":[i+1,j+1],
+                                     "speaker_embedding_cosine":
+                                        speaker_cosine(voice_vectors[i],voice_vectors[j])})
+        require(len(similarities)==10,"Expected all 10 speaker pairs")
+    min_cos=min((pair["speaker_embedding_cosine"] for pair in similarities),
+                default=None)
     report={
         "schema_version":1,
         "status":"REAL_FIVE_KORE_REQUESTED_WAVS_UNBIASED_OFFLINE_ASR_REVIEW_ONLY",
@@ -215,6 +269,12 @@ def transcribe_actual_five_corrected_wavs(
             sum(bool(r["asr_math_words_screening_pass"]) for r in rows),
         "five_source_audio_rows":rows,
         "requested_provider_voice":"Kore",
+        "speaker_model_name":SPEAKER_MODEL_NAME if speaker_model else None,
+        "speaker_model_zip_sha256":SPEAKER_MODEL_ZIP_SHA256 if speaker_model else None,
+        "speaker_pairwise_cosine":similarities,
+        "speaker_min_pairwise_cosine":min_cos,
+        "same_speaker_acoustic_similarity_screened":
+            bool(min_cos is not None and min_cos>=.65),
         "voice_Kore_audibly_independently_verified":False,
         "independent_academic_math_review_two_pass":False,
         "unqualified_exact_words_verified":False,
@@ -234,11 +294,13 @@ def main(argv=None):
     p.add_argument("--bundle",required=True,type=Path)
     p.add_argument("--audio-dir",required=True,type=Path)
     p.add_argument("--model-dir",required=True,type=Path)
+    p.add_argument("--speaker-model-dir",type=Path)
     p.add_argument("--out",required=True,type=Path)
     a=p.parse_args(argv)
     result=transcribe_actual_five_corrected_wavs(
         original=a.original,bundle=a.bundle,audio_dir=a.audio_dir,
-        model_dir=a.model_dir,output_receipt=a.out)
+        model_dir=a.model_dir,output_receipt=a.out,
+        speaker_model_dir=a.speaker_model_dir)
     print(json.dumps({
         "status":result["status"],
         "ASR_screening_pass_count":result["source_registered_screening_pass_count"],
