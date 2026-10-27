@@ -95,6 +95,7 @@ jobs:
             "tests.test_offline_vosk_corrected_math_speech_qa"
             "tests.test_tts_flexible_pronunciation_contract"
             "tests.test_tts_soundalike_production_integration"
+            "tests.test_offline_original_thomas84_two_part_real_review"
             "tests.test_tts_quality_gate"
           )
           python -m unittest -v @regressionModules
@@ -151,6 +152,7 @@ jobs:
             "selenium_pipeline/original_corrected_kore_candidate_batch.py"
             "selenium_pipeline/offline_vosk_corrected_math_speech_qa.py"
             "selenium_pipeline/tts_flexible_pronunciation_contract.py"
+            "selenium_pipeline/offline_original_thomas84_two_part_real_review.py"
             "selenium_pipeline/tts_fidelity.py"
             "selenium_pipeline/tts_quality_gate.py"
             "selenium_pipeline/tts_qa_promotion.py"
