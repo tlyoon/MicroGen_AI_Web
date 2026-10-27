@@ -106,6 +106,14 @@ def _wav_bytes(response) -> bytes:
 
 def _gemini_say(client, text: str, model: str, voice: str,
                 *, request_observation: dict | None = None) -> bytes:
+    # Gemini 3.8 Flash/Flash-Lite TTS is an Interactions audio endpoint,
+    # not the legacy generate_content model. The adapter returns real
+    # mono 16-bit PCM WAV and never invents words/voice proof.
+    if model in ("gemini-3.8-flash-lite-tts", "gemini-3.8-flash-tts"):
+        from .gemini38_tts_interactions import generate_3_8_kore_wav
+        return generate_3_8_kore_wav(
+            client, text, model, voice,
+            request_observation=request_observation)
     response = client.models.generate_content(
         model=model,
         contents=[{"role": "user", "parts": [
