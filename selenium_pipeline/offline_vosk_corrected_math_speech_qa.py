@@ -19,6 +19,7 @@ from .original_slide4_real_pcm_chunk_highlight import (
     inspect_five_original_pcm_chunks,
 )
 from .video_ffmpeg import ffmpeg_executable
+from .flexible_tts_pronunciation_qa import flexible_pronunciation_screen
 
 
 MODEL_NAME="vosk-model-small-en-us-0.15"
@@ -211,12 +212,12 @@ def transcribe_actual_five_corrected_wavs(
         metrics=word_error_rate(expected_text,recognized)
         terms=lexical_math_risk_terms(expected_text,recognized)
         polarity=polarity_sequence(expected_text,recognized)
-        # Even one mismatched sign/absolute/zero/degenerate term blocks.
-        # Passing still does not prove every acoustic word independently.
-        good=(metrics["word_error_rate"]<=.20
-              and terms["critical_term_recall"]>=.75
-              and polarity["critical_math_polarity_sequence_exact"]
-              and metrics["recognized_token_count"]>=15)
+        # Owner's revised contract: accept intelligible sound-alike
+        # pronunciation; Vosk's raw near-verbatim WER is diagnostic only.
+        # Explicit c->circa and meaning-changing sign/trig errors still
+        # fail screening even when total lexical similarity is high.
+        flexible=flexible_pronunciation_screen(expected_text,recognized)
+        good=flexible["pronunciation_qa_pass"]
         rows.append({
             "utterance_id":expected["original_utterance_id"],
             "source_text_sha256":expected["corrected_tts_text_sha256"],
@@ -228,6 +229,7 @@ def transcribe_actual_five_corrected_wavs(
             "recognized_words_sha256":
                 hashlib.sha256(recognized.encode("utf8")).hexdigest(),
             **metrics,**terms,**polarity,
+            "tts_pronunciation_contract_v2":flexible,
             "asr_math_words_screening_pass":good,
             "speaker_voice_identity_Kore_verified":False,
             "actual_exact_spoken_words_certified":False,
