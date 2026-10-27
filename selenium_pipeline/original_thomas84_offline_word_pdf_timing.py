@@ -113,7 +113,7 @@ def real_word_anchor_candidates(expected:list[str],
         anchors=[positions[n] for n in range(start,end) if n in positions]
         nmatched=len(anchors)
         confidence=round(nmatched/(end-start),4)
-        need(min(anchors,default=0)>=0,"Bad ASR anchors")
+        require(min(anchors,default=0)>=0,"Bad ASR anchors")
         # Two genuinely recognized anchors or a clear one-word source slide
         # are needed to propose an utterance start/end. Otherwise UNSOLVED.
         supported=(nmatched>=2 or ((end-start)<=3 and nmatched>=1))
