@@ -58,7 +58,8 @@ class Gemini38TTSCompatibility(unittest.TestCase):
         text="For x equals a tangent u, a is positive."
         request=canonical_single_speaker_3_8_request(
             text=text,model="gemini-3.8-flash-lite-tts",voice="Kore")
-        self.assertEqual(request["input"],text)
+        self.assertEqual(request["input"],[{"type":"user_input",
+            "content":[{"type":"text","text":text}]}])
         self.assertEqual(request["response_format"],{"type":"audio"})
         self.assertEqual(request["generation_config"],
                          {"speech_config":[{"voice":"Kore"}]})
@@ -89,7 +90,8 @@ class Gemini38TTSCompatibility(unittest.TestCase):
                 request_observation=observation)
         self.assertTrue(payload.startswith(b"RIFF"))
         self.assertEqual(len(client.interactions.calls),1)
-        self.assertEqual(client.interactions.calls[0]["input"],"Text unchanged.")
+        self.assertEqual(client.interactions.calls[0]["input"],[
+            {"type":"user_input","content":[{"type":"text","text":"Text unchanged."}]}])
         self.assertEqual(observation["provider_request_id"],None)
         with wave.open(BytesIO(payload),"rb") as r:
             self.assertEqual(r.getnframes(),frames)
