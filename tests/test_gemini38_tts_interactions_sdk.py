@@ -41,6 +41,29 @@ class FakeClient:
 
 
 class Gemini38TTSCompatibility(unittest.TestCase):
+    def test_invalid_isolated_worker_path_fails_before_paid_provider(self):
+        import os
+        from selenium_pipeline.tts import _modern_tts_worker_python
+        with patch.dict(os.environ,{
+                "MICROGEN_TTS_WORKER_PYTHON":
+                r"C:\\nonexistent\\isolated_tts_venv\\python.exe"}):
+            with self.assertRaisesRegex(RuntimeError,"isolated Windows Python"):
+                _modern_tts_worker_python("gemini-3.8-flash-lite-tts")
+
+    def test_configured_modern_worker_preflight_does_not_send_request(self):
+        import os
+        import sys
+        from selenium_pipeline.tts import _modern_tts_worker_python
+        from types import SimpleNamespace
+        with patch.dict(os.environ,{"MICROGEN_TTS_WORKER_PYTHON":sys.executable}):
+            with patch("selenium_pipeline.tts.subprocess.run",
+                       return_value=SimpleNamespace(returncode=0)) as spy:
+                selected=_modern_tts_worker_python("gemini-3.8-flash-lite-tts")
+                self.assertEqual(selected,sys.executable)
+                command=spy.call_args.args[0]
+                self.assertEqual(command[1],"-c")
+                self.assertNotIn("tts_worker",str(command))
+
     def test_legacy_sdk_fails_before_network(self):
         with patch("selenium_pipeline.gemini38_tts_interactions.version",
                    return_value="1.4.0"):
