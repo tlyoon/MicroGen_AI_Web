@@ -178,7 +178,9 @@ def audit(source: Path, review: Path) -> dict:
                 or any(str(p.get("severity", "")).lower() == "major"
                        for p in qa.get("pronunciation_issues", []))):
             raise AudioPromotionBlocked(
-                f"Slide {number} lacks soundalike/critical-pronunciation QA acceptance")
+                (f"Slide {number} lacks soundalike/critical-pronunciation QA acceptance"
+                 if is_phonetic
+                 else f"Slide {number} lacks strict QA acceptance"))
         if number not in changed and source_wav != review_wav:
             raise AudioPromotionBlocked("Unrepaired slide was changed in candidate")
         if number in changed and source_wav == review_wav:
