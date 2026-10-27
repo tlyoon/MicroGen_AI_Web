@@ -65,7 +65,15 @@ def canonical_single_speaker_3_8_request(*,text:str,model:str,voice:str)->dict:
             "Whitespace normalization could break utterance SHA provenance")
     return {
         "model":model,
-        "input":text,
+        # Gemini 3.8 Interactions input is a typed user_input CONTENT ARRAY.
+        # Directly passing a string makes this SDK request invalid.
+        "input":[{
+            "type":"user_input",
+            "content":[{
+                "type":"text",
+                "text":text,
+            }],
+        }],
         "response_format":{"type":"audio"},
         "generation_config":{"speech_config":[{"voice":voice}]},
     }
