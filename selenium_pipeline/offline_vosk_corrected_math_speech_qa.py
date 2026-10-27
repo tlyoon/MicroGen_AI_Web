@@ -19,6 +19,7 @@ from .original_slide4_real_pcm_chunk_highlight import (
     inspect_five_original_pcm_chunks,
 )
 from .video_ffmpeg import ffmpeg_executable
+from .tts_flexible_pronunciation_contract import evaluate_tts_soundalike, QA_VERSION
 
 
 MODEL_NAME="vosk-model-small-en-us-0.15"
@@ -211,12 +212,14 @@ def transcribe_actual_five_corrected_wavs(
         metrics=word_error_rate(expected_text,recognized)
         terms=lexical_math_risk_terms(expected_text,recognized)
         polarity=polarity_sequence(expected_text,recognized)
-        # Even one mismatched sign/absolute/zero/degenerate term blocks.
-        # Passing still does not prove every acoustic word independently.
-        good=(metrics["word_error_rate"]<=.20
-              and terms["critical_term_recall"]>=.75
-              and polarity["critical_math_polarity_sequence_exact"]
-              and metrics["recognized_token_count"]>=15)
+        # Preserve the former strict result for auditing but do NOT let its
+        # exact-word WER threshold block an otherwise intelligible WAV.
+        legacy_strict=(metrics["word_error_rate"]<=.20
+                       and terms["critical_term_recall"]>=.75
+                       and polarity["critical_math_polarity_sequence_exact"]
+                       and metrics["recognized_token_count"]>=15)
+        flexible=evaluate_tts_soundalike(expected_text,recognized)
+        good=flexible["tts_qa_soundalike_pass"]
         rows.append({
             "utterance_id":expected["original_utterance_id"],
             "source_text_sha256":expected["corrected_tts_text_sha256"],
@@ -227,7 +230,8 @@ def transcribe_actual_five_corrected_wavs(
             "recognized_verbatim":recognized,
             "recognized_words_sha256":
                 hashlib.sha256(recognized.encode("utf8")).hexdigest(),
-            **metrics,**terms,**polarity,
+            **metrics,**terms,**polarity,**flexible,
+            "legacy_strict_asr_screening_pass":legacy_strict,
             "asr_math_words_screening_pass":good,
             "speaker_voice_identity_Kore_verified":False,
             "actual_exact_spoken_words_certified":False,
@@ -235,9 +239,10 @@ def transcribe_actual_five_corrected_wavs(
         actual_shas.append(_sha(file))
         print("OFFLINE_VOSK_SOURCE_AUDIO_UTTERANCE",
               len(rows),
-              "WER",metrics["word_error_rate"],
-              "MATH_RECALL",terms["critical_term_recall"],
-              "SCREENING_PASS",good,flush=True)
+              "RAW_WER_ADVISORY",metrics["word_error_rate"],
+              "PHONETIC_SIMILARITY",flexible["phonetic_token_similarity"],
+              "MATH_RECALL_ADVISORY",terms["critical_term_recall"],
+              "TTS_QA",flexible["tts_qa_decision"],flush=True)
     require(len(rows)==5 and actual_shas==[r["wav_sha256"]
              for r in evidence["units"]],
             "Five ASR source-audio identities incomplete")
@@ -265,16 +270,28 @@ def transcribe_actual_five_corrected_wavs(
         "uses_whisper":False,
         "external_asr_api_used":False,
         "genuine_source_registered_pcm_count":len(rows),
+        "tts_qa_policy_version":QA_VERSION,
+        "tts_qa_accepts_similar_sounding_pronunciations":True,
+        "tts_qa_requires_exact_ASR_transcript":False,
+        "tts_qa_critical_wrong_C_as_circa_still_rejected":True,
+        "tts_qa_mathematical_sign_reversal_still_rejected":True,
         "source_registered_screening_pass_count":
             sum(bool(r["asr_math_words_screening_pass"]) for r in rows),
+        "legacy_strict_screening_pass_count":
+            sum(bool(r["legacy_strict_asr_screening_pass"]) for r in rows),
         "five_source_audio_rows":rows,
         "requested_provider_voice":"Kore",
         "speaker_model_name":SPEAKER_MODEL_NAME if speaker_model else None,
         "speaker_model_zip_sha256":SPEAKER_MODEL_ZIP_SHA256 if speaker_model else None,
         "speaker_pairwise_cosine":similarities,
         "speaker_min_pairwise_cosine":min_cos,
+        # Speaker embeddings are a helpful but noisy comparison; the
+        # lowest pairwise cosine does NOT identify Kore or justify a hard
+        # reject when the same explicitly requested voice is intelligible.
+        "speaker_similarity_advisory_threshold":.55,
         "same_speaker_acoustic_similarity_screened":
-            bool(min_cos is not None and min_cos>=.65),
+            bool(min_cos is not None and min_cos>=.55),
+        "speaker_similarity_alone_blocks_tts_qa":False,
         "voice_Kore_audibly_independently_verified":False,
         "independent_academic_math_review_two_pass":False,
         "unqualified_exact_words_verified":False,

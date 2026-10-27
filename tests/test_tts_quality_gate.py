@@ -77,6 +77,44 @@ class TtsQualityGateTests(unittest.TestCase):
         return screen(plan=self.plan, audio=self.audio, output=self.output,
                       asr_dir=self.asr if use_asr else None)
 
+    def test_accurate_math_sounds_do_not_fail_on_phonetic_asr_spellings(self):
+        self.script=("The cosine of theta equals x and the "
+                     "hypotenuse is positive.")
+        save_json(self.plan,{
+            "status":"author_specified_unapproved_element_narration",
+            "parts":[{"slides":[{"elements":[{
+                "wav":self.wav.name,"spoken_text":self.script
+            }]}]}],
+        })
+        job=json.loads((self.asr/"asr_job.json").read_text())
+        job["plan_sha256"]=sha(self.plan)
+        save_json(self.asr/"asr_job.json",job)
+        self.receipt("the coast sign of theta equals eggs and the high pot news is positive")
+        result=self.run_screen()
+        self.assertEqual(result["manual_review_required"],0)
+        self.assertEqual(result["machine_screen_passed"],1)
+        self.assertTrue(result["clips"][0]["tts_qa_phonetic_evidence"][
+            "tts_qa_soundalike_pass"])
+        self.assertFalse(result["production_approved"])
+
+    def test_c_sounded_as_circa_is_a_hard_failure_in_element_audio(self):
+        self.script="The parameter c is the speed of light."
+        save_json(self.plan,{
+            "status":"author_specified_unapproved_element_narration",
+            "parts":[{"slides":[{"elements":[{
+                "wav":self.wav.name,"spoken_text":self.script
+            }]}]}],
+        })
+        job=json.loads((self.asr/"asr_job.json").read_text())
+        job["plan_sha256"]=sha(self.plan)
+        save_json(self.asr/"asr_job.json",job)
+        self.receipt("the parameter circa is the speed of light")
+        result=self.run_screen()
+        self.assertEqual(result["machine_screen_passed"],0)
+        self.assertEqual(result["manual_review_required"],1)
+        self.assertIn("LETTER_C_INCORRECTLY_EXPANDED_TO_CIRCA",
+                      result["clips"][0]["tts_qa_phonetic_evidence"]["critical_errors"])
+
     def test_independent_asr_missing_never_approves(self):
         result = self.run_screen()
         self.assertEqual(result["pending_asr"], 1)
