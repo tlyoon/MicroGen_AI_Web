@@ -1,6 +1,6 @@
 import unittest
 from selenium_pipeline.offline_vosk_corrected_math_speech_qa import (
-    words,word_error_rate,lexical_math_risk_terms,polarity_sequence,
+    words,word_error_rate,lexical_math_risk_terms,polarity_sequence,speaker_cosine,
 )
 
 
@@ -28,6 +28,13 @@ class OfflineMathVoiceQA(unittest.TestCase):
         self.assertLess(word_error_rate(expected,wrong)["word_error_rate"],.05)
         self.assertFalse(polarity_sequence(expected,wrong)[
             "critical_math_polarity_sequence_exact"])
+
+    def test_same_speaker_pairwise_vector_similarity_not_voice_name(self):
+        self.assertAlmostEqual(speaker_cosine([1.0]*64,[1.0]*64),1.0)
+        self.assertAlmostEqual(speaker_cosine(
+            [1.0]*32+[0.0]*32,[0.0]*32+[1.0]*32),0.0)
+        with self.assertRaises(ValueError):
+            speaker_cosine([0.0]*64,[0.0]*64)
 
     def test_unbiased_evidence_cannot_self_approve_release(self):
         expected="At the zero endpoint the triangle is degenerate."
