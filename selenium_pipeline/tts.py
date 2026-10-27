@@ -262,6 +262,46 @@ def _tts_child_request_env(timeout_seconds: float) -> dict[str, str]:
     return env
 
 
+def _modern_tts_worker_python(model: str) -> str:
+    """Use configured isolated Windows SDK for 3.8 audio with preflight.
+
+    No billable request may be sent from a legacy SDK 1.x interpreter.
+    MICROGEN_TTS_WORKER_PYTHON belongs in per-device AppData Microvid .env
+    and must not be hardcoded to a specific protected/dirty working tree.
+    """
+    if model not in ("gemini-3.8-flash-lite-tts", "gemini-3.8-flash-tts"):
+        return sys.executable
+    selected = os.environ.get("MICROGEN_TTS_WORKER_PYTHON", "").strip()
+    if not selected:
+        from .gemini38_tts_interactions import require_modern_tts_sdk
+        require_modern_tts_sdk()
+        return sys.executable
+    python = Path(selected).expanduser().absolute()
+    if not python.is_file() or python.is_symlink():
+        raise RuntimeError(
+            "MICROGEN_TTS_WORKER_PYTHON is not a real isolated Windows Python executable")
+    # No prompts, credentials or provider calls in this subprocess.
+    check = (
+        "import importlib.metadata as m;from google.genai import types;"
+        "v=tuple(int(p) for p in m.version('google-genai').split('.')[:2]);"
+        "assert (2,25)<=v<(3,0) and hasattr(types,'HttpRetryOptions')"
+    )
+    try:
+        result = subprocess.run(
+            [str(python), "-c", check],
+            capture_output=True, text=True, timeout=30,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise RuntimeError(
+            "Configured isolated Gemini TTS worker unavailable; no paid request sent"
+        ) from exc
+    if result.returncode != 0:
+        raise RuntimeError(
+            "Configured isolated Gemini TTS worker lacks google-genai>=2.25,<3; "
+            "no provider request sent")
+    return str(python)
+
+
 def _gemini_say_with_watchdog(
     text: str,
     number: int,
@@ -280,6 +320,8 @@ def _gemini_say_with_watchdog(
         else max(1, int(os.environ.get("MICROGEN_TTS_REQUEST_ATTEMPTS", "3")))
     )
     label = request_label or f"slide{number}"
+    # Isolated SDK/version gate must run BEFORE first attempt or any fallback.
+    worker_python = _modern_tts_worker_python(model)
     last_error: BaseException | None = None
     timed_out_attempts = 0
 
@@ -288,7 +330,7 @@ def _gemini_say_with_watchdog(
             output = Path(tmp) / "result.wav"
             evidence_output = Path(tmp) / "request_observation.json"
             command = [
-                sys.executable,
+                worker_python,
                 "-m",
                 "selenium_pipeline.tts_worker",
                 "--output",
