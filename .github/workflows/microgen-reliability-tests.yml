@@ -93,6 +93,9 @@ jobs:
             "tests.test_gemini38_tts_interactions_sdk"
             "tests.test_original_corrected_kore_candidate_batch"
             "tests.test_offline_vosk_corrected_math_speech_qa"
+            "tests.test_tts_flexible_pronunciation_contract"
+            "tests.test_tts_soundalike_production_integration"
+            "tests.test_tts_quality_gate"
           )
           python -m unittest -v @regressionModules
       - name: Syntax-check updated Python entry points
@@ -147,6 +150,11 @@ jobs:
             "selenium_pipeline/gemini38_tts_interactions.py"
             "selenium_pipeline/original_corrected_kore_candidate_batch.py"
             "selenium_pipeline/offline_vosk_corrected_math_speech_qa.py"
+            "selenium_pipeline/tts_flexible_pronunciation_contract.py"
+            "selenium_pipeline/tts_fidelity.py"
+            "selenium_pipeline/tts_quality_gate.py"
+            "selenium_pipeline/tts_qa_promotion.py"
+            "selenium_pipeline/reconcile_structural_sync.py"
             "selenium_pipeline/original_slide4_corrected_segment_handoff.py"
             "selenium_pipeline/original_slide4_math_correction_pilot.py"
             "selenium_pipeline/ai_academic_web_review.py"
