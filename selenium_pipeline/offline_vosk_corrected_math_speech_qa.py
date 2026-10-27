@@ -41,6 +41,7 @@ def words(text:str)->list[str]:
     normalized=text.lower().replace("non-negative","nonnegative")
     normalized=normalized.replace("non negative","nonnegative")
     normalized=normalized.replace("end point","endpoint")
+    normalized=normalized.replace("end-point","endpoint")
     normalized=normalized.replace("zero length","zerolength")
     normalized=normalized.replace("zero-length","zerolength")
     normalized=normalized.replace("pi/2","pi over two")
