@@ -74,6 +74,26 @@ def seed_reviewable_candidates(folder, slide_numbers):
 
 
 class TTSTests(unittest.TestCase):
+    def setUp(self):
+        # These historical queue/failover tests use an intentionally minimal
+        # generate_content FAKE and an intentionally nondecodable 84-byte WAV.
+        # Do not send fake payloads through the REAL Gemini 3.8 Interactions
+        # adapter (which correctly requires output_audio and valid PCM).
+        # API request formatting/WAV decoding are tested independently in
+        # tests.test_gemini38_tts_interactions_sdk.
+        def synthetic_legacy_tts(client,text,model,voice,*,
+                                 request_observation=None):
+            response=client.models.generate_content(
+                model=model,contents=[text])
+            if request_observation is not None:
+                request_observation["provider_request_id"]=None
+            return response.candidates[0].content.parts[0].inline_data.data
+        self._legacy_test_only_tts=patch(
+            "selenium_pipeline.gemini38_tts_interactions.generate_3_8_kore_wav",
+            side_effect=synthetic_legacy_tts)
+        self._legacy_test_only_tts.start()
+        self.addCleanup(self._legacy_test_only_tts.stop)
+
     def make_folder(self, root):
         folder = Path(root)
         (folder / "script.txt").write_text(
