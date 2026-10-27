@@ -60,6 +60,17 @@ _SIGN_WORDS=frozenset((
     "positive","nonnegative","negative","nonpositive","plus","minus",
     "nondegenerate","degenerate",
 ))
+_TRIG_WORDS=frozenset(("sine","cosine","secant","tangent"))
+_GEOMETRY_WORDS=frozenset(("hypotenuse","adjacent","opposite"))
+_NUMBER_WORDS=frozenset((
+    "zero","one","two","three","four","five","six","seven","eight","nine",
+    "ten","eleven","twelve","thirteen","fourteen","fifteen","sixteen",
+    "seventeen","eighteen","nineteen","twenty",
+))
+_SINGLE_DIGIT_WORDS={
+    "0":"zero","1":"one","2":"two","3":"three","4":"four","5":"five",
+    "6":"six","7":"seven","8":"eight","9":"nine",
+}
 _MATH_PHRASE_CONTRADICTIONS=(
     ("at least","at most"),
     ("at most","at least"),
@@ -93,7 +104,8 @@ def _tokens(text:str)->list[str]:
     value=value.replace("end-point","endpoint").replace("end point","endpoint")
     value=value.replace("zero-length","zero length")
     value=value.replace("pi/2","pi over two")
-    return re.findall(r"[a-z]+|\d+",value)
+    tokens=re.findall(r"[a-z]+|\d+",value)
+    return [_SINGLE_DIGIT_WORDS.get(t,t) for t in tokens]
 
 
 def canonical_phonetic_tokens(reference:str,recognized:str)->tuple[list[str],list[str]]:
@@ -153,6 +165,18 @@ def _explicit_critical_contradictions(
     got=[w for w in heard_tokens if w in _SIGN_WORDS]
     if exp and got and len(exp)==len(got) and exp!=got:
         reasons.append("EXPLICIT_MATHEMATICAL_SIGN_OR_DEGENERACY_REVERSAL")
+    # Swapping specific numbers, scientific trig functions, or geometric
+    # roles is not harmless phonetic variation when ASR explicitly captures a
+    # different well-formed mathematical term sequence.
+    for vocab,code in (
+        (_TRIG_WORDS,"EXPLICIT_TRIGONOMETRIC_FUNCTION_CHANGED"),
+        (_GEOMETRY_WORDS,"EXPLICIT_TRIANGLE_SIDE_ROLE_CHANGED"),
+        (_NUMBER_WORDS,"EXPLICIT_SPOKEN_NUMBER_CHANGED"),
+    ):
+        expected=[t for t in source_tokens if t in vocab]
+        heard=[t for t in heard_tokens if t in vocab]
+        if expected and heard and len(expected)==len(heard) and expected!=heard:
+            reasons.append(code)
     # Phrases with mutually exclusive meanings should not be normalized to
     # homophones. Compare only when the direction is actually in ASR.
     for correct,wrong in _MATH_PHRASE_CONTRADICTIONS:
