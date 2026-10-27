@@ -55,6 +55,22 @@ def inspect_five_original_pcm_chunks(
             and not status["same_voice_approved"]
             and not status["spoken_content_approved"],
             "Candidate WAVs are unapproved; cannot import a claim of voice/content")
+    # Do not accept an old WAV copied from another protected subchapter.
+    # The baseline five-unit intake only covers historical WAVs in 8.4.
+    require(not pcm_dir.is_relative_to(root.parent),
+            "Corrected audio candidate cannot be inside protected Thomas chapter")
+    historic_across_chapter = set()
+    for section in ("8.4","8.5","8.6"):
+        p=root.parent/section
+        require(p.is_dir() and not p.is_symlink(),
+                "Original three-subchapter media inventory is incomplete")
+        wave_files=list(p.glob("slide*.wav"))
+        require(1<=len(wave_files)<=200,
+                "Incomplete or unbounded protected slide WAV inventory")
+        for file in wave_files:
+            require(file.is_file() and not file.is_symlink(),
+                    "Protected sibling slide WAV unexpectedly linked")
+            historic_across_chapter.add(_sha(file))
     expected = strict_json(source_bundle/"FIVE_CORRECTED_SEGMENTS_UNAPPROVED.json")
     units = expected["source_verified_tts_highlight_units"]
     require(len(units) == 5 and len(status["units"]) == 5,
@@ -66,8 +82,9 @@ def inspect_five_original_pcm_chunks(
     for i, (source_unit, candidate) in enumerate(zip(units, status["units"]), 1):
         path = pcm_dir/source_unit["tts_audio_relative_path_expected"]
         sha = _sha(path)
-        require(sha == candidate["wav_sha256"] and sha not in seen,
-                "A new PCM chunk changed or duplicates another utterance")
+        require(sha == candidate["wav_sha256"] and sha not in seen
+                and sha not in historic_across_chapter,
+                "Changed, duplicated or protected-historical audio is not a new utterance")
         seen.add(sha)
         with wave.open(str(path),"rb") as reader:
             fmt = (reader.getnchannels(), reader.getsampwidth(),
@@ -200,16 +217,16 @@ def encode_actual_chunk_highlight_review(
     segment_durations=[]
     for row,path in zip(evidence["units"],original_png):
         clip=segments/f"element_{row['index']:02d}.mp4"
-        ffmpeg_run(exe,["-n","-loop","1","-framerate","24",
+        ffmpeg_run(exe,["-n","-loop","1","-framerate","60",
                        "-i",str(path),
                        "-t",f"{row['duration_s']:.6f}",
                        "-an","-c:v","libx264",
                        "-preset","ultrafast","-crf","20",
-                       "-pix_fmt","yuv420p","-r","24",
+                       "-pix_fmt","yuv420p","-r","60",
                        str(clip)],timeout=120)
         duration=video_only_duration(clip,exe)
-        require(abs(duration-row["duration_s"]) < 0.055,
-                "Actual 24fps source highlight boundary timing too imprecise")
+        require(abs(duration-row["duration_s"]) < 0.038,
+                "Actual 60fps source highlight boundary timing too imprecise")
         segment_durations.append(duration)
     concat=out/"concat.txt"
     with concat.open("x",encoding="utf8") as f:
@@ -231,7 +248,10 @@ def encode_actual_chunk_highlight_review(
     offset=0.0
     for i,(row,origin_frame,video_len) in enumerate(
             zip(evidence["units"],original_png,segment_durations),1):
-        sample_t=offset+min(0.21,video_len/2)
+        actual_start=row["start_frame"]/evidence["sample_rate"]
+        require(abs(offset-actual_start) < .075,
+                "Cumulative H264 frame boundaries drift >75ms from actual PCM")
+        sample_t=offset+min(0.18,video_len/2)
         decoded=ffmpeg_run(exe,["-ss",f"{sample_t:.4f}",
                                "-i",str(target),"-frames:v","1",
                                "-f","image2pipe","-vcodec","png","pipe:1"],
@@ -259,7 +279,7 @@ def encode_actual_chunk_highlight_review(
         "actual_encoded_duration_s":actual,
         "actual_encoded_video_name":target.name,
         "decoded_element_frame_samples":pixels,
-        "frame_rate":24,
+        "frame_rate":60,
         "timestamp_basis":"REAL_UNMODIFIED_CANDIDATE_WAV_FRAME_BOUNDARIES",
         "five_source_highlight_switches_tied_to_actual_WAV_chunks":True,
         "spoken_words_match_corrected_text_verified":False,
