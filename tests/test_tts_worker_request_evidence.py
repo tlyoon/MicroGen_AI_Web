@@ -121,14 +121,15 @@ class WorkerRequestEvidenceTests(unittest.TestCase):
         self.assertNotIn("fake-secret",self.meta.read_text())
 
     def test_gemini_sdk_model_success_captures_true_request_id(self):
+        import base64
         response=SimpleNamespace(
             request_id="sdk_http_request_abcdef01",
             response_id="generated_response_not_request",
-            candidates=[SimpleNamespace(content=SimpleNamespace(
-                parts=[SimpleNamespace(inline_data=SimpleNamespace(
-                    data=wav_bytes()))]))])
-        client=SimpleNamespace(models=SimpleNamespace(
-            generate_content=lambda **kwargs: response))
+            output_audio=SimpleNamespace(
+                data=base64.b64encode(wav_bytes()).decode("ascii"),
+                mime_type="audio/wav"))
+        client=SimpleNamespace(interactions=SimpleNamespace(
+            create=lambda **kwargs: response))
         observed={}
         payload=tts._gemini_say(
             client,"lecture narration","gemini-3.8-flash-lite-tts","Kore",
