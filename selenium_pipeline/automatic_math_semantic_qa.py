@@ -50,6 +50,20 @@ def _detect(slide: int, body: str) -> list[dict]:
     # Assess the domain-sensitive assertion locally rather than passing if
     # *another* sentence somewhere mentions a reference angle.
     for sentence in lines:
+        # An integral described merely as "containing" a radical does NOT
+        # determine its transformed integrand: the numerator/measure has
+        # not been specified. Catch this *before* using TTS or publishing.
+        ambiguous_integrand=re.search(
+            r"\bfor\s+an\s+integral\s+(?:with|containing)\b.{0,220}?"
+            r"\b(?:resulting|simplified)\s+(?:trigonometric|trig)\s+integrand\b",
+            sentence)
+        if (ambiguous_integrand
+                and not re.search(r"\b(?:integral\s+of|integrand\s+is|integrand\s+equals)\b",
+                                  sentence)):
+            add("incomplete_integral_does_not_define_transformed_integrand",
+                sentence.strip(),
+                "A radical appearing inside an unspecified integral does not determine a unique transformed integrand; a numerator/whole integrand and differential are required.",
+                "Supply the entire original integral, domain and differential, or ask only for the substitution and transformed radical. Example for x>4: I = integral dx/sqrt(x squared minus sixteen), x=4 sec u, dx=4 sec u tan u du, so I = integral sec u du on the positive branch.")
         if (triangle and signed
                 and re.search(r"\b(?:u|x|theta)\s+(?:equals|is)\s+zero\b|\b(?:u|x)\s*=\s*0\b",sentence)
                 and re.search(r"\b(?:forms?|makes?|is)\s+(?:an?\s+)?(?:ordinary\s+|nondegenerate\s+)?(?:acute\s+)?right\s+triangle\b",sentence)

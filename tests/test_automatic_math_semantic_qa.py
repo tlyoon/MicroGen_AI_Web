@@ -46,6 +46,16 @@ class GeneralMathDomainGuard(unittest.TestCase):
                      "On the positive cosine domain, the square root of secant squared simplifies to secant.")
         self.assertEqual(inspect_math_semantics(safe)["blocking_count"],0)
 
+    def test_unspecified_radical_integrand_has_multiple_answers(self):
+        bad=grammar("First, for an integral with the square root of x squared minus sixteen, determine the secant substitution to find the simplified trigonometric integrand.")
+        report=inspect_math_semantics(bad)
+        self.assertIn("incomplete_integral_does_not_define_transformed_integrand",
+                      [r["rule"] for r in report["findings"]])
+        self.assertGreater(report["blocking_count"],0)
+        fixed=grammar("For the integral of dx over the square root of x squared minus sixteen with x greater than four, set x equal to four secant u. The transformed integrand is secant u.")
+        self.assertNotIn("incomplete_integral_does_not_define_transformed_integrand",
+                         [r["rule"] for r in inspect_math_semantics(fixed)["findings"]])
+
     def test_exact_constant_root_is_not_a_branch_sign_issue(self):
         constant=grammar(
             "Substituting four gives two over the square root of four, which simplifies to one.",
