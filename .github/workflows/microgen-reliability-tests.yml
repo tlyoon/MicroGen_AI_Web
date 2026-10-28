@@ -119,6 +119,9 @@ jobs:
             "tests.test_original_thomas84_66_corrected_independent_audit"
             "tests.test_original_thomas84_historic_audio_soundalike_audit"
             "tests.test_original_thomas84_66_academic_math_risk_audit"
+            "tests.test_original_thomas84_paired_question_source_fix"
+            "tests.test_original_thomas84_single_approved_tts_repair"
+            "tests.test_original_thomas84_paired_sl17_video_repair"
             "tests.test_tts_quality_gate"
           )
           python -m unittest -v @regressionModules
@@ -199,6 +202,9 @@ jobs:
             "selenium_pipeline/original_thomas84_66_corrected_independent_audit.py"
             "selenium_pipeline/original_thomas84_historic_audio_soundalike_audit.py"
             "selenium_pipeline/original_thomas84_66_academic_math_risk_audit.py"
+            "selenium_pipeline/original_thomas84_paired_question_source_fix.py"
+            "selenium_pipeline/original_thomas84_single_approved_tts_repair.py"
+            "selenium_pipeline/original_thomas84_paired_sl17_video_repair.py"
             "selenium_pipeline/tts_fidelity.py"
             "selenium_pipeline/tts_quality_gate.py"
             "selenium_pipeline/tts_qa_promotion.py"
