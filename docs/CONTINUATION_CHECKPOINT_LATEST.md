@@ -1,3 +1,18 @@
+# LATEST — 28 October 2026: PR340 completed; five-PR real-source continuation
+
+Current primary draft PR: https://github.com/tlyoon/MicroGen_AI_Web/pull/340
+Stacked sequence, unmerged: [PR336](https://github.com/tlyoon/MicroGen_AI_Web/pull/336) original-PDF math-risk audit → [PR337](https://github.com/tlyoon/MicroGen_AI_Web/pull/337) source-term/domain contradiction scan → [PR338](https://github.com/tlyoon/MicroGen_AI_Web/pull/338) limited SymPy trigonometric substitution proofs → [PR339](https://github.com/tlyoon/MicroGen_AI_Web/pull/339) actual Slide6 PCM/PDF four-step encoded video → [PR340](https://github.com/tlyoon/MicroGen_AI_Web/pull/340) independent physical media auditor.
+
+Only Dell-115 was used for source/local execution; hosted GitHub CI is Windows-only. PR336 GitHub Windows CI SUCCESS at its initial head; subsequent PR head runs must be independently checked. Code and all source/media original G files remain protected, current development is in exclusive Dell-115 AppData isolated worktree. PR340 42.45s real video / 1,011,488 actual source PCM frames, four provisional original-PDF step highlights and 7/7 independent final decoded frames PASS. **ZERO accepted full lecture videos**, zero full mathematical/word-to-visible-element approvals, no Moodle/YouTube release, no paid Gemini/Whisper requests. Continue source-semantic evidence, complete all 17 slides element-level word highlighting, regenerate and independently verify full original-source <600s split videos; only then replicate to §§8.5 and 8.6. TTS sound-alike flexibility with critical c→circa and mathematical correctness exceptions unchanged. No Ubuntu checks, no HP/Yoga6/Zenbook.
+
+---
+
+# PR340 — INDEPENDENT physical reread of genuine Slide6 MP4 (28 Oct 2026)
+
+Dell-115 Windows independent second-pass source-PDF/PCM/final-video verification PASS: protected original 1,011,488 source PCM samples reassembled byte-for-byte across seven real clips, AAC decoded, **42.45s** actual MP4 hash `36e77bf1f4c53a6f637ee2b8d2159c2a076528bfee590f97ebf68f17f7be344c`, seven independently decoded original-PDF frame comparisons, four source-proven visible procedural PDF block rectangles. **0** academic speech/math semantic approvals and **0** accepted student media; no G-original edits, paid service or other PC. Eight related local tests PASS. See `docs/THOMAS84_INDEPENDENT_SLIDE6_REAL_MEDIA_AUDIT_PR340_20261028.md`. Next: full-section source-academic semantic mapping, synchronization all narrated elements, then re-encode two <600s original-source accepted videos and extend 8.5/8.6. GitHub CI exact head to verify.
+
+---
+
 # PR339 — REAL encoded source Slide6 four-word-timed PDF steps (28 Oct 2026)
 
 Dell-115 created **real 42.45s** H.264/AAC Slide6 review-only pilot, 4 source PDF procedural step highlights at genuine acoustic times, 7 encoded/decoded intervals, 1,011,488 original source PCM samples recombined exactly; original source unchanged. MP4 SHA `36e77bf1f4c53a6f637ee2b8d2159c2a076528bfee590f97ebf68f17f7be344c`; five unit tests PASS. All academic/media release gates still FALSE and original video retained; see `docs/THOMAS84_REAL_SLIDE6_FOUR_STEP_PCM_PILOT_PR339_20261028.md`. Next: independent second-pass media auditor and real-source semantic release gating.
