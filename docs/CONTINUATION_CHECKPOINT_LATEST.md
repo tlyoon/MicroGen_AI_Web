@@ -1,3 +1,9 @@
+# PR337 — 29 original PDF mathematical-term contradiction checks (28 Oct 2026)
+
+Five dedicated Windows Dell tests PASS, real original protected §8.4 PDF/spoken-script crosscheck PASS: **29** PR336 physical elements checked, **0** unambiguous local trig/sign contradictions and **5** scope/number/domain uncertainties. Absence of contradiction is NOT proof of mathematical mapping or release. All 29 still UNAPPROVED, no paid services or multimedia overwrite. See `docs/THOMAS84_MATH_DOMAIN_CROSSCHECK_PR337_20261028.md`. Next: independently verify core trig substitution identities and restrict preview-only measured PCM visual timing.
+
+---
+
 # PR336 — original PDF physical geometry and domain risk triage, 28 Oct 2026
 
 Isolated Dell-115 Windows branch `feature/thomas84-exact-pdf-risk-screen-20261028` on PR335. Genuine 29/29 original PDF block/rectangle matches reconfirmed from physically opened 17-slide protected PDF, **21/29** tagged with conservative math/fragment/polarity review risks, all 29 still semantic-UNAPPROVED. 8 related Dell unit tests PASS and actual source run PASS. No release, source modification, paid Gemini or Whisper. Saved receipt externally only. See `docs/THOMAS84_ORIGINAL_PDF_MATH_RISK_PR336_20261028.md`. Next: mathematical constraints, symbolic verification, independent mapping and physical preview.
