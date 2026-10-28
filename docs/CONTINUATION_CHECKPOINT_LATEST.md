@@ -1,3 +1,9 @@
+# PR341 — All 16 actual historical WAVs: sample-exact 29-PDF-target review-only plan (28 October 2026)
+
+Dell-115 Windows-only real protected original source/PDF/WAV read-only run PASS. Source SHA-locked and validated PR335→PR336→PR337 math/physical receipts. All 16 original historic PCM recordings have full sample-exact source coverage; **29** provisional original PDF geometry targets tied to actual measured spoken-word times; unmapped segments kept static and unapproved. Five new Windows tests PASS. Saved outside G: in `%LOCALAPPDATA%\MicroGen_AI_Web_Checkpoints\20261028_PR341_ORIGINAL_16_PCM_29_PDF_REAL_SAMPLE_PLAN.json`. **Zero** release-approved videos; no further paid TTS/Whisper, no semantic approval, no original edits. Next milestone: physically encode two full review-only §8.4 videos with actual PDF source frames and sample-exact historical audio plus corrected Slide4 segments; independently re-audit, then improve source-math/semantic coverage. See `docs/THOMAS84_REAL_16_WAV_29_PDF_PCM_SAMPLE_PLAN_PR341_20261028.md`.
+
+---
+
 # LATEST — 28 October 2026: PR340 completed; five-PR real-source continuation
 
 Current primary draft PR: https://github.com/tlyoon/MicroGen_AI_Web/pull/340
