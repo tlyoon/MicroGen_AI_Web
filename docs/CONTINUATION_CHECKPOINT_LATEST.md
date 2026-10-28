@@ -1,3 +1,9 @@
+# PR339 — REAL encoded source Slide6 four-word-timed PDF steps (28 Oct 2026)
+
+Dell-115 created **real 42.45s** H.264/AAC Slide6 review-only pilot, 4 source PDF procedural step highlights at genuine acoustic times, 7 encoded/decoded intervals, 1,011,488 original source PCM samples recombined exactly; original source unchanged. MP4 SHA `36e77bf1f4c53a6f637ee2b8d2159c2a076528bfee590f97ebf68f17f7be344c`; five unit tests PASS. All academic/media release gates still FALSE and original video retained; see `docs/THOMAS84_REAL_SLIDE6_FOUR_STEP_PCM_PILOT_PR339_20261028.md`. Next: independent second-pass media auditor and real-source semantic release gating.
+
+---
+
 # PR338 — offline source-locked mathematical identity checks (28 Oct 2026)
 
 Three core trigonometric substitutions passed independent SymPy squared-radicand and dx-derivative identities with domain-sampled principal branch sign checks; five targeted Windows Dell tests PASS, actual protected source run PASS. This is LIMITED mathematical formula validation, **not** full lecture or audiovisual semantic approval. Original PDF, media, scripts unchanged; zero paid/Whisper/other PCs. See `docs/THOMAS84_TRIG_IDENTITY_PROOF_PR338_20261028.md`. Next: timed real PCM source-visual preview, decoded independent audit, then final semantic synchronization.
