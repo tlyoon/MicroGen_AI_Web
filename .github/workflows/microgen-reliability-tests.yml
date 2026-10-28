@@ -98,6 +98,7 @@ jobs:
             "tests.test_offline_original_thomas84_two_part_real_review"
             "tests.test_original_thomas84_offline_word_pdf_timing"
             "tests.test_original_thomas84_real_word_timed_pdf_highlight_review"
+            "tests.test_original_thomas84_independent_real_media_audit"
             "tests.test_tts_quality_gate"
           )
           python -m unittest -v @regressionModules
@@ -157,6 +158,7 @@ jobs:
             "selenium_pipeline/offline_original_thomas84_two_part_real_review.py"
             "selenium_pipeline/original_thomas84_offline_word_pdf_timing.py"
             "selenium_pipeline/original_thomas84_real_word_timed_pdf_highlight_review.py"
+            "selenium_pipeline/original_thomas84_independent_real_media_audit.py"
             "selenium_pipeline/tts_fidelity.py"
             "selenium_pipeline/tts_quality_gate.py"
             "selenium_pipeline/tts_qa_promotion.py"
