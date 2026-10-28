@@ -29,6 +29,8 @@ QA_VERSION="TTS_PHONETIC_SIMILARITY_V2_20261027"
 _PHONETIC_PHRASES=(
     ("coasts i knew","cosine u"),
     ("coast sign you","cosine u"),
+    ("co sign you","cosine u"),
+    ("co sign","cosine"),
     ("coasts sign you","cosine u"),
     ("cause i knew","cosine u"),
     ("coast sign","cosine"),
