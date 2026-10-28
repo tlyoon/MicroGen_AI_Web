@@ -1,3 +1,9 @@
+# PR338 — offline source-locked mathematical identity checks (28 Oct 2026)
+
+Three core trigonometric substitutions passed independent SymPy squared-radicand and dx-derivative identities with domain-sampled principal branch sign checks; five targeted Windows Dell tests PASS, actual protected source run PASS. This is LIMITED mathematical formula validation, **not** full lecture or audiovisual semantic approval. Original PDF, media, scripts unchanged; zero paid/Whisper/other PCs. See `docs/THOMAS84_TRIG_IDENTITY_PROOF_PR338_20261028.md`. Next: timed real PCM source-visual preview, decoded independent audit, then final semantic synchronization.
+
+---
+
 # PR337 — 29 original PDF mathematical-term contradiction checks (28 Oct 2026)
 
 Five dedicated Windows Dell tests PASS, real original protected §8.4 PDF/spoken-script crosscheck PASS: **29** PR336 physical elements checked, **0** unambiguous local trig/sign contradictions and **5** scope/number/domain uncertainties. Absence of contradiction is NOT proof of mathematical mapping or release. All 29 still UNAPPROVED, no paid services or multimedia overwrite. See `docs/THOMAS84_MATH_DOMAIN_CROSSCHECK_PR337_20261028.md`. Next: independently verify core trig substitution identities and restrict preview-only measured PCM visual timing.
