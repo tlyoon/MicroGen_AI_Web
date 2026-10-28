@@ -116,6 +116,7 @@ jobs:
             "tests.test_original_thomas84_66_independent_media_audit"
             "tests.test_original_thomas84_composite_source_semantic_corrections"
             "tests.test_original_thomas84_66_selective_math_reencode"
+            "tests.test_original_thomas84_66_corrected_independent_audit"
             "tests.test_tts_quality_gate"
           )
           python -m unittest -v @regressionModules
@@ -193,6 +194,7 @@ jobs:
             "selenium_pipeline/original_thomas84_66_independent_media_audit.py"
             "selenium_pipeline/original_thomas84_composite_source_semantic_corrections.py"
             "selenium_pipeline/original_thomas84_66_selective_math_reencode.py"
+            "selenium_pipeline/original_thomas84_66_corrected_independent_audit.py"
             "selenium_pipeline/tts_fidelity.py"
             "selenium_pipeline/tts_quality_gate.py"
             "selenium_pipeline/tts_qa_promotion.py"
