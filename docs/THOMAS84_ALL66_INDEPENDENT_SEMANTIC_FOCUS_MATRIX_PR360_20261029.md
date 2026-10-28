@@ -1,0 +1,15 @@
+# PR360 — Independent review of all 66 original §8.4 narration/PDF mathematical element mappings
+
+**Performed on Dell-115, Windows only**, with the physically existing 17-page source-generated PDF, protected actual textbook SHA `b695018baa55f69ae3c9c875e7b1cb8ed284123d5a4b43f31314e659b1f22068`, original script_tts.json/real historic WAV 65 word timings + one whole-title WAV, corrected versioned Slide17 mathematics/voice (PR355–357), authenticated recheck of original Slide11 (PR359), complete actual independent H264/AAC media audit PR356, and all five source-domain proofs PR358.
+
+A manually curated sentence-to-actual-source-PDF mathematical **66-item review matrix** has been compiled and physically checked for every original recorded source utterance (slides 1–3, 5–17, 66 in total), including the corrected genuine Slide17 full integral question, with actual original PDF block text, rectangle, source PDF hash and complete formula multi-block unions. Each sentence is traced to its own original script SHA (except precisely the corrected Slide17 sentence2 SHA). The 12 broader qualitative/contextual descriptions remain *related to* original PDF content but are not pretended to have one unique mathematical element. All known ten previous composite mathematical source corrections are preserved, not silently overwritten.
+
+**New mathematically significant problem:** Slide8 source PDF uses a physical reference right triangle with **opposite=x** for `tan u=x/2`, while the legitimate principal arctangent branch allows `x=-2` and geometric lengths cannot be negative. The displayed opposite length must be **|x|** (the signed tangent remains x/2); both original narrated sentence8.2 and linked triangle sentence8.3 require coordinated source/voice interpretation/correction before release. The exact source LaTeX and literal actual recorded script are preserved; no fake approval. Automatic naive lexical tests cannot catch this. The full 66 audit correctly classifies the two signed-triangle statements as **math semantic release blockers**, 12 qualitative source focus mappings as not uniquely semantically proven, and zero student-release-eligible media despite 66 complete physical source element mappings.
+
+New code:
+`selenium_pipeline/original_thomas84_all66_independent_semantic_matrix.py`
+with regression tests and explicit 66-source, 2 signed-domain blockers plus actual corrected voice/video source chain. Private proof
+`%LOCALAPPDATA%\MicroGen_AI_Web_Checkpoints\20261029_PR360_ALL66_REAL_SOURCE_MATH_SEMANTIC_MATRIX.json`.
+Three new regression tests PASS.
+
+**Next substantial correction**: Create a new versioned corrected original Slide8 PDF, corrected exact matching Slide8 sentence2 Kore audio, rerender the affected review video without changing untouched source media, and independently recheck mathematical signed-domain proof. Then repeat all-66 source semantic and final combined release gate. The student release remains blocked until that actually passes. No paid provider request as part of this PR and no original source mutation, Whisper, Linux, HP, Yoga6 or Zenbook.

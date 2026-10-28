@@ -126,6 +126,7 @@ jobs:
             "tests.test_original_thomas84_new_kore_offline_audio_qa"
             "tests.test_original_thomas84_five_source_domain_proofs"
             "tests.test_original_thomas84_slide11_independent_trig_voice_check"
+            "tests.test_original_thomas84_all66_independent_semantic_matrix"
             "tests.test_tts_quality_gate"
           )
           python -m unittest -v @regressionModules
@@ -213,6 +214,7 @@ jobs:
             "selenium_pipeline/original_thomas84_new_kore_offline_audio_qa.py"
             "selenium_pipeline/original_thomas84_five_source_domain_proofs.py"
             "selenium_pipeline/original_thomas84_slide11_independent_trig_voice_check.py"
+            "selenium_pipeline/original_thomas84_all66_independent_semantic_matrix.py"
             "selenium_pipeline/tts_fidelity.py"
             "selenium_pipeline/tts_quality_gate.py"
             "selenium_pipeline/tts_qa_promotion.py"
