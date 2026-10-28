@@ -12,11 +12,14 @@ from .element_plan_autodraft import file_hash
 from .original_thomas84_pdf_math_risk import require
 from .original_thomas84_offline_word_pdf_timing import tokenize_reference_sentences
 
+# PDF extraction often prints sin^2(u) as "sin2 u" (likewise cos2),
+# while spoken narration says "sine squared". Recognize both complete
+# names and PDF exponent suffixes before calling a single-function clash.
 TRIG_PATTERN = {
-    "sine": r"\b(?:sine|sin)\b",
-    "cosine": r"\b(?:cosine|cos)\b",
-    "tangent": r"\b(?:tangent|tan)\b",
-    "secant": r"\b(?:secant|sec)\b",
+    "sine": r"\b(?:sine|sin)(?:\s*\^?\s*2|\u00b2)?\b",
+    "cosine": r"\b(?:cosine|cos)(?:\s*\^?\s*2|\u00b2)?\b",
+    "tangent": r"\b(?:tangent|tan)(?:\s*\^?\s*2|\u00b2)?\b",
+    "secant": r"\b(?:secant|sec)(?:\s*\^?\s*2|\u00b2)?\b",
 }
 DOMAINS = {
     "strict_positive": r"\b(?:strictly positive|greater than zero|positive)\b",
