@@ -22,6 +22,17 @@ class MathDomainCrosscheck(unittest.TestCase):
         r=compare_math_claims("sine and cosine ratio", "sine, cosine, tangent")
         self.assertNotIn("SINGLE_TRIG_FUNCTION_CONFLICT",
                          r["provable_local_term_conflicts"])
+    def test_split_pdf_half_angle_math_has_both_sine_and_cosine(self):
+        result=compare_math_claims(
+            "Applying half-angle identity yields sine of two u",
+            "Apply the half-angle formula sin2 u = 1−cos 2u")
+        self.assertEqual(result["visible_features"]["trig"],["cosine","sine"])
+        self.assertNotIn("SINGLE_TRIG_FUNCTION_CONFLICT",
+                         result["provable_local_term_conflicts"])
+    def test_true_sine_cosine_conflict_still_rejected(self):
+        result=compare_math_claims("Use sine u", "Use cos2 u")
+        self.assertIn("SINGLE_TRIG_FUNCTION_CONFLICT",
+                      result["provable_local_term_conflicts"])
     def test_numerical_difference_not_automatic_proof(self):
         r=compare_math_claims("Use 4", "Use 9")
         self.assertFalse(r["provable_local_term_conflicts"])
