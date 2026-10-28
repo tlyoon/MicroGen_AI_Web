@@ -110,6 +110,7 @@ jobs:
             "tests.test_original_thomas84_29_independent_media_audit"
             "tests.test_original_thomas84_full_utterance_release_guard"
             "tests.test_original_thomas84_37_contextual_cues"
+            "tests.test_original_thomas84_worked_examples_math_proof"
             "tests.test_tts_quality_gate"
           )
           python -m unittest -v @regressionModules
@@ -181,6 +182,7 @@ jobs:
             "selenium_pipeline/original_thomas84_29_independent_media_audit.py"
             "selenium_pipeline/original_thomas84_full_utterance_release_guard.py"
             "selenium_pipeline/original_thomas84_37_contextual_cues.py"
+            "selenium_pipeline/original_thomas84_worked_examples_math_proof.py"
             "selenium_pipeline/tts_fidelity.py"
             "selenium_pipeline/tts_quality_gate.py"
             "selenium_pipeline/tts_qa_promotion.py"
