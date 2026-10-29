@@ -22,7 +22,9 @@ from pathlib import Path
 
 PHASES = (
     ("source_content", ("--from-stage", "figures", "--through-stage", "script_qa"), 2700),
-    ("narrated_audio", ("--from-stage", "tts", "--through-stage", "tts_qa"), 2100),
+    # A whole-voice batch may exhaust Lite, Flash, and Cloud under source-
+    # bound fallback. Never kill the stage before its own breaker/retry plan.
+    ("narrated_audio", ("--from-stage", "tts", "--through-stage", "tts_qa"), 5400),
     ("sourcebound_video", ("--from-stage", "video", "--through-stage", "video"), 1200),
 )
 TRANSIENT = re.compile(
@@ -80,6 +82,35 @@ def stage_tree(*,source_root:Path,snapshot_root:Path,subchapter:str)->dict:
             "Original and local test source must remain byte-identical")
     return {"source":str(source),"test_source":str(new),"original_sha256":before}
 
+def _recover_exhausted_tts_after_code_fix(state:dict)->dict:
+    """One explicit code-repair retry epoch, preserving old failure evidence.
+
+    No process may silently reset its retry budget after a provider outage.
+    This exceptional transition requires a developer-approved source-safe
+    change; subsequent repeats need a NEW code review, never another flag.
+    """
+    earlier=state.get("phases",{}).get("narrated_audio",{})
+    if (earlier.get("outcome")=="stage_failed"
+            and earlier.get("return_code")==124
+            and earlier.get("attempt")>=3
+            and earlier.get("transient") is True
+            and state.get("phases",{}).get("source_content",{}).get("outcome")=="stage_pass"
+            and not state.get("repair_history")
+            and not state.get("published_to_students")):
+        state["repair_history"]=[{"phase":"narrated_audio",
+            "old_phase_receipt":dict(earlier),
+            "reason":"source-preserving outage circuit and fallback repair",
+            "old_logs_retained":True}]
+        state["repair_epoch"]=1
+        del state["phases"]["narrated_audio"]
+        return state
+    if state.get("repair_epoch")==1 and "narrated_audio" not in state.get("phases",{}):
+        return state
+    raise SourceboundE2EError(
+        "No eligible exhausted TTS checkpoint or repair epoch already used; "
+        "never silently reset the verified retry budget")
+
+
 def _launcher(python:Path,root:Path,topic:str,work:Path,phase:tuple[str,tuple[str,...],int])->list[str]:
     name,from_to,_=phase
     command=[str(python),"-m","selenium_pipeline.runner",
@@ -94,6 +125,7 @@ def execute_windows(*,source_root:Path,snapshot_root:Path,
                     work_root:Path,subchapter:str,pipeline_python:Path,
                     tts_python:Path,repo:Path,
                     allow_live:bool=False,max_retries:int=3,
+                    resume_after_code_repair:bool=False,
                     retry_seconds:int=90,
                     run_command=None,sleep=None)->dict:
     require(sys.platform=="win32","No Ubuntu/Linux/macOS production: Windows required")
@@ -123,6 +155,9 @@ def execute_windows(*,source_root:Path,snapshot_root:Path,
         "MICROGEN_PIPELINE_PYTHON":str(pipeline_python),
         "MICROGEN_COMMUNICATION_MODE":"selenium",
         "PYTHONNOUSERSITE":"1","PYTHONUTF8":"1","PYTHONIOENCODING":"utf8"})
+    if resume_after_code_repair:
+        require(allow_live,"Cannot unlock a retry epoch in planning mode")
+        state=_recover_exhausted_tts_after_code_fix(state)
     state["last_invocation_mode"]="live" if allow_live else "source_only_plan"
     atomic_json(statepath,state)
     if not allow_live:
@@ -146,7 +181,9 @@ def execute_windows(*,source_root:Path,snapshot_root:Path,
                 f"{name}: saved retry budget of {max_retries} already exhausted")
         command=_launcher(pipeline_python,snapshot_root,subchapter,work_root,phase)
         for attempt in range(already+1,max_retries+1):
-            log=statepath.parent/f"windows_e2e_{name}_attempt{attempt}.log"
+            suffix=(f"_repair{state['repair_epoch']}" if
+                    name=="narrated_audio" and state.get("repair_epoch") else "")
+            log=statepath.parent/f"windows_e2e_{name}{suffix}_attempt{attempt}.log"
             with log.open("x",encoding="utf8") as stream:
                 try:
                     outcome=runner(command,cwd=str(repo),env=env,
@@ -191,6 +228,8 @@ def main(argv:list[str]|None=None)->int:
     p.add_argument("--tts-python",type=Path,required=True)
     p.add_argument("--repo",type=Path,required=True)
     p.add_argument("--execute-live",action="store_true")
+    p.add_argument("--resume-after-code-repair",action="store_true",
+                   help="One auditable source-hash-locked exhausted TTS retry epoch")
     p.add_argument("--max-retries",type=int,default=3)
     p.add_argument("--retry-seconds",type=int,default=90)
     a=p.parse_args(argv)
@@ -198,7 +237,8 @@ def main(argv:list[str]|None=None)->int:
         work_root=a.work_root,subchapter=a.subchapter,
         pipeline_python=a.pipeline_python,tts_python=a.tts_python,
         repo=a.repo,allow_live=a.execute_live,
-        max_retries=a.max_retries,retry_seconds=a.retry_seconds)
+        max_retries=a.max_retries,retry_seconds=a.retry_seconds,
+        resume_after_code_repair=a.resume_after_code_repair)
     print(json.dumps({k:v for k,v in result.items() if k not in ("dry_run_commands",)},
         indent=2))
     return 0

@@ -21,7 +21,10 @@ def source_inputs(tmp_path):
     src = tmp_path / "source.pdf"
     p = tmp_path / "gen_slides_prompt_v23_rendered.txt"
     metadata = tmp_path / "png_dimensions.json"
-    src.write_bytes(b"%PDF-1.7\nsource")
+    import pymupdf
+    with pymupdf.open() as doc:
+        doc.new_page().insert_text((72, 72), "Textbook source fixture.")
+        doc.save(src)
     p.write_text("Use only figures in the attached source PDF.")
     metadata.write_text('{"Figure 2.10.png":{"width":1200,"height":400}}')
     return src, p, metadata
@@ -59,7 +62,10 @@ def test_api_rejects_bad_model_missing_pdf_and_truncated_reply(tmp_path):
     src.unlink()
     with pytest.raises(ValueError, match="missing"):
         slides_api.request_slides(src, prompt, dims, "Beamer")
-    src.write_bytes(b"%PDF-1.7\nsource")
+    import pymupdf
+    with pymupdf.open() as doc:
+        doc.new_page().insert_text((72, 72), "Textbook source fixture.")
+        doc.save(src)
     truncated = SimpleNamespace(
         text=LATEX, candidates=[SimpleNamespace(finish_reason="MAX_TOKENS")]
     )

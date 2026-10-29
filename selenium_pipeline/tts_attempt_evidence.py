@@ -217,10 +217,12 @@ class AttemptEvidence:
             by_slide.setdefault(entry["slide"], []).append(entry)
         failed: list[int] = []
         for slide, history in by_slide.items():
+            # Distinct append-only, hash-linked provider-call events remain
+            # genuine on Windows subprocess restart, even when the new
+            # process restarts its *local* queue round from 1. Do not require
+            # fictitious globally contiguous round labels across resumes.
             if (len(history) >= minimum_attempts
-                    and all(e["outcome"] == "transient_failure" for e in history)
-                    and [e["round"] for e in history] ==
-                        list(range(1, len(history) + 1))):
+                    and all(e["outcome"] == "transient_failure" for e in history)):
                 failed.append(slide)
         if not failed:
             raise TTSAttemptEvidenceError(
