@@ -713,6 +713,16 @@ def _execute_unlocked(s: Settings) -> Path:
             raise RuntimeError(
                 "This lecture is already receipt-verified; an explicit "
                 "--force-from is required before any partial regeneration.")
+        # Source coverage is mandatory before this video-only shortcut
+        # may synthesize any new element WAV or stage a lecture.
+        from .source_numbered_example_coverage import require_coverage
+        # Some contract-verified sourcebound plans are based on PDF geometry
+        # without a retained slides.tex. They remain protected by their
+        # independent figure/element provenance gate; do not reject such
+        # complete PDF/WAV bundles solely for missing optional .tex.
+        if (source.parent/"slides.tex").is_file():
+            require_coverage(source_pdf=source,
+                             latex_path=source.parent/"slides.tex")
         from .sourcebound_production_video import render_and_install_prepared
         base=Path(os.getenv("LOCALAPPDATA") or str(Path.home()/".cache"))
         tmp=base/"MicroGen_AI_Web_VideoStaging"
@@ -873,6 +883,13 @@ def _execute_unlocked(s: Settings) -> Path:
         if stage in {"narration", "script_qa", "tts", "tts_qa", "video"}:
             from .figure_audit import enforce_graphics
             enforce_graphics(source.parent, repair=True)
+        if stage in {"narration", "tts", "tts_qa"}:
+            # Re-evaluate the physically existing slides before narration
+            # and BEFORE billable Flash-Lite TTS. Do not allow a cached
+            # stage receipt to bypass an omitted promised source example.
+            from .source_numbered_example_coverage import require_coverage
+            require_coverage(source_pdf=source,
+                             latex_path=source.parent/"slides.tex")
         # A changed stage invalidates every downstream stage, including final video.
         browser_model = {"figures": DEFAULT_CAPTION_MODEL, "slides": DEFAULT_SLIDE_MODEL,
                          "narration": DEFAULT_NARRATION_MODEL}.get(stage, "deterministic-local")

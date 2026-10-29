@@ -114,7 +114,22 @@ if slides_tex.exists() and slides_pdf.exists():
             "WARN",
         )
     else:
-        log("slides.tex and slides.pdf already exist and pass citation guard. Skipping Gemini submission.", "INFO")
+        # Existing slides are NOT reusable merely because LaTeX compiles:
+        # a promised worked textbook example may be wholly absent.
+        from selenium_pipeline.source_numbered_example_coverage import (
+            audit_latex_example_coverage, feedback,
+        )
+        if Path("source.pdf").is_file():
+            source_coverage = audit_latex_example_coverage(
+                source_pdf=Path("source.pdf"),
+                slides_tex=slides_tex.read_text(encoding="utf8"))
+            if not source_coverage["coverage_pass"]:
+                raise RuntimeError(
+                    "Existing slides fail original source example coverage; "
+                    "keep old files untouched and use a NEW isolated "
+                    "source-grounded regeneration folder. "
+                    + feedback(source_coverage))
+        log("slides.tex and slides.pdf already exist and pass citation/source example coverage. Skipping Gemini submission.", "INFO")
         sys.exit(0)
     
 # ------------------------------------------------------------
@@ -1248,6 +1263,29 @@ def generate_slides_tex(
             )
             continue
         
+        # Independent original-source numbered-example coverage guard.
+        # A generated outline promising Examples 1–4 MUST not silently skip
+        # an actual textbook Example 2. Reject before narration or TTS.
+        from selenium_pipeline.source_numbered_example_coverage import (
+            audit_latex_example_coverage, feedback,
+        )
+        coverage = audit_latex_example_coverage(
+            source_pdf=pdf_path, slides_tex=latex)
+        if not coverage["coverage_pass"]:
+            failed_candidate = out_tex.with_name(
+                f"slides_attempt_{attempt}_missing_source_examples.tex")
+            failed_candidate.write_text(latex + "\n", encoding="utf-8")
+            import json as _json
+            failed_receipt = out_tex.with_name(
+                f"slides_attempt_{attempt}_missing_source_examples.json")
+            failed_receipt.write_text(
+                _json.dumps(coverage, indent=2) + "\n", encoding="utf-8")
+            legibility_feedback = " " + feedback(coverage)
+            log(f"Attempt {attempt}: rejected missing original textbook "
+                f"worked examples {coverage['missing_promised_source_examples']}; "
+                "sending precise source-only repair instructions on next attempt.",
+                "WARN")
+            continue
         out_tex.write_text(latex + "\n", encoding="utf-8", newline="\n")
         log(f"Wrote accepted Beamer slide stack to {out_tex.name}", "OK")
         return out_tex
