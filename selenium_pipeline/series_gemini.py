@@ -65,25 +65,49 @@ def _vendor_module():
 
 
 def _browser_request(instruction: str,attachments: list[Path],
-                     *,port: int,wait_cap_s: int) -> str:
+                     *,port: int,wait_cap_s: int,
+                     min_chars: int=200,accept_fn=None) -> str:
     from .three_pc_worker import LocalInstanceLock
     from .gemini_model import ensure_mode
 
     vendor=_vendor_module()
+    cache=Path(os.getenv("LOCALAPPDATA") or (Path.home()/".cache"))/"Microvid"
+    # Explicit text-only Gemini request mode: original-source evidence may be
+    # embedded directly in a bounded prompt when document upload stalls.
+    # No surrogate attachment, no unrelated Chrome tab, no new paid API.
+    if type(attachments) is not list or any(not isinstance(p,Path) for p in attachments):
+        raise SeriesBridgeError("Browser request attachments must be paths")
+    request_root=Path(attachments[0]).parent if attachments else cache
     cfg=vendor.Config(
-        root=attachments[0].parent,debug_port=port,
+        root=request_root,debug_port=port,
         use_persistent_chrome=True,force_kill_chrome_to_free_port=False,
     )
-    cache=Path(os.getenv("LOCALAPPDATA") or (Path.home()/".cache"))/"Microvid"
     with LocalInstanceLock(f"gemini_port_{port}",cache/"browser_locks"):
         client=vendor.GeminiSeleniumClient(cfg)
         try:
             client.start(ensure_gemini_on_launch=True)
-            ensure_mode(port,os.getenv("MICROGEN_GEMINI_UI_MODE","flash"))
+            selected=os.getenv("MICROGEN_GEMINI_UI_MODE","flash").strip().lower()
+            ensure_mode(port,selected)
             client.open_clean_gemini_chat()
-            client.upload_files(attachments)
+            # The new conversation may reset the selected UI mode. Re-check
+            # AFTER changing tabs/chat, before sending source attachments.
+            from .gemini_model import browser_model_evidence
+            observed=ensure_mode(port,selected)
+            browser_model_evidence(
+                observed, requested_mode=selected,
+                requested_model_id=os.getenv(
+                    "MICROGEN_LLM_MODEL","gemini-3.8-flash"))
+            if attachments:
+                client.upload_files(attachments)
             if not client.type_prompt_text(instruction,retries=3):
                 raise SeriesBridgeError("Could not type Gemini storyboard instruction")
+            # A live Dell-115 test showed Quill can need ~3 seconds to
+            # reveal the *ordinary* Send control after a large CDP insert.
+            # Do not override hidden UI or submit if still hidden.
+            from .gemini_response_recovery import await_owned_gemini_send_visible
+            await_owned_gemini_send_visible(
+                client.driver,getattr(client,"_automation_tab",None),
+                wait_s=10,poll_s=0.5)
             if not client.click_send_with_fallbacks(retries=3):
                 raise SeriesBridgeError("Could not submit Gemini storyboard instruction")
             # Long Gemini replies may time out or raise before the strict
@@ -93,13 +117,15 @@ def _browser_request(instruction: str,attachments: list[Path],
             try:
                 response = vendor.capture_gemini_response_like_manual_copy(
                     client.driver,wait_cap=wait_cap_s,prefer_latex_doc=False,
-                    min_chars=200,retries=4,accept_fn=_looks_complete,
+                    min_chars=min_chars,retries=4,
+                    accept_fn=(accept_fn or _looks_complete),
                 )
             except (TimeoutError, RuntimeError) as exc:
                 capture_error = exc
             if not response:
                 from .gemini_response_recovery import (
-                    response_snapshot_with_scoped_copy, quarantine_snapshot,
+                    latest_owned_response, response_snapshot_with_scoped_copy,
+                    quarantine_snapshot, poll_existing_owned_response,
                 )
                 # This vendor helper verifies the Copy button belongs
                 # to the latest MODEL response, not a user prompt.
@@ -110,7 +136,33 @@ def _browser_request(instruction: str,attachments: list[Path],
                 snapshot = response_snapshot_with_scoped_copy(
                     client.driver, getattr(client, "_automation_tab", None),
                     copy_response=verified_copy,
+                    accept_fn=(accept_fn or _looks_complete),
                 )
+                # The strict capture may fail while the same Gemini tab is
+                # STILL generating. Observe only that owned tab for a bounded
+                # grace period; do not submit an additional model request.
+                # Completed text must pass the same JSON acceptance function.
+                if snapshot.get("capture_status") != "unavailable":
+                    owned = getattr(client, "_automation_tab", None)
+                    def observe_owned_reply():
+                        current = latest_owned_response(client.driver, owned)
+                        if (not current.get("generating") and
+                                current.get("capture_status") != "unavailable"):
+                            return response_snapshot_with_scoped_copy(
+                                client.driver, owned, copy_response=verified_copy,
+                                accept_fn=(accept_fn or _looks_complete))
+                        return current
+                    # Real original 8.4 diagnostic preserved the short
+                    # non-generating "Gemini said" placeholder after 149 s.
+                    # Give this owned tab a *short* no-resend observation
+                    # window even when no Stop button is visible. Continuing
+                    # generation retains the longer existing 45 s grace.
+                    recovered, snapshot = poll_existing_owned_response(
+                        observe_owned_reply, accept_fn=(accept_fn or _looks_complete),
+                        wait_s=(45 if snapshot.get("generating") else 12),
+                        poll_s=2)
+                    if recovered is not None:
+                        return recovered
                 reason = (
                     "strict_json_capture_exception" if capture_error is not None
                     else "strict_json_capture_timeout"

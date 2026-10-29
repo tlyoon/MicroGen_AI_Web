@@ -1,0 +1,3 @@
+# PR190 — source-approved Gemini element TTS job planning
+
+A verified input-only Gemini Flash-Lite/Kore segment-WAV job generator reads original source, slides, script SHA identities and the existing mathematical-element review bridge. It produces separate planned PCM WAV jobs only when every source-element mapping is authenticated; no billable provider call occurs in this preflight. The real Thomas Calculus 8.4 returns zero eligible jobs because 71 original utterance associations remain academically unverified. Original slide-level WAVs and existing MP4 reviews remain unchanged. A consistent voice and three genuine primary-provider failures before Cloud fallback are retained. Dell-115 only; no Whisper, ASR, GCS or student publication.

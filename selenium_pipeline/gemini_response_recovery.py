@@ -58,6 +58,7 @@ def latest_owned_response(driver, owned_handle: str | None) -> dict:
 
 def response_snapshot_with_scoped_copy(
     driver, owned_handle: str | None, *, copy_response=None,
+    accept_fn=None,
 ) -> dict:
     """Prefer the longer vendor-verified response over a short DOM placeholder.
 
@@ -82,15 +83,124 @@ def response_snapshot_with_scoped_copy(
         copied = copy_response(driver)
     except Exception:
         return snapshot
-    if isinstance(copied, str) and len(copied.strip()) > max(
-        len(snapshot["text"].strip()), 60
-    ):
-        return {
-            "text": copied[:MAX_CAPTURE_CHARS],
-            "generating": snapshot["generating"],
-            "capture_status": "vendor_verified_response_copy",
-        }
+    if isinstance(copied, str):
+        # The exact source-transport canary JSON is ~40 characters. A
+        # historical 60-character floor discarded it, even when the Copy
+        # action belonged to the actual owned model-response toolbar.
+        # Permit short replies ONLY if the caller's strict structured
+        # response validator independently accepts them.
+        try:
+            short_structured = callable(accept_fn) and bool(accept_fn(copied))
+        except Exception:
+            short_structured = False
+        longer_than_dom = len(copied.strip()) > len(snapshot["text"].strip())
+        if longer_than_dom and (
+            len(copied.strip()) > 60 or short_structured
+        ):
+            return {
+                "text": copied[:MAX_CAPTURE_CHARS],
+                "generating": snapshot["generating"],
+                "capture_status": "vendor_verified_response_copy",
+            }
     return snapshot
+
+
+def poll_existing_owned_response(
+    read_snapshot, *, accept_fn, wait_s=45, poll_s=3,
+    clock=None, sleep=None,
+) -> tuple[str | None, dict]:
+    """Observe ONLY the already submitted owned-tab response after strict capture fails.
+
+    No prompt resend, tab creation, model switch, or browser-side click occurs
+    here. In-progress replies are never accepted; once generation stops,
+    complete schema-acceptable text may be returned for normal downstream
+    source-validation. A changed/unowned tab fails closed.
+    """
+    import time
+    if (not callable(read_snapshot) or not callable(accept_fn)
+            or not isinstance(wait_s, (int, float)) or not 1 <= wait_s <= 90
+            or not isinstance(poll_s, (int, float)) or not 0 < poll_s <= 10):
+        raise ValueError("Bounded owned-response observation required")
+    clock = clock or time.monotonic
+    sleep = sleep or time.sleep
+    deadline = clock() + wait_s
+    last = {"text": "", "generating": False, "capture_status": "unavailable"}
+    while True:
+        current = read_snapshot()
+        if not isinstance(current, dict):
+            return None, last
+        last = current
+        if current.get("capture_status") not in (
+                "visible_model_response", "empty_model_response",
+                "vendor_verified_response_copy"):
+            return None, last
+        if not current.get("generating"):
+            raw = current.get("text")
+            if isinstance(raw, str) and raw.strip() and accept_fn(raw):
+                return raw, last
+            # A short model DOM placeholder can say "Gemini said" even
+            # while the normal Stop control is absent. Keep observing the
+            # *same* owned tab for the bounded grace; never submit again.
+            # This is NOT evidence of a complete provider response.
+        remaining = deadline - clock()
+        if remaining <= 0:
+            return None, last
+        sleep(min(poll_s, remaining))
+
+
+
+_SEND_METADATA_ONLY_JS = """
+const editor=document.querySelector('[role="textbox"][contenteditable="true"]');
+const buttons=[...document.querySelectorAll('button[aria-label="Send message"]')];
+let visible=0;
+for(const button of buttons){
+  let e=button, hidden=false;
+  while(e && e.nodeType===1){
+    const style=getComputedStyle(e);
+    if(style.display==='none'||style.visibility==='hidden'||
+       Number(style.opacity)<=0.01){hidden=true;break;}
+    e=e.parentElement;
+  }
+  if(!hidden)visible++;
+}
+return {doc_visible:document.visibilityState==='visible',
+        composer_present:Boolean((editor?.innerText||'').trim()),
+        send_count:buttons.length,visible_send_count:visible};
+"""
+
+def await_owned_gemini_send_visible(driver, owned_handle: str | None, *,
+                                     wait_s: float=10, poll_s: float=0.5,
+                                     clock=None, sleep=None) -> bool:
+    """Observe ordinary Send visibility after Quill updates; NEVER force click.
+
+    No content or other-tab data is read. Fail closed on changed browser ownership,
+    unexpected page or no normal visible Send control. This does not submit.
+    """
+    import time
+    if (not owned_handle or not 0<=wait_s<=20 or not 0<poll_s<=5):
+        return False
+    clock=clock or time.monotonic
+    sleep=sleep or time.sleep
+    deadline=clock()+wait_s
+    while True:
+        try:
+            if (driver.current_window_handle!=owned_handle or
+                not driver.current_url.startswith("https://gemini.google.com/")):
+                return False
+            state=driver.execute_script(_SEND_METADATA_ONLY_JS)
+            if not isinstance(state,dict) or not state.get("doc_visible"):
+                return False
+            if (state.get("composer_present") is True and
+                type(state.get("visible_send_count")) is int and
+                state["visible_send_count"]>0):
+                return True
+            if not state.get("composer_present") or not state.get("send_count"):
+                return False
+        except Exception:
+            return False
+        remaining=deadline-clock()
+        if remaining<=0:return False
+        sleep(min(poll_s,remaining))
 
 
 def default_quarantine_dir() -> Path:

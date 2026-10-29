@@ -108,9 +108,10 @@ RESOURCE_FILES = ("beamerthemeGelugor.sty", "usmlg.jpg", "usmemb.jpg", "logotype
 OUTPUTS = {
     "slides": ("slides.tex", "slides.pdf"),
     "narration": ("script.txt",),
-    "script_qa": ("script_risk_report.json", "script_risk_report.md"),
+    "script_qa": ("script_risk_report.json", "script_risk_report.md",
+                  "math_semantic_report.json", "math_semantic_repair_prompt.json"),
     "tts_qa": ("tts_fidelity_report.json", "tts_fidelity_report.md"),
-    "video": ("slides.mp4",),
+    "video": ("lecture_completion.json",),
 }
 
 
@@ -356,7 +357,18 @@ def valid(stage: str, folder: Path) -> bool:
         return len(blocks((folder / "script.txt").read_text(encoding="utf-8"))) == slide_pages(folder)
     if stage == "script_qa":
         report = json.loads((folder / "script_risk_report.json").read_text(encoding="utf-8"))
-        return int(report.get("summary", {}).get("blocking", 1)) == 0
+        math_path = folder / "math_semantic_report.json"
+        if not math_path.is_file():
+            return False
+        math = json.loads(math_path.read_text(encoding="utf-8"))
+        from .automatic_math_semantic_qa import inspect_math_semantics
+        current = inspect_math_semantics((folder / "script.txt").read_text(encoding="utf-8"),
+            source_sha256=digest(folder / "source.pdf"))
+        return (int(report.get("summary", {}).get("blocking", 1)) == 0
+                and math.get("script_sha256") == current["script_sha256"]
+                and math.get("source_sha256") == current["source_sha256"]
+                and math.get("ruleset") == current["ruleset"]
+                and math.get("blocking_count") == current["blocking_count"] == 0)
     if stage == "tts":
         count = len(blocks((folder / "script.txt").read_text(encoding="utf-8")))
         return all((folder / f"slide{i}.wav").is_file() and
@@ -365,16 +377,42 @@ def valid(stage: str, folder: Path) -> bool:
         report = json.loads((folder / "tts_fidelity_report.json").read_text(encoding="utf-8"))
         summary = report.get("summary", {})
         pages = slide_pages(folder)
-        return (
+        complete = (
             int(summary.get("slides", -1)) == pages
             and int(summary.get("passed", -1)) == pages
             and int(summary.get("review", 1)) == 0
             and int(summary.get("blocking_failures", 1)) == 0
-            and float(summary.get("minimum_fidelity_percent", -1))
-            >= float(report.get("threshold_percent", 99.0))
         )
+        if not complete:
+            return False
+        from .tts_flexible_pronunciation_contract import QA_VERSION
+        if report.get("tts_qa_policy_version") == QA_VERSION and report.get("version") == 2:
+            threshold = float(report.get("threshold_percent", 50.0))
+            entries = report.get("slides", [])
+            # Only actual v2 phonetic/audio QA passes count. Historical v1
+            # reports retain their ORIGINAL strict threshold semantics.
+            return (
+                50.0 <= threshold <= 100.0
+                and isinstance(entries, list) and len(entries) == pages
+                and {item.get("slide") for item in entries} == set(range(1, pages+1))
+                and all(item.get("status") == "pass"
+                        and float(item.get("tts_quality_percent",-1)) >= threshold
+                        and (item.get("tts_qa_phonetic_evidence") or {}).get(
+                            "tts_qa_soundalike_pass") is True
+                        and not (item.get("tts_qa_phonetic_evidence") or {}).get(
+                            "critical_errors")
+                        for item in entries)
+                and float(summary.get("minimum_tts_quality_percent",-1)) >= threshold
+            )
+        return (float(summary.get("minimum_fidelity_percent", -1))
+                >= float(report.get("threshold_percent", 99.0)))
     if stage == "video":
-        return (folder / "slides.mp4").stat().st_size > 0
+        # Owner's 18 Oct amendment: human review is OPTIONAL and may not
+        # block transition to the next INTERNAL processing stage.
+        # This verifier proves technical readiness, never academic approval,
+        # public release or authorization to overwrite existing assets.
+        from .production_video_contract import verify_series
+        return verify_series(folder)["status"] == "accepted_synchronized_series"
     return False
 
 
@@ -505,7 +543,8 @@ def archive_existing_outputs(stage: str, folder: Path) -> None:
     names = {
         "slides": ("slides.tex", "slides.pdf"),
         "narration": ("script.txt",),
-        "script_qa": ("script_risk_report.json", "script_risk_report.md"),
+        "script_qa": ("script_risk_report.json", "script_risk_report.md",
+                      "math_semantic_report.json", "math_semantic_repair_prompt.json"),
         "tts_qa": ("tts_fidelity_report.json", "tts_fidelity_report.md"),
         "video": ("slides.mp4",),
     }.get(stage, ())
@@ -534,8 +573,12 @@ class Settings:
     tts_provider: str = "gemini"
     tts_model: str = DEFAULT_TTS
     tts_voice: str = "Kore"
+    # Billing decisions are explicit per invocation, not inferred from local
+    # .env API keys or ordinary browser login.
+    confirm_gemini_api_cost: bool = False
+    confirm_google_cloud_tts_cost: bool = False
     tts_qa_model: str = ACTIVE_LLM_MODEL
-    tts_qa_threshold: float = 99.0
+    tts_qa_threshold: float = 50.0
     chrome_port: int = 9222
     alternate_gemini_user: str | None = None
     confirm_pro: bool = False
@@ -543,6 +586,12 @@ class Settings:
     force_from: str | None = None
     from_stage: str = "figures"
     through_stage: str = "video"
+    # This opt-in route NEVER publishes a student-facing video. Original
+    # source/old MP4 bytes are read-only; academic release remains separate.
+    element_plan: Path | None = None
+    element_audio: Path | None = None
+    element_slides: Path | None = None
+    element_review_root: Path | None = None
 
     def directory(self) -> Path:
         # Default staging stays inside this source subchapter, never inside
@@ -626,16 +675,81 @@ def _execute_unlocked(s: Settings) -> Path:
         print(f"[microgen] stage: {stage}")
     if s.dry_run:
         return folder
+    selected=(s.element_plan,s.element_audio,s.element_review_root)
+    if any(value is not None for value in
+           (s.element_plan,s.element_audio,s.element_slides,s.element_review_root)):
+        if (not all(value is not None for value in selected)
+                or s.from_stage!="video" or s.through_stage!="video"
+                or s.force_from is not None):
+            raise ValueError(
+                "Element-highlight review requires all plan/audio/output paths, "
+                "--from-stage video --through-stage video, and no --force-from")
+        # Dedicated safe path: no legacy renderer, publication, checkpoints,
+        # Drive edits, or TTS backend calls; even old accepted MP4s are preserved.
+        verify_source_tree(s.source_root, source)
+        from .element_highlight_workflow import review
+        slides=s.element_slides or (source.parent/"slides.pdf")
+        report=review(source=source,slides=slides,authored=s.element_plan,
+                      audio=s.element_audio,output_root=s.element_review_root)
+        print("[microgen] verified REVIEW-ONLY synchronized highlighted parts:"
+              f" {report['covered_slides']} slides; "
+              f"{report['covered_elements']} elements. NOT student published.")
+        return Path(s.element_review_root)
+    # Automatic source-grounded element-TTS + real synced video path.
+    # Full scientific semantics/figure-panel equivalence cannot be inferred
+    # from PDF text. The automatic element selector therefore accepts ONLY
+    # unique, verbatim original slide narration in a source text block.
+    # Ambiguous figures/text NEVER trigger paid TTS or static video fallback.
+    if (s.from_stage == "video" and s.through_stage == "video"
+            and s.force_from is None):
+        verify_source_tree(s.source_root,source)
+        if check_valid("video",source.parent):
+            print("[microgen] already verified source-bound multipart video")
+            return folder
+        # A *historically receipt-verified* published slides.mp4 is protected:
+        # no automatic new TTS/video execution can bypass its old guard.
+        if ((source.parent/"slides.mp4").is_file()
+                and completed_lecture(source)):
+            raise RuntimeError(
+                "This lecture is already receipt-verified; an explicit "
+                "--force-from is required before any partial regeneration.")
+        from .sourcebound_production_video import render_and_install_prepared
+        base=Path(os.getenv("LOCALAPPDATA") or str(Path.home()/".cache"))
+        tmp=base/"MicroGen_AI_Web_VideoStaging"
+        tmp.mkdir(parents=True,exist_ok=True)
+        targets=(source.parent/"element_narration_plan.json",
+                 source.parent/"element_wav",
+                 source.parent/"element_tts_manifest.json")
+        if all(not p.exists() and not p.is_symlink() for p in targets):
+            from .automatic_element_audio_stage import produce_element_audio
+            produce_element_audio(
+                source=source,slides=source.parent/"slides.pdf",
+                script=source.parent/"script.txt",
+                local_work_root=tmp)
+        if not all(p.exists() and not p.is_symlink() for p in targets):
+            raise RuntimeError("Incomplete original element TTS outputs; "
+                               "never resume an ambiguous or partial element batch")
+        completed=render_and_install_prepared(
+            source=source,slides=source.parent/"slides.pdf",
+            authored=targets[0],audio=targets[1],local_work_root=tmp)
+        if not check_valid("video",source.parent):
+            raise RuntimeError("Installed highlighted multipart video fails fresh QA")
+        print(f"[microgen] {completed['part_count']} technically accepted "
+              "highlighted multipart part(s), no human signoff required")
+        return folder
+
     # A completed lecture has already had its staging/checkpoints removed.
     # Trust only a source-and-output-matched completion receipt: otherwise
     # missing staging files would trigger an expensive, unnecessary rerun.
     if (s.from_stage == "figures" and s.through_stage == "video"
             and not s.force_from and completed_lecture(source)):
         verify_source_tree(s.source_root, source)
-        removed = cleanup_completed_lecture(
-            source, workspace=folder if folder.exists() else None, pipeline="selenium"
-        )
-        print(f"[microgen] completed lecture already published; cleaned {len(removed)} transient item(s)")
+        if not check_valid("video", source.parent):
+            raise RuntimeError(
+                "Legacy receipt-verified slides.mp4 is preserved but is NOT a "
+                "contract-compliant multipart highlighted lesson."
+            )
+        print("[microgen] already accepted compliant multipart series; no changes")
         return folder
     # Direct CLI runs need the same preservation guard as the three-PC worker.
     # An old MP4 without a verified receipt may be the only usable lecture;
@@ -655,6 +769,21 @@ def _execute_unlocked(s: Settings) -> Path:
     # Check the independently configured PDF root and this subchapter before
     # launching Chrome or consuming paid model/API calls.
     verify_source_tree(s.source_root, source)
+    if "video" in planned:
+        raise RuntimeError(
+            "The static-slide video backend cannot fulfill the mandatory "
+            "multipart <600s and audio-timed visual highlighting contract. "
+            "Replan using reviewed scene boundaries and the approved "
+            "synchronized part renderer; preserving all existing output."
+        )
+    if "tts" in planned or "tts_qa" in planned:
+        from .tts_billing_guard import require_tts_cost_authorization
+        require_tts_cost_authorization(
+            s.tts_provider,
+            gemini_approved=s.confirm_gemini_api_cost,
+            cloud_approved=s.confirm_google_cloud_tts_cost,
+            routine_gemini=(s.tts_provider == "gemini"))
+    observed_browser_evidence = None
     if any(_needs_browser(x) for x in planned):
         from .launch_gemini import launch
         requested_port = s.chrome_port
@@ -664,8 +793,13 @@ def _execute_unlocked(s: Settings) -> Path:
             requested_port = 9223
         actual_port, _ = launch(s.alternate_gemini_user, requested_port)
         s.chrome_port = actual_port
-        from .gemini_model import ensure_mode
-        print(f"[microgen] verified Gemini mode: {ensure_mode(s.chrome_port, DEFAULT_BROWSER_UI_MODE)}")
+        from .gemini_model import ensure_mode, browser_model_evidence
+        observed_label = ensure_mode(s.chrome_port, DEFAULT_BROWSER_UI_MODE)
+        observed_browser_evidence = browser_model_evidence(
+            observed_label, requested_mode=DEFAULT_BROWSER_UI_MODE,
+            requested_model_id=ACTIVE_LLM_MODEL)
+        print("[microgen] verified authenticated Gemini UI family: "
+              f"{observed_label}; exact provider model ID NOT independently verified")
     prepare(source, folder)
     if s.from_stage == "video":
         hydrate_video_only_inputs(source, folder)
@@ -682,7 +816,8 @@ def _execute_unlocked(s: Settings) -> Path:
         "caption_benchmark": CAPTION_BENCHMARK_MODEL,
         "slides": DEFAULT_SLIDE_MODEL,
         "narration": DEFAULT_NARRATION_MODEL,
-        "ui_selection_verified_automatically": any(_needs_browser(x) for x in planned),
+        "ui_family_evidence": observed_browser_evidence,
+        "ui_exact_model_id_verified": False,
         "tts": s.tts_model,
         "tts_provider": s.tts_provider,
         "tts_qa": s.tts_qa_model,
@@ -742,7 +877,7 @@ def _execute_unlocked(s: Settings) -> Path:
         browser_model = {"figures": DEFAULT_CAPTION_MODEL, "slides": DEFAULT_SLIDE_MODEL,
                          "narration": DEFAULT_NARRATION_MODEL}.get(stage, "deterministic-local")
         if stage == "script_qa":
-            model_stamp = "script-risk-v1"
+            model_stamp = "script-risk-v1:math-domain-sign-v1"
         elif stage == "tts":
             model_stamp = f"{s.tts_provider}:{s.tts_model}:{s.tts_voice}"
         elif stage == "tts_qa":
@@ -770,13 +905,30 @@ def _execute_unlocked(s: Settings) -> Path:
         log_file = folder / f"microgen_{stage}.log"
         try:
             if _needs_browser(stage):
-                from .gemini_model import ensure_mode
-                print(f"[microgen] {stage} Gemini mode: {ensure_mode(s.chrome_port, DEFAULT_BROWSER_UI_MODE)}")
+                from .gemini_model import ensure_mode, browser_model_evidence
+                stage_label = ensure_mode(s.chrome_port, DEFAULT_BROWSER_UI_MODE)
+                browser_model_evidence(
+                    stage_label, requested_mode=DEFAULT_BROWSER_UI_MODE,
+                    requested_model_id=ACTIVE_LLM_MODEL)
+                print(f"[microgen] {stage} Gemini UI family confirmed: {stage_label}; "
+                      "exact deployed model ID remains unverified")
             if stage not in {"tts", "video"}:
                 # Video assembly archives the prior MP4 only after its new
                 # candidate passes stream and duration validation.
                 archive_existing_outputs(stage, folder)
             if stage == "script_qa":
+                # The generic, source-hash-bound math gate precedes acoustic
+                # risk/TTS. Blocking mathematical claims generate bounded
+                # repair instructions and STOP instead of becoming WAVs.
+                run_cmd(
+                    [sys.executable, "-m", "selenium_pipeline.automatic_math_semantic_qa",
+                     "--script", str(folder / "script.txt"),
+                     "--source-pdf", str(folder / "source.pdf"),
+                     "--report", str(folder / "math_semantic_report.json"),
+                     "--repair-prompt", str(folder / "math_semantic_repair_prompt.json"),
+                     "--strict"],
+                    REPO, log_file, env,
+                )
                 run_cmd(
                     [
                         sys.executable,
@@ -809,6 +961,8 @@ def _execute_unlocked(s: Settings) -> Path:
                         s.tts_model,
                         "--voice",
                         s.tts_voice,
+                        ("--confirm-gemini-api-cost" if s.tts_provider == "gemini"
+                         else "--confirm-google-cloud-tts-cost"),
                     ],
                     REPO,
                     log_file,
@@ -816,6 +970,26 @@ def _execute_unlocked(s: Settings) -> Path:
                 )
             elif stage == "tts_qa":
                 qa_python = tts_python_executable()
+                actual_provider, actual_model, actual_voice = (
+                    s.tts_provider, s.tts_model, s.tts_voice)
+                original_tts_manifest = folder / "tts_input_manifest.json"
+                if original_tts_manifest.is_file() and not original_tts_manifest.is_symlink():
+                    identity = json.loads(original_tts_manifest.read_text(encoding="utf-8"))
+                    actual = identity.get("primary", {})
+                    if isinstance(actual, dict):
+                        actual_provider = actual.get("provider", actual_provider)
+                        actual_model = actual.get("model", actual_model)
+                        actual_voice = actual.get("voice", actual_voice)
+                    if (actual_provider == "chirp3"
+                            and not (identity.get("all_slides_one_effective_voice") is True
+                                     and identity.get("requested_primary") == {
+                                         "provider": "gemini", "model": s.tts_model,
+                                         "voice": s.tts_voice}
+                                     and identity.get("fallback_chain") == [
+                                         "gemini-3.8-flash-lite-tts",
+                                         "gemini-3.8-flash-tts"])):
+                        raise RuntimeError(
+                            "Cloud TTS QA requires complete conditional-fallback provenance")
                 print(f"[microgen] TTS QA Python: {qa_python}")
                 run_cmd(
                     [
@@ -829,13 +1003,15 @@ def _execute_unlocked(s: Settings) -> Path:
                         "--threshold",
                         str(s.tts_qa_threshold),
                         "--provider",
-                        s.tts_provider,
+                        actual_provider,
                         "--tts-model",
-                        s.tts_model,
+                        actual_model,
                         "--voice",
-                        s.tts_voice,
+                        actual_voice,
                         "--max-repairs",
                         os.environ.get("MICROGEN_TTS_QA_REPAIR_ROUNDS", "2"),
+                        ("--routine-production-gemini" if actual_provider == "gemini"
+                         else "--conditional-cloud-fallback"),
                     ],
                     REPO,
                     log_file,
@@ -978,8 +1154,12 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--tts-provider", choices=("gemini", "chirp3"), default="gemini")
     p.add_argument("--tts-model", default=DEFAULT_TTS)
     p.add_argument("--tts-voice", default="Kore")
+    p.add_argument("--confirm-gemini-api-cost", action="store_true",
+                   help="Explicit paid Gemini API TTS authorization for this invocation")
+    p.add_argument("--confirm-google-cloud-tts-cost", action="store_true",
+                   help="Separate explicit paid Google Cloud Chirp TTS authorization")
     p.add_argument("--tts-qa-model", default=ACTIVE_LLM_MODEL)
-    p.add_argument("--tts-qa-threshold", type=float, default=99.0)
+    p.add_argument("--tts-qa-threshold", type=float, default=50.0)
     p.add_argument("--communication-mode", choices=("selenium", "api", "fallback"),
                    help="Override MICROGEN_COMMUNICATION_MODE for figure, slide and narration tasks")
     p.add_argument("--chrome-port", type=int, default=9222)
@@ -988,6 +1168,14 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--from-stage", choices=STAGES, default="figures")
     p.add_argument("--through-stage", choices=STAGES, default="video")
     p.add_argument("--force-from", choices=STAGES)
+    p.add_argument("--element-plan",type=Path,
+                   help="Explicit source/slide-bound narrated element plan (review-only video)")
+    p.add_argument("--element-audio",type=Path,
+                   help="Frozen original separate WAVs for every source-bound element")
+    p.add_argument("--element-slides",type=Path,
+                   help="Optional slide PDF; defaults to existing slides.pdf beside source.pdf")
+    p.add_argument("--element-review-root",type=Path,
+                   help="New isolated output directory; never published to source tree")
     p.add_argument("--confirm-pro", action="store_true", help="Deprecated compatibility flag; browser model selection is now automatic")
     p.add_argument("--dry-run", action="store_true", help="Print plan; do not write files or call Gemini")
     p.add_argument("--doctor", action="store_true", help="Inspect local dependencies")
@@ -1023,12 +1211,18 @@ def main(argv: list[str] | None = None) -> int:
         execute(Settings(source_root=args.source_root, work_root=args.work_root,
                          subchapter=job, tts_provider=args.tts_provider,
                          tts_model=args.tts_model, tts_voice=args.tts_voice,
+                         confirm_gemini_api_cost=args.confirm_gemini_api_cost,
+                         confirm_google_cloud_tts_cost=args.confirm_google_cloud_tts_cost,
                          tts_qa_model=args.tts_qa_model,
                          tts_qa_threshold=args.tts_qa_threshold,
                          chrome_port=args.chrome_port, alternate_gemini_user=args.alternate_gemini_user,
                          from_stage=args.from_stage,
                          through_stage=args.through_stage, force_from=args.force_from,
-                         confirm_pro=args.confirm_pro, dry_run=args.dry_run))
+                         confirm_pro=args.confirm_pro, dry_run=args.dry_run,
+                         element_plan=args.element_plan,
+                         element_audio=args.element_audio,
+                         element_slides=args.element_slides,
+                         element_review_root=args.element_review_root))
     return 0
 
 

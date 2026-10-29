@@ -49,6 +49,13 @@ def _env_float(name: str, default: float) -> float:
 
 def create_gemini_client(api_key: str):
     """Create a Gemini client whose timeout/retries are owned by MicroGen."""
+    # Legacy google-genai 1.x does NOT define HttpRetryOptions; fail BEFORE
+    # the first metered call with an actionable Windows SDK version message.
+    if not hasattr(types, "HttpRetryOptions"):
+        raise RuntimeError(
+            "google-genai SDK is incompatible: missing HttpRetryOptions. "
+            "Gemini 3.8 TTS requires google-genai >=2.25,<3 in an isolated "
+            "Windows Python environment. No Gemini request was sent.")
     timeout_ms = max(1_000, _env_int("MICROGEN_GEMINI_REQUEST_TIMEOUT_MS", 120_000))
     sdk_attempts = max(1, _env_int("MICROGEN_GEMINI_SDK_RETRY_ATTEMPTS", 1))
     return genai.Client(

@@ -1,0 +1,99 @@
+"""Adversarial original-PDF inverse-function identity tests, no OCR."""
+import unittest
+from selenium_pipeline.figure83_original_inverse_label_identity import identify_original_panel_labels
+from selenium_pipeline.figure_source_identity import FigureIdentityReviewRequired
+
+def panel(idx, name):
+    return {"graph_index":idx,"original_printed_tokens":[
+        {"text":word,"original_bbox_pt":[float(k),float(idx*20),float(k+2),float(idx*20+4)]}
+        for k,word in enumerate(("u","=",name,"x","a"),1)]}
+
+class PrintedInverseIdentityTests(unittest.TestCase):
+    def test_original_source_equations_identified_from_actual_symbols(self):
+        result=identify_original_panel_labels([
+            panel(1,"tan−1"),panel(2,"sin−1"),panel(3,"sec−1")])
+        self.assertEqual([x["original_printed_inverse_function_family"]
+                          for x in result],["tangent","sine","secant"])
+        self.assertTrue(all(x["original_pdf_label_identity_evidenced"] for x in result))
+        self.assertTrue(all(not x["existing_slide_bitmap_equation_labels_verified"]
+                            for x in result))
+    def test_different_source_order_is_read_not_hardcoded(self):
+        result=identify_original_panel_labels([
+            panel(1,"sec−1"),panel(2,"tan−1"),panel(3,"sin−1")])
+        self.assertEqual([x["original_printed_inverse_function_family"]
+                          for x in result],["secant","tangent","sine"])
+    def test_duplicated_trig_label_fails_closed(self):
+        with self.assertRaises(FigureIdentityReviewRequired):
+            identify_original_panel_labels([panel(1,"tan−1"),panel(2,"tan−1"),panel(3,"sec−1")])
+    def test_missing_equation_fraction_fails_closed(self):
+        p=panel(1,"tan−1")
+        p["original_printed_tokens"]=[x for x in p["original_printed_tokens"] if x["text"]!="a"]
+        with self.assertRaises(FigureIdentityReviewRequired):
+            identify_original_panel_labels([p,panel(2,"sin−1"),panel(3,"sec−1")])
+
+    def test_narration_mapping_follows_pdf_labels_not_assumed_order(self):
+        from pathlib import Path
+        from unittest.mock import patch
+        from selenium_pipeline.math_aware_slide5_figure_candidates import audit
+        labels={"source_sha256":"a","slides_sha256":"a",
+                "panels":[{"graph_index":1,
+                           "original_printed_inverse_function_family":"secant",
+                           "original_printed_inverse_function_token":"sec−1"},
+                          {"graph_index":2,
+                           "original_printed_inverse_function_family":"tangent",
+                           "original_printed_inverse_function_token":"tan−1"},
+                          {"graph_index":3,
+                           "original_printed_inverse_function_family":"sine",
+                           "original_printed_inverse_function_token":"sin−1"}]}
+        graph={"original_pdf_sha256":"a","existing_slides_pdf_sha256":"a",
+               "detected_graph_count":3,"three_graph_black_ink_geometry_plausible":True}
+        scripted={"script_sha256":"a","slides":[
+            {"slide_number":i,
+             "proposed_utterances":(
+                 [{"proposal_id":"slide5-u1",
+                   "verbatim_script_fragment":"The tangent inverse rises"}]
+                 if i==5 else [])} for i in range(1,6)]}
+        with patch("selenium_pipeline.math_aware_slide5_figure_candidates._sha",
+                   return_value="a"),patch(
+                "selenium_pipeline.math_aware_slide5_figure_candidates.audit_original_inverse_labels",
+                return_value=labels),patch(
+                "selenium_pipeline.math_aware_slide5_figure_candidates.audit_real_three_graph_reflow",
+                return_value=graph),patch(
+                "selenium_pipeline.math_aware_slide5_figure_candidates.propose",
+                return_value=scripted),patch(
+                "selenium_pipeline.math_aware_slide5_figure_candidates.audit_source_to_slide_inverse_glyphs",
+                return_value={"original_source_sha256":"a","existing_slides_sha256":"a",
+                    "all_three_source_inverse_operator_glyphs_in_slide_verified":True,
+                    "source_operator_target_pixel_boxes_for_review":[
+                        {"matched_original_glyph_bbox_on_existing_slide_bitmap_px":[i,2,i+2,4]}
+                        for i in (1,10,20)]}),patch(
+                "selenium_pipeline.math_aware_slide5_figure_candidates.audit_original_equation_components",
+                return_value={"source_sha256":"a","slides_sha256":"a",
+                    "source_math_equation_components_inventory_complete":True}),patch(
+                "selenium_pipeline.math_aware_slide5_figure_candidates.extract_real_equation_pixel_matrix",
+                return_value={"source_sha256":"a","slides_sha256":"a",
+                    "unambiguous_full_equation_pixel_matching_detected":False,
+                    "image_match_details":[
+                        [{"panel_local_top_left_px":[1,2],"template_size_px":[8,5]}
+                         for _ in range(3)] for _ in range(3)],
+                    "printed_source_equations":[{}, {}, {}],
+                    "existing_slide_bitmap_bounds":[[0,100],[100,200],[200,300]]}),patch(
+                "selenium_pipeline.math_aware_slide5_figure_candidates.compare_equation_operator_anchors",
+                return_value={
+                    "every_full_expression_template_registration_agrees_with_operator":True}):
+            result=audit(source=Path("original.pdf"),slides=Path("slide.pdf"),
+                         script=Path("script.txt"))
+        self.assertEqual(result["utterances"][0]["candidate_ordered_graph_panel"],2)
+        self.assertEqual(result["utterances"][0]["candidate_matched_operator_pixel_bbox_for_review"],
+                         [10,2,12,4])
+        self.assertFalse(result["utterances"][0]["complete_equation_label_and_axis_mathematics_verified"])
+        self.assertTrue(result["original_source_printed_function_labels_verified"])
+        self.assertFalse(result["figure_element_tts_authorized"])
+        self.assertFalse(result["full_equation_bitmap_pixel_uniqueness_verified"])
+        self.assertTrue(result["utterances"][0]["source_x_over_a_fraction_position_disambiguated"])
+        self.assertEqual(result["utterances"][0]["candidate_full_expression_bitmap_bbox_for_review"],
+                         [101,2,109,7])
+
+    def test_unknown_function_and_noninverse_not_accepted(self):
+        with self.assertRaises(FigureIdentityReviewRequired):
+            identify_original_panel_labels([panel(1,"tan"),panel(2,"sin−1"),panel(3,"sec−1")])

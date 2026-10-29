@@ -1,5 +1,7 @@
 # MicroGen universal multi-computer lecture generation — reusable execution prompt (v2)
 
+> **Current course campaign override (18 October 2026):** Only **HP, Dell-115 and Yoga6** are authorized; **Zenbook is excluded** even when online. The generic no-exclusions parameter does not authorize additional computers or automatic reassignment. Student-facing production remains blocked until compliant synchronized multipart acceptance and academic/figure/audio review. See [the effective contract](../docs/EFFECTIVE_CONTRACT_AND_SUPERSESSION_20261018.md). Other users must independently authorize their own machines.
+
 > **Use:** Copy the section **"Execution instructions"** into a future ChatGPT or another capable automation session. The agent must have authorized access to a computer-running tool, the MicroGen package, and the lecture source folder. This is an **execution request**, not permission to invent access or skip validation.
 >
 > **Portability promise:** This prompt is **independent of PC names, number of PCs, drive letters, source subject, processor type, and operating system**. Actual execution is limited to computers and environments for which the **installed MicroGen runtime has a tested adapter**. A generic prompt cannot make an incompatible Windows-only worker run on Linux/macOS; report that limitation rather than claiming universal software compatibility.

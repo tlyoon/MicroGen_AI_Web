@@ -247,7 +247,11 @@ def stage_recorded(source: Path, stage: str) -> bool:
     figures go missing. Defer rather than advancing to the next stage.
     """
     if stage == "video":
-        return completed_lecture(source)
+        from .production_video_contract import verify_series
+        try:
+            return verify_series(source.parent)["status"] == "accepted_synchronized_series"
+        except (OSError, ValueError):
+            return False
     if stage not in STAGES or not source.is_file():
         return False
     folder = source.parent
@@ -305,6 +309,78 @@ def process_job(
     persist,
 ) -> bool:
     source = root / key.split(".")[0] / key / "source.pdf"
+    from .production_video_contract import verify_series, VideoContractError
+    try:
+        verified = verify_series(source.parent)
+    except (VideoContractError, OSError, ValueError):
+        verified = None
+    if verified is not None:
+        # Approved policy: proceed after machine-verifiable QA. A missing
+        # lecturer listening/academic attestation may be reported but never
+        # changes this internal stage's completion state.
+        report[key] = {
+            "status": "complete", "stage": "video",
+            "round": attempt, "verified": True,
+            "contract": verified["status"],
+            "acceptance_scope": "technical_only",
+            "human_academic_review": "optional_not_required_for_stage_progression",
+            "production_release_approved": False,
+            "student_published": False,
+            "updated_utc": timestamp(),
+        }
+        persist()
+        return True
+    # The new source-bound element producer is a separate prerequisite.
+    # When its *actual per-element* WAVs and anchored plan are present,
+    # invoke the accepted video stage on the owning PC (never static video).
+    prepared=(source.parent/"slides.pdf").is_file() and (
+        source.parent/"script.txt").is_file()
+    # The normal runner performs a read-only strict source/slide/text/figure
+    # preflight before initiating any billable original element-level TTS.
+    # It does not treat pre-existing slideN.wav as element-level narration.
+    if prepared:
+        log=logs/f"{key}_round{attempt}_video.log"
+        try:
+            ok,error=run_stage(root,key,"video",chrome_port,log,lane,idle,hard)
+            if ok and not stage_recorded(source,"video"):
+                ok,error=False,"Strict source-bound multipart production receipt missing"
+        except Exception as exc:
+            ok,error=False,f"{type(exc).__name__}: {exc}"
+        if not ok:
+            report[key]={"status":"deferred" if attempt==1 else "unfinished",
+                         "stage":"video","round":attempt,
+                         "error":error,"updated_utc":timestamp()}
+            persist()
+            return False
+        checked=verify_series(source.parent)
+        report[key]={
+            "status":"complete","stage":"video","round":attempt,
+            "verified":True,"contract":checked["status"],
+            "acceptance_scope":"technical_only",
+            "human_academic_review":"optional_not_required_for_stage_progression",
+            "student_published":False,"updated_utc":timestamp()}
+        persist()
+        return True
+    if completed_lecture(source):
+        reason = (
+            "Historical video completion is preserved, but it lacks strict "
+            "<600-second highlighted multipart certification."
+        )
+        report[key] = {"status": "deferred", "stage": "video",
+                       "round": attempt, "error": reason,
+                       "updated_utc": timestamp()}
+        persist()
+        return False
+    # Do not start legacy static-slide generation on a new subchapter.
+    reason = (
+        "The three-PC worker cannot create approved audio-timed highlighted "
+        "multipart clips. Deferred until the compliant renderer is installed."
+    )
+    report[key] = {"status": "deferred", "stage": "video",
+                   "round": attempt, "error": reason,
+                   "updated_utc": timestamp()}
+    persist()
+    return False
     if completed_lecture(source):
         report[key] = {"status": "complete", "stage": "video",
                        "round": attempt, "verified": True, "updated_utc": timestamp()}

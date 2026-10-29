@@ -14,6 +14,8 @@
 # Shows % progress while writing the video.
 # ---------------------------------------------------------------
 
+raise RuntimeError("Vendored static MoviePy generator disabled: no contract-compliant synchronized video publication")
+
 import os, sys, re, time
 from pathlib import Path
 
@@ -62,17 +64,20 @@ class SimpleLogger(ProgressBarLogger):
                 print(f"\rVideo creation: {pct:5.1f}% done", end="", flush=True)
 
 def build_video(output_filename: str = "slides.mp4"):
+    # Block direct imports/calls before any existing file can be unlinked.
+    raise RuntimeError(
+        "Vendored MoviePy static video path disabled: no authorized "
+        "element-highlighted multipart publication."
+    )
     import numpy as np
     import moviepy.editor as mp
     from pdf2image import convert_from_path
 
     videofile = output_filename
 
-    # Remove previous output if present
-    try:
-        Path(videofile).unlink()
-    except Exception:
-        pass
+    # Historical body is unreachable. Never unlink an existing MP4.
+    if Path(videofile).exists():
+        raise FileExistsError(f"Preserve existing video: {videofile}")
 
     # Find files: slideN.pdf + slideN.wav (N = 1..)
     pdf_files = sorted(
@@ -187,6 +192,10 @@ def build_video(output_filename: str = "slides.mp4"):
         print("Clips closed to release resources.")
 
 def main():
+    raise RuntimeError(
+        "Vendored static video entry point disabled; use source-bound "
+        "reviewed synchronized-highlight multipart production."
+    )
     _check_deps()
 
     # Optional diagnostics

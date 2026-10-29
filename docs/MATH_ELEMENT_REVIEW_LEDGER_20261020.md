@@ -1,0 +1,3 @@
+# PR189 — source-bound narration mapping decision ledger
+
+Real Thomas 8.4 original script 71 utterances across 17 slides; Figure 8.3 source-bound slide-five evidence supplies four single-function panel *candidate* hints. No automatically certified mathematical matches and no paid element TTS. Original source/slides/script are hash-bound and unchanged. Full immutable JSON preserved in Dell LOCALAPPDATA staging under thomas_84_math_element_review_ledger_20261020.json. Review all unresolved sentences against actual mathematical expressions and original figure pixels before audio generation; no automatic publication.

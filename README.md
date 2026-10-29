@@ -1,8 +1,27 @@
-# MicroGen_AI
+# MicroGen_AI_Web
+
+**Current owner platform contract (25 October 2026): Windows only.** All GitHub Actions checks run on Windows; Dell-115 remains the sole authorized local development/test machine. See [Windows-only contract and CI migration](docs/WINDOWS_ONLY_CONTRACT_PR303_20261025.md). This does not relax mathematical correctness, figure/audio fidelity, source preservation, strict video duration, or release safeguards.
+
+**Draft PR #139 — exact multi-element narration:** [Verified distinct spoken slide blocks](docs/VERIFIED_MULTI_ELEMENT_NARRATION_20261018.md). The source-bound planner now supports multiple separate, sequential, verbatim narrated blocks on one slide; no vector/raster/multipanel figure or source/reading-order ambiguity is approved. The immutable WAV/TTS policy and automatic QA remain in force.
+
+**Standing owner-authorized autonomy:** [Development protocol](docs/AUTONOMOUS_DEVELOPMENT_PROTOCOL_20261018.md). Continue contract-safe engineering steps without per-stage 'Proceed' requests; checkpoint and seek discretion only at genuine authorization boundaries.
+
+**New draft upstream element TTS:** [Exact-text source-bound narration and original WAV stage](docs/AUTOMATIC_SOURCEBOUND_ELEMENT_NARRATION_20261018.md). Strict unsupported figure/semantic mappings block before billing; the normal highlighted-video runner uses real element-level audio only after source and TTS provenance checks.
+**Draft source-bound production video renderer bridge:** [Machine-verifiable highlighted multipart video stage](docs/SOURCEBOUND_PRODUCTION_VIDEO_STAGE_20261018.md). It can create non-overwriting technically accepted multipart receipts when a complete source-anchored element plan and original element WAVs already exist; generating those upstream inputs automatically remains a separate necessary engineering step.
+
+**Draft automatic Video 00 + single-publisher coordinator:** [Source-bound trailer and cross-PC completion guide](docs/AUTOMATIC_VIDEO00_AND_SINGLE_PUBLISHER_20261018.md). This connects the YouTube adapter to real all-worker technical completion evidence, but does not publish anything during tests.
+
+
+> **New draft — automatic YouTube course publishing adapter:** [YouTube publisher and installation guide](docs/YOUTUBE_COURSE_PUBLISH_ADAPTER_20261018.md). Only source-bound, technically accepted multipart parts are eligible; external YouTube publication is owner-authorized, not Moodle, and requires a pinned channel and single publishing PC. This draft does not yet automatically produce the promotional Video 00 or invoke publishing after a distributed run. Human academic approval remains optional for internal stage advancement.
+
+**Stage automation contract (latest owner amendment):** [Internal stages advance automatically on passing technical QA; human academic review is optional](docs/OWNER_AMENDMENT_AUTOMATIC_INTERNAL_STAGE_PROGRESS_20261018.md). This does not authorize student publication, destructive replacement or bypassing integrity checks.
+
+**Current binding contract (18 October 2026):** [Effective contract and supersession index](docs/EFFECTIVE_CONTRACT_AND_SUPERSESSION_20261018.md). Every delivered lecture part is **strictly less than 600 seconds** (no 600–630-second exception), with verifiable spoken-element synchronized highlighting and independent academic/audio/publication approval. Legacy static-slide video commands below are historical and **not authorized for production publication**. Normal generation runners are intentionally blocked pending fully compliant end-to-end production acceptance.
+
 
 ## Integrated multidisciplinary lecture-series architecture (design proposal)
 
-The proposed next-generation architecture is defined in the [Integrated Architecture and Implementation Blueprint v1](docs/MicroGen_AI_Web_Integrated_Architecture_and_Implementation_Blueprint_v1.md). It covers discipline-aware teaching profiles (physics, mathematics, chemistry, biology, history and interdisciplinary sources), **top-down** multipart video planning (target 8–9 minutes per video; hard publication cap below 10 minutes 30 seconds), serial lecture continuity, speech-synchronized slide highlighting, source-fidelity QA, restart/receipt invalidation and staged three-PC acceptance. **These capabilities are not yet implemented or certified; the existing pipeline remains the legacy generation path until the new release gates pass.**
+The proposed next-generation architecture is defined in the [Integrated Architecture and Implementation Blueprint v1](docs/MicroGen_AI_Web_Integrated_Architecture_and_Implementation_Blueprint_v1.md). It covers discipline-aware teaching profiles (physics, mathematics, chemistry, biology, history and interdisciplinary sources), **top-down** multipart video planning (target 8–9 minutes per video; historical 10-minute-30-second cap, now superseded by a strict under-600-second limit), serial lecture continuity, speech-synchronized slide highlighting, source-fidelity QA, restart/receipt invalidation and staged three-PC acceptance. **These capabilities are not yet implemented or certified; the existing pipeline remains the legacy generation path until the new release gates pass.**
 
 ## Reliability hardening and future campaigns
 

@@ -1,8 +1,9 @@
-"""Reliable, resumable PDF+WAV to MP4 assembly using FFmpeg (no MoviePy).
+"""Legacy still-frame FFmpeg engine, quarantined for isolated offline tests.
 
-Uses per-slide PDF page 1, WAV duration, H.264/AAC fixed-size segments,
-then concatenates them. Existing slides.mp4 is never touched until the
-candidate is encoded and probed successfully.
+This path does not implement the contract's per-element narrated highlighting.
+Normal CLI and API calls fail before inspecting/writing any media. Only an
+explicitly marked synthetic test sandbox may produce a REVIEW_ONLY artifact,
+never slides.mp4 or a source-adjacent production deliverable.
 """
 from __future__ import annotations
 
@@ -184,6 +185,7 @@ def validate_video(exe: str, file: Path, min_seconds: float) -> None:
         raise RuntimeError(f"MP4 unexpectedly short: {seconds:.1f}s; expected >= {min_seconds * 0.95:.1f}s")
     print(f"[video] validated {file.name}: {seconds:.2f}s, "
           f"{file.stat().st_size:,} bytes, video+audio present", flush=True)
+    return seconds
 
 
 def _sha256(file: Path) -> str:
@@ -238,18 +240,39 @@ def _video_cache(folder: Path) -> Path:
     return target
 
 def assemble(folder: Path, *, output: str = "slides.mp4", fps: int = 2,
-             width: int = 1280, height: int = 720) -> Path:
+             width: int = 1280, height: int = 720,
+             _offline_test_only: bool = False) -> Path:
+    # Guard BEFORE folder traversal, cache creation, external encoder startup
+    # or publication. Any normal call, including the CLI, must fail closed.
+    if not _offline_test_only:
+        raise RuntimeError(
+            "Static-slide video publishing is disabled: the <600-second "
+            "element-synchronized multipart contract requires the reviewed "
+            "highlight renderer."
+        )
     folder = folder.expanduser().resolve()
-    if not folder.is_dir():
-        raise NotADirectoryError(folder)
-    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*\.mp4", output):
-        raise ValueError("Output must be a simple .mp4 filename")
+    if (not folder.is_dir()
+            or not (folder / ".microgen_static_review_sandbox").is_file()
+            or (folder / "source.pdf").exists()):
+        raise ValueError("Isolated marked synthetic review sandbox required")
+    if output != "REVIEW_ONLY_static_slides.mp4":
+        raise ValueError("Only REVIEW_ONLY_static_slides.mp4 is allowed in sandbox")
+    if (folder / output).exists() or (folder / output).is_symlink():
+        raise FileExistsError("Existing review-only output must never be overwritten")
     if fps < 1 or width < 64 or height < 64 or width % 2 or height % 2:
         raise ValueError("fps and even output dimensions must be positive")
     entries = check_inputs(folder)
     import fitz  # only required for uncached PDF page rasterization
-    ffmpeg = ffmpeg_executable()
     total = sum(row[3] for row in entries)
+    # Refuse known-overlong single-file encodes before spending FFmpeg time.
+    # Planning coherent parts is a separate upstream requirement; never
+    # repair an overlong talk by trimming the final MP4.
+    if total >= 599.5:
+        raise ValueError(
+            f"Single-video narration is {total:.2f}s, too long for a strict "
+            "<600s final MP4. Plan separate coherent highlighted parts."
+        )
+    ffmpeg = ffmpeg_executable()
     print(f"[video] {len(entries)} complete PDF/WAV slide pairs; "
           f"total narration {total:.1f}s; static-slide fps={fps}; "
           f"encoder={ffmpeg}", flush=True)
@@ -319,23 +342,25 @@ def assemble(folder: Path, *, output: str = "slides.mp4", fps: int = 2,
         "-y", "-f", "concat", "-safe", "0", "-i", str(listing),
         "-c", "copy", "-movflags", "+faststart", str(candidate)
     ], step="concat")
-    validate_video(ffmpeg, candidate, total)
-    dest = folder / output
-    if dest.exists():
-        archival = folder / ".history" / (
-            "video_" + datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S_%f")
+    finished_seconds = validate_video(ffmpeg, candidate, total)
+    if finished_seconds >= 600.0:
+        raise RuntimeError(
+            f"Encoded MP4 duration {finished_seconds:.2f}s violates the "
+            "strict <600s contract; no video has been published."
         )
-        archival.mkdir(parents=True, exist_ok=False)
-        old_copy = archival / output
-        shutil.copy2(dest, old_copy)
-        print(f"[video] archived previous {output} at {old_copy}", flush=True)
-    # Only publish a fully-verified, hash-matched copy. Leave the old final
-    # video untouched if Google Drive becomes unavailable during publication.
+    dest = folder / output
+    if dest.exists() or dest.is_symlink():
+        raise FileExistsError("Review-only candidate appeared during encode; refusing overwrite")
+    # Only publish a fully-verified, hash-matched synthetic review copy.
+    # This is never a certified or student-facing media artifact.
     staged = folder / ("." + output + f".pending.{os.getpid()}")
     try:
         _verified_local_input(candidate, staged, _sha256(candidate))
         validate_video(ffmpeg, staged, total)
-        staged.replace(dest)
+        # Explicit exclusive create, never os.replace into existing media.
+        # The candidate is copied by file descriptor to avoid a final race.
+        with staged.open("rb") as source, dest.open("xb") as target:
+            shutil.copyfileobj(source, target)
     finally:
         staged.unlink(missing_ok=True)
 

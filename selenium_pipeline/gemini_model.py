@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 import time
 
 
@@ -36,8 +37,63 @@ def configured_ui_mode() -> str:
 
 
 def _matches_mode(label: str, mode: str) -> bool:
-    label_l = (label or "").lower()
-    return "currently" in label_l and MODEL_SPECS[mode]["label_token"] in label_l
+    """Match *only* a currently selected UI family, not a token substring.
+
+    In particular, Flash Lite and hybrid "Flash / Pro" selectors must never
+    masquerade as the chosen Flash text-generation family.
+    """
+    if mode not in MODEL_SPECS or not isinstance(label, str):
+        return False
+    actual = re.search(r"\bcurrently\b\s+(.+)$", label, flags=re.I)
+    if not actual:
+        return False
+    selected = actual.group(1).casefold()
+    if mode == "flash":
+        return (bool(re.search(r"\bflash\b", selected))
+                and not re.search(r"\b(?:lite|pro)\b", selected))
+    return (bool(re.search(r"\bpro\b", selected))
+            and not re.search(r"\b(?:flash|lite)\b", selected))
+
+
+def _eligible_mode_menu_text(text: str, mode: str) -> bool:
+    """Choose the intended Flash family, never Flash-Lite or mixed menus."""
+    if not isinstance(text,str) or mode not in MODEL_SPECS:
+        return False
+    first=text.splitlines()[0].strip().casefold()
+    if mode=="flash":
+        return (bool(re.search(r"\bflash\b",first))
+                and not re.search(r"\b(?:lite|pro)\b",first))
+    return bool(first.startswith(MODEL_SPECS[mode]["menu_prefix"].casefold()))
+
+
+def browser_model_evidence(label: str, *, requested_mode: str,
+                           requested_model_id: str) -> dict:
+    """Honest UI-only provenance. No API/provider version claim.
+
+    The authenticated UI mode picker can substantiate the selected *family*.
+    It cannot independently substantiate the actual server model identifier
+    or deployment/version. That needs separate provider-sourced evidence.
+    """
+    if not isinstance(requested_model_id, str) or not requested_model_id.strip():
+        raise GeminiModelError("Missing explicitly requested model ID")
+    named=requested_model_id.strip().casefold()
+    if (requested_mode not in MODEL_SPECS
+            or not re.search(r"\b"+requested_mode+r"\b", named)
+            or (requested_mode == "flash" and re.search(r"\blite\b", named))):
+        raise GeminiModelError("Requested API model ID contradicts selected UI family")
+    if not _matches_mode(label, requested_mode):
+        raise GeminiModelError("Current Gemini UI family does not match requested mode")
+    return {
+        "schema_version": 1,
+        "requested_model_id": requested_model_id,
+        "requested_ui_mode": requested_mode,
+        "observed_ui_picker_label": label,
+        "selected_family_verified": True,
+        "exact_model_id_verified": False,
+        "observed_provider_model_id": None,
+        "verification_scope": "browser_ui_family_only",
+        "student_or_academic_approval": False,
+    }
 
 
 def ensure_mode(port: int = 9222, mode: str | None = None, timeout: float = 15) -> str:
@@ -131,7 +187,8 @@ def ensure_mode(port: int = 9222, mode: str | None = None, timeout: float = 15) 
 
         target = None
         prefix = MODEL_SPECS[target_mode]["menu_prefix"]
-        while time.monotonic() < deadline:
+        selection_deadline=time.monotonic()+max(3.0,min(timeout,20.0))
+        while time.monotonic() < selection_deadline:
             items = []
             for selector in (
                 '[role="menuitem"]',
@@ -143,7 +200,7 @@ def ensure_mode(port: int = 9222, mode: str | None = None, timeout: float = 15) 
                     pass
             for item in items:
                 try:
-                    if item.is_displayed() and ((target_mode == "flash" and "flash" in (item.text or "").lower() and "pro" not in (item.text or "").lower()) or (target_mode != "flash" and (item.text or "").strip().startswith(prefix))):
+                    if item.is_displayed() and _eligible_mode_menu_text(item.text or "",target_mode):
                         target = item
                         break
                 except Exception:
@@ -162,7 +219,8 @@ def ensure_mode(port: int = 9222, mode: str | None = None, timeout: float = 15) 
         except Exception:
             driver.execute_script("arguments[0].click();", target)
 
-        while time.monotonic() < deadline:
+        confirmation_deadline=time.monotonic()+max(3.0,min(timeout,20.0))
+        while time.monotonic() < confirmation_deadline:
             try:
                 found = driver.find_elements(
                     By.CSS_SELECTOR, 'button[aria-label^="Open mode picker"]'

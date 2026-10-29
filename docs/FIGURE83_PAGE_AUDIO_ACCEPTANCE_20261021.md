@@ -1,0 +1,13 @@
+# PR204–PR208 — Figure 8.3 PDF review, source integrity and element-audio acceptance
+
+21 October 2026, Dell-115 only, isolated draft PR stack. No original assets modified or published.
+
+- PR204: from the exact real slide PDF's unique 744×173 embedded Figure 8.3 image, map known source/slide matching operator and mathematical expression pixel boxes into slide-page PDF coordinates. Reject skew/rotation and out-of-canvas bounds; coordinate verification is not mathematical acceptance.
+- PR205: original source/slide/script-hashed review-only utterance packet. Actual Thomas 8.4 slide 5 has eight utterances, four single-function review candidate boxes, and four unresolved. Existing PDF-point boxes include tangent [49.7304,191.5424,71.9376,200.5032], sine [185.7008,175.5688,207.908,184.5296] and secant [287.776,195.0488,311.152,204.0096]. Packet output is created exclusively outside teaching folders.
+- PR206: optional separate PNG visual review rendering from a temporary in-memory slide PDF, with source-hash verification, no original PDF modifications or overwritten prior review output. Never treated as a publishable slide.
+- PR207: inspect genuinely existing PCM WAV element clips by independent SHA256, mono 16-bit sample counts, precise duration, unique utterance reference, voice consistency and cloud fallback after at least three Flash-Lite failures. This only establishes physical file integrity and NEVER semantic speech timing or release approval. No actual new element TTS jobs billed or created.
+- PR208: combines original-source review and clip preflight, reconciles bounded utterance counts and rejects premature semantics, timed highlights, or student publication. Real original 8.4 remains BLOCKED: 8 original utterances, four candidate review regions, zero verified physical per-element source-approved audio clips. Original two staged review MP4 parts are still nonpublishable.
+
+All original Thomas Calculus source PDF, slide PDF, narration, WAVs, and historical MP4s are preserved. No HP, Yoga 6, Zenbook, GCS distributed lease, Whisper/ASR, protected main merge or Moodle/student publication. Default Flash-Lite TTS permitted by contract only for genuinely source-verified jobs; no paid calls in this batch.
+
+Next substantive work: independently prove full mathematical expressions and axes (current whole-equation template matching ambiguous), resolve speech-to-element semantics for all source utterances, produce consistent-voice element WAVs when source review permits, verify encoded 600-second-strict multipart videos with actual element highlight/voice timing, and keep human academic/listening QA a separate publication gate.

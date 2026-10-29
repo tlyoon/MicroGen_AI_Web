@@ -1,0 +1,14 @@
+# PR179 — complete real original-WAV multipart H.264 review video
+
+This code **actually encoded** two H.264/AAC MP4s on Dell-115 from the immutable Thomas Calculus 8.4 slides.pdf and the original 17 individual slide WAV recordings, assembled without cutting any slide WAV or requiring any paid TTS. Each slide original PDF frame is rendered. Orange source-text or image rectangle highlights change at original PCM silence-based candidate boundaries (when available), otherwise a conservative single original visual element stays emphasized for that slide. Output is staged in a new isolated directory, **not** the original G: lecture folder.
+
+Live verified outputs (Dell-115):
+- Review Part 1, source slides 1–8: **321.89 s**, 55 highlighted event frames. Original audio 321.8926s. Fallback unverified slide 2.
+- Review Part 2, source slides 9–17: **310.82 s**, 31 events. Original audio ~310.818s. Fallback slides 9, 10, 11, 12, 13.
+- Each encoded MP4 has real video and audio streams, FFmpeg independently measured the original encoded container duration **strictly <600s**, and three decoded frames per part were compared to the independent source PDF highlighted frame references. Part 1 mean per-RGB-pixel errors at sampled times 0.6281, 0.5539, 0.4018; Part 2 0.706, 0.5225, 0.3714.
+- Staging folder `%LOCALAPPDATA%\MicroGen_AI_Web_Checkpoints\staged_thomas_8_4_multipart_review_20261020` contains the two review MP4s, original WAV PCM assembled per part, per-part frame/pixel receipts, and `multipart_review_receipt.json`.
+- Historical G: slides.mp4 SHA remains `3398c48199e3f7ac00c1918e71576b8105a81c7064717866499bbb7da3b094c8`.
+
+**VERY IMPORTANT:** These are **REAL ENCODED REVIEW-ONLY** videos, NOT technically accepted/academically publishable replacement lectures. The recorded speech has NOT been independently aligned to exact individual written/math elements. Source figure labels/axes and academic math completeness are not approved. Six slides use fallback highlighting without any word-to-element timing. No manufactured ASR/Whisper or imaginary exact speech timestamps may be used to bypass this. Every approval flag remains false. Further verified source-bound spoken-word timing, nonfallback element highlights, academic listening checks and independent caption/figure QA remain necessary before a production-grade release.
+
+The reusable renderer preserves SHA-256 for every original source PDF, slide PDF and 17 WAV files; refuses existing output or original source-folder paths; checks original source PCM format, verifies complete contiguous slide coverage, checks real FFmpeg durations strictly <600s, and decodes highlighted pixels to match reference frames. Technical quality requirements are real, but the human speech correspondence gate is deliberately unresolved. No HP/Yoga6, dirty G: changes, paid TTS, ASR/Whisper, GCS lease, main merge or student publication.

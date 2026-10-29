@@ -19,7 +19,7 @@ from .series_gemini import request_storyboard_candidate
 
 def main(argv=None):
     p=argparse.ArgumentParser(description="Isolated physics/math multipart Gemini+TTS integration")
-    p.add_argument("action",choices=("prepare","candidate","recover-candidate","stage-tts","run-tts","accept-wavs"))
+    p.add_argument("action",choices=("prepare","candidate","recover-candidate","stage-tts","run-tts","accept-wavs","render-preview"))
     p.add_argument("--source-root",type=Path)
     p.add_argument("--source-pdf",type=Path)
     p.add_argument("--outline",type=Path)
@@ -33,6 +33,8 @@ def main(argv=None):
     p.add_argument("--storyboard",type=Path)
     p.add_argument("--review-receipt",type=Path)
     p.add_argument("--tts-folder",type=Path)
+    p.add_argument("--prepared-parts",type=Path,
+                   help="Frozen source-linked prepared part inputs, review-only")
     p.add_argument("--output",type=Path,help="New folder or JSON file")
     p.add_argument("--provider",choices=("gemini","chirp3"),default="gemini")
     p.add_argument("--model",default="gemini-3.8-flash-lite-tts")
@@ -107,6 +109,16 @@ def main(argv=None):
                 }
             if args.output:
                 write_json_new(args.output,result["wav_segment_manifest"])
+        elif args.action=="render-preview":
+            if not all((args.source_pdf,args.prepared_parts,args.output)):
+                raise SeriesBridgeError(
+                    "Review preview requires source-pdf, prepared-parts and NEW output")
+            from .series_review_preview import render_review_series
+            result=render_review_series(
+                source_pdf=args.source_pdf,
+                inputs_root=args.prepared_parts,
+                output_root=args.output,
+            )
         else:
             raise SeriesBridgeError("Unsupported action")
         print(json.dumps(result,indent=2))

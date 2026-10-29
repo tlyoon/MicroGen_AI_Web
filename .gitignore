@@ -72,3 +72,8 @@ _hybrid_contact_sheet.png
 Thumbs.db
 .vscode/
 .idea/
+
+# Never commit YouTube OAuth secrets or course upload state
+youtube_token.json
+youtube_client_secret.json
+.microgen_youtube/

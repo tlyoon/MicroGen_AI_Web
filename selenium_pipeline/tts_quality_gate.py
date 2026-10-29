@@ -1,0 +1,345 @@
+"""Review-only three-layer TTS quality screening for authored narration WAVs.
+
+1. PCM acoustic integrity (clipping, volume, silence, pause measurements).
+2. Independent ASR transcript agreement, plus conservative math-token alarms.
+3. Heuristic pacing screening. Naturalness/pronunciation require listening review.
+
+No microphone, API calls or external packages. Never grants academic or
+production approval. Reports are immutable and bound to the exact plan/audio.
+"""
+from __future__ import annotations
+
+import argparse
+from array import array
+from collections import Counter
+import hashlib
+import json
+import math
+from pathlib import Path
+import re
+import sys
+import unicodedata
+import wave
+
+from .tts_flexible_pronunciation_contract import (
+    QA_VERSION, canonical_phonetic_tokens, evaluate_tts_soundalike,
+)
+
+
+def digest(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as src:
+        for block in iter(lambda: src.read(1048576), b""):
+            h.update(block)
+    return h.hexdigest()
+
+
+def sha_text(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def tokens(text: str) -> list[str]:
+    normalized = unicodedata.normalize("NFKC", text).casefold()
+    normalized = normalized.replace("’", "'")
+    return re.findall(r"\w+", normalized, flags=re.UNICODE)
+
+
+def word_error_rate(reference: str, heard: str) -> float:
+    """Minimum word edit distance, not difflib's approximate alignment."""
+    a, b = tokens(reference), tokens(heard)
+    if not a:
+        raise ValueError("Empty reference transcript")
+    if len(a) > 2000 or len(b) > 2000:
+        raise ValueError("Speech comparison too large")
+    prev = list(range(len(b) + 1))
+    for i, left in enumerate(a, 1):
+        row = [i]
+        for j, right in enumerate(b, 1):
+            row.append(min(row[-1] + 1, prev[j] + 1,
+                           prev[j - 1] + (left != right)))
+        prev = row
+    return round(prev[-1] / len(a), 4)
+
+
+# Intentionally conservative: a synonym may cause a *review flag*, never a pass.
+MATH_TERMS = frozenset((
+    "negative", "positive", "minus", "plus", "equals", "equal",
+    "over", "divided", "times", "squared", "square", "cubed", "cube",
+    "power", "root", "pi", "theta", "alpha", "beta", "delta",
+    "sine", "cosine", "tangent", "secant", "integral", "derivative",
+    "infinity", "zero", "one", "two", "three", "four", "five",
+    "six", "seven", "eight", "nine", "ten", "not", "less", "greater",
+))
+
+
+def math_token_order(text: str) -> list[str]:
+    """Ordered math-token review signature; never a mathematical proof.
+
+    Detects swaps that have identical term bags, e.g. two-minus-three versus
+    three-minus-two. Alternative legitimate paraphrases may trigger review.
+    """
+    normalized = unicodedata.normalize("NFKC", text).casefold()
+    normalized = normalized.replace("π", " pi ").replace("θ", " theta ")
+    normalized = normalized.replace("−", " minus ").replace("×", " times ")
+    normalized = normalized.replace("÷", " divided ")
+    normalized = normalized.replace("-", " minus ")
+    normalized = normalized.replace("+", " plus ")
+    normalized = re.sub(r"(?<=\w)\s*/\s*(?=\w)", " over ", normalized)
+    normalized = re.sub(r"(?<=\d)\+(?=\d)", " plus ", normalized)
+    # Digit glyphs in an ASR transcript ("Section 8.4") are often
+    # equivalent to an explicitly spoken numeral ("section eight point
+    # four"). Normalize single digits only; never discard signs, fractions,
+    # or operators, whose absence can change mathematical meaning.
+    numerals = ("zero", "one", "two", "three", "four", "five",
+                "six", "seven", "eight", "nine")
+    normalized = re.sub(r"\b[0-9]\b",
+                        lambda match: " " + numerals[int(match.group())] + " ",
+                        normalized)
+    words = tokens(normalized)
+    aliases = {"sin": "sine", "cos": "cosine", "tan": "tangent",
+               "eq": "equals", "equal": "equals"}
+    return [aliases.get(t, t) for t in words
+            if aliases.get(t, t) in MATH_TERMS]
+
+
+def math_marks(text: str) -> Counter:
+    return Counter(math_token_order(text))
+
+
+def acoustic_check(path: Path, spoken_text: str) -> dict:
+    """Streaming 30 ms window measurements of mono PCM16 WAV."""
+    if not path.is_file() or path.is_symlink():
+        raise ValueError("Missing/unsafe WAV: " + path.name)
+    with wave.open(str(path), "rb") as wav:
+        rate, nch, width = wav.getframerate(), wav.getnchannels(), wav.getsampwidth()
+        frames = wav.getnframes()
+        if nch != 1 or width != 2 or not 8000 <= rate <= 96000 or frames <= 0:
+            raise ValueError("Unsupported PCM mono 16-bit WAV: " + path.name)
+        if wav.getcomptype() != "NONE":
+            raise ValueError("Compressed WAV: " + path.name)
+        duration = frames / rate
+        if duration > 120:
+            raise ValueError("WAV longer than 120 seconds: " + path.name)
+        window = max(1, round(rate * .03))
+        squares, samples, max_sample, clipped = 0, 0, 0, 0
+        rms_windows = []
+        while True:
+            data = wav.readframes(window)
+            if not data:
+                break
+            chunk = array("h")
+            chunk.frombytes(data)
+            if sys.byteorder != "little":
+                chunk.byteswap()
+            if not chunk:
+                break
+            sumsq = sum(value * value for value in chunk)
+            peak = max(abs(value) for value in chunk)
+            clipped += sum(abs(value) >= 32600 for value in chunk)
+            samples += len(chunk)
+            squares += sumsq
+            max_sample = max(max_sample, peak)
+            rms_windows.append(math.sqrt(sumsq / len(chunk)))
+    rms = math.sqrt(squares / samples) if samples else 0
+    dbfs = 20 * math.log10(max(rms / 32768, 1e-9))
+    peak_dbfs = 20 * math.log10(max(max_sample / 32768, 1e-9))
+    clipped_fraction = clipped / samples if samples else 1
+    # This is an energy-based screening proxy, not voice activity detection.
+    threshold = max(350, max_sample * .025)
+    silent = [value <= threshold for value in rms_windows]
+    silent_fraction = sum(silent) / len(silent) if silent else 1
+    before = next((i for i, state in enumerate(silent) if not state), len(silent))
+    after = next((i for i, state in enumerate(reversed(silent)) if not state),
+                 len(silent))
+    largest = streak = 0
+    for state in silent:
+        streak = streak + 1 if state else 0
+        largest = max(largest, streak)
+    # Narrow thresholds: definite technical faults vs perceptual review cues.
+    technical_flags = []
+    if duration < .45:
+        technical_flags.append("very_short_audio")
+    if dbfs < -42 or max_sample == 0:
+        technical_flags.append("very_quiet_or_silent")
+    if clipped_fraction > .005:
+        technical_flags.append("excessive_clipping")
+    if silent_fraction > .80:
+        technical_flags.append("mostly_silence")
+    pace = 60 * len(tokens(spoken_text)) / duration
+    review_flags = []
+    if pace < 60 or pace > 250:
+        review_flags.append("unusual_script_words_per_minute")
+    if before * .03 > 2.5:
+        review_flags.append("long_leading_silence")
+    if after * .03 > 2.5:
+        review_flags.append("long_trailing_silence")
+    if largest * .03 > 3.5:
+        review_flags.append("long_silent_interval")
+    if dbfs > -6:
+        review_flags.append("high_average_loudness")
+    return {
+        "duration_s": round(duration, 3),
+        "rms_dbfs": round(dbfs, 2),
+        "peak_dbfs": round(peak_dbfs, 2),
+        "clipped_sample_fraction": round(clipped_fraction, 6),
+        "energy_silence_fraction": round(silent_fraction, 3),
+        "leading_energy_silence_s": round(before * .03, 2),
+        "trailing_energy_silence_s": round(after * .03, 2),
+        "longest_energy_silence_s": round(largest * .03, 2),
+        "script_words_per_minute": round(pace, 1),
+        "technical_flags": technical_flags,
+        "perceptual_review_flags": review_flags,
+        "energy_method_is_not_voice_activity_detection": True,
+    }
+
+
+def screen(*, plan: Path, audio: Path, output: Path,
+           asr_dir: Path | None = None) -> dict:
+    plan, audio = Path(plan).resolve(), Path(audio).resolve()
+    output = Path(output).resolve() if output is not None else None
+    if not plan.is_file() or not audio.is_dir() or (
+            output is not None and output.exists()):
+        raise ValueError("Plan/audio missing or output report already exists")
+    if output is not None and (not output.parent.is_dir() or
+                               output.is_relative_to(audio)):
+        raise ValueError("Unsafe report destination")
+    authored = json.loads(plan.read_text(encoding="utf-8"))
+    if authored.get("status") != "author_specified_unapproved_element_narration":
+        raise ValueError("Not an authored review narration plan")
+    events = [el for part in authored["parts"] for slide in part["slides"]
+              for el in slide["elements"]]
+    if not events or len(events) > 500:
+        raise ValueError("Invalid audio segment count")
+    names = [el["wav"] for el in events]
+    if len(names) != len(set(names)):
+        raise ValueError("Duplicate narration WAV")
+    job = None
+    if asr_dir is not None:
+        asr_dir = Path(asr_dir).resolve()
+        job = json.loads((asr_dir / "asr_job.json").read_text(encoding="utf-8"))
+        if (job.get("plan_sha256") != digest(plan) or
+                job.get("clips") != names or
+                job.get("source_model") != "gemini-3.8-flash-lite-tts" or
+                job.get("model") not in (
+                    "gemini-3.1-flash-lite", "gemini-3.5-flash",
+                    "gemini-flash-web-ui")):
+            raise ValueError("Wrong or stale independent-ASR job")
+    rows = []
+    for item in events:
+        name, script = item["wav"], item["spoken_text"]
+        if not re.fullmatch(r"[a-zA-Z0-9_.-]+\.wav", name) or len(tokens(script)) < 4:
+            raise ValueError("Unsafe filename or script")
+        wav = audio / name
+        acoustics = acoustic_check(wav, script)
+        file_hash = digest(wav)
+        recognized = None
+        wer = None
+        math_diff = None
+        phonetic_result = None
+        evidence_state = "pending_independent_asr"
+        flags = list(acoustics["perceptual_review_flags"])
+        if job is not None:
+            receipt = asr_dir / (name + ".asr.json")
+            if receipt.is_file():
+                entry = json.loads(receipt.read_text(encoding="utf-8"))
+                recognized = entry.get("transcript")
+                if (not isinstance(recognized, str) or
+                        entry.get("wav") != name or
+                        entry.get("wav_sha256") != file_hash or
+                        entry.get("reference_sha256") != sha_text(script) or
+                        entry.get("transcript_sha256") != sha_text(recognized) or
+                        entry.get("asr_model") != job["model"]):
+                    raise ValueError("Tampered, stale or unrelated ASR evidence: " + name)
+                if job.get("model") == "gemini-flash-web-ui" and (
+                        entry.get("backend") != "selenium_flash_browser" or
+                        entry.get("exact_web_model_version_unverified") is not True):
+                    raise ValueError("Unverifiable Gemini web audio receipt")
+                wer = word_error_rate(script, recognized)  # raw diagnostic only
+                phonetic_result=evaluate_tts_soundalike(script,recognized)
+                normalized_expected,normalized_heard=canonical_phonetic_tokens(
+                    script,recognized)
+                target = math_marks(" ".join(normalized_expected))
+                heard = math_marks(" ".join(normalized_heard))
+                math_diff = {
+                    "missing": dict(target - heard),
+                    "extra": dict(heard - target),
+                    "order_changed": (not (target - heard or heard - target)
+                        and math_token_order(" ".join(normalized_expected)) !=
+                            math_token_order(" ".join(normalized_heard))),
+                }
+                evidence_state=(
+                    "machine_transcript_consistent"
+                    if phonetic_result["tts_qa_soundalike_pass"]
+                    else "transcript_mismatch")
+                # Do not reject a correct-looking WAV merely because Vosk
+                # spells 'hypotenuse' as 'high pot news' or 'cosine' as
+                # 'coast sign'. Raw 20% WER is no longer a hard threshold.
+                if not phonetic_result["tts_qa_soundalike_pass"]:
+                    flags.append("tts_phonetic_content_requires_review")
+                if phonetic_result["critical_errors"]:
+                    flags.append("mathematical_spoken_token_discrepancy")
+        if evidence_state == "pending_independent_asr":
+            flags.append("independent_transcript_unavailable")
+        rows.append({
+            "wav": name, "wav_sha256": file_hash,
+            "reference_sha256": sha_text(script),
+            "acoustics": acoustics, "asr_status": evidence_state,
+            "asr_model": job["model"] if job else None,
+            "transcript": recognized, "word_error_rate": wer,
+            "word_error_rate_is_advisory": True,
+            "tts_qa_phonetic_evidence":phonetic_result,
+            "math_token_discrepancy": math_diff,
+            "human_listening_approved": False,
+            "quality_state": (
+                "technical_reject" if acoustics["technical_flags"]
+                else "manual_review_required" if flags
+                else "machine_screen_consistent_not_certified"
+            ),
+            "review_flags": flags,
+        })
+    rejected = sum(r["quality_state"] == "technical_reject" for r in rows)
+    pending = sum(r["asr_status"] == "pending_independent_asr" for r in rows)
+    review = sum(r["quality_state"] == "manual_review_required" for r in rows)
+    summary = {
+        "schema_version": 2,
+        "tts_qa_policy_version": QA_VERSION,
+        "legacy_word_error_20_percent_hard_gate_removed": True,
+        "status": "QUALITY_SCREEN_REVIEW_ONLY",
+        "plan_sha256": digest(plan),
+        "asr_job_sha256": digest(asr_dir / "asr_job.json") if job else None,
+        "total_clips": len(rows),
+        "technical_rejected": rejected,
+        "manual_review_required": review,
+        "pending_asr": pending,
+        "machine_screen_passed": len(rows) - rejected - review,
+        "all_machine_checks_passed": not (rejected or review or pending),
+        "human_listening_complete": False,
+        "academic_approved": False,
+        "production_approved": False,
+        "limitations": (
+            "Energy silence is not VAD; script pace is only an estimate; "
+            "matching Gemini ASR is not verified pronunciation or naturalness."
+        ),
+        "clips": rows,
+    }
+    if output is not None:
+        with output.open("x", encoding="utf-8") as dest:
+            json.dump(summary, dest, ensure_ascii=False, indent=2)
+            dest.write("\n")
+    return summary
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--plan", type=Path, required=True)
+    parser.add_argument("--audio", type=Path, required=True)
+    parser.add_argument("--asr-dir", type=Path)
+    parser.add_argument("--output", type=Path, required=True)
+    args = parser.parse_args()
+    result = screen(plan=args.plan, audio=args.audio, output=args.output,
+                    asr_dir=args.asr_dir)
+    print(json.dumps({k: v for k, v in result.items() if k != "clips"}, indent=2))
+
+
+if __name__ == "__main__":
+    main()
