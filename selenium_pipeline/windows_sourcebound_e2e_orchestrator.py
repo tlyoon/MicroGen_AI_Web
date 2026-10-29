@@ -38,8 +38,13 @@ def require(ok:bool, message:str)->None:
     if not ok:raise SourceboundE2EError(message)
 
 def sha(path:Path)->str:
+    # Dell-115 validated Docling/Selenium interpreter may be Python 3.10;
+    # hashlib.file_digest exists only on newer Python versions.
+    digest=hashlib.sha256()
     with path.open("rb") as fh:
-        return hashlib.file_digest(fh,"sha256").hexdigest()
+        for chunk in iter(lambda: fh.read(1048576),b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 def atomic_json(path:Path,payload:dict)->None:
     target=path.with_suffix(path.suffix+".tmp")

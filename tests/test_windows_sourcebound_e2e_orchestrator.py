@@ -39,6 +39,16 @@ class WindowsSourceBoundOrchestratorTests(unittest.TestCase):
                     work_root=Path("c"),subchapter="8.4",
                     pipeline_python=Path("py"),tts_python=Path("tts"),
                     repo=Path("repo"))
+    def test_streaming_sha_is_compatible_with_dell_pipeline_python(self):
+        from selenium_pipeline.windows_sourcebound_e2e_orchestrator import sha
+        import hashlib
+        with tempfile.TemporaryDirectory() as t:
+            f=Path(t)/"source.pdf"
+            f.write_bytes(b"one-shot owner-protected mathematical source")
+            expected=hashlib.sha256(f.read_bytes()).hexdigest()
+            # No reliance on hashlib.file_digest: unavailable in Python 3.10.
+            self.assertEqual(sha(f),expected)
+
     def test_live_routines_explicitly_source_bound(self):
         self.assertEqual([p[0] for p in PHASES],[
             "source_content","narrated_audio","sourcebound_video"])
