@@ -57,12 +57,14 @@ def inspect_text_only(*,source:Path,slides:Path,script:Path)->dict:
         need(len(deck)==len(spoken) and len(original)>0,
              "Slide/narration counts differ or source PDF empty")
         pages=[normalize(page.get_text()) for page in original]
+        from .beamer_template_vector_separator import distinguish_template
+        paths=distinguish_template(list(deck))
         for (number,text),page in zip(spoken,deck):
             # PDF figure graphics may be encoded as regular images, inline
             # image blocks, or vector paths (which get_images() misses).
             # A strict text-only source mapper must reject all three forms.
             need(not page.get_images(full=True)
-                 and not page.get_drawings()
+                 and paths[number-1]["non_template_vector_path_count"]==0
                  and not any(block.get("type")==1
                              for block in page.get_text("dict").get("blocks",[])),
                  f"Slide {number}: includes a figure/vector/inline image; "
