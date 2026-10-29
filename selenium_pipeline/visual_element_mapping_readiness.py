@@ -32,13 +32,16 @@ def inspect_all(*,source:Path,slides:Path,script:Path,latex:Path|None=None)->dic
         if not original or len(deck)!=len(utterances):
             raise ValueError("Real source / slides / narration counts inconsistent")
         source_text=[normalize(p.get_text()) for p in original]
+        from .beamer_template_vector_separator import distinguish_template
+        vector_classification=distinguish_template(list(deck))
         for (n,spoken),page in zip(utterances,deck):
             issues=[]
             imgs=page.get_images(full=True)
             blocks_raw=page.get_text("dict").get("blocks",[])
             image_blocks=[a for a in blocks_raw if a.get("type")==1]
             vectors=page.get_drawings()
-            if imgs or image_blocks or vectors:
+            classified=vector_classification[n-1]
+            if imgs or image_blocks or classified["non_template_vector_path_count"]:
                 issues.append("VISUAL_GRAPHICS_SEMANTIC_PROVENANCE_REQUIRED")
             source_pages=[i+1 for i,v in enumerate(source_text)
                           if len(normalize(spoken))>=12 and normalize(spoken) in v]
@@ -69,6 +72,9 @@ def inspect_all(*,source:Path,slides:Path,script:Path,latex:Path|None=None)->dic
             rows.append({
                 "slide":n,"graphic_image_count":len(imgs)+len(image_blocks),
                 "vector_path_count":len(vectors),
+                "beamer_repeated_template_vector_count":classified[
+                    "verified_repeated_margin_template_vector_count"],
+                "non_template_vector_path_count":classified["non_template_vector_path_count"],
                 "visible_text_block_count":len(visible),
                 "spoken_paragraph_count":len(paragraphs),
                 "exact_visible_paragraph_matches":sum(c==1 for c in matched),
@@ -95,7 +101,12 @@ def inspect_all(*,source:Path,slides:Path,script:Path,latex:Path|None=None)->dic
         "status":"READ_ONLY_FULL_DECK_FIGURE_SOURCE_NARRATION_GAP_DIAGNOSTIC",
         **dict(zip(("source_sha256","slides_sha256","script_sha256"),before)),
         "slide_count":len(rows),
-        "slides_with_graphics":sum(bool(r["graphic_image_count"]+r["vector_path_count"]) for r in rows),
+        "slides_with_graphics":sum(bool(
+            r["graphic_image_count"]+r["non_template_vector_path_count"]) for r in rows),
+        "slides_with_only_repeated_decorative_vectors":sum(
+            r["graphic_image_count"]==0 and
+            r["non_template_vector_path_count"]==0 and
+            r["beamer_repeated_template_vector_count"]>0 for r in rows),
         "slides_without_single_source_verbatim_match":sum(len(r["verbatim_source_page_candidates"])!=1 for r in rows),
         "slides_without_explicit_paragraph_anchor":sum(
             r["spoken_paragraph_count"]==0 or
