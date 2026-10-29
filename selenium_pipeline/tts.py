@@ -904,10 +904,62 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
     primary_spec = {"provider": provider, "model": model, "voice": voice}
     slide_provenance: dict[int, dict[str, object]] = {}
 
+    # Recover ONLY genuine immutable provider-call outcomes. A restarted
+    # Windows subprocess must not repeat three known-bad requests, falsely
+    # count untried slides, or lose valid original Kore WAV candidates.
+    prior_verified_exhaustion = False
+    if attempt_evidence is not None and provider == "gemini":
+        prior = attempt_evidence.read()
+        histories: dict[int, list[dict]] = {}
+        for event in prior:
+            if event["provider"] == provider and event["model"] == model:
+                histories.setdefault(event["slide"], []).append(event)
+        for number, history in histories.items():
+            dest = candidate / f"slide{number}.wav"
+            outcomes = [event["outcome"] for event in history]
+            if "permanent_failure" in outcomes:
+                raise RuntimeError(
+                    f"Recorded permanent error for slide{number}; "
+                    "do not resume automatically or spend on fallback")
+            if "success" in outcomes:
+                if (outcomes.count("success") != 1
+                        or outcomes[-1] != "success"
+                        or not dest.is_file() or dest.is_symlink()):
+                    raise RuntimeError(
+                        f"Recorded success of slide{number} lacks a coherent "
+                        "immutable retry sequence or verified candidate WAV")
+                verify_one(candidate, dest.name, candidate_identity)
+                slide_provenance[number] = {**primary_spec, "fallback_used": False}
+                continue
+            if dest.exists() or dest.is_symlink():
+                raise RuntimeError(
+                    f"Only failed slide{number} requests are recorded, "
+                    "but an unaccounted candidate exists; stop")
+            if outcomes and all(x == "transient_failure" for x in outcomes):
+                attempts_by_slide[number] = len(outcomes)
+                last_failures[number] = TimeoutError(
+                    f"Observed source-bound provider outage for slide{number} "
+                    f"already logged {len(outcomes)} real call(s)")
+        prior_verified_exhaustion = any(
+            count >= queue_rounds and
+            not (candidate / f"slide{number}.wav").exists()
+            for number, count in attempts_by_slide.items())
+        if prior_verified_exhaustion:
+            # Verify the ledger's real 3-call chain BEFORE skipping Lite.
+            attempt_evidence.verify_exhausted(model,minimum_attempts=3)
+            print(
+                "[tts] verified hash-linked previously exhausted provider "
+                "requests; do not repeat Lite attempts; advancing to "
+                "approved single-voice complete-batch fallback",
+                flush=True,
+            )
+
     # Do not hammer one slide repeatedly during a transient provider outage.
     # Each slide gets one request per round. Transient failures move to the end
     # of the queue so later slides can make progress and successful WAVs survive.
     for round_number in range(1, queue_rounds + 1):
+        if prior_verified_exhaustion:
+            break
         if not pending:
             break
         next_pending: list[tuple[int, str]] = []
@@ -936,6 +988,13 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
                       flush=True)
                 continue
 
+            if attempts_by_slide.get(number,0) >= round_number:
+                # This request already failed and is saved in the original
+                # source-locked evidence journal. Reuse the failure receipt;
+                # never add a fictitious new provider-call event.
+                if round_number < queue_rounds:
+                    next_pending.append((number,narration))
+                continue
             print(f"[tts] requesting slide{number} ({len(narration)} chars)", flush=True)
             try:
                 attempts_by_slide[number] = attempts_by_slide.get(number, 0) + 1
@@ -943,7 +1002,11 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
                 payload = say(
                     narration,
                     number,
-                    final_round=(round_number == queue_rounds),
+                    # A global outage (previous slide already timed out)
+                    # must not cause 3 more long chunk attempts. Chunk only
+                    # when a lone long narration genuinely needs splitting.
+                    final_round=(round_number == queue_rounds
+                                 and consecutive_transient_failures == 0),
                 )
                 if not payload.startswith((b"RIFF", b"RF64")):
                     raise RuntimeError(f"slide{number}: TTS did not return a WAV file")
