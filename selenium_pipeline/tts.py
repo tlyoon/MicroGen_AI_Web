@@ -150,7 +150,7 @@ def _tts_timeout_seconds(text: str) -> float:
 
     base = max(30.0, float(os.environ.get("MICROGEN_TTS_TIMEOUT_BASE_SECONDS", "90")))
     per_100 = max(0.0, float(os.environ.get("MICROGEN_TTS_TIMEOUT_PER_100_CHARS_SECONDS", "15")))
-    cap = max(base, float(os.environ.get("MICROGEN_TTS_TIMEOUT_MAX_SECONDS", "125")))
+    cap = max(base, float(os.environ.get("MICROGEN_TTS_TIMEOUT_MAX_SECONDS", "300")))
     estimated = base + per_100 * math.ceil(max(1, len(text)) / 100)
     return min(cap, estimated)
 

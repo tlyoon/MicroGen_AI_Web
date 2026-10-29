@@ -117,7 +117,22 @@ def _detect(slide: int, body: str) -> list[dict]:
                 and not re.search(r"\b(nonzero|non-zero|not zero|excluding zero|x\s*≠\s*0|x\s*!=\s*0)\b",sentence)):
             # Only flag explicit cancellation of a variable/factor; generic
             # "factor two cancels" is not an unsafe domain claim.
-            if re.search(r"\b(cancel(?:s|ling|led)?\s+(?:the\s+)?(?:x|variable|common factor)|divide(?:s|d)?\s+(?:both sides\s+)?by\s+x)\b",sentence):
+            # A fraction described as "coefficient A divided by x plus two"
+            # is NOT the operation "divide both sides by x"; the latter
+            # loses the x=0 case without an explicit nonzero hypothesis.
+            # Also avoid matching "divided by x squared" as division by x.
+            unsafe_division=re.search(
+                r"\bdivide(?:s|d)?\s+(?:both\s+sides\s+)?by\s+x\b"
+                r"(?!\s+(?:plus|minus|squared|cubed|raised|times|over))",
+                sentence)
+            passive_fraction=bool(re.search(
+                r"\b(?:coefficient|constant|numerator|fraction|term|expression|"
+                r"quantity|integrand)\b.{0,80}\bdivided\s+by\s+x\b",
+                sentence))
+            unsafe_cancel=re.search(
+                r"\bcancel(?:s|ling|led)?\s+(?:the\s+)?"
+                r"(?:x|variable|common factor)\b",sentence)
+            if unsafe_cancel or (unsafe_division and not passive_fraction):
                 add("division_by_possible_zero",sentence.strip(),
                     "Cancellation/division of a variable requires a nonzero restriction.",
                     "State and independently check a nonzero denominator condition, or use a case split.")
