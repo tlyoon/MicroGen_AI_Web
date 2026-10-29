@@ -117,6 +117,21 @@ def canonical_phonetic_tokens(reference:str,recognized:str)->tuple[list[str],lis
     recorded=" ".join(heard)
     for src,dst in _PHONETIC_PHRASES:
         recorded=re.sub(r"(?<!\w)"+re.escape(src)+r"(?!\w)",dst,recorded)
+    # The *sound* "four" is frequently transcribed as "for" and "into"
+    # as "in two". Only repair these with a matching exact mathematical
+    # phrase in the verified reference; never collapse four/five or two/three.
+    ref_words=" ".join(original)
+    for intended,variant in (
+        ("plus four","plus for"),
+        ("minus four","minus for"),
+        ("equals four","equals for"),
+        ("over four","over for"),
+        ("three sevenths","three sevens"),
+        ("denominator into","denominator in two"),
+    ):
+        if (re.search(r"\b"+re.escape(intended)+r"\b",ref_words)
+                and re.search(r"\b"+re.escape(variant)+r"\b",recorded)):
+            recorded=re.sub(r"\b"+re.escape(variant)+r"\b",intended,recorded)
     heard=recorded.split()
     expected=set(original)
     # Isolated algebraic letters are often transcribed as ordinary sounds:
@@ -127,7 +142,6 @@ def canonical_phonetic_tokens(reference:str,recognized:str)->tuple[list[str],lis
         "pi":("pie",),
         "c":("see","sea"),
         "sine":("sign",),
-        "for":("four",),
         "two":("to",),
     }
     # Do NOT generalize to 'circa' or collapse positive with negative.
