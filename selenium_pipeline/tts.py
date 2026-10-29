@@ -912,12 +912,12 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
             break
         next_pending: list[tuple[int, str]] = []
         consecutive_transient_failures = 0
-        # A Cloud escalation must be backed by a *complete* three-attempt
-        # queue for every unresolved slide, not a global circuit-breaker skip.
-        circuit_breaker_failures = (
-            len(pending) + 1 if (automatic_fallback or not allow_fallback)
-            else max(1, int(os.environ.get(
-                "MICROGEN_TTS_QUEUE_CIRCUIT_BREAKER_FAILURES", "2"))))
+        # Real provider outages must not cause all later slides to consume
+        # minute-long timeouts. The hash-chained journal proves three actual
+        # transient attempts for a failed slide before full-batch fallback.
+        # An untried slide is NEVER recorded as a failed provider call.
+        circuit_breaker_failures = max(1, int(os.environ.get(
+            "MICROGEN_TTS_QUEUE_CIRCUIT_BREAKER_FAILURES", "2")))
         print(
             f"[tts] queue round {round_number}/{queue_rounds}: "
             f"{len(pending)} slide(s) pending",
@@ -974,12 +974,16 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
                         error_type=type(exc).__name__,
                         provider_request_id=safe_provider_request_id(exc))
                 last_failures[number] = exc
-                if _is_transient_tts_failure(exc) and round_number < queue_rounds:
+                if _is_transient_tts_failure(exc):
                     consecutive_transient_failures += 1
-                    next_pending.append((number, narration))
+                    if round_number < queue_rounds:
+                        next_pending.append((number, narration))
                     print(
                         f"[tts] slide{number} transient failure: "
-                        f"{type(exc).__name__}: {exc}; deferred to a later queue round",
+                        f"{type(exc).__name__}: {exc}; "
+                        + ("deferred to a later queue round"
+                           if round_number < queue_rounds
+                           else "last configured primary round"),
                         flush=True,
                     )
                     if (
@@ -1030,10 +1034,15 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
     # Lite: 3 queue rounds -> Flash: 3 queue rounds -> Cloud Chirp HD.
     # Flash: 3 queue rounds -> Cloud Chirp HD.
     # A failed attempt preserves all verified primary WAV candidates.
+    exhausted_real_slide = any(
+        attempts_by_slide.get(number, 0) >= 3
+        and _is_transient_tts_failure(exc)
+        for number, exc in unresolved)
+    observed_permanent = any(
+        number in last_failures and not _is_transient_tts_failure(exc)
+        for number, exc in unresolved)
     if (unresolved and automatic_fallback
-            and all(attempts_by_slide.get(number, 0) >= 3
-                    for number, _ in unresolved)
-            and all(_is_transient_tts_failure(exc) for _, exc in unresolved)
+            and exhausted_real_slide and not observed_permanent
             and os.environ.get("MICROGEN_TTS_ENABLE_PROVIDER_FALLBACK", "1") != "0"
             and os.environ.get("MICROGEN_TTS_ENABLE_BATCH_FALLBACK", "1") != "0"):
         requested = {"provider": provider, "model": model, "voice": voice}
@@ -1083,8 +1092,11 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
             f"slide{number}: {type(exc).__name__}: {exc}"
             for number, exc in unresolved
         )
-        permanent = any(not _is_transient_tts_failure(exc)
-                        for _, exc in unresolved)
+        # Slides skipped by the outage breaker were never submitted.
+        # They are unknown, not permanent provider failures.
+        permanent = any(number in last_failures
+                        and not _is_transient_tts_failure(exc)
+                        for number, exc in unresolved)
         if permanent:
             raise RuntimeError(
                 f"TTS permanent failure with {len(unresolved)} unresolved slide(s); "

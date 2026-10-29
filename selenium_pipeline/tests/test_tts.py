@@ -189,9 +189,10 @@ class TTSTests(unittest.TestCase):
             ):
                 with self.assertRaisesRegex(RuntimeError, r"queue.*exhausted"):
                     synthesize_folder(folder, "gemini", "gemini-3.8-flash-lite-tts", "Kore")
-            # Round 1 stops after two consecutive failures instead of wasting
-            # a third request; the final round exhausts all three.
-            self.assertEqual(models.requests, 7)
+            # Each of three genuine rounds stops after two consecutive
+            # transient failures. The never-submitted third slide must NOT
+            # be counted as an actual attempted provider request.
+            self.assertEqual(models.requests, 6)
             self.assertTrue((folder / ".tts_candidate").is_dir())
             self.assertFalse((folder / ".tts.lock").exists())
 

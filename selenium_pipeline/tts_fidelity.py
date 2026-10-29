@@ -379,6 +379,14 @@ def inspect_audio(
     *,
     model: str = DEFAULT_MODEL,
 ) -> dict[str, Any]:
+    backend = os.environ.get("MICROGEN_TTS_QA_BACKEND", "gemini").strip().lower()
+    if backend == "offline_vosk":
+        # Explicitly installed OFFLINE observed-audio screening; downstream
+        # unchanged soundalike/math checks decide PASS or REVIEW.
+        from .tts_offline_vosk_fidelity import unprompted_audio_review
+        return unprompted_audio_review(wav_path, script)
+    if backend != "gemini":
+        raise ValueError("Unsupported TTS QA backend; never silently certify audio")
     attempts = max(1, int(os.environ.get("MICROGEN_TTS_QA_HARD_ATTEMPTS", "2")))
     timeout_seconds = _qa_hard_timeout_seconds(wav_path)
     last_error: Exception | None = None
@@ -560,6 +568,17 @@ def _cache_key(wav_path: Path, script: str, model: str, threshold: float) -> str
     digest = hashlib.sha256()
     digest.update(("microgen-tts-qa-"+QA_VERSION+"\0").encode("utf8"))
     digest.update(model.encode("utf-8"))
+    # Never reuse a cached remote model hearing as independent OFFLINE Vosk
+    # testimony for the same audio, or vice versa.
+    backend=os.environ.get("MICROGEN_TTS_QA_BACKEND","gemini").strip().lower()
+    digest.update(backend.encode("utf-8"))
+    if backend=="offline_vosk":
+        from .tts_offline_vosk_fidelity import approved_assets
+        # Reverify the real local official recognizer archive even when a
+        # previous audio result has been cached. No removed/tampered model
+        # may inherit an old pass label.
+        model_dir,_packages_dir=approved_assets()
+        digest.update(str(model_dir).encode("utf-8"))
     digest.update(f"{threshold:.6f}".encode("ascii"))
     digest.update(QA_PROMPT.encode("utf-8"))
     digest.update(script.encode("utf-8"))
@@ -644,27 +663,36 @@ def build_report(
     workers = max(1, min(int(workers), len(items) or 1))
 
     results: list[dict[str, Any]] = []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
-        futures = {
-            pool.submit(
-                _evaluate_cached,
-                folder,
-                number,
-                script,
-                model=model,
-                threshold=threshold,
-            ): number
-            for number, script in items
-        }
-        for future in concurrent.futures.as_completed(futures):
-            result = future.result()
+    if workers == 1:
+        # Critical on Dell: old ThreadPoolExecutor submitted all seventeen
+        # requests upfront. A timeout on slide 4 then kept running slides 5-17
+        # during context-manager teardown, wasting hours and paid calls.
+        # Single-worker default is now immediate fail-closed, with cache
+        # receipts for already verified slides.
+        for number, script in items:
+            result=_evaluate_cached(
+                folder,number,script,model=model,threshold=threshold)
             results.append(result)
             print(
                 f"[tts-qa] slide{result['slide']}: "
                 f"phonetic={result['tts_quality_percent']:.3f}% "
                 f"(raw ASR WER={result['word_error_rate']:.3f} advisory) -> {result['status']}",
-                flush=True,
-            )
+                flush=True)
+    else:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
+            futures = {
+                pool.submit(
+                    _evaluate_cached,folder,number,script,
+                    model=model,threshold=threshold
+                ): number for number,script in items}
+            for future in concurrent.futures.as_completed(futures):
+                result=future.result()
+                results.append(result)
+                print(
+                    f"[tts-qa] slide{result['slide']}: "
+                    f"phonetic={result['tts_quality_percent']:.3f}% "
+                    f"(raw ASR WER={result['word_error_rate']:.3f} advisory) -> {result['status']}",
+                    flush=True)
 
     results.sort(key=lambda item: int(item["slide"]))
     fidelities = [float(item["fidelity_percent"]) for item in results]

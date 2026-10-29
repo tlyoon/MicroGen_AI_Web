@@ -131,7 +131,14 @@ class FigureLegibilityTests(unittest.TestCase):
         def reply(backend,instruction):
             calls.append((backend,instruction))
             return replies[len(calls)-1]
-        for name in ("source.pdf","prompt.txt","png_dimensions.json"):
+        # The real source-numbered-example guard opens the source PDF.
+        # Use a genuine minimal source, not a text file falsely named .pdf.
+        import pymupdf
+        with pymupdf.open() as pdf:
+            pdf.new_page().insert_text((72,72),
+                "Source page for original Figure 2.10.")
+            pdf.save(self.folder/"source.pdf")
+        for name in ("prompt.txt","png_dimensions.json"):
             (self.folder/name).write_text("fixture")
         output=self.folder/"slides.tex"
         try:

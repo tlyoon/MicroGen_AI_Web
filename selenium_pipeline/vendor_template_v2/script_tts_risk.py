@@ -93,7 +93,7 @@ def collect_tts_risks(text: str, *, slide: int | None = None) -> list[dict[str, 
     explicit_role_re = re.compile(
         r"(?:variable|charge|point|object|sphere|axis|component|coordinate|"
         r"denoted|option|choice|letter|capital|radius|distance|area|length|field|"
-        r"magnitude|constant|density|volume|surface|line|plate|rod)\s+$"
+        r"magnitude|constant|coefficient|parameter|density|volume|surface|line|plate|rod)\s+$"
     )
 
     for match in STANDALONE_LETTER.finditer(text):
@@ -104,6 +104,10 @@ def collect_tts_risks(text: str, *, slide: int | None = None) -> list[dict[str, 
         tail_raw = text[match.end(1):match.end(1) + 24]
         tail = tail_raw.lower()
         head = text[max(0, pos - 24):pos].lower()
+        # Natural partial-fraction narration says "solve for A and B":
+        # the coefficient role may occur earlier in the SAME sentence.
+        # Do not read coefficient A as the English article "a".
+        head_sentence = re.split(r"[.!?\n]",text[max(0,pos-130):pos])[-1].lower()
 
         if token == "a" or token == "I":
             continue
@@ -113,6 +117,8 @@ def collect_tts_risks(text: str, *, slide: int | None = None) -> list[dict[str, 
         explicit_context = bool(
             re.match(r"(?:-|\s+)(?:axis|coordinate|component|direction)\b", tail)
             or explicit_role_re.search(head)
+            or re.search(r"\b(?:coefficient|coefficients|constant|constants|"
+                         r"parameter|parameters)\b.{0,100}$",head_sentence)
         )
 
         # Mid-sentence capital A is uniquely dangerous because it may be either
