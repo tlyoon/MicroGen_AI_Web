@@ -63,9 +63,11 @@ def ranked_pdf_candidates(sentence: str, targets: list[dict]) -> list[dict]:
             continue
         visual_math = math_markers(visible)
         visual_roles = _roles(visible)
-        # A sole different trigonometric function is a dangerous false positive.
+        # Conflicting explicitly named trigonometric functions cannot be
+        # reconciled by generic semantic/role overlap. Keep missing trig
+        # evidence as a review candidate, never infer that a function matches.
         s_trig, v_trig = speech_math & TRIG, visual_math & TRIG
-        if len(s_trig) == len(v_trig) == 1 and s_trig != v_trig:
+        if s_trig and v_trig and not (s_trig & v_trig):
             continue
         overlap = similarity(sentence, visible)
         shared_math = speech_math & visual_math
