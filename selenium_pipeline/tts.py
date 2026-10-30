@@ -453,6 +453,14 @@ def _configure_cloud_adc_from_microvid() -> Path | None:
     return None
 
 
+def _preflight_cloud_voice(voice: str) -> dict:
+    """Check live Cloud catalogue once BEFORE the first paid batch request."""
+    from google.cloud import texttospeech
+    from .cloud_voice_preflight import verify_catalogue_voice
+    _configure_cloud_adc_from_microvid()
+    return verify_catalogue_voice(texttospeech.TextToSpeechClient(),voice)
+
+
 def _chirp_say(client, text: str, voice: str) -> bytes:
     from google.cloud import texttospeech
     # Default to a genuine Chirp 3 HD voice, configurable by name.
@@ -869,6 +877,8 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
         # including conditional fallback on slower Dell-115 and Yoga6. Never
         # launch a Cloud API request in the coordinator process directly.
         chirp_voice = voice if "Chirp3-HD" in voice else f"en-US-Chirp3-HD-{_named_voice(voice)}"
+        _preflight_cloud_voice(chirp_voice)
+        print(f"[tts] preflight confirmed Google Cloud voice {chirp_voice}", flush=True)
         def say(narration: str, number: int, *, final_round: bool = False) -> bytes:
             return _chirp_say_with_watchdog(narration, number, chirp_voice)
     else:
@@ -1078,6 +1088,12 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
                     f"{type(exc).__name__}: {exc}",
                     flush=True,
                 )
+                if provider == "chirp3":
+                    # One permanent Cloud configuration/provider error is
+                    # sufficient evidence. Do NOT bill for every later slide.
+                    print("[tts] Cloud permanent-error circuit opened; "
+                          "remaining slides not dispatched",flush=True)
+                    break
 
         if not next_pending:
             pending = []

@@ -168,7 +168,9 @@ class ObservedAttemptJournalTests(unittest.TestCase):
              patch("selenium_pipeline.tts._gemini_say",
                    side_effect=RuntimeError("503 synthetic provider outage")) as gemini, \
              patch("selenium_pipeline.tts._chirp_say_with_watchdog",
-                   return_value=audio) as chirp:
+                   return_value=audio) as chirp, \
+             patch("selenium_pipeline.tts._preflight_cloud_voice",
+                   return_value={"catalogue_verified": True}):
             synthesize_folder(self.folder,"gemini",LITE,"Kore")
             self.assertEqual(gemini.call_count,6)
             chirp.assert_called_once()
