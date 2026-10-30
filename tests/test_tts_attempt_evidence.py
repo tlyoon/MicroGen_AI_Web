@@ -175,7 +175,7 @@ class ObservedAttemptJournalTests(unittest.TestCase):
         manifest=json.loads((self.folder/"tts_input_manifest.json").read_text())
         self.assertEqual(manifest["primary"]["provider"],"chirp3")
         self.assertEqual(manifest["primary"]["model"],CHIRP)
-        self.assertEqual(manifest["primary"]["voice"],"en-US-Chirp3-HD-Corey")
+        self.assertEqual(manifest["primary"]["voice"],"en-US-Chirp3-HD-Kore")
         self.assertEqual(manifest["fallback_chain"],[LITE,FLASH])
         self.assertEqual((self.folder/"slide1.wav").read_bytes(),audio)
         proof=manifest["attempt_evidence"]
@@ -194,7 +194,7 @@ class ObservedAttemptJournalTests(unittest.TestCase):
         from selenium_pipeline.tts_qa_repair import main
         manifest={
             "primary":{"provider":"chirp3","model":"chirp3-hd",
-                       "voice":"en-US-Chirp3-HD-Corey"},
+                       "voice":"en-US-Chirp3-HD-Kore"},
             "all_slides_one_effective_voice":True,
             "fallback_chain":[LITE,FLASH],
             "requested_primary":DEFAULT,
@@ -205,7 +205,7 @@ class ObservedAttemptJournalTests(unittest.TestCase):
         args=["--folder",str(self.folder),"--model","gemini-3.8-flash",
               "--threshold","99","--provider","chirp3",
               "--tts-model","chirp3-hd",
-              "--voice","en-US-Chirp3-HD-Corey",
+              "--voice","en-US-Chirp3-HD-Kore",
               "--conditional-cloud-fallback"]
         with patch("selenium_pipeline.tts_qa_repair.load_microvid_env") as loader, \
              patch("selenium_pipeline.tts_qa_repair.repair") as repair:

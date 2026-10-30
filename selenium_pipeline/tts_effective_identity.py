@@ -1,7 +1,7 @@
 """Single contract for source-bound, actual-provider TTS output identity.
 
 This validates evidence and does not create approval, authorize paid calls,
-or infer that Kore and Corey sound alike.
+or infer that separate Gemini and Cloud engines sound identical.
 """
 from __future__ import annotations
 
@@ -14,10 +14,10 @@ LITE = "gemini-3.8-flash-lite-tts"
 FLASH = "gemini-3.8-flash-tts"
 CHIRP = "chirp3-hd"
 KORE = "Kore"
-COREY = "en-US-Chirp3-HD-Corey"
+CLOUD_KORE = "en-US-Chirp3-HD-Kore"
 DEFAULT = {"provider": "gemini", "model": LITE, "voice": KORE}
 GEMINI_FLASH = {"provider": "gemini", "model": FLASH, "voice": KORE}
-CLOUD = {"provider": "chirp3", "model": CHIRP, "voice": COREY}
+CLOUD = {"provider": "chirp3", "model": CHIRP, "voice": CLOUD_KORE}
 
 
 def verify_effective_identity(manifest: dict, items: list[tuple[int, str]]) -> dict:
@@ -80,7 +80,7 @@ def verify_effective_identity(manifest: dict, items: list[tuple[int, str]]) -> d
         "requested_primary": requested,
         "fallback_chain": chain,
         "fallback_used": fallback,
-        "voice_listening_field": ("voice_corey_listening_verified"
+        "voice_listening_field": ("voice_cloud_kore_listening_verified"
                                   if effective == CLOUD
                                   else "voice_kore_listening_verified"),
     }

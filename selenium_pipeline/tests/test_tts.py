@@ -273,11 +273,11 @@ class TTSTests(unittest.TestCase):
         self.assertEqual([(x["provider"],x["model"]) for x in lite],
             [("gemini","gemini-3.8-flash-tts"),("chirp3","chirp3-hd")])
         self.assertEqual(lite[0]["voice"],"Kore")
-        self.assertEqual(lite[1]["voice"],"en-US-Chirp3-HD-Corey")
+        self.assertEqual(lite[1]["voice"],"en-US-Chirp3-HD-Kore")
         self.assertEqual(_fallback_specs("chirp3","chirp3-hd","Corey"),[])
 
     def test_cloud_only_after_failed_flash_batch(self):
-        """Never mix primary/Kore and Cloud/Corey clips in a lecture."""
+        """Never mix primary/Kore and Cloud/Chirp-Kore clips in a lecture."""
         with tempfile.TemporaryDirectory() as tmp:
             folder=Path(tmp)
             (folder/"script.txt").write_text(

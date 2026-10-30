@@ -146,11 +146,11 @@ class FallbackProvenanceEndToEndTests(unittest.TestCase):
         self.assertFalse(exported["video_publication_approved"])
         case.assert_originals_unchanged()
 
-    def test_chirp_corey_never_adopts_a_kore_only_attestation(self):
+    def test_chirp_cloud_kore_never_adopts_a_kore_only_attestation(self):
         case=self.new_audio()
         self.mutate_audio(case,CLOUD,[LITE,FLASH])
         proof=audit(case.source,case.review)
-        self.assertEqual(proof["voice_listening_field"],"voice_corey_listening_verified")
+        self.assertEqual(proof["voice_listening_field"],"voice_cloud_kore_listening_verified")
         doc=case.create_external_attestation()
         doc["fallback_provider_change_reviewed"]=True
         case.attestation_path.write_text(json.dumps(doc),encoding="utf-8")
@@ -160,7 +160,7 @@ class FallbackProvenanceEndToEndTests(unittest.TestCase):
                             confirm_reviewed_audio=True,
                             confirm_isolated_export=True)
         self.assertFalse(case.destination.exists())
-        doc["voice_corey_listening_verified"]=True
+        doc["voice_cloud_kore_listening_verified"]=True
         case.attestation_path.write_text(json.dumps(doc),encoding="utf-8")
         exported=export_reviewed(case.source,case.review,case.destination,
                             attestation_path=case.attestation_path,
@@ -182,7 +182,7 @@ class FallbackProvenanceEndToEndTests(unittest.TestCase):
         with self.assertRaisesRegex(AudioPromotionBlocked,"history"):
             audit(case.source,case.review)
 
-    def test_mixed_corey_and_kore_slide_provenance_rejected(self):
+    def test_mixed_cloud_and_gemini_kore_slide_provenance_rejected(self):
         case=self.new_audio()
         self.mutate_audio(case,CLOUD,[LITE,FLASH])
         case.manifest["slides"][0]["voice"]="Kore"
@@ -203,7 +203,7 @@ class FallbackProvenanceEndToEndTests(unittest.TestCase):
         self.assertEqual(result["fallback_chain"],[LITE])
         self.assertFalse(result["production_approved"])
 
-    def test_corey_fallback_audio_compatible_with_matching_author_scene(self):
+    def test_cloud_kore_fallback_audio_compatible_with_matching_author_scene(self):
         case=self.new_element()
         self.mutate_element(case,CLOUD,[LITE,FLASH])
         result=case.check()
@@ -211,7 +211,7 @@ class FallbackProvenanceEndToEndTests(unittest.TestCase):
         self.assertEqual(result["effective_voice"],CLOUD["voice"])
         self.assertFalse(result["scientific_element_mapping_approved"])
 
-    def test_original_kore_scene_cannot_claim_corey_narration(self):
+    def test_original_kore_scene_cannot_claim_cloud_kore_narration(self):
         case=self.new_element()
         self.mutate_element(case,CLOUD,[LITE,FLASH],correct_voice_id=False)
         with self.assertRaisesRegex(ElementAudioIncompatible,"same source/model/voice"):

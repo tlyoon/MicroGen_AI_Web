@@ -55,6 +55,7 @@ def _validate_originals(
         from .tts_attempt_evidence import AttemptEvidence
         AttemptEvidence.verify_saved(
             folder, list(narrations.items()), doc.get("attempt_evidence"))
+        from .tts_effective_identity import GEMINI_FLASH, CLOUD
         actual = {"provider": provider, "model": tts_model, "voice": voice}
         requested = doc.get("requested_primary")
         chain = doc.get("fallback_chain")
@@ -62,10 +63,7 @@ def _validate_originals(
                 or requested.get("provider") != "gemini"
                 or requested.get("model") != "gemini-3.8-flash-lite-tts"
                 or requested.get("voice") != "Kore"
-                or actual not in (
-                    {"provider": "gemini", "model": "gemini-3.8-flash-tts", "voice": "Kore"},
-                    {"provider": "chirp3", "model": "chirp3-hd",
-                     "voice": "en-US-Chirp3-HD-Corey"})):
+                or actual not in (GEMINI_FLASH,CLOUD)):
             raise RuntimeError("Unrecognized fallback provider, voice or original identity")
         if chain != (["gemini-3.8-flash-lite-tts"] if provider == "gemini"
                      else ["gemini-3.8-flash-lite-tts", "gemini-3.8-flash-tts"]):
@@ -261,12 +259,11 @@ def main(argv=None) -> int:
         if not manifest_path.is_file() or manifest_path.is_symlink():
             raise RuntimeError("Conditional Cloud requires an original TTS manifest")
         history = json.loads(manifest_path.read_text(encoding="utf-8"))
+        from .tts_effective_identity import CLOUD
         if (history.get("all_slides_one_effective_voice") is not True
                 or history.get("fallback_chain") != [
                     "gemini-3.8-flash-lite-tts", "gemini-3.8-flash-tts"]
-                or history.get("primary") != {
-                    "provider": "chirp3", "model": "chirp3-hd",
-                    "voice": "en-US-Chirp3-HD-Corey"}):
+                or history.get("primary") != CLOUD):
             raise RuntimeError("Cloud TTS conditional fallback history is not verified")
         from .tts_attempt_evidence import AttemptEvidence
         actual_script = (args.folder / "script.txt").read_text(encoding="utf-8")
