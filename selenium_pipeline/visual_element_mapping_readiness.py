@@ -83,6 +83,17 @@ def inspect_all(*,source:Path,slides:Path,script:Path,latex:Path|None=None)->dic
                 "element_focus_proven":False,
                 "per_element_tts_authorized":False,
             })
+    # Add strict source-header/visible-label geometry evidence for every
+    # original slide. This does not waive math, figure-body or word-timing QA.
+    from .source_label_geometry_evidence import inspect as inspect_labels
+    label_geometry=inspect_labels(source=paths[0],slides=paths[1],script=paths[2])
+    if len(label_geometry["slides"]) != len(rows):
+        raise ValueError("Label geometry source/slide count drift")
+    for row,loc in zip(rows,label_geometry["slides"]):
+        if row["slide"] != loc["slide"]:
+            raise ValueError("Original slide identity changed across geometry audits")
+        row["source_grounded_label_geometry"]=loc["labels"]
+        row["source_verified_label_count"]=loc["read_only_source_label_candidates"]
     coverage=None
     if latex is not None:
         l=Path(latex).absolute()
@@ -101,6 +112,10 @@ def inspect_all(*,source:Path,slides:Path,script:Path,latex:Path|None=None)->dic
         "status":"READ_ONLY_FULL_DECK_FIGURE_SOURCE_NARRATION_GAP_DIAGNOSTIC",
         **dict(zip(("source_sha256","slides_sha256","script_sha256"),before)),
         "slide_count":len(rows),
+        "source_label_geometry_candidate_count":label_geometry[
+            "uniquely_source_grounded_label_count"],
+        "source_label_geometry_ambiguous_count":label_geometry["ambiguous_label_count"],
+        "labels_do_not_verify_figure_bodies_or_math":True,
         "slides_with_graphics":sum(bool(
             r["graphic_image_count"]+r["non_template_vector_path_count"]) for r in rows),
         "slides_with_only_repeated_decorative_vectors":sum(
