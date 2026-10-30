@@ -51,6 +51,21 @@ class SourceLabelGeometryTests(unittest.TestCase):
             self.assertFalse(report["production_video_approved"])
             self.assertEqual(originals,{p.name:p.read_bytes() for p in folder.iterdir()})
 
+    def test_caption_label_not_timed_without_explicit_script_reference(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            folder=Path(tmp);make_assets(folder)
+            report=inspect(source=folder/"source.pdf",slides=folder/"slides.pdf",
+                           script=folder/"script.txt")
+            self.assertEqual(report["source_anchored_labels_explicitly_spoken"],0)
+            (folder/"script.txt").write_text(
+                "**Slide 1 [3 sec]:\nExample one includes Figure two point three.",
+                encoding="utf8")
+            named=inspect(source=folder/"source.pdf",slides=folder/"slides.pdf",
+                          script=folder/"script.txt")
+            self.assertEqual(named["source_anchored_labels_explicitly_spoken"],2)
+            self.assertFalse(named["word_timing_verified"])
+            self.assertFalse(named["production_video_approved"])
+
     def test_repeated_source_figure_header_rejected_not_guessed(self):
         with tempfile.TemporaryDirectory() as tmp:
             folder=Path(tmp);make_assets(folder,duplicate_source_figure=True)

@@ -9,6 +9,7 @@ Real source results:
 - Thomas §8.5: 11 slides, 5 labels; 2 source-anchored; 3 ambiguous.
 - Thomas §8.6: 13 slides, 4 labels; 4 source-anchored; 0 ambiguous.
 - Total: 41 slides, 19 candidate labels, **15 unique labelled rectangles** and 4 rejected ambiguities.
+- Only **1 of those 15** numbered labels is referred to explicitly by matching label/number words in its narration script. The other 14 are **not** assumed to be narrated merely because they appear on the slide. A literal spoken reference is still not a proven ASR word timestamp, and no highlight is approved.
 
 **Not yet proven:** the content of a scientific figure or subfigure, complete equation geometry or equivalence, narration-to-element timing, encoded visual highlights or MP4 duration. Even a unique Example/Figure label is not enough to authorize audio/video. The existing full-deck inspection still rejects 41/41 slides for inadequate exact source/script correspondence; do not silently relax this gate.
 

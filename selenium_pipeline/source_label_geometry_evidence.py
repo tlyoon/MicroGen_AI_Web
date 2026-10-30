@@ -52,6 +52,27 @@ def _normalized(kind: str, value: str) -> str:
     return f"Figure {int(a)}.{int(b)}"
 
 
+_SMALL_NUMBERS=("zero one two three four five six seven eight nine ten "
+                "eleven twelve thirteen fourteen fifteen sixteen seventeen "
+                "eighteen nineteen twenty").split()
+
+
+def _spoken_label_explicit(label: str, speech: str) -> bool:
+    """Literal caption reference ONLY; not proof of word-level WAV timing."""
+    lower=speech.casefold()
+    if label.startswith("Example "):
+        n=int(label.split()[1])
+        forms=[str(n)]+([_SMALL_NUMBERS[n]] if n<len(_SMALL_NUMBERS) else [])
+        return any(re.search(r"\bexample\s+(?:"+re.escape(v)+r")\b",lower)
+                   for v in forms)
+    a,b=map(int,label.split()[1].split("."))
+    forms=[f"{a}.{b}",f"{a} point {b}"]
+    if a<len(_SMALL_NUMBERS) and b<len(_SMALL_NUMBERS):
+        forms.append(f"{_SMALL_NUMBERS[a]} point {_SMALL_NUMBERS[b]}")
+    return any(re.search(r"\bfigure\s+"+re.escape(v)+r"\b",lower)
+               for v in forms)
+
+
 def _source_headers(source: pymupdf.Document) -> dict[str,list[int]]:
     result=defaultdict(list)
     for page_number,page in enumerate(source,1):
@@ -81,7 +102,7 @@ def inspect(*,source:Path,slides:Path,script:Path)->dict:
         _require(len(source_doc)>0 and len(slide_doc)==len(utterances),
                  "Original source/slide/narration page count invalid")
         headers=_source_headers(source_doc)
-        for (number,_speech),page in zip(utterances,slide_doc):
+        for (number,speech),page in zip(utterances,slide_doc):
             _require(number==len(rows)+1,
                      "Original slide numbering must be ordered and complete")
             objects=[]
@@ -110,6 +131,8 @@ def inspect(*,source:Path,slides:Path,script:Path)->dict:
                         hashlib.sha256(("|".join(before)+"|"+
                                         f"{number}|{label}|{bbox}").encode()).hexdigest()[:24]
                         if unique else None),
+                    "label_reference_present_in_script":_spoken_label_explicit(
+                        label,speech),
                     "reason":("UNIQUE_EXACT_LABEL_CANDIDATE_ONLY" if unique
                               else "AMBIGUOUS_SOURCE_OR_SLIDE_LABEL_GEOMETRY"),
                     "figure_body_geometry_verified":False,
@@ -132,6 +155,10 @@ def inspect(*,source:Path,slides:Path,script:Path)->dict:
         "labels_detected":sum(len(r["labels"]) for r in rows),
         "uniquely_source_grounded_label_count":found,
         "ambiguous_label_count":sum(len(r["labels"]) for r in rows)-found,
+        "source_anchored_labels_explicitly_spoken":sum(
+            x["label_reference_present_in_script"]
+            for r in rows for x in r["labels"]
+            if x["unique_source_header_and_visible_bbox"]),
         "slides":rows,
         "full_mathematical_figure_mapping_verified":False,
         "word_timing_verified":False,

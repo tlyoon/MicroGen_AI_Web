@@ -115,6 +115,8 @@ def inspect_all(*,source:Path,slides:Path,script:Path,latex:Path|None=None)->dic
         "source_label_geometry_candidate_count":label_geometry[
             "uniquely_source_grounded_label_count"],
         "source_label_geometry_ambiguous_count":label_geometry["ambiguous_label_count"],
+        "source_grounded_labels_explicitly_spoken_in_script":label_geometry[
+            "source_anchored_labels_explicitly_spoken"],
         "labels_do_not_verify_figure_bodies_or_math":True,
         "slides_with_graphics":sum(bool(
             r["graphic_image_count"]+r["non_template_vector_path_count"]) for r in rows),
