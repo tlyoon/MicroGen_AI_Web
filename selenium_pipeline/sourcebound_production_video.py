@@ -406,10 +406,10 @@ def verify_element_tts_batch(*,source: Path,slides: Path,
     model=record.get("model")
     voice=record.get("voice")
     identity=(provider,model,voice)
+    from .tts_effective_identity import DEFAULT, GEMINI_FLASH, CLOUD
     allowed={
-        ("gemini","gemini-3.8-flash-lite-tts","Kore"),
-        ("gemini","gemini-3.8-flash-tts","Kore"),
-        ("chirp3","chirp3-hd","en-US-Chirp3-HD-Corey"),
+        (entry["provider"],entry["model"],entry["voice"])
+        for entry in (DEFAULT,GEMINI_FLASH,CLOUD)
     }
     require(identity in allowed and
             isinstance(plan.get("voice_id"),str) and

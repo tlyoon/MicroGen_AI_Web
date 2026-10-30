@@ -19,7 +19,7 @@ class Fallback(unittest.TestCase):
   rows=[failure(k,n) for k in [x["job_id"] for x in jobs["chunk_jobs"]]
         for n in (1,2,3)]
   r=plan_full_batch_tts_recovery(jobs=jobs,history=rows)
-  self.assertEqual(r["status"],"ELIGIBLE_TO_PLAN_FULL_CLOUD_COREY_REGENERATION_NOT_DISPATCHED")
+  self.assertEqual(r["status"],"ELIGIBLE_TO_PLAN_FULL_CLOUD_KORE_REGENERATION_NOT_DISPATCHED")
   self.assertEqual(len(r["full_batch_regeneration_jobs"]),2)
   self.assertFalse(r["existing_primary_wavs_may_be_mixed_into_fallback"])
   self.assertFalse(r["paid_service_authorized_by_this_plan"])
@@ -43,7 +43,7 @@ class Fallback(unittest.TestCase):
   for records in ([row,row], [{**row,"evidence_sha256":"0"}]):
    with self.assertRaises(TTSFallbackRecoveryError):
     plan_full_batch_tts_recovery(jobs=jobs,history=records)
- def test_partial_success_must_not_mix_kore_corey(self):
+ def test_partial_success_must_not_mix_gemini_and_cloud_kore(self):
   jobs=fixture()
   row=failure("s001.utterance.001",1)
   row["result"]="CONFIRMED_SUCCESS"

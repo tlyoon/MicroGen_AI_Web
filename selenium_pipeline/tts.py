@@ -505,8 +505,10 @@ def _named_voice(voice: str) -> str:
 
 def _fallback_specs(provider: str, model: str, voice: str) -> list[dict[str, str]]:
     """Owner-approved full-batch fallback order; NEVER mix different voices."""
+    # Restore the original same-named-voice fallback policy. The normal
+    # Flash-Lite/Kore pipeline must use Cloud Chirp3-HD-Kore, never Corey.
     chirp = {"provider": "chirp3", "model": "chirp3-hd",
-             "voice": "en-US-Chirp3-HD-Corey"}
+             "voice": f"en-US-Chirp3-HD-{_named_voice(voice)}"}
     if provider == "gemini" and model == "gemini-3.8-flash-lite-tts":
         return [
             {"provider": "gemini", "model": "gemini-3.8-flash-tts", "voice": voice},
@@ -705,6 +707,14 @@ def _whole_batch_fallback(
         raise RuntimeError("Claimed fallback chain differs from observed model order")
 
     if spec["provider"] == "chirp3":
+        # Regression guard: automatic Cloud fallback is required to preserve
+        # the ORIGINAL selected Kore voice, not the mistaken Corey string.
+        # Reject a stale/default-corrupt spec BEFORE any billable Cloud call.
+        from .tts_effective_identity import CLOUD, DEFAULT
+        if spec != CLOUD or requested != DEFAULT:
+            raise RuntimeError(
+                "Unapproved Cloud fallback voice; original contract requires "
+                "en-US-Chirp3-HD-Kore after Gemini Flash-Lite/Kore and Flash/Kore")
         required = {"gemini-3.8-flash-lite-tts", "gemini-3.8-flash-tts"}
         if not required.issubset(set(completed_gemini_models)):
             raise RuntimeError(

@@ -43,7 +43,7 @@ class RestoredFallbackTests(unittest.TestCase):
         self.flash={"provider":"gemini","model":"gemini-3.8-flash-tts",
                     "voice":"Kore"}
         self.cloud={"provider":"chirp3","model":"chirp3-hd",
-                    "voice":"en-US-Chirp3-HD-Corey"}
+                    "voice":"en-US-Chirp3-HD-Kore"}
         self.evidence=AttemptEvidence(self.folder,self.items)
 
     def seed_failures(self, *, flash=False):
@@ -115,7 +115,7 @@ class RestoredFallbackTests(unittest.TestCase):
                     synth.assert_not_called()
         self.assertFalse((self.folder/"tts_input_manifest.json").exists())
 
-    def test_cloud_after_both_failures_produces_one_corey_narrator(self):
+    def test_cloud_after_both_failures_produces_one_cloud_kore_narrator(self):
         self.seed_failures(flash=True)
         with patch("selenium_pipeline.tts._synthesize_folder_unlocked",
                    side_effect=self.simulate_full_batch):
@@ -127,7 +127,7 @@ class RestoredFallbackTests(unittest.TestCase):
         data=json.loads((self.folder/"tts_input_manifest.json").read_text())
         self.assertEqual(data["primary"],self.cloud)
         self.assertEqual(len(data["fallback_chain"]),2)
-        self.assertTrue(all(r["voice"]=="en-US-Chirp3-HD-Corey"
+        self.assertTrue(all(r["voice"]=="en-US-Chirp3-HD-Kore"
                             for r in data["slides"]))
         self.assertTrue(all(r["primary_voice"]=="Kore" for r in data["slides"]))
         self.assertFalse(any(r["voice"]=="Kore" for r in data["slides"]))

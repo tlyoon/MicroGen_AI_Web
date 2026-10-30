@@ -2,13 +2,13 @@
 
 No TTS provider is called; this is NOT paid-service authorization. Crucially,
 one voice/model must cover the whole output; never mix primary Kore WAVs with
-Cloud Corey WAVs in one lecture, and unknown provider outcomes cannot be
+Cloud Chirp/Kore WAVs in one lecture, and unknown provider outcomes cannot be
 silently treated as failures.
 """
 from __future__ import annotations
 import re
 from .incremental_chunk_tts_requests import DEFAULT_MODEL,DEFAULT_VOICE
-from .tts_effective_identity import CHIRP,COREY
+from .tts_effective_identity import CHIRP,CLOUD_KORE
 
 class TTSFallbackRecoveryError(ValueError):pass
 HEX=re.compile(r"[0-9a-f]{64}\Z")
@@ -59,10 +59,10 @@ def plan_full_batch_tts_recovery(*,jobs:dict,history:list[dict])->dict:
     elif all(len(rows)==3 and all(row["result"]=="VERIFIED_TERMINAL_FAILURE"
                                  for row in rows)
              for rows in per_job.values()):
-        status="ELIGIBLE_TO_PLAN_FULL_CLOUD_COREY_REGENERATION_NOT_DISPATCHED"
+        status="ELIGIBLE_TO_PLAN_FULL_CLOUD_KORE_REGENERATION_NOT_DISPATCHED"
     else:
         status="FLASH_LITE_KORE_ATTEMPTS_PENDING_WITHIN_3"
-    ready=status=="ELIGIBLE_TO_PLAN_FULL_CLOUD_COREY_REGENERATION_NOT_DISPATCHED"
+    ready=status=="ELIGIBLE_TO_PLAN_FULL_CLOUD_KORE_REGENERATION_NOT_DISPATCHED"
     return {"status":status,"original_utterances":len(expected),
             "verified_failures_per_job":{key:sum(x["result"]=="VERIFIED_TERMINAL_FAILURE"
                                                  for x in rows)
@@ -70,7 +70,7 @@ def plan_full_batch_tts_recovery(*,jobs:dict,history:list[dict])->dict:
             "all_elements_must_be_regenerated_as_one_voice":ready,
             "full_batch_regeneration_jobs":expected if ready else [],
             "fallback_candidate_model":CHIRP if ready else None,
-            "fallback_candidate_voice":COREY if ready else None,
+            "fallback_candidate_voice":CLOUD_KORE if ready else None,
             "existing_primary_wavs_may_be_mixed_into_fallback":False,
             "voice_acoustic_equivalence_independently_verified":False,
             "human_listening_QA_required":True,
