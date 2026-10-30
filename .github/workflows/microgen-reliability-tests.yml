@@ -136,6 +136,7 @@ jobs:
             "tests.test_dell_tts_outage_circuit_recovery"
             "tests.test_dell_tts_repaired_resume"
             "tests.test_source_numbered_example_coverage"
+            "tests.test_source_label_geometry_evidence"
             "tests.test_windows_sourcebound_e2e_orchestrator"
             "tests.test_tts_quality_gate"
           )
@@ -166,6 +167,8 @@ jobs:
             "selenium_pipeline/latex_graphics_bounds.py"
             "selenium_pipeline/figure_legibility.py"
             "selenium_pipeline/pdf_element_geometry.py"
+            "selenium_pipeline/source_label_geometry_evidence.py"
+            "selenium_pipeline/visual_element_mapping_readiness.py"
             "selenium_pipeline/spoken_math_review.py"
             "selenium_pipeline/automatic_math_semantic_qa.py"
             "selenium_pipeline/vendor_template_v2/gen_script_selenium_v15.py"
