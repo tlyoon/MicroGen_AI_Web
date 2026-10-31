@@ -158,7 +158,27 @@ def inspect(*, root:Path, timing_receipt:Path)->dict:
     timebound_single=sum(sentence["has_single_timebound_visual_candidate"]
                          for section in sections for slide in section["slides"]
                          for sentence in slide["sentences"])
+    unresolved=[]
+    for section in sections:
+        for slide in section["slides"]:
+            for sentence in slide["sentences"]:
+                count=len(sentence["candidate_visual_focus_regions_unapproved"])
+                reason=("MISSING_REAL_AUDIO_ANCHOR" if not sentence["real_acoustic_timing_candidate"]
+                        else "NO_VISIBLE_TEXT_TARGET" if count==0
+                        else "MULTIPLE_VISUAL_TEXT_TARGETS" if count>1
+                        else "MATH_FIGURE_SEMANTICS_NOT_VERIFIED")
+                unresolved.append({
+                    "section":section["section"],"slide":slide["slide"],
+                    "sentence_index":sentence["sentence_index"],
+                    "narration_sha256":sentence["source_narration_sha256"],
+                    "candidate_count":count,"reason":reason,
+                    "academic_semantic_approval":False})
+    priorities={"MISSING_REAL_AUDIO_ANCHOR":0,"NO_VISIBLE_TEXT_TARGET":1,
+                "MULTIPLE_VISUAL_TEXT_TARGETS":2,"MATH_FIGURE_SEMANTICS_NOT_VERIFIED":3}
+    unresolved.sort(key=lambda x:(priorities[x["reason"]],x["section"],
+                                  x["slide"],x["sentence_index"]))
     return {"schema_version":1,
+            "unresolved_source_focus_remediation_queue":unresolved,
             "narration_unit_count":len(candidate_counts),
             "narration_units_without_text_focus_candidate":sum(n==0 for n in candidate_counts),
             "narration_units_with_multiple_text_focus_candidates":sum(n>1 for n in candidate_counts),
