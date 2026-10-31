@@ -111,9 +111,13 @@ def inspect(*, root:Path, timing_receipt:Path)->dict:
                         "source_page_verified":False,
                         "mathematical_semantics_verified":False,
                     })
+                score_gap=(round(candidates[0]["overlap_hint"]-
+                                 candidates[1]["overlap_hint"],4)
+                           if len(candidates)>1 else None)
                 unique_target=(len(focus_regions)==1 and
                                bool(anchor["word_timing_hypothesis_available"]))
                 choices.append({
+                    "lexical_top_two_margin_not_semantic":score_gap,
                     "has_single_timebound_visual_candidate":unique_target,
                     "requires_semantic_equation_figure_review":True,
                     "candidate_visual_focus_regions_unapproved":focus_regions,
