@@ -65,7 +65,7 @@ def _validate_originals(
                 or actual not in (
                     {"provider": "gemini", "model": "gemini-3.8-flash-tts", "voice": "Kore"},
                     {"provider": "chirp3", "model": "chirp3-hd",
-                     "voice": "en-US-Chirp3-HD-Corey"})):
+                     "voice": "en-US-Chirp3-HD-Kore"})):
             raise RuntimeError("Unrecognized fallback provider, voice or original identity")
         if chain != (["gemini-3.8-flash-lite-tts"] if provider == "gemini"
                      else ["gemini-3.8-flash-lite-tts", "gemini-3.8-flash-tts"]):
@@ -266,7 +266,7 @@ def main(argv=None) -> int:
                     "gemini-3.8-flash-lite-tts", "gemini-3.8-flash-tts"]
                 or history.get("primary") != {
                     "provider": "chirp3", "model": "chirp3-hd",
-                    "voice": "en-US-Chirp3-HD-Corey"}):
+                    "voice": "en-US-Chirp3-HD-Kore"}):
             raise RuntimeError("Cloud TTS conditional fallback history is not verified")
         from .tts_attempt_evidence import AttemptEvidence
         actual_script = (args.folder / "script.txt").read_text(encoding="utf-8")

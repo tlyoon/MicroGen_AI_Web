@@ -409,7 +409,7 @@ def verify_element_tts_batch(*,source: Path,slides: Path,
     allowed={
         ("gemini","gemini-3.8-flash-lite-tts","Kore"),
         ("gemini","gemini-3.8-flash-tts","Kore"),
-        ("chirp3","chirp3-hd","en-US-Chirp3-HD-Corey"),
+        ("chirp3","chirp3-hd","en-US-Chirp3-HD-Kore"),
     }
     require(identity in allowed and
             isinstance(plan.get("voice_id"),str) and
