@@ -19,7 +19,7 @@ class Fallback(unittest.TestCase):
   rows=[failure(k,n) for k in [x["job_id"] for x in jobs["chunk_jobs"]]
         for n in (1,2,3)]
   r=plan_full_batch_tts_recovery(jobs=jobs,history=rows)
-  self.assertEqual(r["status"],"ELIGIBLE_TO_PLAN_FULL_CLOUD_COREY_REGENERATION_NOT_DISPATCHED")
+  self.assertEqual(r["status"],"ELIGIBLE_TO_PLAN_FULL_CLOUD_KORE_REGENERATION_NOT_DISPATCHED")
   self.assertEqual(len(r["full_batch_regeneration_jobs"]),2)
   self.assertFalse(r["existing_primary_wavs_may_be_mixed_into_fallback"])
   self.assertFalse(r["paid_service_authorized_by_this_plan"])
