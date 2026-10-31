@@ -141,7 +141,17 @@ def inspect(*, root:Path, timing_receipt:Path)->dict:
                          "full_element_focus_verified":False})
         require([_sha(p) for p in files]==hashes,
                 "Original teaching materials changed during source mapping")
-        sections.append({"section":sec,"slide_count":len(rows),"slides":rows})
+        section_sentences=[x for row in rows for x in row["sentences"]]
+        sections.append({
+            "section":sec,"slide_count":len(rows),
+            "narration_unit_count":len(section_sentences),
+            "acoustically_timed_units":sum(x["real_acoustic_timing_candidate"]
+                                          for x in section_sentences),
+            "uniquely_timebound_focus_units_review_only":sum(
+                x["has_single_timebound_visual_candidate"] for x in section_sentences),
+            "missing_text_focus_units":sum(not x["candidate_visual_focus_regions_unapproved"]
+                                            for x in section_sentences),
+            "slides":rows})
     candidate_counts=[len(sentence["candidate_visual_focus_regions_unapproved"])
                       for section in sections for slide in section["slides"]
                       for sentence in slide["sentences"]]
