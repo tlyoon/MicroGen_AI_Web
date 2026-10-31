@@ -56,6 +56,7 @@ def inspect(*, root:Path, timing_receipt:Path)->dict:
             require(len(sentences)==len(timed)==acoustic["sentence_count"],
                     "Original utterance segment count changed")
             choices=[]
+            previous_start = -1.0
             targets=slide["auto_candidate_targets"]
             for original_sentence, anchor in zip(sentences,timed):
                 require(original_sentence["narration_fragment_sha256"]==
@@ -68,6 +69,9 @@ def inspect(*, root:Path, timing_receipt:Path)->dict:
                                 for v in (start,end)) and
                             0 <= start <= end <= duration + .001,
                             "Word timing lies outside actual PCM duration")
+                    require(start >= previous_start,
+                            "Word-timed sentences violate narration order")
+                    previous_start = start
                 else:
                     require(anchor["first_matched_real_audio_second"] is None
                             and anchor["last_matched_real_audio_second"] is None,
