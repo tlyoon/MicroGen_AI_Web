@@ -88,6 +88,13 @@ def inspect(*, root:Path, timing_receipt:Path)->dict:
                             "Unanchored narration cannot carry invented timing")
                 candidates=stable_recommendations(
                     original_sentence["narration_fragment"],targets)
+                by_id={t["draft_element_id"]:t for t in targets}
+                require(len(by_id)==len(targets),
+                        "Duplicate original slide visual target IDs")
+                require(all(c["draft_element_id"] in by_id
+                            and by_id[c["draft_element_id"]].get("kind")=="text_block"
+                            for c in candidates),
+                        "Audio-visual candidate is not an original rendered text target")
                 choices.append({
                     "sentence_index":original_sentence["sentence_index"],
                     "source_narration_sha256":anchor["narration_fragment_sha256"],
