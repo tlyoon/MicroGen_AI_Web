@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import math
 from pathlib import Path
 
 from .element_plan_autodraft import file_hash, math_markers, propose, similarity
@@ -83,9 +84,11 @@ def ranked_pdf_candidates(sentence: str, targets: list[dict]) -> list[dict]:
             continue
         rect = target.get("rendered_rect_pt")
         require(isinstance(rect, list) and len(rect) == 4 and
-                all(isinstance(x, (float, int)) for x in rect) and
+                all(isinstance(x, (float, int)) and not isinstance(x, bool)
+                    and math.isfinite(x) for x in rect) and
+                rect[0] >= 0 and rect[1] >= 0 and
                 rect[0] < rect[2] and rect[1] < rect[3],
-                "PDF rendered element has invalid geometry")
+                "PDF rendered element has invalid or nonfinite geometry")
         ranked.append({
             "original_pdf_element_id": target["draft_element_id"],
             "source_pdf_rect_pt": rect,
