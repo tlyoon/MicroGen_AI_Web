@@ -6,6 +6,8 @@ certify the meaning of a mathematical formula or figure panel.
 from __future__ import annotations
 import argparse, json, math, wave
 from pathlib import Path
+import pymupdf
+from .strict_source_element_mapping import norm
 from .element_plan_autodraft import propose, stable_recommendations
 from .original_thomas84_offline_word_pdf_timing import tokenize_reference_sentences
 from .source_label_geometry_evidence import inspect as inspect_labels
@@ -34,6 +36,8 @@ def inspect(*, root:Path, timing_receipt:Path)->dict:
                 "Original source changed after acoustic analysis")
         draft=propose(source_pdf=files[0],slides_pdf=files[1],script_txt=files[2])
         labels=inspect_labels(source=files[0],slides=files[1],script=files[2])
+        with pymupdf.open(files[0]) as original_pdf:
+            source_pages=[norm(page.get_text()) for page in original_pdf]
         spoken=blocks(files[2].read_text(encoding="utf-8-sig"))
         require(len(draft["slides"])==len(spoken)==len(previous["slides"])
                 ==len(labels["slides"])==previous["slide_count"],
@@ -105,7 +109,13 @@ def inspect(*, root:Path, timing_receipt:Path)->dict:
                             and 0 <= rect[0] < rect[2]
                             and 0 <= rect[1] < rect[3],
                             "Original PDF candidate has unsafe focus geometry")
+                    visible=norm(target.get("visible_text") or "")
+                    original_pages=[i+1 for i,contents in enumerate(source_pages)
+                                    if len(visible)>=12 and visible in contents]
                     focus_regions.append({
+                        "original_text_verbatim_source_page_candidates":original_pages,
+                        "original_text_unique_source_page_candidate":(
+                            original_pages[0] if len(original_pages)==1 else None),
                         "draft_element_id":candidate["draft_element_id"],
                         "original_slide_pdf_rect_pt":rect,
                         "source_page_verified":False,
