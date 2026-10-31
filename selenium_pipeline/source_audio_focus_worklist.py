@@ -36,7 +36,8 @@ def inspect(*, root:Path, timing_receipt:Path)->dict:
         labels=inspect_labels(source=files[0],slides=files[1],script=files[2])
         spoken=blocks(files[2].read_text(encoding="utf-8-sig"))
         require(len(draft["slides"])==len(spoken)==len(previous["slides"])
-                ==len(labels["slides"]), "Original slide count drift")
+                ==len(labels["slides"])==previous["slide_count"],
+                "Original slide count or acoustic section aggregate drift")
         rows=[]
         for (index,text),slide,acoustic,label_row in zip(
             spoken,draft["slides"],previous["slides"],labels["slides"]
