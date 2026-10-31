@@ -62,7 +62,16 @@ def inspect(*, root:Path, timing_receipt:Path)->dict:
                 require(original_sentence["narration_fragment_sha256"]==
                         anchor["narration_fragment_sha256"],
                         "Actual timing no longer maps to this spoken text")
+                fraction=anchor["actual_ASR_word_anchor_fraction"]
+                count=anchor["actual_ASR_aligned_anchor_count"]
+                expected=anchor["expected_word_count"]
+                require(type(count) is int and type(expected) is int
+                        and 0 <= count <= expected and expected > 0
+                        and type(fraction) in (float,int) and math.isfinite(fraction)
+                        and abs(fraction - round(count/expected,4)) <= .00011,
+                        "Acoustic anchor count/fraction contradicts original words")
                 if anchor["word_timing_hypothesis_available"]:
+                    require(count > 0,"Timed utterance lacks real acoustic word evidence")
                     start,end=(anchor["first_matched_real_audio_second"],
                                anchor["last_matched_real_audio_second"])
                     require(all(type(v) in (float,int) and math.isfinite(v)
