@@ -111,7 +111,11 @@ def inspect(*, root:Path, timing_receipt:Path)->dict:
                         "source_page_verified":False,
                         "mathematical_semantics_verified":False,
                     })
+                unique_target=(len(focus_regions)==1 and
+                               bool(anchor["word_timing_hypothesis_available"]))
                 choices.append({
+                    "has_single_timebound_visual_candidate":unique_target,
+                    "requires_semantic_equation_figure_review":True,
                     "candidate_visual_focus_regions_unapproved":focus_regions,
                     "sentence_index":original_sentence["sentence_index"],
                     "source_narration_sha256":anchor["narration_fragment_sha256"],
