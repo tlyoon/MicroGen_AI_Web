@@ -1,7 +1,7 @@
 """Single contract for source-bound, actual-provider TTS output identity.
 
 This validates evidence and does not create approval, authorize paid calls,
-or infer that Kore and Corey sound alike.
+or infer that Gemini Kore and Cloud Chirp Kore are acoustically identical.
 """
 from __future__ import annotations
 
@@ -80,7 +80,7 @@ def verify_effective_identity(manifest: dict, items: list[tuple[int, str]]) -> d
         "requested_primary": requested,
         "fallback_chain": chain,
         "fallback_used": fallback,
-        "voice_listening_field": ("voice_kore_listening_verified"
+        "voice_listening_field": ("voice_chirp_kore_listening_verified"
                                   if effective == CLOUD
                                   else "voice_kore_listening_verified"),
     }

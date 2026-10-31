@@ -43,7 +43,7 @@ class RestoredFallbackTests(unittest.TestCase):
         self.flash={"provider":"gemini","model":"gemini-3.8-flash-tts",
                     "voice":"Kore"}
         self.cloud={"provider":"chirp3","model":"chirp3-hd",
-                    "voice":"en-US-Chirp3-HD-Corey"}
+                    "voice":"en-US-Chirp3-HD-Kore"}
         self.evidence=AttemptEvidence(self.folder,self.items)
 
     def seed_failures(self, *, flash=False):
@@ -127,7 +127,7 @@ class RestoredFallbackTests(unittest.TestCase):
         data=json.loads((self.folder/"tts_input_manifest.json").read_text())
         self.assertEqual(data["primary"],self.cloud)
         self.assertEqual(len(data["fallback_chain"]),2)
-        self.assertTrue(all(r["voice"]=="en-US-Chirp3-HD-Corey"
+        self.assertTrue(all(r["voice"]=="en-US-Chirp3-HD-Kore"
                             for r in data["slides"]))
         self.assertTrue(all(r["primary_voice"]=="Kore" for r in data["slides"]))
         self.assertFalse(any(r["voice"]=="Kore" for r in data["slides"]))

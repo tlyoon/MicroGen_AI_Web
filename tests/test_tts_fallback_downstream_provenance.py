@@ -150,7 +150,7 @@ class FallbackProvenanceEndToEndTests(unittest.TestCase):
         case=self.new_audio()
         self.mutate_audio(case,CLOUD,[LITE,FLASH])
         proof=audit(case.source,case.review)
-        self.assertEqual(proof["voice_listening_field"],"voice_corey_listening_verified")
+        self.assertEqual(proof["voice_listening_field"],"voice_chirp_kore_listening_verified")
         doc=case.create_external_attestation()
         doc["fallback_provider_change_reviewed"]=True
         case.attestation_path.write_text(json.dumps(doc),encoding="utf-8")
@@ -160,7 +160,7 @@ class FallbackProvenanceEndToEndTests(unittest.TestCase):
                             confirm_reviewed_audio=True,
                             confirm_isolated_export=True)
         self.assertFalse(case.destination.exists())
-        doc["voice_corey_listening_verified"]=True
+        doc["voice_chirp_kore_listening_verified"]=True
         case.attestation_path.write_text(json.dumps(doc),encoding="utf-8")
         exported=export_reviewed(case.source,case.review,case.destination,
                             attestation_path=case.attestation_path,
