@@ -881,6 +881,13 @@ def _execute_unlocked(s: Settings) -> Path:
             if state["completed"].get("tts_qa"):
                 verify(source.parent)
         if stage in {"narration", "script_qa", "tts", "tts_qa", "video"}:
+            # Detect the proven arcsine/arctangent endpoint misconception
+            # on the actual authored slide BEFORE TTS, including cached
+            # stage reuses and video-only resumes. A narration-only math
+            # check cannot inspect a review question missing from speech.
+            from .inverse_trig_principal_domain_guard import enforce as enforce_principal_domains
+            enforce_principal_domains(latex_path=source.parent/"slides.tex",
+                                      source_pdf=source)
             from .figure_audit import enforce_graphics
             enforce_graphics(source.parent, repair=True)
         if stage in {"narration", "tts", "tts_qa"}:
