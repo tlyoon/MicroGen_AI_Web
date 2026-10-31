@@ -99,6 +99,9 @@ def inspect(*, root:Path, timing_receipt:Path)->dict:
                     "semantic_equation_or_figure_match_verified":False,
                     "highlight_approved":False,
                 })
+            require(sum(bool(x["real_acoustic_timing_candidate"]) for x in choices)
+                    == acoustic["actual_timed_sentence_candidates"],
+                    "Acoustic receipt aggregate contradicts individual sentences")
             rows.append({"slide":index,"wav_sha256":acoustic["wav_sha256"],
                          "source_grounded_visible_labels":label_row["labels"],
                          "sentences":choices,
