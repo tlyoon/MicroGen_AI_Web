@@ -152,7 +152,8 @@ class CandidateAuthoringTests(unittest.TestCase):
         ]
         ranked=stable_recommendations("sine squared theta in the integral",refs)
         self.assertEqual(ranked[0]["draft_element_id"],"a")
-        self.assertTrue(any(x["possible_trig_mismatch_review"] for x in ranked[1:]))
+        # Incompatible cosine is excluded, not silently down-ranked.
+        self.assertEqual([x["draft_element_id"] for x in ranked], ["a"])
         self.assertGreater(ranked[0]["mathematical_term_coverage_hint"],0)
         self.assertFalse(any("approved" in x for x in ranked))
 
