@@ -4,7 +4,7 @@ Only review candidates: neither a lexical match nor a word timestamp can
 certify the meaning of a mathematical formula or figure panel.
 """
 from __future__ import annotations
-import argparse, json
+import argparse, json, math, wave
 from pathlib import Path
 from .element_plan_autodraft import propose, stable_recommendations
 from .original_thomas84_offline_word_pdf_timing import tokenize_reference_sentences
@@ -46,6 +46,11 @@ def inspect(*, root:Path, timing_receipt:Path)->dict:
             wav=folder/f"slide{index}.wav"
             require(_sha(wav)==acoustic["wav_sha256"],
                     "Original WAV differs from genuine acoustic timing source")
+            with wave.open(str(wav),"rb") as audio:
+                duration = audio.getnframes()/audio.getframerate()
+            require(math.isfinite(duration) and duration > 0
+                    and abs(duration-acoustic["wav_duration_s"]) <= .0002,
+                    "Acoustic receipt duration mismatches original PCM")
             sentences,_=tokenize_reference_sentences(text)
             timed=acoustic["sentence_timing_candidates"]
             require(len(sentences)==len(timed)==acoustic["sentence_count"],
@@ -56,6 +61,17 @@ def inspect(*, root:Path, timing_receipt:Path)->dict:
                 require(original_sentence["narration_fragment_sha256"]==
                         anchor["narration_fragment_sha256"],
                         "Actual timing no longer maps to this spoken text")
+                if anchor["word_timing_hypothesis_available"]:
+                    start,end=(anchor["first_matched_real_audio_second"],
+                               anchor["last_matched_real_audio_second"])
+                    require(all(type(v) in (float,int) and math.isfinite(v)
+                                for v in (start,end)) and
+                            0 <= start <= end <= duration + .001,
+                            "Word timing lies outside actual PCM duration")
+                else:
+                    require(anchor["first_matched_real_audio_second"] is None
+                            and anchor["last_matched_real_audio_second"] is None,
+                            "Unanchored narration cannot carry invented timing")
                 candidates=stable_recommendations(
                     original_sentence["narration_fragment"],targets)
                 choices.append({
