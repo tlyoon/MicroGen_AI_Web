@@ -138,7 +138,17 @@ def inspect(*, root:Path, timing_receipt:Path)->dict:
         require([_sha(p) for p in files]==hashes,
                 "Original teaching materials changed during source mapping")
         sections.append({"section":sec,"slide_count":len(rows),"slides":rows})
+    candidate_counts=[len(sentence["candidate_visual_focus_regions_unapproved"])
+                      for section in sections for slide in section["slides"]
+                      for sentence in slide["sentences"]]
+    timebound_single=sum(sentence["has_single_timebound_visual_candidate"]
+                         for section in sections for slide in section["slides"]
+                         for sentence in slide["sentences"])
     return {"schema_version":1,
+            "narration_unit_count":len(candidate_counts),
+            "narration_units_without_text_focus_candidate":sum(n==0 for n in candidate_counts),
+            "narration_units_with_multiple_text_focus_candidates":sum(n>1 for n in candidate_counts),
+            "timebound_unique_text_focus_candidates_review_only":timebound_single,
             "status":"REAL_WORD_TIMING_TO_PDF_FOCUS_CANDIDATES_REVIEW_ONLY",
             "sections":sections,
             "slide_count":sum(s["slide_count"] for s in sections),
