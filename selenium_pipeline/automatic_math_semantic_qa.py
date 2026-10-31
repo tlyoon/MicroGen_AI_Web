@@ -15,7 +15,7 @@ import re
 from pathlib import Path
 
 _BLOCKS=re.compile(r"(?m)^\*\*Slide\s+(\d+)\s+\[[^\]\r\n]+\]:")
-_RULE_VERSION="general-semantic-domain-sign-v1"
+_RULE_VERSION="general-semantic-domain-sign-graph-v2"
 
 
 def _sha(text: str) -> str:
@@ -50,6 +50,19 @@ def _detect(slide: int, body: str) -> list[dict]:
     # Assess the domain-sensitive assertion locally rather than passing if
     # *another* sentence somewhere mentions a reference angle.
     for sentence in lines:
+        # Proven publisher-source defect from genuine Thomas §8.4 Fig. 8.3:
+        # y=arctan(x/a), a>0, has HORIZONTAL asymptotes ±pi/2,
+        # not vertical asymptotes at those dependent-variable values.
+        if (re.search(r"\b(?:arctangent|arc\s+tangent|inverse tangent)\b",sentence)
+                and re.search(r"\bvertical asymptot",sentence)
+                and re.search(r"\bpi\s*(?:over|/|divided by)\s*two\b|π\s*/\s*2",sentence)):
+            add("arctangent_horizontal_not_vertical_asymptotes",sentence.strip(),
+                "For a>0, arctangent(x/a) approaches horizontal y=±pi/2 as x tends to ±infinity; ±pi/2 are not vertical x-asymptote coordinates.",
+                "Replace the graph explanation with horizontal asymptotes y=±pi/2 and confirm actual figure orientation against original textbook.")
+        if re.search(r"\binverse\s+trigonometric\s+functions?\b.{0,110}\bnot\s+one\s+to\s+one\b",sentence):
+            add("inverse_function_one_to_one_confusion",sentence.strip(),
+                "A principal inverse trigonometric function is one-to-one; it is the original trigonometric function that needs a one-to-one restricted branch.",
+                "Describe restricting the original sine/tangent/secant angle intervals before constructing their principal inverse functions.")
         # An integral described merely as "containing" a radical does NOT
         # determine its transformed integrand: the numerator/measure has
         # not been specified. Catch this *before* using TTS or publishing.

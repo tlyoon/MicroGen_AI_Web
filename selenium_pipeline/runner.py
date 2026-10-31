@@ -901,7 +901,7 @@ def _execute_unlocked(s: Settings) -> Path:
         browser_model = {"figures": DEFAULT_CAPTION_MODEL, "slides": DEFAULT_SLIDE_MODEL,
                          "narration": DEFAULT_NARRATION_MODEL}.get(stage, "deterministic-local")
         if stage == "script_qa":
-            model_stamp = "script-risk-v1:math-domain-sign-v1"
+            model_stamp = "script-risk-v1:math-domain-sign-graph-v2"
         elif stage == "tts":
             model_stamp = f"{s.tts_provider}:{s.tts_model}:{s.tts_voice}"
         elif stage == "tts_qa":
