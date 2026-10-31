@@ -506,7 +506,7 @@ def _named_voice(voice: str) -> str:
 def _fallback_specs(provider: str, model: str, voice: str) -> list[dict[str, str]]:
     """Owner-approved full-batch fallback order; NEVER mix different voices."""
     chirp = {"provider": "chirp3", "model": "chirp3-hd",
-             "voice": "en-US-Chirp3-HD-Corey"}
+             "voice": "en-US-Chirp3-HD-Kore"}
     if provider == "gemini" and model == "gemini-3.8-flash-lite-tts":
         return [
             {"provider": "gemini", "model": "gemini-3.8-flash-tts", "voice": voice},
