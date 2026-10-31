@@ -101,14 +101,17 @@ def stable_recommendations(speech: str, candidates: list[dict]) -> list[dict]:
                        if spoken_math else 0.0)
         speech_trig=spoken_math & TRIG_TERMS
         visible_trig=target_math & TRIG_TERMS
-        trig_conflict=(len(speech_trig)==len(visible_trig)==1
-                       and speech_trig.isdisjoint(visible_trig))
+        trig_conflict=bool(speech_trig and visible_trig
+                           and speech_trig.isdisjoint(visible_trig))
         # Math keywords provide a separate visible hint; they cannot
         # approve figure meaning, equation equivalence, or narration.
         score=(.65*lexical+.35*math_coverage
                if spoken_math and target_math else lexical)
         if trig_conflict:
-            score*=.35
+            # A named incompatible function is never a safe focus suggestion.
+            # Do not merely down-rank it: candidates may otherwise outrank
+            # all correct expressions in the same rendered slide.
+            continue
         score=round(score,4)
         if score>0:
             ranked.append({"draft_element_id":target["draft_element_id"],
