@@ -95,7 +95,24 @@ def inspect(*, root:Path, timing_receipt:Path)->dict:
                             and by_id[c["draft_element_id"]].get("kind")=="text_block"
                             for c in candidates),
                         "Audio-visual candidate is not an original rendered text target")
+                focus_regions=[]
+                for candidate in candidates:
+                    target=by_id[candidate["draft_element_id"]]
+                    rect=target.get("rendered_rect_pt")
+                    require(isinstance(rect,list) and len(rect)==4
+                            and all(type(v) in (int,float) and math.isfinite(v)
+                                    for v in rect)
+                            and 0 <= rect[0] < rect[2]
+                            and 0 <= rect[1] < rect[3],
+                            "Original PDF candidate has unsafe focus geometry")
+                    focus_regions.append({
+                        "draft_element_id":candidate["draft_element_id"],
+                        "original_slide_pdf_rect_pt":rect,
+                        "source_page_verified":False,
+                        "mathematical_semantics_verified":False,
+                    })
                 choices.append({
+                    "candidate_visual_focus_regions_unapproved":focus_regions,
                     "sentence_index":original_sentence["sentence_index"],
                     "source_narration_sha256":anchor["narration_fragment_sha256"],
                     "real_acoustic_timing_candidate":bool(anchor[
