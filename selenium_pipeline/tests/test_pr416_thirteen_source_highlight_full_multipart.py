@@ -16,8 +16,9 @@ class ThirteenVerifiedMathSlidePreview(unittest.TestCase):
         self.assertEqual(sorted(WORKED),[10,11,13,14,15])
         self.assertTrue(all(PROVENANCE[n]==(BATCH_STATUS,None)
                             for n in WORKED))
-        self.assertTrue(all("FIVE_ORIGINAL_WORKED_MATH_CLIPS"
-                            in HIGHLIGHTS[n][0] for n in WORKED))
+        self.assertTrue(all(HIGHLIGHTS[n][2] ==
+            "FIVE_ORIGINAL_WORKED_MATH_CLIPS_INDEPENDENT_SOURCE_QA.json"
+            for n in WORKED))
 
     def test_no_false_milestone_or_student_release(self):
         self.assertIn(
