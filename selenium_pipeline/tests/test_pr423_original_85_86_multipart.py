@@ -6,9 +6,9 @@ from selenium_pipeline.original_thomas84_multipart_qa_preview import split_slide
 
 class OriginalTwoSectionMultipartVideo(unittest.TestCase):
     def test_all_source_math_highlight_scenes_explicit_only(self):
-        self.assertEqual(sorted(FOCUS["8.5"]),[3,4,5,6])
-        self.assertEqual(sorted(FOCUS["8.6"]),[3,4,5,8])
-        self.assertTrue(all(x[2] in ("first","more","constraints")
+        self.assertEqual(sorted(FOCUS["8.5"]),[3,4,5,6,7,8])
+        self.assertEqual(sorted(FOCUS["8.6"]),[3,4,5,7,8])
+        self.assertTrue(all(x[2] in ("first","more","constraints","derivation")
                             for m in FOCUS.values() for x in m.values()))
     def test_no_unverified_math_or_figure_implicit_approval(self):
         self.assertIn("NOT_PRODUCTION",STATUS)

@@ -2,7 +2,7 @@
 
 Includes every physically original authored slide and original WAV, using
 ONLY separately textbook+SymPy+Vosk+pixel-verified source mathematical
-highlights for three original slides per section. Remaining original slides
+highlights only for the source-approved original slides per section. Remaining original slides
 are unchanged static visuals and must NOT be marked academically approved.
 All original source hashes pinned and full H264/AAC videos <600s.
 """
@@ -20,10 +20,11 @@ from .video_ffmpeg import ffmpeg_executable
 from .original_thomas85_86_first_math_highlights import SOURCE,STATUS as FIRST_STATUS
 from .original_thomas85_86_more_worked_math import WORKED,STATUS as MORE_STATUS
 from .original_thomas85_86_academic_constraints_focus import STATUS as CONSTRAINTS_STATUS
+from .original_thomas85_86_derivation_audio_pixels import STATUS as DERIVATION_STATUS
 from .original_thomas84_multipart_qa_preview import split_slides
 
-# Exactly 3 standalone original scholarly math highlight scenes for each
-# other section; no accidental promotion of future unverified candidates.
+# Individually source/SymPy/WAV/pixel-proven math highlight clips only.
+# Unverified math and figures still fail closed.
 FOCUS={
  "8.5":{
    4:("20261101_PR425_ORIGINAL_SOURCE_ACADEMIC_CONSTRAINTS",
@@ -34,6 +35,10 @@ FOCUS={
       "Thomas_8.5_slide5_additional_source_math.mp4","more"),
    6:("20261101_PR422_MORE_85_86_ORIGINAL_MATH",
       "Thomas_8.5_slide6_additional_source_math.mp4","more"),
+   7:("20261101_PR427_ADDITIONAL_THREE_ORIGINAL_MATH_SCENES_V2",
+      "Thomas_8.5_slide7_source_full_math.mp4","derivation"),
+   8:("20261101_PR427_ADDITIONAL_THREE_ORIGINAL_MATH_SCENES_V2",
+      "Thomas_8.5_slide8_source_full_math.mp4","derivation"),
  },
  "8.6":{
    3:("20261101_PR425_ORIGINAL_SOURCE_ACADEMIC_CONSTRAINTS",
@@ -42,10 +47,12 @@ FOCUS={
       "Thomas_8.6_slide4_math.mp4","first"),
    5:("20261101_PR422_MORE_85_86_ORIGINAL_MATH",
       "Thomas_8.6_slide5_additional_source_math.mp4","more"),
+   7:("20261101_PR427_ADDITIONAL_THREE_ORIGINAL_MATH_SCENES_V2",
+      "Thomas_8.6_slide7_source_full_math.mp4","derivation"),
    8:("20261101_PR422_MORE_85_86_ORIGINAL_MATH",
       "Thomas_8.6_slide8_additional_source_math.mp4","more"),
  }}
-STATUS="ORIGINAL_85_86_FULL_SOURCE_AUDIO_QA_FOUR_EACH_APPROVED_HIGHLIGHT_SCENES_NOT_PRODUCTION"
+STATUS="ORIGINAL_85_86_FULL_AUDIO_QA_NINE_MATH_FOCUS_SCENES_NOT_PRODUCTION"
 MAX_DURATION=570.0
 
 
@@ -81,6 +88,13 @@ def _source_witnesses(*,section:str,original:Path,checkpoint:Path)->tuple[dict,d
     constraint=json.loads((checkpoint/
         "20261101_PR425_ORIGINAL_SOURCE_ACADEMIC_CONSTRAINTS"/
         "THOMAS_85_86_ORIGINAL_SOURCE_CONDITIONS_PIXEL_QA.json").read_text(encoding="utf8"))
+    derivation=json.loads((checkpoint/
+        "20261101_PR427_ADDITIONAL_THREE_ORIGINAL_MATH_SCENES_V2"/
+        "ORIGINAL_THOMAS_85_86_THREE_MATH_SLIDES_SIX_TIMED_PIXEL_EVENTS.json").read_text(encoding="utf8"))
+    require(derivation["status"]==DERIVATION_STATUS
+            and derivation["academic_all_source_elements_accepted"] is False
+            and derivation["student_publication_authorized"] is False,
+            "Scientific source three-derivation clips not approved")
     require(first["status"]==FIRST_STATUS and
             more["status"]==MORE_STATUS
             and constraint["status"]==CONSTRAINTS_STATUS and
@@ -103,7 +117,14 @@ def _source_witnesses(*,section:str,original:Path,checkpoint:Path)->tuple[dict,d
                 _sha(original/"slides.pdf")
             and constraint["student_publication_authorized"] is False,
             "Publisher source mathematical prerequisites clip receipt invalid")
-    return first,more,constraint
+    for s,(_,_,kind) in FOCUS[section].items():
+        if kind=="derivation":
+            receipt=derivation["original_source_mathematical_slide_clips"][f"{section}_slide{s}"]
+            require(receipt["book_sha256"]==_sha(original/"source.pdf")
+                    and receipt["original_slides_pdf_sha256"]==_sha(original/"slides.pdf")
+                    and receipt["all_intermediate_source_math_and_figures_approved"] is False,
+                    "New derivation publisher evidence not source-bound")
+    return first,more,constraint,derivation
 
 
 def build(*,root:Path,checkpoint:Path,out:Path)->dict:
@@ -125,7 +146,7 @@ def build(*,root:Path,checkpoint:Path,out:Path)->dict:
         require(_sha(original/"source.pdf")==meta["publisher_sha"] and
                 _sha(original/"slides.pdf")==meta["slides_pdf_sha"],
                 f"Original textbook source of §{section} does not match pinned hash")
-        first,more,constraint=_source_witnesses(section=section,original=original,checkpoint=checkpoint)
+        first,more,constraint,derivation=_source_witnesses(section=section,original=original,checkpoint=checkpoint)
         actual={}
         for slide in range(1,meta["slides"]+1):
             wav=original/f"slide{slide}.wav"
@@ -149,6 +170,13 @@ def build(*,root:Path,checkpoint:Path,out:Path)->dict:
                             and len(receipt["actual_encoded_independent_pixel_samples"])==3
                             and receipt["entire_slide_source_approved"] is False,
                             "Publisher academic conditions PCM/encoded pixel proof invalid")
+                elif kind=="derivation":
+                    receipt=derivation["original_source_mathematical_slide_clips"][f"{section}_slide{slide}"]
+                    require(receipt["encoded_h264_aac_video_sha256"]==_sha(video)
+                            and receipt["original_original_wav_sha256"]==_sha(wav)
+                            and len(receipt["independent_decoded_pixel_probes"])==3
+                            and len(receipt["source_mathematical_spoken_events"])==2,
+                            "Derivation original source math/video/WAV/PDF proof invalid")
                 else:
                     receipt=more["original_source_math_clips"][f"{section}_slide{slide}"]
                     require(receipt["encoded_mp4_sha256"]==_sha(video)
