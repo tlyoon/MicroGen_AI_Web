@@ -22,9 +22,13 @@ from PIL import Image,ImageChops,ImageStat
 from .figure_source_identity import _sha,require
 from .video_ffmpeg import ffmpeg_executable
 from .original_thomas84_five_worked_math_sync_batch import WORKED,BATCH_STATUS
+from .original_thomas84_intro_summary_source_sync import STATUS as INTRO_SUMMARY_STATUS
 
 MAX_PART_SECONDS=570.
 HIGHLIGHTS={
+    3:("20261101_PR417_ORIGINAL_INTRO_SUMMARY_SOURCE_MATH",
+       "thomas84_slide3_three_verified_focus.mp4",
+       "INTRO_SUMMARY_SOURCE_VIDEO_AND_PIXEL_QA.json"),
     4:("20261101_PR409_ORIGINAL_SLIDE4_SOURCE_MATH_SYNC_V2",
        "thomas84_slide4_three_equation_sync_qa.mp4",
        "thomas84_slide4_independent_pixel_qa.json"),
@@ -61,11 +65,15 @@ HIGHLIGHTS={
     15:("20261101_PR415_FIVE_REAL_WORKED_MATH_CLIPS",
         "thomas84_slide15_single_verified_math.mp4",
         "FIVE_ORIGINAL_WORKED_MATH_CLIPS_INDEPENDENT_SOURCE_QA.json"),
+    16:("20261101_PR417_ORIGINAL_INTRO_SUMMARY_SOURCE_MATH",
+        "thomas84_slide16_three_verified_focus.mp4",
+        "INTRO_SUMMARY_SOURCE_VIDEO_AND_PIXEL_QA.json"),
     17:("20261101_PR407_CORRECTED_REAL_TIMED_HIGHLIGHTS",
        "corrected_thomas84_slide17_real_sync.mp4",
        "corrected_thomas84_slide17_independent_pixel_qa.json")
 }
-PROVENANCE={4:("ORIGINAL_SLIDE4_THREE_MATH_EQUATIONS_INDEPENDENT_PIXEL_QA_PASS",
+PROVENANCE={3:(INTRO_SUMMARY_STATUS,None),
+            4:("ORIGINAL_SLIDE4_THREE_MATH_EQUATIONS_INDEPENDENT_PIXEL_QA_PASS",
                 "actual_mp4_sha256"),
             5:("INDEPENDENT_REAL_ENCODED_PIXEL_SAMPLES_PASS",
                 "original_clip_mp4_sha256"),
@@ -82,11 +90,12 @@ PROVENANCE={4:("ORIGINAL_SLIDE4_THREE_MATH_EQUATIONS_INDEPENDENT_PIXEL_QA_PASS",
             13:(BATCH_STATUS,None),
             14:(BATCH_STATUS,None),
             15:(BATCH_STATUS,None),
+            16:(INTRO_SUMMARY_STATUS,None),
             17:("ORIGINAL_SOURCE_CORRECTED_MATH_SYNCHRONIZED_ENCODED_PIXEL_QA_PASS",
                  "actual_encoded_mp4_sha256")}
 BLOCKERS=(
     "ORIGINAL_ALL_SEVENTEEN_SLIDE_MATH_AND_FIGURE_SOURCE_SEMANTICS_NOT_APPROVED",
-    "FOUR_SLIDES_STILL_LACK_CERTIFIED_ELEMENT_LEVEL_TIMED_HIGHLIGHTS",
+    "TWO_SLIDES_STILL_LACK_CERTIFIED_ELEMENT_LEVEL_TIMED_HIGHLIGHTS",
     "NOT_AN_AUTOMATED_STUDENT_PRODUCTION_RELEASE"
 )
 
@@ -199,6 +208,15 @@ def source_highlights(*,checkpoint:Path,source_wavs:dict,
                         or doc.get("original_slide12_wav_sha256"))
             require(audio_hash==source_wavs[slide]["sha"],
                     "Original referenced audio differs from verified math focus clip")
+        elif slide in (3,16):
+            item=qa["source_bound_original_video_clips"][str(slide)]
+            require(qa["original_highlighted_slides"]==[3,16]
+                    and qa["verified_events_count"]==6
+                    and item["actual_h264_aac_mp4_sha256"]==_sha(video)
+                    and item["original_pcm_sha256"]==source_wavs[slide]["sha"]
+                    and qa["corrected_slide_pdf_sha256"]==_sha(corrected_pdf)
+                    and item["unreviewed_slide_elements_accepted"] is False,
+                    "Intro/summary source-bound audio/math pixels not independently proven")
         elif slide in WORKED:
             item=qa["source_verified_math_clips"][str(slide)]
             require(item["source_verified_individual_formula_highlight"] is True
