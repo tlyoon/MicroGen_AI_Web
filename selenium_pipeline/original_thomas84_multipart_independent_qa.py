@@ -101,7 +101,14 @@ def check(*,original:Path,corrected:Path,checkpoint:Path,
         for i in part["source_slide_numbers"]:
             if i not in HIGHLIGHTS:
                 continue
-            if i in (3,16):
+            if i==2:
+                doc=json.loads((checkpoint/HIGHLIGHTS[i][0]/
+                    "original_slide2_real_word_source_pixel_qa.json").read_text(encoding="utf8"))
+                e=doc["real_original_word_anchor_topic_events"]["3"]
+                rect=e["original_pdf_rect_pt"]
+                middle=(e["unprompted_real_asr_start_s"]+
+                        e["unprompted_real_asr_end_s"])/2
+            elif i in (3,16):
                 batch=json.loads((checkpoint/HIGHLIGHTS[i][0]/
                     "INTRO_SUMMARY_SOURCE_VIDEO_AND_PIXEL_QA.json").read_text(encoding="utf8"))
                 e=batch["source_bound_original_video_clips"][str(i)][
@@ -159,7 +166,7 @@ def check(*,original:Path,corrected:Path,checkpoint:Path,
             frame=qa_dir/f"joined_independent_highlight_slide{i:02d}.png"
             _decoded(file,second,frame)
             probes=(count_source_equation_side_border(frame,rect)
-                    if i in (3,4,7,8,16,*WORKED) else count_yellow_border(frame,rect))
+                    if i in (2,3,4,7,8,16,*WORKED) else count_yellow_border(frame,rect))
             require(probes>=6,
                     f"JOINED original source slide{i} spoken-element focus missing: {probes}/8")
             highlighted.append({"original_slide":i,
@@ -179,7 +186,7 @@ def check(*,original:Path,corrected:Path,checkpoint:Path,
         "source_element_highlight_count_verified":len(highlighted),
         "each_joined_part_strictly_under_600_seconds":True,
         "full_original_course_academic_approval":False,
-        "unverified_other_two_slide_element_mapping":True,
+        "unverified_title_slide_precise_word_timing":True,
         "student_publication_authorized":False}
     outfile=qa_dir/"INDEPENDENT_MULTIPART_VIDEO_FRAME_VERIFICATION_REVIEW_ONLY.json"
     with outfile.open("x",encoding="utf8") as f:

@@ -8,9 +8,9 @@ from selenium_pipeline.original_thomas84_five_worked_math_sync_batch import (
 class ThirteenVerifiedMathSlidePreview(unittest.TestCase):
     def test_all_thirteen_original_highlighted_scenes_are_real(self):
         self.assertEqual(sorted(HIGHLIGHTS),
-            [3,4,5,6,7,8,9,10,11,12,13,14,15,16,17])
+            [2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17])
         self.assertEqual(
-            sorted(set(range(1,18))-set(HIGHLIGHTS)),[1,2])
+            sorted(set(range(1,18))-set(HIGHLIGHTS)),[1])
 
     def test_physical_original_worked_example_receipt_enforced(self):
         self.assertEqual(sorted(WORKED),[10,11,13,14,15])
@@ -22,7 +22,7 @@ class ThirteenVerifiedMathSlidePreview(unittest.TestCase):
 
     def test_no_false_milestone_or_student_release(self):
         self.assertIn(
-            "TWO_SLIDES_STILL_LACK_CERTIFIED_ELEMENT_LEVEL_TIMED_HIGHLIGHTS",
+            "ONE_TITLE_SLIDE_NO_CERTIFIED_WORD_LEVEL_TIMED_HIGHLIGHTS",
             BLOCKERS)
         self.assertIn("NOT_AN_AUTOMATED_STUDENT_PRODUCTION_RELEASE",BLOCKERS)
         self.assertIn(
