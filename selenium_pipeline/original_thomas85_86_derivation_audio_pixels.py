@@ -126,16 +126,24 @@ def duration(video:Path)->float:
             "Actual real source video lacks approved H264/AAC streams")
     return int(m[1])*3600+int(m[2])*60+float(m[3])
 
-def create(*,root:Path,timing_receipt:Path,out:Path)->dict:
+def create(*,root:Path,timing_receipt:Path,out:Path,
+           cases:dict|None=None, identities:dict|None=None,
+           status:str=STATUS,
+           receipt_name:str="ORIGINAL_THOMAS_85_86_THREE_MATH_SLIDES_SIX_TIMED_PIXEL_EVENTS.json")->dict:
     root,out=Path(root).absolute(),Path(out).absolute()
     require(out.is_dir() and not out.is_symlink()
             and not out.is_relative_to(root),
             "Use immutable publisher corpus and clean separate original QA output")
-    identities=sympy_source_math()
+    identities=sympy_source_math() if identities is None else identities
+    cases=CASES if cases is None else cases
+    require(isinstance(cases,dict) and len(cases)>0,
+            "Empty source math scenes never warrant video/academic success")
+    require(isinstance(identities,dict) and identities,
+            "Independent external math identity result required")
     transcripts=json.loads(Path(timing_receipt).read_text(encoding="utf8"))
     recognized={item["section"]:item for item in transcripts["sections"]}
     rows={}
-    for (section,slide),cfg in CASES.items():
+    for (section,slide),cfg in cases.items():
         folder=root/section
         book,tex,pdf,script,wav=(
             folder/"source.pdf",folder/"slides.tex",folder/"slides.pdf",
@@ -257,14 +265,14 @@ def create(*,root:Path,timing_receipt:Path,out:Path)->dict:
             "independent_decoded_pixel_probes":frames,
             "original_voice_s":seconds,"encoded_video_s":actual,
             "all_intermediate_source_math_and_figures_approved":False}
-    report={"status":STATUS,"source_math_sympy_derivation_proofs":identities,
+    report={"status":status,"source_math_sympy_derivation_proofs":identities,
         "original_source_mathematical_slide_clips":rows,
         "academic_all_source_elements_accepted":False,
         "student_publication_authorized":False}
-    with (out/"ORIGINAL_THOMAS_85_86_THREE_MATH_SLIDES_SIX_TIMED_PIXEL_EVENTS.json").open(
+    with (out/receipt_name).open(
          "x",encoding="utf8") as f:
         json.dump(report,f,indent=2,ensure_ascii=False);f.write("\n")
-    print(json.dumps({"status":STATUS,"original_math_slides":list(rows),
+    print(json.dumps({"status":status,"original_math_slides":list(rows),
         "encoded_independent_frames":sum(len(v["independent_decoded_pixel_probes"])
                                          for v in rows.values())}))
     return report
