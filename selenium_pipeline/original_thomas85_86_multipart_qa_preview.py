@@ -23,6 +23,7 @@ from .original_thomas85_86_academic_constraints_focus import STATUS as CONSTRAIN
 from .original_thomas85_86_derivation_audio_pixels import STATUS as DERIVATION_STATUS
 from .original_thomas85_86_coverup_erf_source import STATUS as COVERUP_ERF_STATUS
 from .original_thomas85_86_math_review_questions import STATUS as REVIEW_STATUS
+from .original_thomas85_86_summary_cas import STATUS as SUMMARY_STATUS
 from .original_thomas84_multipart_qa_preview import split_slides
 
 # Individually source/SymPy/WAV/pixel-proven math highlight clips only.
@@ -43,6 +44,8 @@ FOCUS={
       "Thomas_8.5_slide8_source_full_math.mp4","derivation"),
    9:("20261101_PR429_SOURCE_HEAVISIDE_ERF_VIDEO",
       "Thomas_8.5_slide9_source_full_math.mp4","coverup_erf"),
+   10:("20261101_PR434_SOURCE_SUMMARY_CAS_PILOT_V2",
+      "Thomas_8.5_slide10_source_full_math.mp4","summary_cas"),
    11:("20261101_PR432_ORIGINAL_REVIEW_SPOKEN_SOURCE_QA_V2",
       "Thomas_8.5_slide11_source_full_math.mp4","review"),
  },
@@ -57,12 +60,14 @@ FOCUS={
       "Thomas_8.6_slide7_source_full_math.mp4","derivation"),
    8:("20261101_PR422_MORE_85_86_ORIGINAL_MATH",
       "Thomas_8.6_slide8_additional_source_math.mp4","more"),
+   9:("20261101_PR434_SOURCE_SUMMARY_CAS_PILOT_V2",
+      "Thomas_8.6_slide9_source_full_math.mp4","summary_cas"),
    10:("20261101_PR429_SOURCE_HEAVISIDE_ERF_VIDEO",
       "Thomas_8.6_slide10_source_full_math.mp4","coverup_erf"),
    13:("20261101_PR432_ORIGINAL_REVIEW_SPOKEN_SOURCE_QA_V2",
       "Thomas_8.6_slide13_source_full_math.mp4","review"),
  }}
-STATUS="ORIGINAL_85_86_FULL_AUDIO_QA_FIFTEEN_MATH_FOCUS_SCENES_NOT_PRODUCTION"
+STATUS="ORIGINAL_85_86_FULL_AUDIO_QA_SEVENTEEN_MATH_FOCUS_SCENES_NOT_PRODUCTION"
 MAX_DURATION=570.0
 
 
@@ -107,6 +112,13 @@ def _source_witnesses(*,section:str,original:Path,checkpoint:Path)->tuple[dict,d
     review=json.loads((checkpoint/
         "20261101_PR432_ORIGINAL_REVIEW_SPOKEN_SOURCE_QA_V2"/
         "ORIGINAL_PUBLISHER_TWO_REVIEW_QUESTION_AUDIO_PIXEL_QA.json").read_text(encoding="utf8"))
+    summary=json.loads((checkpoint/
+        "20261101_PR434_SOURCE_SUMMARY_CAS_PILOT_V2"/
+        "ORIGINAL_THOMAS_SUMMARY_CAS_SOURCE_AUDIO_PIXEL_QA.json").read_text(encoding="utf8"))
+    require(summary["status"]==SUMMARY_STATUS
+            and summary["student_publication_authorized"] is False
+            and summary["academic_all_source_elements_accepted"] is False,
+            "Not authenticated original publisher summary/CAS audiovisual math proof")
     require(review["status"]==REVIEW_STATUS
             and review["student_publication_authorized"] is False
             and review["academic_all_source_elements_accepted"] is False,
@@ -162,7 +174,14 @@ def _source_witnesses(*,section:str,original:Path,checkpoint:Path)->tuple[dict,d
                     and q["original_slides_pdf_sha256"]==_sha(original/"slides.pdf")
                     and q["all_intermediate_source_math_and_figures_approved"] is False,
                     "Original textbook review question visual/voice not proven")
-    return first,more,constraint,derivation,extra,review
+    for s,(_,_,kind) in FOCUS[section].items():
+        if kind=="summary_cas":
+            q=summary["original_source_mathematical_slide_clips"][f"{section}_slide{s}"]
+            require(q["book_sha256"]==_sha(original/"source.pdf")
+                    and q["original_slides_pdf_sha256"]==_sha(original/"slides.pdf")
+                    and q["all_intermediate_source_math_and_figures_approved"] is False,
+                    "Summary/CAS source figure math proof not complete")
+    return first,more,constraint,derivation,extra,review,summary
 
 
 def build(*,root:Path,checkpoint:Path,out:Path)->dict:
@@ -184,7 +203,7 @@ def build(*,root:Path,checkpoint:Path,out:Path)->dict:
         require(_sha(original/"source.pdf")==meta["publisher_sha"] and
                 _sha(original/"slides.pdf")==meta["slides_pdf_sha"],
                 f"Original textbook source of §{section} does not match pinned hash")
-        first,more,constraint,derivation,extra,review=_source_witnesses(section=section,original=original,checkpoint=checkpoint)
+        first,more,constraint,derivation,extra,review,summary=_source_witnesses(section=section,original=original,checkpoint=checkpoint)
         actual={}
         for slide in range(1,meta["slides"]+1):
             wav=original/f"slide{slide}.wav"
@@ -208,14 +227,16 @@ def build(*,root:Path,checkpoint:Path,out:Path)->dict:
                             and len(receipt["actual_encoded_independent_pixel_samples"])==3
                             and receipt["entire_slide_source_approved"] is False,
                             "Publisher academic conditions PCM/encoded pixel proof invalid")
-                elif kind in ("derivation","coverup_erf","review"):
+                elif kind in ("derivation","coverup_erf","review","summary_cas"):
                     source_receipt=(derivation if kind=="derivation" else
-                                    extra if kind=="coverup_erf" else review)
+                                    extra if kind=="coverup_erf" else
+                                    review if kind=="review" else summary)
                     receipt=source_receipt["original_source_mathematical_slide_clips"][f"{section}_slide{slide}"]
                     require(receipt["encoded_h264_aac_video_sha256"]==_sha(video)
                             and receipt["original_original_wav_sha256"]==_sha(wav)
-                            and len(receipt["independent_decoded_pixel_probes"])==3
-                            and len(receipt["source_mathematical_spoken_events"])==2,
+                            and len(receipt["independent_decoded_pixel_probes"])==
+                                1+len(receipt["source_mathematical_spoken_events"])
+                            and len(receipt["source_mathematical_spoken_events"])>=2,
                             "Derivation original source math/video/WAV/PDF proof invalid")
                 else:
                     receipt=more["original_source_math_clips"][f"{section}_slide{slide}"]

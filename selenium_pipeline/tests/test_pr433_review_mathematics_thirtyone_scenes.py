@@ -6,19 +6,19 @@ from selenium_pipeline.original_thomas85_86_math_review_questions import CASES
 
 class OriginalAll41ReviewAudioAcceptance(unittest.TestCase):
     def test_all_original_review_source_scenes_in_joined_media(self):
-        self.assertEqual(sorted(FOCUS["8.5"]),[3,4,5,6,7,8,9,11])
-        self.assertEqual(sorted(FOCUS["8.6"]),[3,4,5,7,8,10,13])
-        self.assertEqual(16+sum(map(len,FOCUS.values())),31)
+        self.assertEqual(sorted(FOCUS["8.5"]),[3,4,5,6,7,8,9,10,11])
+        self.assertEqual(sorted(FOCUS["8.6"]),[3,4,5,7,8,9,10,13])
+        self.assertEqual(16+sum(map(len,FOCUS.values())),33)
         self.assertEqual(FOCUS["8.5"][11][2],"review")
         self.assertEqual(FOCUS["8.6"][13][2],"review")
         self.assertEqual(set(CASES),{("8.5",11),("8.6",13)})
     def test_original_publisher_qa_still_unapproved_for_students(self):
         self.assertIn("NOT_PRODUCTION",STATUS)
         self.assertIn("NONPRODUCTION",AUDIT)
-        self.assertIn("41_SLIDE_31_VERIFIED",AUDIT)
+        self.assertIn("41_SLIDE_33_VERIFIED",AUDIT)
         self.assertEqual(sorted(set(range(1,12))-set(FOCUS["8.5"])),
-                         [1,2,10])
+                         [1,2])
         self.assertEqual(sorted(set(range(1,14))-set(FOCUS["8.6"])),
-                         [1,2,6,9,11,12])
+                         [1,2,6,11,12])
 if __name__=="__main__":
     unittest.main()
