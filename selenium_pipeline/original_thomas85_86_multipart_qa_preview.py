@@ -19,12 +19,15 @@ from .figure_source_identity import require,_sha
 from .video_ffmpeg import ffmpeg_executable
 from .original_thomas85_86_first_math_highlights import SOURCE,STATUS as FIRST_STATUS
 from .original_thomas85_86_more_worked_math import WORKED,STATUS as MORE_STATUS
+from .original_thomas85_86_academic_constraints_focus import STATUS as CONSTRAINTS_STATUS
 from .original_thomas84_multipart_qa_preview import split_slides
 
 # Exactly 3 standalone original scholarly math highlight scenes for each
 # other section; no accidental promotion of future unverified candidates.
 FOCUS={
  "8.5":{
+   4:("20261101_PR425_ORIGINAL_SOURCE_ACADEMIC_CONSTRAINTS",
+      "thomas_8.5_slide4_source_conditions.mp4","constraints"),
    3:("20261101_PR421_FIRST_85_86_REAL_SOURCE_MATH",
       "Thomas_8.5_slide3_math.mp4","first"),
    5:("20261101_PR422_MORE_85_86_ORIGINAL_MATH",
@@ -33,6 +36,8 @@ FOCUS={
       "Thomas_8.5_slide6_additional_source_math.mp4","more"),
  },
  "8.6":{
+   3:("20261101_PR425_ORIGINAL_SOURCE_ACADEMIC_CONSTRAINTS",
+      "thomas_8.6_slide3_source_conditions.mp4","constraints"),
    4:("20261101_PR421_FIRST_85_86_REAL_SOURCE_MATH",
       "Thomas_8.6_slide4_math.mp4","first"),
    5:("20261101_PR422_MORE_85_86_ORIGINAL_MATH",
@@ -40,7 +45,7 @@ FOCUS={
    8:("20261101_PR422_MORE_85_86_ORIGINAL_MATH",
       "Thomas_8.6_slide8_additional_source_math.mp4","more"),
  }}
-STATUS="ORIGINAL_85_86_COMPLETE_SLIDE_AUDIO_QA_WITH_ONLY_3_EACH_SOURCE_APPROVED_HIGHLIGHTS_NOT_PRODUCTION"
+STATUS="ORIGINAL_85_86_FULL_SOURCE_AUDIO_QA_FOUR_EACH_APPROVED_HIGHLIGHT_SCENES_NOT_PRODUCTION"
 MAX_DURATION=570.0
 
 
@@ -73,8 +78,12 @@ def _source_witnesses(*,section:str,original:Path,checkpoint:Path)->tuple[dict,d
     more=json.loads((checkpoint/
         "20261101_PR422_MORE_85_86_ORIGINAL_MATH"/
         "FOUR_MORE_SOURCE_CALCULUS_REAL_VIDEOS_PIXEL_QA.json").read_text(encoding="utf8"))
+    constraint=json.loads((checkpoint/
+        "20261101_PR425_ORIGINAL_SOURCE_ACADEMIC_CONSTRAINTS"/
+        "THOMAS_85_86_ORIGINAL_SOURCE_CONDITIONS_PIXEL_QA.json").read_text(encoding="utf8"))
     require(first["status"]==FIRST_STATUS and
-            more["status"]==MORE_STATUS and
+            more["status"]==MORE_STATUS
+            and constraint["status"]==CONSTRAINTS_STATUS and
             first["both_sections_complete"] is False and
             more["entire_85_86_sections_production_approved"] is False,
             "Not actual independently checked first/further scholarly source clips")
@@ -88,7 +97,13 @@ def _source_witnesses(*,section:str,original:Path,checkpoint:Path)->tuple[dict,d
                     and record["original_slides_pdf_sha256"]==_sha(original/"slides.pdf")
                     and record["other_mathematical_areas_approved"] is False,
                     "Original additional formula mathematical source review not complete")
-    return first,more
+    require(constraint["source_verified_clips"][section]["original_textbook_sha256"]==
+            _sha(original/"source.pdf")
+            and constraint["source_verified_clips"][section]["original_slides_pdf_sha256"]==
+                _sha(original/"slides.pdf")
+            and constraint["student_publication_authorized"] is False,
+            "Publisher source mathematical prerequisites clip receipt invalid")
+    return first,more,constraint
 
 
 def build(*,root:Path,checkpoint:Path,out:Path)->dict:
@@ -110,7 +125,7 @@ def build(*,root:Path,checkpoint:Path,out:Path)->dict:
         require(_sha(original/"source.pdf")==meta["publisher_sha"] and
                 _sha(original/"slides.pdf")==meta["slides_pdf_sha"],
                 f"Original textbook source of §{section} does not match pinned hash")
-        first,more=_source_witnesses(section=section,original=original,checkpoint=checkpoint)
+        first,more,constraint=_source_witnesses(section=section,original=original,checkpoint=checkpoint)
         actual={}
         for slide in range(1,meta["slides"]+1):
             wav=original/f"slide{slide}.wav"
@@ -127,6 +142,13 @@ def build(*,root:Path,checkpoint:Path,out:Path)->dict:
                             and receipt["original_wav_sha256"]==_sha(wav)
                             and receipt["full_section_accepted"] is False,
                             "Original initial math source/acoustic/pixel proof invalid")
+                elif kind=="constraints":
+                    receipt=constraint["source_verified_clips"][section]
+                    require(receipt["encoded_h264_aac_mp4_sha256"]==_sha(video)
+                            and receipt["original_wav_sha256"]==_sha(wav)
+                            and len(receipt["actual_encoded_independent_pixel_samples"])==3
+                            and receipt["entire_slide_source_approved"] is False,
+                            "Publisher academic conditions PCM/encoded pixel proof invalid")
                 else:
                     receipt=more["original_source_math_clips"][f"{section}_slide{slide}"]
                     require(receipt["encoded_mp4_sha256"]==_sha(video)
