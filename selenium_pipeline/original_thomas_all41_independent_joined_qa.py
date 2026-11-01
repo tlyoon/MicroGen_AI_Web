@@ -23,8 +23,9 @@ from .original_thomas85_86_derivation_audio_pixels import STATUS as DERIVATION_S
 from .original_thomas85_86_coverup_erf_source import STATUS as COVERUP_ERF_STATUS
 from .original_thomas85_86_math_review_questions import STATUS as REVIEW_STATUS
 from .original_thomas85_86_summary_cas import STATUS as SUMMARY_STATUS
+from .original_two_other_outline_true_word_timing import STATUS as OTHER_OUTLINE_STATUS
 
-STATUS="INDEPENDENT_ACTUAL_JOINED_41_SLIDE_33_VERIFIED_FOCUS_PIXELS_NONPRODUCTION"
+STATUS="INDEPENDENT_ACTUAL_JOINED_41_SLIDE_35_VERIFIED_FOCUS_PIXELS_NONPRODUCTION"
 
 
 def _identities(*,checkpoint:Path,original:Path,section:str,
@@ -57,6 +58,20 @@ def _identities(*,checkpoint:Path,original:Path,section:str,
         event=list(item["source_verified_math_condition_events"].values())[-1]
         rect=event["source_math_rect_pt"]
         t=(event["real_original_audio_start_s"]+event["real_original_audio_end_s"])/2
+    elif kind=="outline":
+        data=json.loads((checkpoint/folder/
+          "ORIGINAL_85_86_OUTLINE_WORD_REAL_PCM_SOURCE_PIXEL_QA.json").read_text(encoding="utf8"))
+        require(data["status"]==OTHER_OUTLINE_STATUS
+                and data["student_publication_authorized"] is False,
+                "Original real WAV outline source/pixel topic evidence missing")
+        item=data["original_section_outline_media"][section]
+        require(item["real_mp4_sha256"]==_sha(encoded)
+                and item["original_slide2_wav_sha256"]==_sha(original/f"slide{slide}.wav")
+                and item["entire_slide_all_academic_content_approved"] is False,
+                "Original source topic word real recorded WAV identity changed")
+        event=list(item["publisher_verified_spoken_topic_events"].values())[-1]
+        rect=event["original_pdf_topic_rect_pt"]
+        t=(event["real_source_pcm_start_s"]+event["real_source_pcm_end_s"])/2
     elif kind in ("derivation","coverup_erf","review","summary_cas"):
         receipt_file=("ORIGINAL_THOMAS_85_86_THREE_MATH_SLIDES_SIX_TIMED_PIXEL_EVENTS.json"
                       if kind=="derivation" else
@@ -219,7 +234,7 @@ def check(*,root:Path,checkpoint:Path,qa:Path,decode_dir:Path)->dict:
         require(physical.is_file() and _sha(physical)==part["mp4_sha256"]
                 and _media_seconds(physical)<600,
                 "Previously independently source-verified §8.4 final part altered")
-    require(len(scene_proofs)==24 and len(focus_proofs)==17,
+    require(len(scene_proofs)==24 and len(focus_proofs)==19,
             "No independent final joined 24 slide/6 math focus evidence")
     result={"status":STATUS,
         "independent_actual_source_slides_across_three_sections":41,
@@ -232,7 +247,7 @@ def check(*,root:Path,checkpoint:Path,qa:Path,decode_dir:Path)->dict:
             "8.5":results["8.5"]["real_joined_parts"],
             "8.6":results["8.6"]["real_joined_parts"]},
         "actually_decoded_original_slide_samples_total":41,
-        "actually_decoded_source_proven_highlight_samples_total":33,
+        "actually_decoded_source_proven_highlight_samples_total":35,
         "all_math_and_figures_elementwise_scientifically_accepted":False,
         "full_three_section_production_gate_passed":False,
         "student_publication_authorized":False}
@@ -241,7 +256,7 @@ def check(*,root:Path,checkpoint:Path,qa:Path,decode_dir:Path)->dict:
         json.dump(result,f,indent=2,ensure_ascii=False);f.write("\n")
     print(json.dumps({"status":STATUS,
         "original_slides_verified":41,
-        "real_source_spoken_focus_scenes":33,
+        "real_source_spoken_focus_scenes":35,
         "per_section":results}))
     return result
 
