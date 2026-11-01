@@ -1,4 +1,4 @@
-"""41 original source slides, 27 verified scenes; fail-closed academic gate."""
+"""41 original source slides, 29 verified scenes; fail-closed academic gate."""
 import unittest
 from selenium_pipeline.original_thomas85_86_multipart_qa_preview import (
     FOCUS,STATUS as PART_STATUS)
@@ -8,10 +8,10 @@ from selenium_pipeline.original_thomas85_86_academic_constraints_focus import (
     CASES,STATUS as CONSTRAINTS_STATUS)
 
 class PublisherConditionsIndependentJoinedScenes(unittest.TestCase):
-    def test_twenty_seven_separate_genuine_source_highlights(self):
-        self.assertEqual(16+len(FOCUS["8.5"])+len(FOCUS["8.6"]),27)
-        self.assertEqual(sorted(FOCUS["8.5"]),[3,4,5,6,7,8])
-        self.assertEqual(sorted(FOCUS["8.6"]),[3,4,5,7,8])
+    def test_twenty_nine_separate_genuine_source_highlights(self):
+        self.assertEqual(16+len(FOCUS["8.5"])+len(FOCUS["8.6"]),29)
+        self.assertEqual(sorted(FOCUS["8.5"]),[3,4,5,6,7,8,9])
+        self.assertEqual(sorted(FOCUS["8.6"]),[3,4,5,7,8,10])
 
     def test_true_publisher_conditions_only_on_source_scenes(self):
         self.assertEqual(FOCUS["8.5"][4][2],"constraints")
@@ -23,6 +23,6 @@ class PublisherConditionsIndependentJoinedScenes(unittest.TestCase):
     def test_two_full_sections_only_qa_not_student_publication(self):
         self.assertIn("NOT_PRODUCTION",PART_STATUS)
         self.assertIn("NONPRODUCTION",JOIN_STATUS)
-        self.assertIn("41_SLIDE_27_VERIFIED",JOIN_STATUS)
+        self.assertIn("41_SLIDE_29_VERIFIED",JOIN_STATUS)
 if __name__=="__main__":
     unittest.main()

@@ -21,6 +21,7 @@ from .original_thomas85_86_first_math_highlights import SOURCE,STATUS as FIRST_S
 from .original_thomas85_86_more_worked_math import WORKED,STATUS as MORE_STATUS
 from .original_thomas85_86_academic_constraints_focus import STATUS as CONSTRAINTS_STATUS
 from .original_thomas85_86_derivation_audio_pixels import STATUS as DERIVATION_STATUS
+from .original_thomas85_86_coverup_erf_source import STATUS as COVERUP_ERF_STATUS
 from .original_thomas84_multipart_qa_preview import split_slides
 
 # Individually source/SymPy/WAV/pixel-proven math highlight clips only.
@@ -39,6 +40,8 @@ FOCUS={
       "Thomas_8.5_slide7_source_full_math.mp4","derivation"),
    8:("20261101_PR427_ADDITIONAL_THREE_ORIGINAL_MATH_SCENES_V2",
       "Thomas_8.5_slide8_source_full_math.mp4","derivation"),
+   9:("20261101_PR429_SOURCE_HEAVISIDE_ERF_VIDEO",
+      "Thomas_8.5_slide9_source_full_math.mp4","coverup_erf"),
  },
  "8.6":{
    3:("20261101_PR425_ORIGINAL_SOURCE_ACADEMIC_CONSTRAINTS",
@@ -51,8 +54,10 @@ FOCUS={
       "Thomas_8.6_slide7_source_full_math.mp4","derivation"),
    8:("20261101_PR422_MORE_85_86_ORIGINAL_MATH",
       "Thomas_8.6_slide8_additional_source_math.mp4","more"),
+   10:("20261101_PR429_SOURCE_HEAVISIDE_ERF_VIDEO",
+      "Thomas_8.6_slide10_source_full_math.mp4","coverup_erf"),
  }}
-STATUS="ORIGINAL_85_86_FULL_AUDIO_QA_NINE_MATH_FOCUS_SCENES_NOT_PRODUCTION"
+STATUS="ORIGINAL_85_86_FULL_AUDIO_QA_THIRTEEN_MATH_FOCUS_SCENES_NOT_PRODUCTION"
 MAX_DURATION=570.0
 
 
@@ -91,6 +96,13 @@ def _source_witnesses(*,section:str,original:Path,checkpoint:Path)->tuple[dict,d
     derivation=json.loads((checkpoint/
         "20261101_PR427_ADDITIONAL_THREE_ORIGINAL_MATH_SCENES_V2"/
         "ORIGINAL_THOMAS_85_86_THREE_MATH_SLIDES_SIX_TIMED_PIXEL_EVENTS.json").read_text(encoding="utf8"))
+    extra=json.loads((checkpoint/
+        "20261101_PR429_SOURCE_HEAVISIDE_ERF_VIDEO"/
+        "ORIGINAL_THOMAS_HEAVISIDE_ERF_SOURCE_MATH_PIXEL_QA.json").read_text(encoding="utf8"))
+    require(extra["status"]==COVERUP_ERF_STATUS
+            and extra["student_publication_authorized"] is False
+            and extra["academic_all_source_elements_accepted"] is False,
+            "Original Heaviside/erf evidence is not source/audio/math proved")
     require(derivation["status"]==DERIVATION_STATUS
             and derivation["academic_all_source_elements_accepted"] is False
             and derivation["student_publication_authorized"] is False,
@@ -124,7 +136,14 @@ def _source_witnesses(*,section:str,original:Path,checkpoint:Path)->tuple[dict,d
                     and receipt["original_slides_pdf_sha256"]==_sha(original/"slides.pdf")
                     and receipt["all_intermediate_source_math_and_figures_approved"] is False,
                     "New derivation publisher evidence not source-bound")
-    return first,more,constraint,derivation
+    for s,(_,_,kind) in FOCUS[section].items():
+        if kind=="coverup_erf":
+            receipt=extra["original_source_mathematical_slide_clips"][f"{section}_slide{s}"]
+            require(receipt["book_sha256"]==_sha(original/"source.pdf")
+                    and receipt["original_slides_pdf_sha256"]==_sha(original/"slides.pdf")
+                    and receipt["all_intermediate_source_math_and_figures_approved"] is False,
+                    "Heaviside/erf publisher original PDF not authenticated")
+    return first,more,constraint,derivation,extra
 
 
 def build(*,root:Path,checkpoint:Path,out:Path)->dict:
@@ -146,7 +165,7 @@ def build(*,root:Path,checkpoint:Path,out:Path)->dict:
         require(_sha(original/"source.pdf")==meta["publisher_sha"] and
                 _sha(original/"slides.pdf")==meta["slides_pdf_sha"],
                 f"Original textbook source of §{section} does not match pinned hash")
-        first,more,constraint,derivation=_source_witnesses(section=section,original=original,checkpoint=checkpoint)
+        first,more,constraint,derivation,extra=_source_witnesses(section=section,original=original,checkpoint=checkpoint)
         actual={}
         for slide in range(1,meta["slides"]+1):
             wav=original/f"slide{slide}.wav"
@@ -170,8 +189,9 @@ def build(*,root:Path,checkpoint:Path,out:Path)->dict:
                             and len(receipt["actual_encoded_independent_pixel_samples"])==3
                             and receipt["entire_slide_source_approved"] is False,
                             "Publisher academic conditions PCM/encoded pixel proof invalid")
-                elif kind=="derivation":
-                    receipt=derivation["original_source_mathematical_slide_clips"][f"{section}_slide{slide}"]
+                elif kind in ("derivation","coverup_erf"):
+                    source_receipt=derivation if kind=="derivation" else extra
+                    receipt=source_receipt["original_source_mathematical_slide_clips"][f"{section}_slide{slide}"]
                     require(receipt["encoded_h264_aac_video_sha256"]==_sha(video)
                             and receipt["original_original_wav_sha256"]==_sha(wav)
                             and len(receipt["independent_decoded_pixel_probes"])==3
