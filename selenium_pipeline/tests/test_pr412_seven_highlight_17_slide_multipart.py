@@ -7,8 +7,8 @@ from selenium_pipeline.original_thomas84_slide8_procedure_sync import (
 
 class SevenVerifiedElementSlides(unittest.TestCase):
     def test_full_original_slide_coverage_has_seven_verified_focus_clips(self):
-        self.assertEqual(sorted(HIGHLIGHTS),[4,5,6,8,9,12,17])
-        self.assertEqual(len(set(range(1,18))-set(HIGHLIGHTS)),10)
+        self.assertEqual(sorted(HIGHLIGHTS),[4,5,6,7,8,9,12,17])
+        self.assertEqual(len(set(range(1,18))-set(HIGHLIGHTS)),9)
 
     def test_four_source_math_procedure_steps_have_independent_pixel_receipt(self):
         self.assertEqual(PROVENANCE[8],(
@@ -18,7 +18,7 @@ class SevenVerifiedElementSlides(unittest.TestCase):
         self.assertEqual(len(SPOKEN_PREFIX),4)
 
     def test_figure_and_unmapped_original_elements_remain_unapproved(self):
-        self.assertIn("TEN_SLIDES_STILL_LACK_CERTIFIED_ELEMENT_LEVEL_TIMED_HIGHLIGHTS",
+        self.assertIn("NINE_SLIDES_STILL_LACK_CERTIFIED_ELEMENT_LEVEL_TIMED_HIGHLIGHTS",
                       BLOCKERS)
         self.assertIn("NOT_AN_AUTOMATED_STUDENT_PRODUCTION_RELEASE",BLOCKERS)
 
