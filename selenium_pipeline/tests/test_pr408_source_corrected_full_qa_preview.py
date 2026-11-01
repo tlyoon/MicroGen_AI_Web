@@ -28,9 +28,9 @@ class MultipartPreviewContract(unittest.TestCase):
                 with self.assertRaises(Exception):
                     split_slides(invalid)
 
-    def test_original_highlights_only_for_five_verified_slides(self):
-        self.assertEqual(sorted(HIGHLIGHTS),[5,6,9,12,17])
-        self.assertEqual(len([i for i in range(1,18) if i not in HIGHLIGHTS]),12)
+    def test_original_highlights_only_for_six_verified_slides(self):
+        self.assertEqual(sorted(HIGHLIGHTS),[4,5,6,9,12,17])
+        self.assertEqual(len([i for i in range(1,18) if i not in HIGHLIGHTS]),11)
 
     def test_preview_preserves_nonrelease_blockers(self):
         self.assertTrue(any("NOT_AN_AUTOMATED_STUDENT" in x for x in BLOCKERS))
