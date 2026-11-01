@@ -16,6 +16,7 @@ from PIL import Image,ImageChops,ImageStat
 from .figure_source_identity import require,_sha
 from .original_math_sync_video_verify import count_yellow_border
 from .original_thomas84_slide4_three_equation_sync import count_source_equation_side_border
+from .original_thomas84_five_worked_math_sync_batch import WORKED
 from .original_thomas84_multipart_qa_preview import (
     _duration,HIGHLIGHTS,source_highlights)
 
@@ -131,6 +132,12 @@ def check(*,original:Path,corrected:Path,checkpoint:Path,
                 event=doc["original_textbook_chains"][0]
                 rect=event["slide_rect_pt"]
                 middle=10.
+            elif i in WORKED:
+                batch=json.loads((checkpoint/HIGHLIGHTS[i][0]/
+                    "FIVE_ORIGINAL_WORKED_MATH_CLIPS_INDEPENDENT_SOURCE_QA.json").read_text(encoding="utf8"))
+                e=batch["source_verified_math_clips"][str(i)]
+                rect=e["actual_math_target_rect_pt"]
+                middle=(e["real_narration_start_s"]+e["real_narration_end_s"])/2
             elif i==9:
                 doc=json.loads((checkpoint/HIGHLIGHTS[i][0]/
                                 "original_thomas84_slide9_math_sync_qa.json").read_text(encoding="utf8"))
@@ -145,7 +152,7 @@ def check(*,original:Path,corrected:Path,checkpoint:Path,
             frame=qa_dir/f"joined_independent_highlight_slide{i:02d}.png"
             _decoded(file,second,frame)
             probes=(count_source_equation_side_border(frame,rect)
-                    if i in (4,7,8) else count_yellow_border(frame,rect))
+                    if i in (4,7,8,*WORKED) else count_yellow_border(frame,rect))
             require(probes>=6,
                     f"JOINED original source slide{i} spoken-element focus missing: {probes}/8")
             highlighted.append({"original_slide":i,
@@ -165,7 +172,7 @@ def check(*,original:Path,corrected:Path,checkpoint:Path,
         "source_element_highlight_count_verified":len(highlighted),
         "each_joined_part_strictly_under_600_seconds":True,
         "full_original_course_academic_approval":False,
-        "unverified_other_nine_slide_element_mapping":True,
+        "unverified_other_four_slide_element_mapping":True,
         "student_publication_authorized":False}
     outfile=qa_dir/"INDEPENDENT_MULTIPART_VIDEO_FRAME_VERIFICATION_REVIEW_ONLY.json"
     with outfile.open("x",encoding="utf8") as f:
