@@ -31,14 +31,14 @@ def audit(*,root:Path,checkpoint:Path)->dict:
     root,checkpoint=Path(root).absolute(),Path(checkpoint).absolute()
     require(root.is_dir() and not root.is_symlink(),
             "Physical original publisher root missing")
-    prior=checkpoint/"20261101_PR430_INDEPENDENT_ALL41_29_FOCUS_QA"/(
+    prior=checkpoint/"20261101_PR433_INDEPENDENT_ALL41_31_FOCUS_QA"/(
         "INDEPENDENT_ALL41_ORIGINAL_MP4_FRAME_PIXEL_QA.json")
     require(prior.is_file() and not prior.is_symlink(),
             "No independently encoded original source math/figure/audio witness")
     witness=json.loads(prior.read_text(encoding="utf8"))
     require(witness["status"]==INDEPENDENT_STATUS
             and witness["actually_decoded_original_slide_samples_total"]==41
-            and witness["actually_decoded_source_proven_highlight_samples_total"]==29
+            and witness["actually_decoded_source_proven_highlight_samples_total"]==31
             and witness["student_publication_authorized"] is False
             and witness["all_math_and_figures_elementwise_scientifically_accepted"] is False,
             "Existing source/audio/video pixel facts not independently proven")
@@ -129,11 +129,11 @@ def audit(*,root:Path,checkpoint:Path)->dict:
             "original_slides_without_verified_focus":[i for i in range(1,count+1)
                                                       if i not in seen]}
     require(len(records)==41 and sum(len(set(HIGHLIGHTS if k=="8.4" else FOCUS[k]))
-                                    for k in EXPECTED)==29,
+                                    for k in EXPECTED)==31,
             "Publisher sections independently validated source focus count drifted")
     result={"status":STATUS,"original_source_slides":41,
-            "original_source_pixel_and_audio_math_focus_slides":29,
-            "original_slides_without_any_verified_focus":12,
+            "original_source_pixel_and_audio_math_focus_slides":31,
+            "original_slides_without_any_verified_focus":10,
             "original_sections":sources,
             "detailed_original_slide_acceptance_deficits":records,
             "author_math_command_counts_are_inventory_only":True,
@@ -161,8 +161,8 @@ def main(argv=None):
     with path.open("x",encoding="utf8") as f:
         json.dump(report,f,indent=2,ensure_ascii=False);f.write("\n")
     print(json.dumps({"status":STATUS,"original_slides":41,
-                      "verified_spoken_focus_slides":29,
-                      "remaining_no_focus_slides":12,
+                      "verified_spoken_focus_slides":31,
+                      "remaining_no_focus_slides":10,
                       "source_figures":sum(len(r["actual_author_image_files"])
                           for r in report["detailed_original_slide_acceptance_deficits"].values()),
                       "tank_original_source_identity_approved":False,
