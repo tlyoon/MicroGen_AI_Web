@@ -33,6 +33,9 @@ HIGHLIGHTS={
     6:("20261101_PR407_CORRECTED_REAL_TIMED_HIGHLIGHTS",
        "corrected_thomas84_slide6_real_sync.mp4",
        "corrected_thomas84_slide6_independent_pixel_qa.json"),
+    8:("20261101_PR411_ORIGINAL_SOURCE_PROCEDURE_SLIDE8",
+       "thomas84_slide8_four_step_sync_qa.mp4",
+       "thomas84_slide8_independent_pixel_qa.json"),
     9:("20261031_PR396_SOURCE_MATH_SLIDE9_QA",
        "original_thomas84_slide9_math_sync_qa.mp4",
        "original_thomas84_slide9_independent_pixel_qa.json"),
@@ -49,13 +52,15 @@ PROVENANCE={4:("ORIGINAL_SLIDE4_THREE_MATH_EQUATIONS_INDEPENDENT_PIXEL_QA_PASS",
                 "original_clip_mp4_sha256"),
             6:("ORIGINAL_SOURCE_CORRECTED_MATH_SYNCHRONIZED_ENCODED_PIXEL_QA_PASS",
                 "actual_encoded_mp4_sha256"),
+            8:("ORIGINAL_SLIDE8_FOUR_SOURCE_PROCEDURE_HIGHLIGHTS_PIXEL_QA_PASS",
+                "actual_encoded_mp4_sha256"),
             9:("ORIGINAL_SOURCE_SLIDE9_ENCODED_PIXEL_SAMPLES_PASS",None),
             12:("ORIGINAL_SLIDE12_INDEPENDENT_ENCODED_PIXEL_QA_PASS",None),
             17:("ORIGINAL_SOURCE_CORRECTED_MATH_SYNCHRONIZED_ENCODED_PIXEL_QA_PASS",
                  "actual_encoded_mp4_sha256")}
 BLOCKERS=(
     "ORIGINAL_ALL_SEVENTEEN_SLIDE_MATH_AND_FIGURE_SOURCE_SEMANTICS_NOT_APPROVED",
-    "ELEVEN_SLIDES_STILL_LACK_CERTIFIED_ELEMENT_LEVEL_TIMED_HIGHLIGHTS",
+    "TEN_SLIDES_STILL_LACK_CERTIFIED_ELEMENT_LEVEL_TIMED_HIGHLIGHTS",
     "ORIGINAL_SLIDE_EIGHT_SIGNED_TRIANGLE_DEFECT_NOT_ASSERTED_FOR_THIS_DECK",
     "NOT_AN_AUTOMATED_STUDENT_PRODUCTION_RELEASE"
 )
@@ -150,16 +155,18 @@ def source_highlights(*,checkpoint:Path,source_wavs:dict,
         require(qa["status"]==state and qa["student_publication_authorized"] is False
                 and (sha_key is None or qa[sha_key]==_sha(video)),
                 "Source math original MP4 not independently pixel verified")
-        if slide in (4,5,9,12):
+        if slide in (4,5,8,9,12):
             # Source SHA is verified by each individual original producer.
             metadata=(parent/{
                 4:"thomas84_slide4_source_synchronized_equations.json",
                 5:"thomas84_slide5_source_math_sync_qa.json",
+                8:"thomas84_slide8_source_procedure_qa.json",
                 9:"original_thomas84_slide9_math_sync_qa.json",
                 12:"thomas84_slide12_math_sync_provenance.json"
             }[slide])
             doc=json.loads(metadata.read_text(encoding="utf8"))
-            audio_hash=(doc.get("original_slide4_wav_sha256")
+            audio_hash=(doc.get("original_slide8_wav_sha256")
+                        or doc.get("original_slide4_wav_sha256")
                         or doc.get("original_wav_sha256")
                         or doc.get("original_pcm_sha256")
                         or doc.get("original_slide12_wav_sha256"))
