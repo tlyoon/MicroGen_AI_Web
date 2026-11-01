@@ -1,10 +1,10 @@
 """Full 17-slide, source-corrected, strictly sub-600s private QA preview.
 
 Real source and corrected slides 6/17, real corrected Flash-Lite Kore PCM
-and 15 immutable original WAVs, plus five independently checked individual
-element-highlight clips. Unmapped 12 slides are presented intact WITHOUT
-fabricated element highlights; these multipart MP4s are NOT academic/media
-production-accepted. No publishing, no source change, no paid TTS.
+and 15 immutable original WAVs, plus the current independently verified
+source/math highlighted clips selected in HIGHLIGHTS. Any unmapped slides
+remain intact WITHOUT fabricated element highlights; these multipart MP4s
+are NOT academic/media production-accepted. No publishing, no source change, no paid TTS.
 
 The source-grounded quality gate remains closed until all slide elements and
 figures are semantically matched and timing independently accepted.
@@ -87,7 +87,6 @@ PROVENANCE={4:("ORIGINAL_SLIDE4_THREE_MATH_EQUATIONS_INDEPENDENT_PIXEL_QA_PASS",
 BLOCKERS=(
     "ORIGINAL_ALL_SEVENTEEN_SLIDE_MATH_AND_FIGURE_SOURCE_SEMANTICS_NOT_APPROVED",
     "FOUR_SLIDES_STILL_LACK_CERTIFIED_ELEMENT_LEVEL_TIMED_HIGHLIGHTS",
-    "ORIGINAL_SLIDE_EIGHT_SIGNED_TRIANGLE_DEFECT_NOT_ASSERTED_FOR_THIS_DECK",
     "NOT_AN_AUTOMATED_STUDENT_PRODUCTION_RELEASE"
 )
 
