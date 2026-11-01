@@ -9,9 +9,9 @@ from selenium_pipeline.original_thomas85_86_derivation_audio_pixels import (
 
 class TwentyNineSourceMathJoinedAcceptance(unittest.TestCase):
     def test_ten_plus_one_additional_scientific_scenes(self):
-        self.assertEqual(sorted(FOCUS["8.5"]),[3,4,5,6,7,8,9,10,11])
-        self.assertEqual(sorted(FOCUS["8.6"]),[3,4,5,7,8,9,10,13])
-        self.assertEqual(16+len(FOCUS["8.5"])+len(FOCUS["8.6"]),33)
+        self.assertEqual(sorted(FOCUS["8.5"]),[2,3,4,5,6,7,8,9,10,11])
+        self.assertEqual(sorted(FOCUS["8.6"]),[2,3,4,5,7,8,9,10,13])
+        self.assertEqual(16+len(FOCUS["8.5"])+len(FOCUS["8.6"]),35)
 
     def test_only_original_publisher_and_sympy_source_video_receipts(self):
         self.assertEqual([FOCUS["8.5"][n][2] for n in (7,8)],
@@ -23,10 +23,10 @@ class TwentyNineSourceMathJoinedAcceptance(unittest.TestCase):
     def test_no_false_qa_promotion_to_student_release(self):
         self.assertIn("NOT_PRODUCTION",MEDIA_STATUS)
         self.assertIn("NONPRODUCTION",INDEPENDENT_STATUS)
-        self.assertIn("41_SLIDE_33_VERIFIED",INDEPENDENT_STATUS)
+        self.assertIn("41_SLIDE_35_VERIFIED",INDEPENDENT_STATUS)
         self.assertEqual(sorted(set(range(1,12))-set(FOCUS["8.5"])),
-                         [1,2])
+                         [1])
         self.assertEqual(sorted(set(range(1,14))-set(FOCUS["8.6"])),
-                         [1,2,6,11,12])
+                         [1,6,11,12])
 if __name__=="__main__":
     unittest.main()

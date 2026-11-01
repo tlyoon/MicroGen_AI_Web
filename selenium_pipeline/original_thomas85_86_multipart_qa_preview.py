@@ -24,12 +24,15 @@ from .original_thomas85_86_derivation_audio_pixels import STATUS as DERIVATION_S
 from .original_thomas85_86_coverup_erf_source import STATUS as COVERUP_ERF_STATUS
 from .original_thomas85_86_math_review_questions import STATUS as REVIEW_STATUS
 from .original_thomas85_86_summary_cas import STATUS as SUMMARY_STATUS
+from .original_two_other_outline_true_word_timing import STATUS as OTHER_OUTLINE_STATUS
 from .original_thomas84_multipart_qa_preview import split_slides
 
 # Individually source/SymPy/WAV/pixel-proven math highlight clips only.
 # Unverified math and figures still fail closed.
 FOCUS={
  "8.5":{
+   2:("20261101_PR436_ORIGINAL_85_86_WORD_OUTLINE",
+      "Thomas_8.5_original_outline_true_word.mp4","outline"),
    4:("20261101_PR425_ORIGINAL_SOURCE_ACADEMIC_CONSTRAINTS",
       "thomas_8.5_slide4_source_conditions.mp4","constraints"),
    3:("20261101_PR421_FIRST_85_86_REAL_SOURCE_MATH",
@@ -50,6 +53,8 @@ FOCUS={
       "Thomas_8.5_slide11_source_full_math.mp4","review"),
  },
  "8.6":{
+   2:("20261101_PR436_ORIGINAL_85_86_WORD_OUTLINE",
+      "Thomas_8.6_original_outline_true_word.mp4","outline"),
    3:("20261101_PR425_ORIGINAL_SOURCE_ACADEMIC_CONSTRAINTS",
       "thomas_8.6_slide3_source_conditions.mp4","constraints"),
    4:("20261101_PR421_FIRST_85_86_REAL_SOURCE_MATH",
@@ -67,7 +72,7 @@ FOCUS={
    13:("20261101_PR432_ORIGINAL_REVIEW_SPOKEN_SOURCE_QA_V2",
       "Thomas_8.6_slide13_source_full_math.mp4","review"),
  }}
-STATUS="ORIGINAL_85_86_FULL_AUDIO_QA_SEVENTEEN_MATH_FOCUS_SCENES_NOT_PRODUCTION"
+STATUS="ORIGINAL_85_86_FULL_AUDIO_QA_NINETEEN_MATH_FOCUS_SCENES_NOT_PRODUCTION"
 MAX_DURATION=570.0
 
 
@@ -115,6 +120,13 @@ def _source_witnesses(*,section:str,original:Path,checkpoint:Path)->tuple[dict,d
     summary=json.loads((checkpoint/
         "20261101_PR434_SOURCE_SUMMARY_CAS_PILOT_V2"/
         "ORIGINAL_THOMAS_SUMMARY_CAS_SOURCE_AUDIO_PIXEL_QA.json").read_text(encoding="utf8"))
+    outline=json.loads((checkpoint/
+        "20261101_PR436_ORIGINAL_85_86_WORD_OUTLINE"/
+        "ORIGINAL_85_86_OUTLINE_WORD_REAL_PCM_SOURCE_PIXEL_QA.json").read_text(encoding="utf8"))
+    require(outline["status"]==OTHER_OUTLINE_STATUS
+            and outline["student_publication_authorized"] is False
+            and outline["full_41_slide_academic_release_accepted"] is False,
+            "Not a genuine source-grounded original publisher outline spoken witness")
     require(summary["status"]==SUMMARY_STATUS
             and summary["student_publication_authorized"] is False
             and summary["academic_all_source_elements_accepted"] is False,
@@ -181,7 +193,14 @@ def _source_witnesses(*,section:str,original:Path,checkpoint:Path)->tuple[dict,d
                     and q["original_slides_pdf_sha256"]==_sha(original/"slides.pdf")
                     and q["all_intermediate_source_math_and_figures_approved"] is False,
                     "Summary/CAS source figure math proof not complete")
-    return first,more,constraint,derivation,extra,review,summary
+    for s,(_,_,kind) in FOCUS[section].items():
+        if kind=="outline":
+            q=outline["original_section_outline_media"][section]
+            require(s==2 and q["original_source_sha256"]==_sha(original/"source.pdf")
+                    and q["original_slides_sha256"]==_sha(original/"slides.pdf")
+                    and q["entire_slide_all_academic_content_approved"] is False,
+                    "Original publisher outline audio content not independently approved")
+    return first,more,constraint,derivation,extra,review,summary,outline
 
 
 def build(*,root:Path,checkpoint:Path,out:Path)->dict:
@@ -203,7 +222,7 @@ def build(*,root:Path,checkpoint:Path,out:Path)->dict:
         require(_sha(original/"source.pdf")==meta["publisher_sha"] and
                 _sha(original/"slides.pdf")==meta["slides_pdf_sha"],
                 f"Original textbook source of §{section} does not match pinned hash")
-        first,more,constraint,derivation,extra,review,summary=_source_witnesses(section=section,original=original,checkpoint=checkpoint)
+        first,more,constraint,derivation,extra,review,summary,outline=_source_witnesses(section=section,original=original,checkpoint=checkpoint)
         actual={}
         for slide in range(1,meta["slides"]+1):
             wav=original/f"slide{slide}.wav"
@@ -213,7 +232,16 @@ def build(*,root:Path,checkpoint:Path,out:Path)->dict:
                 video=checkpoint/folder/file
                 require(video.is_file() and not video.is_symlink(),
                         "Only genuine original mathematically reviewed MP4 can be reused")
-                if kind=="first":
+                if kind=="outline":
+                    receipt=outline["original_section_outline_media"][section]
+                    require(receipt["real_mp4_sha256"]==_sha(video)
+                            and receipt["original_slide2_wav_sha256"]==_sha(wav)
+                            and len(receipt["decoded_independent_frame_samples"])==
+                                1+len(receipt["publisher_verified_spoken_topic_events"])
+                            and len(receipt["publisher_verified_spoken_topic_events"])>=4
+                            and receipt["entire_slide_all_academic_content_approved"] is False,
+                            "Original source outline PCM/encoded word-focused pixel proof invalid")
+                elif kind=="first":
                     receipt=first["source_verified_real_media"][section]
                     require(slide==meta["target"]
                             and receipt["encoded_h264_aac_mp4_sha256"]==_sha(video)

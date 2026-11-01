@@ -9,9 +9,9 @@ from selenium_pipeline.original_thomas85_86_coverup_erf_source import (
 
 class TwentyNineAll41OriginalSourceReview(unittest.TestCase):
     def test_two_new_genuine_mathematical_or_source_focus_scenes(self):
-        self.assertEqual(sorted(FOCUS["8.5"]),[3,4,5,6,7,8,9,10,11])
-        self.assertEqual(sorted(FOCUS["8.6"]),[3,4,5,7,8,9,10,13])
-        self.assertEqual(16+len(FOCUS["8.5"])+len(FOCUS["8.6"]),33)
+        self.assertEqual(sorted(FOCUS["8.5"]),[2,3,4,5,6,7,8,9,10,11])
+        self.assertEqual(sorted(FOCUS["8.6"]),[2,3,4,5,7,8,9,10,13])
+        self.assertEqual(16+len(FOCUS["8.5"])+len(FOCUS["8.6"]),35)
     def test_source_math_clip_receipt_exists_for_covered_original_slides(self):
         self.assertEqual(FOCUS["8.5"][9][2],"coverup_erf")
         self.assertEqual(FOCUS["8.6"][10][2],"coverup_erf")
@@ -20,10 +20,10 @@ class TwentyNineAll41OriginalSourceReview(unittest.TestCase):
     def test_release_and_unverified_source_maths_remain_blocked(self):
         self.assertIn("NOT_PRODUCTION",PREVIEW)
         self.assertIn("NONPRODUCTION",AUDIT)
-        self.assertIn("41_SLIDE_33_VERIFIED",AUDIT)
+        self.assertIn("41_SLIDE_35_VERIFIED",AUDIT)
         self.assertEqual(sorted(set(range(1,12))-set(FOCUS["8.5"])),
-                         [1,2])
+                         [1])
         self.assertEqual(sorted(set(range(1,14))-set(FOCUS["8.6"])),
-                         [1,2,6,11,12])
+                         [1,6,11,12])
 if __name__=="__main__":
     unittest.main()
