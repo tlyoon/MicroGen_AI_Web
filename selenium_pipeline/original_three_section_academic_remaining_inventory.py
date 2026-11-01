@@ -27,6 +27,30 @@ def _slides(tex:str)->list[str]:
     return parts
 
 
+def require_pinned_original_section_version(*,section:str,frame_count:int,
+                                            publisher_sha:str,slides_pdf_sha:str)->None:
+    """Reject mismatched live/regenerated author slides without losing why.
+
+    A publisher PDF may still be identical while the authored lecture has been
+    regenerated. Count and PDF SHA are distinct mandatory checks. Never treat
+    a new live lecture as the original accepted 41-slide frozen source corpus.
+    """
+    require(section in EXPECTED,"Unknown publisher-original section")
+    problems=[]
+    if frame_count!=EXPECTED[section]:
+        problems.append(f"FRAME_COUNT expected={EXPECTED[section]} actual={frame_count}")
+    if section in SOURCE:
+        expected=SOURCE[section]
+        if publisher_sha!=expected["publisher_sha"]:
+            problems.append(f"PUBLISHER_SHA expected={expected['publisher_sha']} actual={publisher_sha}")
+        if slides_pdf_sha!=expected["slides_pdf_sha"]:
+            problems.append(f"AUTHOR_PDF_SHA expected={expected['slides_pdf_sha']} actual={slides_pdf_sha}")
+    require(not problems,
+            f"PINNED_ORIGINAL_SOURCE_SNAPSHOT_MISMATCH section={section}: "
+            +"; ".join(problems)
+            +". Preserve both versions; do not mutate live source or unlock publication.")
+
+
 def audit(*,root:Path,checkpoint:Path)->dict:
     root,checkpoint=Path(root).absolute(),Path(checkpoint).absolute()
     require(root.is_dir() and not root.is_symlink(),
@@ -52,11 +76,10 @@ def audit(*,root:Path,checkpoint:Path)->dict:
                 f"Original source, narration, or PCM missing: {sec}")
         before={str(p):_sha(p) for p in paths}
         frames=_slides((folder/"slides.tex").read_text(encoding="utf8"))
-        require(len(frames)==count and
-                (sec=="8.4" or
-                 _sha(folder/"source.pdf")==SOURCE[sec]["publisher_sha"]
-                 and _sha(folder/"slides.pdf")==SOURCE[sec]["slides_pdf_sha"]),
-                "Wrong source publisher/slide version in academic corpus")
+        require_pinned_original_section_version(
+            section=sec,frame_count=len(frames),
+            publisher_sha=_sha(folder/"source.pdf"),
+            slides_pdf_sha=_sha(folder/"slides.pdf"))
         seen=set(HIGHLIGHTS if sec=="8.4" else FOCUS[sec])
         require(all(1<=i<=count for i in seen),
                 f"Audio mathematical events cite invalid source slide in {sec}")
