@@ -129,11 +129,14 @@ def duration(video:Path)->float:
 def create(*,root:Path,timing_receipt:Path,out:Path,
            cases:dict|None=None, identities:dict|None=None,
            status:str=STATUS,
-           receipt_name:str="ORIGINAL_THOMAS_85_86_THREE_MATH_SLIDES_SIX_TIMED_PIXEL_EVENTS.json")->dict:
+           receipt_name:str="ORIGINAL_THOMAS_85_86_THREE_MATH_SLIDES_SIX_TIMED_PIXEL_EVENTS.json",
+           minimum_word_anchor_fraction:float=.87)->dict:
     root,out=Path(root).absolute(),Path(out).absolute()
     require(out.is_dir() and not out.is_symlink()
             and not out.is_relative_to(root),
             "Use immutable publisher corpus and clean separate original QA output")
+    require(.85<=minimum_word_anchor_fraction<=1.,
+            "Never permit low-confidence acoustic anchors for original source QA")
     identities=sympy_source_math() if identities is None else identities
     cases=CASES if cases is None else cases
     require(isinstance(cases,dict) and len(cases)>0,
@@ -193,7 +196,7 @@ def create(*,root:Path,timing_receipt:Path,out:Path,
             require(spoken["narration_fragment_sha256"]==
                         evidence["narration_fragment_sha256"]
                     and evidence["word_timing_hypothesis_available"] is True
-                    and evidence["actual_ASR_word_anchor_fraction"]>=.87
+                    and evidence["actual_ASR_word_anchor_fraction"]>=minimum_word_anchor_fraction
                     and all(term in spoken["narration_fragment"].casefold()
                             for term in terms),
                     f"Original authentic math not in real narration {section}/{slide}/{name}")
