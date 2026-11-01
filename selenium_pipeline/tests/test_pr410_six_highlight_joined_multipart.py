@@ -7,8 +7,8 @@ from selenium_pipeline.original_thomas84_slide4_three_equation_sync import (
 
 class SixSourceHighlightedSlidesContract(unittest.TestCase):
     def test_real_verified_seven_slide_set(self):
-        self.assertEqual(sorted(HIGHLIGHTS),[4,5,6,7,8,9,10,11,12,13,14,15,17])
-        self.assertEqual(len(set(range(1,18))-set(HIGHLIGHTS)),4)
+        self.assertEqual(sorted(HIGHLIGHTS),[3,4,5,6,7,8,9,10,11,12,13,14,15,16,17])
+        self.assertEqual(len(set(range(1,18))-set(HIGHLIGHTS)),2)
 
     def test_slide4_has_independent_source_audio_and_pixel_receipts(self):
         self.assertEqual(PROVENANCE[4],(
@@ -19,7 +19,7 @@ class SixSourceHighlightedSlidesContract(unittest.TestCase):
 
     def test_unapproved_figure_and_other_elements_stay_blocked(self):
         self.assertIn(
-            "FOUR_SLIDES_STILL_LACK_CERTIFIED_ELEMENT_LEVEL_TIMED_HIGHLIGHTS",
+            "TWO_SLIDES_STILL_LACK_CERTIFIED_ELEMENT_LEVEL_TIMED_HIGHLIGHTS",
             BLOCKERS)
         self.assertIn("NOT_AN_AUTOMATED_STUDENT_PRODUCTION_RELEASE",BLOCKERS)
 

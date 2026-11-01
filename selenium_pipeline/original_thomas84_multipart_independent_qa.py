@@ -101,7 +101,14 @@ def check(*,original:Path,corrected:Path,checkpoint:Path,
         for i in part["source_slide_numbers"]:
             if i not in HIGHLIGHTS:
                 continue
-            if i in (6,17):
+            if i in (3,16):
+                batch=json.loads((checkpoint/HIGHLIGHTS[i][0]/
+                    "INTRO_SUMMARY_SOURCE_VIDEO_AND_PIXEL_QA.json").read_text(encoding="utf8"))
+                e=batch["source_bound_original_video_clips"][str(i)][
+                    "source_verified_element_events"][0]
+                rect=e["actual_source_slide_rect_pt"]
+                middle=(e["real_audio_start_s"]+e["real_audio_end_s"])/2
+            elif i in (6,17):
                 doc=json.loads((checkpoint/"20261101_PR407_CORRECTED_REAL_TIMED_HIGHLIGHTS"/
                                 f"corrected_thomas84_slide{i}_real_sync.json").read_text(encoding="utf8"))
                 event=doc["source_grounded_visual_event_targets"][-1]
@@ -152,7 +159,7 @@ def check(*,original:Path,corrected:Path,checkpoint:Path,
             frame=qa_dir/f"joined_independent_highlight_slide{i:02d}.png"
             _decoded(file,second,frame)
             probes=(count_source_equation_side_border(frame,rect)
-                    if i in (4,7,8,*WORKED) else count_yellow_border(frame,rect))
+                    if i in (3,4,7,8,16,*WORKED) else count_yellow_border(frame,rect))
             require(probes>=6,
                     f"JOINED original source slide{i} spoken-element focus missing: {probes}/8")
             highlighted.append({"original_slide":i,
@@ -172,7 +179,7 @@ def check(*,original:Path,corrected:Path,checkpoint:Path,
         "source_element_highlight_count_verified":len(highlighted),
         "each_joined_part_strictly_under_600_seconds":True,
         "full_original_course_academic_approval":False,
-        "unverified_other_four_slide_element_mapping":True,
+        "unverified_other_two_slide_element_mapping":True,
         "student_publication_authorized":False}
     outfile=qa_dir/"INDEPENDENT_MULTIPART_VIDEO_FRAME_VERIFICATION_REVIEW_ONLY.json"
     with outfile.open("x",encoding="utf8") as f:
