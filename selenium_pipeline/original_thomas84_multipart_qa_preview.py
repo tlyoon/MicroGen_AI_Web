@@ -26,6 +26,9 @@ from .original_thomas84_intro_summary_source_sync import STATUS as INTRO_SUMMARY
 
 MAX_PART_SECONDS=570.
 HIGHLIGHTS={
+    2:("20261101_PR419_ORIGINAL_OUTLINE_REAL_WORDS",
+       "thomas84_slide2_real_word_source_focus.mp4",
+       "original_slide2_real_word_source_pixel_qa.json"),
     3:("20261101_PR417_ORIGINAL_INTRO_SUMMARY_SOURCE_MATH",
        "thomas84_slide3_three_verified_focus.mp4",
        "INTRO_SUMMARY_SOURCE_VIDEO_AND_PIXEL_QA.json"),
@@ -72,7 +75,9 @@ HIGHLIGHTS={
        "corrected_thomas84_slide17_real_sync.mp4",
        "corrected_thomas84_slide17_independent_pixel_qa.json")
 }
-PROVENANCE={3:(INTRO_SUMMARY_STATUS,None),
+PROVENANCE={2:("FIVE_ORIGINAL_PUBLISHER_OUTLINE_WORD_ACOUSTIC_EVENTS_ENCODED_PIXEL_QA_PASS",
+                "actual_encoded_mp4_sha256"),
+            3:(INTRO_SUMMARY_STATUS,None),
             4:("ORIGINAL_SLIDE4_THREE_MATH_EQUATIONS_INDEPENDENT_PIXEL_QA_PASS",
                 "actual_mp4_sha256"),
             5:("INDEPENDENT_REAL_ENCODED_PIXEL_SAMPLES_PASS",
@@ -95,7 +100,7 @@ PROVENANCE={3:(INTRO_SUMMARY_STATUS,None),
                  "actual_encoded_mp4_sha256")}
 BLOCKERS=(
     "ORIGINAL_ALL_SEVENTEEN_SLIDE_MATH_AND_FIGURE_SOURCE_SEMANTICS_NOT_APPROVED",
-    "TWO_SLIDES_STILL_LACK_CERTIFIED_ELEMENT_LEVEL_TIMED_HIGHLIGHTS",
+    "ONE_TITLE_SLIDE_NO_CERTIFIED_WORD_LEVEL_TIMED_HIGHLIGHTS",
     "NOT_AN_AUTOMATED_STUDENT_PRODUCTION_RELEASE"
 )
 
@@ -208,6 +213,14 @@ def source_highlights(*,checkpoint:Path,source_wavs:dict,
                         or doc.get("original_slide12_wav_sha256"))
             require(audio_hash==source_wavs[slide]["sha"],
                     "Original referenced audio differs from verified math focus clip")
+        elif slide==2:
+            require(qa["publisher_original_source_sha256"] is not None
+                    and qa["original_slide2_wav_sha256"]==source_wavs[2]["sha"]
+                    and qa["corrected_pdf_sha256"]==_sha(corrected_pdf)
+                    and len(qa["real_original_word_anchor_topic_events"])==5
+                    and len(qa["independent_decoded_pixel_samples"])==6
+                    and qa["all_lecture_math_and_figures_verified"] is False,
+                    "Real original publisher outline PCM/source mapping not validated")
         elif slide in (3,16):
             item=qa["source_bound_original_video_clips"][str(slide)]
             require(qa["original_highlighted_slides"]==[3,16]

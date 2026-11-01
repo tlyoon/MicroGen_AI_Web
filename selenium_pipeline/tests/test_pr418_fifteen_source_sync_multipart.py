@@ -9,8 +9,8 @@ from selenium_pipeline.original_thomas84_intro_summary_source_sync import (
 class FifteenActualSourceBoundHighlightPreview(unittest.TestCase):
     def test_original_15_math_and_procedure_focus_clips(self):
         self.assertEqual(sorted(HIGHLIGHTS),
-            [3,4,5,6,7,8,9,10,11,12,13,14,15,16,17])
-        self.assertEqual(sorted(set(range(1,18))-set(HIGHLIGHTS)),[1,2])
+            [2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17])
+        self.assertEqual(sorted(set(range(1,18))-set(HIGHLIGHTS)),[1])
 
     def test_intro_and_summary_have_actual_source_pixel_witnesses(self):
         self.assertEqual(sorted(CASES),[3,16])
@@ -23,7 +23,7 @@ class FifteenActualSourceBoundHighlightPreview(unittest.TestCase):
 
     def test_weak_title_asr_and_unproven_summary_bullet_not_accepted(self):
         self.assertIn(
-            "TWO_SLIDES_STILL_LACK_CERTIFIED_ELEMENT_LEVEL_TIMED_HIGHLIGHTS",
+            "ONE_TITLE_SLIDE_NO_CERTIFIED_WORD_LEVEL_TIMED_HIGHLIGHTS",
             BLOCKERS)
         self.assertIn(
             "ORIGINAL_ALL_SEVENTEEN_SLIDE_MATH_AND_FIGURE_SOURCE_SEMANTICS_NOT_APPROVED",
