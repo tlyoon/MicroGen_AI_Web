@@ -125,12 +125,24 @@ class TTSPaidEntrypointTests(unittest.TestCase):
         setting=Settings(source_root=self.root/"tree",work_root=work,
                          subchapter="8.4",from_stage="tts",through_stage="tts",
                          tts_provider="chirp3")
+        # PR462 legitimately moves cost authorization after the full stage
+        # reuse decision. Keep this test focused on direct Cloud billing and
+        # unchanged source; mock independent mathematics/figure preflight
+        # (the fixture intentionally has no slides.tex or authored media).
+        # Do not weaken the actual production domain checks.
         with patch("selenium_pipeline.runner.verify_source_tree") as verify, \
-             patch("selenium_pipeline.runner.prepare") as prep:
+             patch("selenium_pipeline.runner.prepare") as prep, \
+             patch("selenium_pipeline.inverse_trig_principal_domain_guard.enforce"), \
+             patch("selenium_pipeline.figure_audit.enforce_graphics"), \
+             patch("selenium_pipeline.source_numbered_example_coverage.require_coverage"), \
+             patch("selenium_pipeline.runner.run_cmd",
+                   side_effect=AssertionError("unauthorized paid TTS must not run")) as proc:
             with self.assertRaises(TTSCostAuthorizationError):
                 _execute_unlocked(setting)
             verify.assert_called_once()
-            prep.assert_not_called()
+            prep.assert_called_once()
+            proc.assert_not_called()
+        # prepare() is mocked: this verifies no original or output mutation.
         self.assertFalse(work.exists())
         self.assertFalse((teaching/"slide1.wav").exists())
 
