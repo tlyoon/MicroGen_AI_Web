@@ -786,13 +786,8 @@ def _execute_unlocked(s: Settings) -> Path:
             "Replan using reviewed scene boundaries and the approved "
             "synchronized part renderer; preserving all existing output."
         )
-    if "tts" in planned or "tts_qa" in planned:
-        from .tts_billing_guard import require_tts_cost_authorization
-        require_tts_cost_authorization(
-            s.tts_provider,
-            gemini_approved=s.confirm_gemini_api_cost,
-            cloud_approved=s.confirm_google_cloud_tts_cost,
-            routine_gemini=(s.tts_provider == "gemini"))
+    # TTS billing authorization happens only if a source-bound TTS or QA
+    # stage really executes; hash-identical cached WAVs never bill providers.
     # Defer external browser until an uncached stage truly needs it.
     # Exactly accepted output SHA must be reusable without opening Chrome.
     observed_browser_evidence = None
@@ -923,6 +918,17 @@ def _execute_unlocked(s: Settings) -> Path:
                 enforce_graphics(source.parent, repair=True)
             print(f"[microgen] reuse validated {stage}; published {len(published)} artifact(s) beside source.pdf")
             continue
+        if stage in {"tts","tts_qa"}:
+            # An unchanged already accepted WAV/phonetic QA result requires
+            # no new provider approval. Before an actual billable stage, the
+            # standing Gemini / conditional Cloud authorization still applies.
+            # Check BEFORE stage invalidation, output archiving or paid work.
+            from .tts_billing_guard import require_tts_cost_authorization
+            require_tts_cost_authorization(
+                s.tts_provider,
+                gemini_approved=s.confirm_gemini_api_cost,
+                cloud_approved=s.confirm_google_cloud_tts_cost,
+                routine_gemini=(s.tts_provider=="gemini"))
         state["completed"].pop(stage, None)
         invalidated = invalidate_downstream(state, stage)
         if invalidated:
