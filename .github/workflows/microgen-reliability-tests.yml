@@ -37,6 +37,7 @@ jobs:
             "tests.test_encoded_frame_version_reuse"
             "tests.test_original_math_audio_video_reuse"
             "tests.test_original_corrected_author_lineage_reuse"
+            "tests.test_windows_e2e_phase_cache_source_manifest"
             "tests.test_figure_recovery_candidates"
             "tests.test_reliability_audit"
             "tests.test_env_key_conflicts"
