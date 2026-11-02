@@ -60,13 +60,22 @@ class PipelineTests(unittest.TestCase):
             with patch.dict(os.environ, {"LOCALAPPDATA": str(Path(td) / "localappdata")}):
                 with patch("selenium_pipeline.launch_gemini.launch", return_value=(9222, Path("profile"))):
                     with patch("selenium_pipeline.gemini_model.ensure_mode", side_effect=RuntimeError("Configured mode not confirmed")):
-                        with self.assertRaisesRegex(RuntimeError, "Configured mode not confirmed"):
-                            # Model validation still applies to the slide/narration
-                            # stages; legacy final-video routing now blocks earlier
-                            # by explicit contract design.
-                            execute(Settings(root, dest, "22.1",
-                                             through_stage="narration"))
-            self.assertFalse(dest.exists())
+                        with patch("selenium_pipeline.runner.run_cmd",
+                                   side_effect=AssertionError("Mode failure must not generate content")) as runner_call:
+                            with self.assertRaisesRegex(RuntimeError, "Configured mode not confirmed"):
+                                # PR461 defers browser mode verification until
+                                # the first *uncached* Selenium stage. Preparing
+                                # an isolated source-safe workspace is allowed,
+                                # but no authored content, audio or paid work.
+                                execute(Settings(root, dest, "22.1",
+                                                 through_stage="narration"))
+                            runner_call.assert_not_called()
+            staging = dest / "22" / "22.1"
+            self.assertTrue(staging.is_dir())
+            self.assertEqual((staging / "source.pdf").read_bytes(), b"%PDF stub")
+            self.assertFalse(any((staging / name).exists() for name in
+                                 ("slides.tex","slides.pdf","script.txt","slide1.wav","slides.mp4")))
+            self.assertEqual((folder / "source.pdf").read_bytes(), b"%PDF stub")
 
     def test_regeneration_preserves_previous_slide_files(self):
         with tempfile.TemporaryDirectory() as td:
