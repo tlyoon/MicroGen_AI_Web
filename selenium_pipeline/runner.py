@@ -710,52 +710,23 @@ def _execute_unlocked(s: Settings) -> Path:
     # Ambiguous figures/text NEVER trigger paid TTS or static video fallback.
     if (s.from_stage == "video" and s.through_stage == "video"
             and s.force_from is None):
-        verify_source_tree(s.source_root,source)
-        if check_valid("video",source.parent):
+        # Video-only and full-run paths share ONE sourcebound renderer, voice
+        # provenance and part-install contract; no duplicate TTS/render logic.
+        verify_source_tree(s.source_root, source)
+        if check_valid("video", source.parent):
             print("[microgen] already verified source-bound multipart video")
             return folder
-        # A *historically receipt-verified* published slides.mp4 is protected:
-        # no automatic new TTS/video execution can bypass its old guard.
-        if ((source.parent/"slides.mp4").is_file()
+        if ((source.parent / "slides.mp4").is_file()
                 and completed_lecture(source)):
             raise RuntimeError(
                 "This lecture is already receipt-verified; an explicit "
                 "--force-from is required before any partial regeneration.")
-        # Source coverage is mandatory before this video-only shortcut
-        # may synthesize any new element WAV or stage a lecture.
-        from .source_numbered_example_coverage import require_coverage
-        # Some contract-verified sourcebound plans are based on PDF geometry
-        # without a retained slides.tex. They remain protected by their
-        # independent figure/element provenance gate; do not reject such
-        # complete PDF/WAV bundles solely for missing optional .tex.
-        if (source.parent/"slides.tex").is_file():
-            require_coverage(source_pdf=source,
-                             latex_path=source.parent/"slides.tex")
-        from .sourcebound_production_video import render_and_install_prepared
-        base=Path(os.getenv("LOCALAPPDATA") or str(Path.home()/".cache"))
-        tmp=base/"MicroGen_AI_Web_VideoStaging"
-        tmp.mkdir(parents=True,exist_ok=True)
-        targets=(source.parent/"element_narration_plan.json",
-                 source.parent/"element_wav",
-                 source.parent/"element_tts_manifest.json")
-        if all(not p.exists() and not p.is_symlink() for p in targets):
-            from .automatic_element_audio_stage import produce_element_audio
-            produce_element_audio(
-                source=source,slides=source.parent/"slides.pdf",
-                script=source.parent/"script.txt",
-                local_work_root=tmp)
-        if not all(p.exists() and not p.is_symlink() for p in targets):
-            raise RuntimeError("Incomplete original element TTS outputs; "
-                               "never resume an ambiguous or partial element batch")
-        completed=render_and_install_prepared(
-            source=source,slides=source.parent/"slides.pdf",
-            authored=targets[0],audio=targets[1],local_work_root=tmp)
-        if not check_valid("video",source.parent):
-            raise RuntimeError("Installed highlighted multipart video fails fresh QA")
-        print(f"[microgen] {completed['part_count']} technically accepted "
-              "highlighted multipart part(s), no human signoff required")
+        from .full_pipeline_video_handoff import complete_from_published
+        result = complete_from_published(source=source,
+                                         require_slide_tts_qa=False)
+        print(f"[microgen] compliant video-only handoff: {result['status']}; "
+              "no student-facing publication")
         return folder
-
     # A completed lecture has already had its staging/checkpoints removed.
     # Trust only a source-and-output-matched completion receipt: otherwise
     # missing staging files would trigger an expensive, unnecessary rerun.

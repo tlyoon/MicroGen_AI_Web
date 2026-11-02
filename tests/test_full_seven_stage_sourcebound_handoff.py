@@ -93,6 +93,34 @@ class CompliantFullVideoHandoffTests(unittest.TestCase):
                          "INSTALLED_TECHNICALLY_ACCEPTED_MULTIPART_VIDEO")
         self.assertFalse(saved["completed"]["video"]["student_publication_authorized"])
 
+    def test_video_only_uses_exact_same_guarded_sourcebound_handoff(self):
+        video_only=runner.Settings(source_root=self.source_root,
+            work_root=self.work_root,subchapter="8.4",
+            from_stage="video",through_stage="video")
+        with patch("selenium_pipeline.runner.check_valid",return_value=False):
+            with patch("selenium_pipeline.full_pipeline_video_handoff.complete_from_published",
+                return_value={"status":"INSTALLED_TECHNICALLY_ACCEPTED_MULTIPART_VIDEO",
+                              "part_count":2,"student_publication_authorized":False}) as handoff:
+                with patch("selenium_pipeline.runner.run_cmd",
+                           side_effect=AssertionError("Never call old video backend")) as legacy:
+                    self.assertEqual(runner._execute_unlocked(video_only),
+                                     video_only.directory())
+        handoff.assert_called_once_with(source=self.source,
+                                        require_slide_tts_qa=False)
+        legacy.assert_not_called()
+        self.assertFalse((self.source.parent/"slides.mp4").exists())
+
+    def test_completed_video_only_reuses_without_any_renderer_or_paid_tts(self):
+        video_only=runner.Settings(source_root=self.source_root,
+            work_root=self.work_root,subchapter="8.4",
+            from_stage="video",through_stage="video")
+        with patch("selenium_pipeline.runner.check_valid",return_value=True):
+            with patch("selenium_pipeline.full_pipeline_video_handoff.complete_from_published",
+                       side_effect=AssertionError("Already accepted must be reused")) as handoff:
+                result=runner._execute_unlocked(video_only)
+        self.assertEqual(result,video_only.directory())
+        handoff.assert_not_called()
+
     def test_complete_existing_multipart_never_reencodes_or_calls_element_tts(self):
         with patch("selenium_pipeline.runner.check_valid",
                    side_effect=lambda stage,folder: stage=="video"):
