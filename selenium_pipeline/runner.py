@@ -793,23 +793,10 @@ def _execute_unlocked(s: Settings) -> Path:
             gemini_approved=s.confirm_gemini_api_cost,
             cloud_approved=s.confirm_google_cloud_tts_cost,
             routine_gemini=(s.tts_provider == "gemini"))
+    # Defer external browser until an uncached stage truly needs it.
+    # Exactly accepted output SHA must be reusable without opening Chrome.
     observed_browser_evidence = None
-    if any(_needs_browser(x) for x in planned):
-        from .launch_gemini import launch
-        requested_port = s.chrome_port
-        # Keep 9222 for the normal persistent account. If alternate mode is
-        # requested without an explicit non-default port, isolate it on 9223.
-        if s.alternate_gemini_user and requested_port == 9222:
-            requested_port = 9223
-        actual_port, _ = launch(s.alternate_gemini_user, requested_port)
-        s.chrome_port = actual_port
-        from .gemini_model import ensure_mode, browser_model_evidence
-        observed_label = ensure_mode(s.chrome_port, DEFAULT_BROWSER_UI_MODE)
-        observed_browser_evidence = browser_model_evidence(
-            observed_label, requested_mode=DEFAULT_BROWSER_UI_MODE,
-            requested_model_id=ACTIVE_LLM_MODEL)
-        print("[microgen] verified authenticated Gemini UI family: "
-              f"{observed_label}; exact provider model ID NOT independently verified")
+    browser_initialized = False
     prepare(source, folder)
     if s.from_stage == "video":
         hydrate_video_only_inputs(source, folder)
@@ -948,11 +935,22 @@ def _execute_unlocked(s: Settings) -> Path:
         log_file = folder / f"microgen_{stage}.log"
         try:
             if _needs_browser(stage):
+                if not browser_initialized:
+                    from .launch_gemini import launch
+                    requested_port=s.chrome_port
+                    if s.alternate_gemini_user and requested_port==9222:
+                        requested_port=9223
+                    actual_port,_=launch(s.alternate_gemini_user,requested_port)
+                    s.chrome_port=actual_port
+                    env["GEMINI_DEBUG_PORT"]=str(actual_port)
+                    browser_initialized=True
                 from .gemini_model import ensure_mode, browser_model_evidence
-                stage_label = ensure_mode(s.chrome_port, DEFAULT_BROWSER_UI_MODE)
-                browser_model_evidence(
-                    stage_label, requested_mode=DEFAULT_BROWSER_UI_MODE,
+                stage_label=ensure_mode(s.chrome_port,DEFAULT_BROWSER_UI_MODE)
+                observed_browser_evidence=browser_model_evidence(
+                    stage_label,requested_mode=DEFAULT_BROWSER_UI_MODE,
                     requested_model_id=ACTIVE_LLM_MODEL)
+                state["requested_models"]["ui_family_evidence"]=observed_browser_evidence
+                save_pipeline_state(stamp,state)
                 print(f"[microgen] {stage} Gemini UI family confirmed: {stage_label}; "
                       "exact deployed model ID remains unverified")
             if stage not in {"tts", "video"}:
