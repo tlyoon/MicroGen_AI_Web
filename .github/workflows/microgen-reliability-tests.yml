@@ -43,6 +43,7 @@ jobs:
             "tests.test_cached_tts_no_reauthorization"
             "tests.test_original_fig83_source_math_glyph_pixel_proof"
             "tests.test_original_fig83_four_endpoint_tick_science"
+            "tests.test_versioned_scholarly_accepted_scope_board"
             "tests.test_figure_recovery_candidates"
             "tests.test_reliability_audit"
             "tests.test_env_key_conflicts"
