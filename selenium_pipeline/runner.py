@@ -910,7 +910,26 @@ def _execute_unlocked(s: Settings) -> Path:
             model_stamp = browser_model
         if changed_upstream:
             state["completed"].pop(stage, None)
-        if state["completed"].get(stage, {}).get("model") == model_stamp and check_valid(stage, folder):
+        previously_completed=state["completed"].get(stage, {})
+        if previously_completed.get("model")==model_stamp:
+            # Binding no-repeat contract: a model name + basic validity alone
+            # never proves that source/author/WAV/MP4 bytes remain unchanged.
+            from .runner_stage_artifact_evidence import (
+                decide_stage_reuse,RunnerReuseError)
+            try:
+                artifact_evidence,adopted=decide_stage_reuse(
+                    folder=folder,stage=stage,source_sha256=signature,
+                    accepted=previously_completed,model_stamp=model_stamp,
+                    validity_passed=check_valid(stage,folder))
+            except RunnerReuseError as exc:
+                raise RuntimeError(
+                    f"Previously completed {stage} evidence changed or is incomplete; "
+                    "stop for version-scoped review rather than automatically "
+                    "restarting an expensive source/audio/video job") from exc
+            if adopted:
+                previously_completed["artifact_evidence"]=artifact_evidence
+                previously_completed["legacy_source_bound_stage_adopted"]=True
+                save_pipeline_state(stamp,state)
             published = publish_stage_outputs(folder, source, stage)
             if stage == "slides":
                 from .figure_audit import enforce_graphics
@@ -1075,7 +1094,23 @@ def _execute_unlocked(s: Settings) -> Path:
             if stage == "tts_qa":
                 from .slide_narration_sync import record_structural_alignment
                 record_structural_alignment(folder)
-            state["completed"][stage] = {"at_utc": utc(), "model": model_stamp}
+            from .runner_stage_artifact_evidence import build_stage_evidence
+            stage_artifacts=build_stage_evidence(folder,stage,signature)
+            state["completed"][stage] = {
+                "at_utc":utc(),"model":model_stamp,
+                "artifact_evidence":stage_artifacts}
+            # A successful pronunciation repair may replace WAV bytes while
+            # preserving the accepted provider/voice. Update only the
+            # previous TTS snapshot after real TTS QA passes, never earlier.
+            if stage=="tts_qa" and state["completed"].get("tts"):
+                from .runner_stage_artifact_evidence import refresh_repaired_tts_evidence
+                old_tts=state["completed"]["tts"]
+                old_tts["artifact_evidence"]=refresh_repaired_tts_evidence(
+                    folder=folder,source_sha256=signature,
+                    accepted_tts=old_tts,model_stamp=old_tts["model"],
+                    tts_and_qa_valid=check_valid("tts",folder) and
+                                       check_valid("tts_qa",folder))
+                old_tts["selective_QA_repair_original_PCM_snapshot"]=True
             save_pipeline_state(stamp, state)
             published = publish_stage_outputs(folder, source, stage)
             if stage == "slides":
