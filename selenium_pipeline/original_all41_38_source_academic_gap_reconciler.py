@@ -17,6 +17,17 @@ from .original_thomas85_86_multipart_qa_preview import _media_seconds
 STATUS="UPDATED_ORIGINAL_THOMAS_41_38_SPOKEN_FOCUS_SCHOLARLY_GAPS_NONPRODUCTION"
 PROVED_NEW=("8.6_slide6","8.6_slide11","8.6_slide12")
 TITLES=("8.4_slide1","8.5_slide1","8.6_slide1")
+NEW_FOCUS_PARTIAL_MATH_WARNINGS={
+    "8.6_slide6":(
+        "PUBLISHER_EXAMPLE3_FORMULAS_SOURCE_PROVEN_BUT_WAV_PIXEL_FOCUS_PENDING",
+        "EXAMPLE3_FORMULA106_49_SAMPLED_WAV_FOCUS_VERIFIED_FULL_EQUATION_SEQUENCE_UNPROVEN"),
+    "8.6_slide11":(
+        "EXERCISE62_PUBLISHER_FIGURE_MATH_PROVEN_BUT_PER_ELEMENT_WORD_TIMING_PENDING",
+        "EXERCISE62_TANK_FIGURE_FORMULA_SAMPLED_WAV_FOCUS_VERIFIED_FULL_LABEL_TIMING_PENDING"),
+    "8.6_slide12":(
+        "PUBLISHER_SUMMARY_FIVE_TOPICS_PROVEN_BUT_WAV_PIXEL_FOCUS_PENDING",
+        "FIVE_SUMMARY_TOPICS_SAMPLED_WAV_FOCUS_VERIFIED_FULL_BULLET_SPEECH_UNPROVEN"),
+}
 
 def merge_new_real_source_receipt(*,old:dict,proof:dict)->dict:
     require(old["original_source_slides"]==41
@@ -57,6 +68,11 @@ def merge_new_real_source_receipt(*,old:dict,proof:dict)->dict:
             if x!="NO_PUBLISHER_MATCHED_SOURCE_WAV_PIXEL_FOCUS_CLIP"]
         item["remaining_source_academic_requirements"].append(
             "ONE_OR_MORE_SCENE_FOCUSES_PASS_BUT_ALL_VISUAL_ELEMENTS_NOT_CERTIFIED")
+        obsolete,current=NEW_FOCUS_PARTIAL_MATH_WARNINGS[key]
+        item["remaining_source_academic_requirements"]=[
+            flag for flag in item["remaining_source_academic_requirements"]
+            if flag != obsolete]
+        item["remaining_source_academic_requirements"].append(current)
         item["new_original_speech_acoustic_and_pdf_pixel_witness_verifiable"]=True
         item["original_mathematical_figure_semantic_and_word_coverage_complete"]=False
     for key in TITLES:
@@ -75,6 +91,28 @@ def merge_new_real_source_receipt(*,old:dict,proof:dict)->dict:
             "Original academic deficit register incorrectly promotes unsourced math/figure elements")
     images=[(key,img) for key,rec in records.items()
             for img in rec["actual_author_image_files"]]
+    math_backlog=[{
+        "slide":key,
+        "math_command_occurrence_inventory_only":rec.get("author_math_command_occurrence_count",0),
+        "equation_environment_inventory_only":rec.get("author_equation_environment_count",0),
+        "authored_bullet_count":rec.get("author_source_item_count",0),
+        "full_equation_scientific_equivalence_verified":False,
+    } for key,rec in records.items()
+        if "FULL_EQUIVALENCE_OF_EACH_INTERMEDIATE_MATH_TOKEN_NOT_PROVEN"
+           in rec["remaining_source_academic_requirements"]]
+    math_backlog.sort(key=lambda row:(
+        -row["math_command_occurrence_inventory_only"],
+        -row["equation_environment_inventory_only"],row["slide"]))
+    figure_backlog=[{
+        "slide":key,"author_source_figure":img["source_file"],
+        "author_figure_sha256":img["sha256"],
+        "figure_embedded_in_original_pdf":img["rendered_pdf_has_images"],
+        "not_certified_by_this_register":True,
+        "earlier_specialized_figure_evidence_may_exist":True,
+    } for key,img in images
+        if not img["publisher_figure_science_identity_verified"]]
+    require(len(math_backlog)<=38 and len(figure_backlog)<=len(images),
+            "Source-scoped original author mathematical/figure inventory inconsistent")
     output={
         **old,
         "status":STATUS,
@@ -89,6 +127,9 @@ def merge_new_real_source_receipt(*,old:dict,proof:dict)->dict:
         "source_images_inventory_total":len(images),
         "source_images_not_yet_certified_in_inventory":sum(
             not img["publisher_figure_science_identity_verified"] for _,img in images),
+        "unverified_intermediate_mathematical_source_per_slide_worklist":math_backlog,
+        "figure_identity_and_full_panel_label_worklist_for_this_register":figure_backlog,
+        "earlier_specialized_figure_acceptance_must_be_reconciled_before_new_claims":True,
         "original_all_math_equation_and_figure_label_checks_complete":False,
         "all_original_audio_tts_pronunciation_checks_complete":False,
         "full_original_production_gate_passed":False,
