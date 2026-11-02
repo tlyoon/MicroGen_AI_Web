@@ -64,7 +64,9 @@ class LazyBrowserSourceStageTests(unittest.TestCase):
         self.assertEqual(final["completed"]["slides"]["artifact_evidence"],evidence)
         self.assertIsNone(final["requested_models"]["ui_family_evidence"])
 
-    def test_fresh_slides_launch_browser_only_when_actual_stage_must_run(self):
+    @patch("selenium_pipeline.runner.pipeline_python_executable",
+           return_value="CI_SYNTHETIC_PIPELINE_PYTHON_NO_DOCLING_REQUIRED")
+    def test_fresh_slides_launch_browser_only_when_actual_stage_must_run(self,unused_pipeline_resolver):
         with patch.dict("os.environ",{"MICROGEN_COMMUNICATION_MODE":"selenium"}):
             with patch("selenium_pipeline.runner.run_cmd",
                        side_effect=RuntimeError("SYNTHETIC_CHEAP_STAGE_STOP")) as proc:
