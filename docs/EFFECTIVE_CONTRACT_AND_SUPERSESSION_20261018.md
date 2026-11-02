@@ -18,6 +18,8 @@
 
 **Effective from 18 October 2026.** This document records the latest explicit course-owner decisions and supersedes *conflicting prescriptive statements* in the older October blueprints, trial reports and troubleshooting notes. Historical documents remain intact as evidence of prior designs, not as an alternative production authorization.
 
+**BINDING OWNER EVIDENCE-REUSE AMENDMENT (2 November 2026):** Previously independently verified, immutable source/artifact/scope-specific findings MUST be reused rather than repeatedly rediscovered. A newer weaker checker or wrong slide index cannot reopen accepted Figure 8.3 source-artwork correspondence. Mandatory exact-hash evidence preflight, scoped scientific work, genuine change/contradiction-based revalidation, and Windows CI enforcement: [Verified evidence reuse and no duplicate campaigns](BINDING_VERIFIED_EVIDENCE_REUSE_NO_DUPLICATE_WORK_20261102.md). This latest owner amendment supersedes older conflicting retry/rework directions but preserves all source/math/audio/release gates.
+
 **No-silent-promotion candidate handoff:** [Evidence-locked human-reviewed candidate packet](EVIDENCE_LOCKED_CANDIDATE_HANDOFF_20261018.md) is an isolated review package only; it creates neither a production completion receipt nor student-publication authorization.
 
 **Technical synchronization QA hardening:** [Source-bound speech-window and unhighlighted-pause pixel verification](SOURCEBOUND_HIGHLIGHT_WINDOW_PAUSE_QA_20261018.md) supplements, but does not replace, source/figure integrity or human narration and semantic review.

@@ -33,6 +33,7 @@ jobs:
             "tests.test_browser_port_lock"
             "tests.test_gemini_mode_recovery"
             "tests.test_hardening_regressions"
+            "tests.test_verified_evidence_reuse_contract"
             "tests.test_figure_recovery_candidates"
             "tests.test_reliability_audit"
             "tests.test_env_key_conflicts"
