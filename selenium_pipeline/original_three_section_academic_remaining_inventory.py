@@ -16,6 +16,7 @@ from .figure_source_identity import require,_sha
 from .original_thomas84_multipart_qa_preview import HIGHLIGHTS
 from .original_thomas85_86_multipart_qa_preview import FOCUS,SOURCE
 from .original_thomas_all41_independent_joined_qa import STATUS as INDEPENDENT_STATUS
+from .original_thomas86_tank_ex62_source_provenance import verify_tank_publisher_source
 
 EXPECTED={"8.4":17,"8.5":11,"8.6":13}
 STATUS="READ_ONLY_SOURCE_AUDIO_MATH_FIGURE_41_SLIDE_DEFICIT_INVENTORY_NONPRODUCTION"
@@ -80,6 +81,8 @@ def audit(*,root:Path,checkpoint:Path)->dict:
             section=sec,frame_count=len(frames),
             publisher_sha=_sha(folder/"source.pdf"),
             slides_pdf_sha=_sha(folder/"slides.pdf"))
+        tank_source_proof=(verify_tank_publisher_source(folder=folder)
+                           if sec=="8.6" else None)
         seen=set(HIGHLIGHTS if sec=="8.4" else FOCUS[sec])
         require(all(1<=i<=count for i in seen),
                 f"Audio mathematical events cite invalid source slide in {sec}")
@@ -97,7 +100,8 @@ def audit(*,root:Path,checkpoint:Path)->dict:
                     graphics.append({"source_file":name,"sha256":_sha(image),
                         "physically_present_in_author_directory":True,
                         "rendered_pdf_has_images":bool(pages[slide-1].get_images(full=True)),
-                        "publisher_figure_science_identity_verified":False})
+                        "publisher_figure_science_identity_verified":bool(
+                            tank_source_proof and slide==11 and name=="Exercise 62.png")})
                 # Count _occurrences_ in author equations as an inventory
                 # measure, NOT an independently verified scientific claim.
                 latex_equation_env=len(re.findall(r"\\\[|\\begin\{(?:align|equation|gather)",frame))
@@ -119,10 +123,12 @@ def audit(*,root:Path,checkpoint:Path)->dict:
                             and "Tank Inventory" in frame
                             and bool(pages[slide-1].get_images(full=True)),
                             "Tank rendering changed; correct image identity not proven")
+                    require(tank_source_proof is not None
+                            and tank_source_proof["publisher_original_exercise_source_text_verified"]
+                            and tank_source_proof["author_source_image_same_publisher_visual_verified"],
+                            "Publisher-original tank Exercise62 source and author PNG unproven")
                     source_issue.append(
-                        "EXERCISE62_TANK_ILLUSTRATION_PUBLISHER_ORIGIN_OUTSIDE_SECTION_PDF")
-                    require("Tank Inventory" not in all_book_text,
-                            "Publisher source now includes tank example; update source-gate")
+                        "EXERCISE62_PUBLISHER_FIGURE_MATH_PROVEN_BUT_PER_ELEMENT_WORD_TIMING_PENDING")
                 if slide in seen:
                     source_issue.append(
                         "ONE_OR_MORE_SCENE_FOCUSES_PASS_BUT_ALL_VISUAL_ELEMENTS_NOT_CERTIFIED")
@@ -158,6 +164,8 @@ def audit(*,root:Path,checkpoint:Path)->dict:
             "original_source_pixel_and_audio_math_focus_slides":35,
             "original_slides_without_any_verified_focus":6,
             "original_sections":sources,
+            "publisher_original_tank_exercise62_source_figure_math_verified":True,
+            "tank_figures_per_element_word_timing_complete":False,
             "detailed_original_slide_acceptance_deficits":records,
             "author_math_command_counts_are_inventory_only":True,
             "no_exhaustive_academic_math_or_figure_element_approval":True,
@@ -166,7 +174,7 @@ def audit(*,root:Path,checkpoint:Path)->dict:
             "next_priority":(
                 "Cover the source and real WAV semantics of each unverified visible "
                 "region; verify all original author formulas and all publisher figure "
-                "panel labels/graph coordinates, including external Exercise62 source. "
+                "panel labels/graph coordinates; Exercise62 publisher visual source is proven, but its individual narration/label synchronization remains unverified. "
                 "Then independently rerender and repeat all-section production gate."),
           }
     return result
@@ -188,7 +196,8 @@ def main(argv=None):
                       "remaining_no_focus_slides":6,
                       "source_figures":sum(len(r["actual_author_image_files"])
                           for r in report["detailed_original_slide_acceptance_deficits"].values()),
-                      "tank_original_source_identity_approved":False,
+                      "tank_original_source_identity_approved":report[
+                          "publisher_original_tank_exercise62_source_figure_math_verified"],
                       "student_publication_authorized":False}))
 if __name__=="__main__":
     main()
