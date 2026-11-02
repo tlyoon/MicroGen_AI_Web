@@ -17,6 +17,7 @@ from pathlib import Path
 from PIL import Image, ImageChops, ImageStat
 
 from .highlight_video_preview import ffmpeg_path
+from .ffmpeg_fps_mode_compat import fps_mode_flags
 
 
 class EncodedPixelQAError(ValueError):
@@ -57,7 +58,7 @@ def _decode_selected(mp4: Path, indices: list[int], *, output_dir: Path,
     proc=subprocess.run([
         exe,"-hide_banner","-loglevel","error",
         "-i",str(mp4),"-vf",f"select={selection}",
-        "-vsync","0","-an","-frames:v",str(len(wanted)),
+        *fps_mode_flags(exe,"vfr"),"-an","-frames:v",str(len(wanted)),
         "-f","image2",str(target),
     ],capture_output=True,text=True,errors="replace",timeout=130)
     if proc.returncode:
