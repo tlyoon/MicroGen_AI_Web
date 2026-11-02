@@ -17,6 +17,7 @@ from .original_thomas84_multipart_qa_preview import HIGHLIGHTS
 from .original_thomas85_86_multipart_qa_preview import FOCUS,SOURCE
 from .original_thomas_all41_independent_joined_qa import STATUS as INDEPENDENT_STATUS
 from .original_thomas86_tank_ex62_source_provenance import verify_tank_publisher_source
+from .original_thomas86_example3_summary_source_math import verify_source as verify_86_example_summary
 
 EXPECTED={"8.4":17,"8.5":11,"8.6":13}
 STATUS="READ_ONLY_SOURCE_AUDIO_MATH_FIGURE_41_SLIDE_DEFICIT_INVENTORY_NONPRODUCTION"
@@ -83,6 +84,8 @@ def audit(*,root:Path,checkpoint:Path)->dict:
             slides_pdf_sha=_sha(folder/"slides.pdf"))
         tank_source_proof=(verify_tank_publisher_source(folder=folder)
                            if sec=="8.6" else None)
+        science_86_proof=(verify_86_example_summary(folder=folder)
+                          if sec=="8.6" else None)
         seen=set(HIGHLIGHTS if sec=="8.4" else FOCUS[sec])
         require(all(1<=i<=count for i in seen),
                 f"Audio mathematical events cite invalid source slide in {sec}")
@@ -118,6 +121,10 @@ def audit(*,root:Path,checkpoint:Path)->dict:
                     source_issue.append("FULL_EQUIVALENCE_OF_EACH_INTERMEDIATE_MATH_TOKEN_NOT_PROVEN")
                 if graphics:
                     source_issue.append("ORIGINAL_FIGURE_PANEL_LABEL_GRAPH_SCIENCE_NOT_FULLY_VERIFIED")
+                if science_86_proof and slide==6:
+                    source_issue.append("PUBLISHER_EXAMPLE3_FORMULAS_SOURCE_PROVEN_BUT_WAV_PIXEL_FOCUS_PENDING")
+                if science_86_proof and slide==12:
+                    source_issue.append("PUBLISHER_SUMMARY_FIVE_TOPICS_PROVEN_BUT_WAV_PIXEL_FOCUS_PENDING")
                 if sec=="8.6" and slide==11:
                     require(any(x["source_file"]=="Exercise 62.png" for x in graphics)
                             and "Tank Inventory" in frame
@@ -146,6 +153,8 @@ def audit(*,root:Path,checkpoint:Path)->dict:
                     "author_source_item_count":items,
                     "author_equation_environment_count":latex_equation_env,
                     "author_math_command_occurrence_count":math_commands,
+                    "publisher_scientific_topic_or_example_source_verified":bool(
+                        science_86_proof and slide in (6,12)),
                     "original_mathematical_figure_semantic_and_word_coverage_complete":False,
                     "remaining_source_academic_requirements":source_issue,
                 }
@@ -165,6 +174,7 @@ def audit(*,root:Path,checkpoint:Path)->dict:
             "original_slides_without_any_verified_focus":6,
             "original_sections":sources,
             "publisher_original_tank_exercise62_source_figure_math_verified":True,
+            "publisher_original_86_slides6_12_math_summary_source_verified":True,
             "tank_figures_per_element_word_timing_complete":False,
             "detailed_original_slide_acceptance_deficits":records,
             "author_math_command_counts_are_inventory_only":True,
