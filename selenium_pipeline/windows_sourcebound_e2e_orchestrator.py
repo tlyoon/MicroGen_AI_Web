@@ -169,6 +169,25 @@ def execute_windows(*,source_root:Path,snapshot_root:Path,
     for phase in PHASES:
         name,_,timeout=phase
         if state["phases"].get(name,{}).get("outcome")=="stage_pass":
+            # Never skip an original-source generation/TTS/video phase only
+            # because a mutable JSON checkpoint says "passed". Reuse the
+            # exact source-bound physical stage outputs, NOT a prior sampled
+            # figure/math/audio claim or a successful process exit alone.
+            from .windows_phase_output_evidence import (
+                admit_completed_phase,PhaseEvidenceError)
+            entry=state["phases"][name]
+            try:
+                artifact_receipt,adopted=admit_completed_phase(
+                    prior=entry,folder=Path(source_proof["test_source"]).parent,
+                    phase=name,source_sha256=source_proof["original_sha256"])
+            except PhaseEvidenceError as exc:
+                raise SourceboundE2EError(
+                    f"{name}: previous accepted phase evidence has changed or "
+                    "is incomplete; stop before paid or destructive replay") from exc
+            if adopted:
+                entry["output_evidence"]=artifact_receipt
+                entry["legacy_source_bound_phase_adopted"]=True
+                atomic_json(statepath,state)
             continue
         previous=state["phases"].get(name,{})
         if (previous.get("outcome")=="stage_failed"
@@ -202,7 +221,28 @@ def execute_windows(*,source_root:Path,snapshot_root:Path,
                                   "return_code":code,"attempt":attempt,
                                   "log":str(log),"transient":bool(TRANSIENT.search(observed))}
             atomic_json(statepath,state)
-            if code==0:break
+            if code==0:
+                # The original source and each generated stage artifact must
+                # be SHA-attested before recording a durable reusable PASS.
+                # A zero exit code with missing/incomplete WAV or lecture
+                # files cannot become a cache hit or authorize billed retries.
+                from .windows_phase_output_evidence import (
+                    phase_output_manifest,PhaseEvidenceError)
+                try:
+                    receipt=phase_output_manifest(
+                        folder=Path(source_proof["test_source"]).parent,
+                        phase=name,source_sha256=source_proof["original_sha256"])
+                except PhaseEvidenceError as exc:
+                    state["phases"][name]["outcome"]="stage_failed"
+                    state["phases"][name]["transient"]=False
+                    state["phases"][name]["artifact_gate_failure"]=str(exc)
+                    atomic_json(statepath,state)
+                    raise SourceboundE2EError(
+                        f"{name}: successful command generated incomplete or "
+                        "unverifiable phase artifacts; preserve the logs") from exc
+                state["phases"][name]["output_evidence"]=receipt
+                atomic_json(statepath,state)
+                break
             if not TRANSIENT.search(observed) or attempt==max_retries:
                 raise SourceboundE2EError(
                     f"{name} stopped safely; see {log}; not approved or published")
