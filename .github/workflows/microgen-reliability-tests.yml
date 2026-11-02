@@ -45,6 +45,7 @@ jobs:
             "tests.test_original_fig83_four_endpoint_tick_science"
             "tests.test_versioned_scholarly_accepted_scope_board"
             "tests.test_windows_figure_glyph_ci_dependency"
+            "tests.test_full_seven_stage_sourcebound_handoff"
             "tests.test_original_fig83_angular_font_source_glyphs"
             "tests.test_figure_recovery_candidates"
             "tests.test_reliability_audit"

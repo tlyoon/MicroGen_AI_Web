@@ -661,6 +661,12 @@ def _execute_unlocked(s: Settings) -> Path:
     if first > last:
         raise ValueError("--from-stage must precede --through-stage")
     planned = STAGES[first:last + 1]
+    # The legacy static-slide renderer is never an execution stage. Full
+    # seven-stage runs finish via the already verified sourcebound multipart
+    # producer *after* the six published upstream stages have passed.
+    final_sourcebound_video = ("video" in planned and s.from_stage != "video")
+    if final_sourcebound_video:
+        planned = [stage for stage in planned if stage != "video"]
     print(f"[microgen] code root: {REPO} | job: {s.subchapter}")
     print(f"[microgen] input: {source} | work: {folder}")
     print(f"[microgen] model phase: {MODEL_PHASE}")
@@ -673,6 +679,8 @@ def _execute_unlocked(s: Settings) -> Path:
         print(f"[microgen] TTS QA: {s.tts_qa_model} | threshold {s.tts_qa_threshold:.3f}%")
     for stage in planned:
         print(f"[microgen] stage: {stage}")
+    if final_sourcebound_video:
+        print("[microgen] stage: video (sourcebound multipart production handoff)")
     if s.dry_run:
         return folder
     selected=(s.element_plan,s.element_audio,s.element_review_root)
@@ -779,13 +787,8 @@ def _execute_unlocked(s: Settings) -> Path:
     # Check the independently configured PDF root and this subchapter before
     # launching Chrome or consuming paid model/API calls.
     verify_source_tree(s.source_root, source)
-    if "video" in planned:
-        raise RuntimeError(
-            "The static-slide video backend cannot fulfill the mandatory "
-            "multipart <600s and audio-timed visual highlighting contract. "
-            "Replan using reviewed scene boundaries and the approved "
-            "synchronized part renderer; preserving all existing output."
-        )
+    # A mixed run no longer enters the legacy static-slides video backend.
+    # Only the sourcebound producer may execute after upstream QA passes.
     # TTS billing authorization happens only if a source-bound TTS or QA
     # stage really executes; hash-identical cached WAVs never bill providers.
     # Defer external browser until an uncached stage truly needs it.
@@ -1135,6 +1138,27 @@ def _execute_unlocked(s: Settings) -> Path:
     state.pop("failed_stage", None)
     state.pop("failed_at_utc", None)
     save_pipeline_state(stamp, state)
+    if final_sourcebound_video:
+        # All preceding stages have already passed source/figure/math and
+        # original audio QA and published their outputs beside source.pdf.
+        # No static slides.mp4, no destructive replacement, and no repeated
+        # paid synthesis on a fully accepted multipart video.
+        try:
+            from .full_pipeline_video_handoff import complete_from_published
+            finished = complete_from_published(source=source,
+                require_slide_tts_qa=True)
+            state["completed"]["video"] = {
+                "at_utc": utc(), "model": "sourcebound-multipart-v1",
+                "source_sha256": signature,
+                "technical_install_status": finished["status"],
+                "student_publication_authorized": False}
+            save_pipeline_state(stamp, state)
+            print(f"[microgen] compliant multipart video: {finished['status']}")
+        except Exception:
+            state["failed_stage"] = "video"
+            state["failed_at_utc"] = utc()
+            save_pipeline_state(stamp, state)
+            raise
     # No pruning for an intermediate-stage run or a failed stage. On final
     # success, retain only published lecture deliverables plus the completion
     # receipt. Never delete inputs that may be needed by an unfinished run.
