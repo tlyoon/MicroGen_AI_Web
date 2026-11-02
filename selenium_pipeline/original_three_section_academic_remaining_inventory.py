@@ -29,6 +29,17 @@ def _slides(tex:str)->list[str]:
     return parts
 
 
+def is_structural_title_only(frame:str)->bool:
+    """Only an otherwise empty authored Beamer title frame is exempt.
+
+    Never exempt a slide containing mathematical expressions, figures, bullets,
+    narration content, or additional TeX simply because it says titlepage.
+    """
+    return bool(re.fullmatch(
+        r"\\begin\{frame\}\s*\\titlepage\s*\\end\{frame\}",
+        frame.strip(), re.S))
+
+
 def require_pinned_original_section_version(*,section:str,frame_count:int,
                                             publisher_sha:str,slides_pdf_sha:str)->None:
     """Reject mismatched live/regenerated author slides without losing why.
@@ -70,6 +81,8 @@ def audit(*,root:Path,checkpoint:Path)->dict:
             "Existing source/audio/video pixel facts not independently proven")
     records={}
     sources={}
+    title_only_slides=[]
+    substantive_without_focus=[]
     for sec,count in EXPECTED.items():
         folder=root/sec
         paths=[folder/n for n in ("source.pdf","slides.tex","slides.pdf","script.txt")]
@@ -94,6 +107,11 @@ def audit(*,root:Path,checkpoint:Path)->dict:
                     "Original academic authored PDF count is invalid")
             all_book_text="\n".join(p.get_text() for p in publisher)
             for slide,frame in enumerate(frames,1):
+                title_only=is_structural_title_only(frame)
+                if title_only:
+                    title_only_slides.append(f"{sec}_slide{slide}")
+                elif slide not in seen:
+                    substantive_without_focus.append(f"{sec}_slide{slide}")
                 imgs=re.findall(r"\\includegraphics(?:\[[^\]]*\])?\{([^}]*)\}",frame)
                 graphics=[]
                 for name in imgs:
@@ -113,7 +131,7 @@ def audit(*,root:Path,checkpoint:Path)->dict:
                     frame))
                 items=len(re.findall(r"\\item\b",frame))
                 source_issue=[]
-                if not (slide in seen):
+                if not (slide in seen) and not title_only:
                     source_issue.append("NO_PUBLISHER_MATCHED_SOURCE_WAV_PIXEL_FOCUS_CLIP")
                 if items>1:
                     source_issue.append("NOT_ALL_INDIVIDUAL_BULLET_REGIONS_SOURCE_AND_WORD_TIMED")
@@ -139,11 +157,13 @@ def audit(*,root:Path,checkpoint:Path)->dict:
                 if slide in seen:
                     source_issue.append(
                         "ONE_OR_MORE_SCENE_FOCUSES_PASS_BUT_ALL_VISUAL_ELEMENTS_NOT_CERTIFIED")
-                if not source_issue:
+                if not source_issue and not title_only:
                     source_issue.append(
                         "SOURCE_CORRESPONDENCE_AND_PER_ELEMENT_UTTERANCE_UNPROVEN")
                 records[f"{sec}_slide{slide}"]={
                     "section":sec,"slide":slide,
+                    "presentation_title_only_no_math_focus_required":title_only,
+                    "source_math_audio_focus_required":not title_only,
                     "author_slide_page_raster_source_sha256":_sha(folder/"slides.pdf"),
                     "publisher_original_source_sha256":_sha(folder/"source.pdf"),
                     "original_slide_wav_sha256":_sha(folder/f"slide{slide}.wav"),
@@ -169,7 +189,13 @@ def audit(*,root:Path,checkpoint:Path)->dict:
     require(len(records)==41 and sum(len(set(HIGHLIGHTS if k=="8.4" else FOCUS[k]))
                                     for k in EXPECTED)==35,
             "Publisher sections independently validated source focus count drifted")
+    require(set(title_only_slides)=={"8.4_slide1","8.5_slide1","8.6_slide1"}
+            and set(substantive_without_focus)=={"8.6_slide6","8.6_slide11","8.6_slide12"},
+            "Frozen 41-slide title/non-title focus classification changed unexpectedly")
     result={"status":STATUS,"original_source_slides":41,
+            "structural_title_only_slides_not_requiring_math_highlight":title_only_slides,
+            "substantive_slides_without_accepted_spoken_focus":substantive_without_focus,
+            "substantive_without_spoken_focus_count":len(substantive_without_focus),
             "original_source_pixel_and_audio_math_focus_slides":35,
             "original_slides_without_any_verified_focus":6,
             "original_sections":sources,
