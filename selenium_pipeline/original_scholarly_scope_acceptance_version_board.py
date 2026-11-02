@@ -27,6 +27,9 @@ RECEIPTS={
     "original_83_four_endpoints":
        "20261102_PR467_FIG83_NONZERO_ENDPOINT_SOURCE_TICK_PIXELS/"
        "FOUR_ORIGINAL_INVERSE_SINE_SECANT_NEGATIVE_POSITIVE_ONE_TICKS.json",
+    "original_83_five_angular_boundaries":
+       "20261102_PR470_FIG83_ANGULAR_SOURCE_BOUNDARY_GLYPHS/"
+       "FIG83_FIVE_PUBLISHER_ANGLE_BOUNDARY_PRINTED_GLYPH_PATCHES.json",
 }
 EXPECTED_SLIDES={"8.4":17,"8.5":11,"8.6":13}
 
@@ -52,6 +55,7 @@ def board(*,checkpoint:Path,original:Path)->dict:
     prior=evidence["prior_corrected_84"][0]
     six=evidence["original_83_first_six_labels"][0]
     four=evidence["original_83_four_endpoints"][0]
+    angles=evidence["original_83_five_angular_boundaries"][0]
     _require(old.get("original_source_slides")==41
              and old.get("original_source_pixel_and_audio_math_focus_slides")==38
              and old.get("true_original_spoken_element_samples_total")==47
@@ -90,6 +94,18 @@ def board(*,checkpoint:Path,original:Path)->dict:
              and len(four.get("newly_source_anchored_nonzero_ticks",{}))==4
              and four.get("student_publication_authorized") is False,
              "Four new printed endpoints cannot silently revalidate prior labels")
+    _require(angles.get("status")==
+             "ORIGINAL_FIG83_FIVE_REAL_ANGULAR_BOUNDARY_GLYPH_GROUPS_AUTHOR_PIXEL_PASS_NONPRODUCTION"
+             and angles.get("original_source_sha256")==pub84
+             and angles.get("original_author_slides_sha256")==author84
+             and angles.get("reused_previous_ten_glyphs_source_receipt_sha256")==
+                 evidence["original_83_four_endpoints"][1]
+             and angles.get("reused_existing_source_image_registration_sha256")==
+                 four.get("reused_existing_registration_receipt_sha256")
+             and angles.get("previous_frozen_source_glyphs_reused_unchanged")==10
+             and len(angles.get("five_new_angular_source_font_glyph_group_pixels",{}))==5
+             and angles.get("student_publication_authorized") is False,
+             "Previous original author ten glyphs or new angular labels changed")
     sections={}
     for section,n in EXPECTED_SLIDES.items():
         pub,author=ORIGINAL_PINS[section]
@@ -134,7 +150,9 @@ def board(*,checkpoint:Path,original:Path)->dict:
         "original_38_sampled_spoken_focus_slides_only":38,
         "original_47_spoken_focus_samples_not_every_utterance":47,
         "original_six_figure_publisher_artwork_identities_already_accepted":6,
-        "original_83_specific_vector_printed_author_bitmap_glyphs_accepted":10,
+        "original_83_specific_vector_printed_author_bitmap_glyphs_accepted":15,
+        "previous_graph_function_axis_and_endpoint_glyphs_reused":10,
+        "new_original_graph_angular_printed_glyph_groups_verified":5,
         "corrected_prior_author_84":{
             "author_pdf_sha256":prior["prior_corrected_author_pdf_sha256"],
             "same_textbook_as_frozen_original_84":True,
@@ -175,7 +193,7 @@ def main(argv=None):
                       "original_slides":41,
                       "source_focus_slides":38,
                       "source_figure_images_already_matched":6,
-                      "Fig83_label_pixels":10,
+                      "Fig83_label_pixels":result["original_83_specific_vector_printed_author_bitmap_glyphs_accepted"],
                       "student_publication_authorized":False}))
 if __name__=="__main__":
     main()

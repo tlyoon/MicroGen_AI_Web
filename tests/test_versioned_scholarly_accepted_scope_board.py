@@ -70,10 +70,19 @@ class ScienceReleaseScopeBoard(unittest.TestCase):
                 "three_inverse_function_labels_pixel_matched":3,
                 "three_graph_axis_zero_tick_labels_pixel_matched":3,
                 "student_publication_authorized":False},
+            "original_83_five_angular_boundaries":{
+                "status":"ORIGINAL_FIG83_FIVE_REAL_ANGULAR_BOUNDARY_GLYPH_GROUPS_AUTHOR_PIXEL_PASS_NONPRODUCTION",
+                "original_source_sha256":self.sha84[0],
+                "original_author_slides_sha256":self.sha84[1],
+                "previous_frozen_source_glyphs_reused_unchanged":10,
+                "five_new_angular_source_font_glyph_group_pixels":{
+                    x:True for x in range(5)},
+                "student_publication_authorized":False},
             "original_83_four_endpoints":{
                 "publisher_source_sha256":self.sha84[0],
                 "author_original_slides_sha256":self.sha84[1],
                 "original_previous_glyphs_accepted_without_reanalysis":6,
+                "reused_existing_registration_receipt_sha256":"e"*64,
                 "newly_source_anchored_nonzero_ticks":{
                     x:True for x in range(4)},
                 "student_publication_authorized":False},
@@ -87,23 +96,35 @@ class ScienceReleaseScopeBoard(unittest.TestCase):
         path.write_text(json.dumps(self.fixture[key]),encoding="utf8")
 
     def _save_all(self):
-        for key in self.fixture:
+        # Physical immutable proof is chained six glyphs -> four endpoints
+        # -> five angles, regardless of dictionary insertion order.
+        for key in (k for k in self.fixture
+                    if k!="original_83_five_angular_boundaries"):
             if key=="original_83_four_endpoints":
                 self.fixture[key][
                     "reused_existing_six_source_label_glyph_receipt_sha256"
                 ]=file_sha256(self.cp/RECEIPTS["original_83_first_six_labels"])
             self._save(key)
+        key="original_83_five_angular_boundaries"
+        self.fixture[key][
+            "reused_previous_ten_glyphs_source_receipt_sha256"
+        ]=file_sha256(self.cp/RECEIPTS["original_83_four_endpoints"])
+        self.fixture[key][
+            "reused_existing_source_image_registration_sha256"
+        ]="e"*64
+        self._save(key)
 
     def test_all_original_author_versions_and_corrected_84_remain_separate(self):
         b=board(checkpoint=self.cp,original=self.root)
         self.assertEqual(b["status"],STATUS)
         self.assertEqual(b["original_38_sampled_spoken_focus_slides_only"],38)
-        self.assertEqual(b["original_83_specific_vector_printed_author_bitmap_glyphs_accepted"],10)
+        self.assertEqual(b["original_83_specific_vector_printed_author_bitmap_glyphs_accepted"],15)
         self.assertEqual(b["original_six_figure_publisher_artwork_identities_already_accepted"],6)
         self.assertFalse(b["corrected_prior_author_84"]["same_author_pdf_as_frozen_original_84"])
         self.assertFalse(b["student_publication_authorized"])
         self.assertFalse(b["full_41_original_scholar_scientific_release_pass"])
-        self.assertEqual(len(b["prior_immutable_receipt_sha256"]),6)
+        self.assertEqual(len(b["prior_immutable_receipt_sha256"]),7)
+        self.assertEqual(b["new_original_graph_angular_printed_glyph_groups_verified"],5)
 
     def test_corrupt_previous_glyph_receipt_without_new_four_receipt_is_blocked(self):
         self.fixture["original_83_first_six_labels"][
