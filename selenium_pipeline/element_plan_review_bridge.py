@@ -164,8 +164,15 @@ def promoted(*,source:Path,slides:Path,script:Path,
                           f"Slide {number}: ambiguous composite figure needs review")
                 override=row.get("anchor_override")
                 if override is not None:
-                    check(selected_anchor["type"]=="image_whole"
-                          and override.get("type")=="image_panel"
+                    same_registered=(
+                        selected_anchor["type"]=="image_whole"
+                        and override.get("type")=="image_panel")
+                    same_inline=(
+                        selected_anchor["type"]=="inline_image_whole"
+                        and override.get("type")=="inline_image_panel"
+                        and override.get("digest_sha256")==
+                            selected_anchor.get("digest_sha256"))
+                    check((same_registered or same_inline)
                           and override.get("index")==selected_anchor["index"]
                           and type(override.get("panels")) is int
                           and type(override.get("panel")) is int

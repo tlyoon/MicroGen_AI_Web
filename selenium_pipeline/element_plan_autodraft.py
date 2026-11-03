@@ -152,7 +152,8 @@ def propose(*, source_pdf: Path, slides_pdf: Path, script_txt: Path) -> dict:
                     rect,kind=rectangle(pg,anchor)
                     # A wide composite figure needs *manual panel*
                     # identification; never silently highlight only (a).
-                    requires_panel=(item["type"]=="image_whole" and
+                    requires_panel=(item["type"] in
+                                   {"image_whole","inline_image_whole"} and
                                    item.get("suspected_multipart") is True)
                     targets.append({
                         "draft_element_id":item["draft_element_id"],

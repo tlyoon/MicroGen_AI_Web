@@ -71,12 +71,14 @@ def draft(source:Path,slides:Path)->dict:
                     "visible_text":value[:500],
                     "proposed_spoken_text":None,
                     "review_required":True})
+            xref_image_regions=[]
             for j,image in enumerate(page.get_images(full=True)):
                 rects=page.get_image_rects(image[0])
                 if len(rects)!=1:
                     skipped.append(f"ambiguous_image_{j}")
                     continue
                 r=rects[0]
+                xref_image_regions.append(r)
                 if r.width<20 or r.height<20:
                     skipped.append(f"tiny_image_{j}")
                     continue
@@ -90,6 +92,40 @@ def draft(source:Path,slides:Path)->dict:
                     "image_xref":image[0],
                     "proposed_spoken_text":None,
                     "review_required":True})
+            # PyMuPDF/Beamer can encode large mathematically meaningful
+            # images as *inline* PDF image blocks with no registered xref.
+            # The preceding get_images() call misses them entirely. Preserve
+            # original physical bytes + index; skip tiny bullet/decorative
+            # icons and never double-count registered xref image placements.
+            for j, block in enumerate(page.get_text("dict").get("blocks", [])):
+                if block.get("type") != 1:
+                    continue
+                r=pymupdf.Rect(block.get("bbox", ()))
+                if r.is_empty or r.is_infinite or r.width<45 or r.height<35:
+                    skipped.append(f"decorative_or_tiny_inline_image_{j}")
+                    continue
+                if any((r & previous).get_area() >=
+                       .90 * min(r.get_area(), previous.get_area())
+                       for previous in xref_image_regions):
+                    continue
+                raw=block.get("image")
+                if not isinstance(raw, bytes) or not raw:
+                    skipped.append(f"missing_inline_image_bytes_{j}")
+                    continue
+                digest=hashlib.sha256(raw).hexdigest()
+                targets.append({
+                    "draft_element_id":f"s{i:03d}.inline.{j:03d}",
+                    "type":"inline_image_whole",
+                    "anchor":{"type":"inline_image_whole",
+                              "index":j,"digest_sha256":digest},
+                    "rect_pt":[round(x,2) for x in r],
+                    "suspected_multipart":bool(
+                        r.width>200 and r.width/r.height>2.5),
+                    "actual_panel_count_unverified":True,
+                    "image_sha256":digest,
+                    "proposed_spoken_text":None,
+                    "review_required":True,
+                })
             top=" / ".join(strings[:2])
             pages=best_pages(" ".join(body),sourcepages)
             scenes.append({
@@ -105,7 +141,9 @@ def draft(source:Path,slides:Path)->dict:
           "source_sha256":hash_file(source),"slides_sha256":hash_file(slides),
           "source_page_count":len(sourcepages),"slide_count":len(scenes),
           "candidate_target_count":sum(len(s["targets"]) for s in scenes),
-          "figure_target_count":sum(sum(t["type"]=="image_whole" for t in s["targets"]) for s in scenes),
+          "figure_target_count":sum(sum(t["type"] in
+              {"image_whole","inline_image_whole"} for t in s["targets"])
+              for s in scenes),
           "all_narration_authored":False,"all_source_pages_verified":False,
           "automatic_approval":False,
           "warning":"No audio production or student release may use this draft. Confirm source pages, all mathematical expressions, figure panels and narration manually or with independent reviewed evidence.",

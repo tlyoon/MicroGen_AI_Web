@@ -92,6 +92,43 @@ def rectangle(page, anchor: dict):
         rect=pymupdf.Rect(image.x0+(ordinal-1)*width,image.y0,
                            image.x0+ordinal*width,image.y1)
         category="figure_panel"
+    elif anchor.get("type") in {"inline_image_whole", "inline_image_panel"}:
+        # PyMuPDF/Beamer may encode mathematical diagrams as inline image
+        # blocks with NO xref. A PDF image is a candidate only when exact
+        # decoded image bytes and the original block index still match.
+        # Coordinates and panel count are never accepted from a freehand
+        # guess; derive them from the actual, unchanged authored PDF.
+        index = anchor.get("index")
+        blocks = page.get_text("dict").get("blocks", [])
+        need(type(index) is int and 0 <= index < len(blocks),
+             "Invalid authored inline image block index")
+        block = blocks[index]
+        raw = block.get("image") if block.get("type") == 1 else None
+        need(isinstance(raw, bytes) and bool(raw),
+             "Selected inline image has no physical decoded source pixels")
+        need(anchor.get("digest_sha256") ==
+             hashlib.sha256(raw).hexdigest(),
+             "Author inline image pixels changed after selection")
+        image = pymupdf.Rect(block.get("bbox", ()))
+        need(not image.is_empty and not image.is_infinite
+             and image.width >= 45 and image.height >= 35,
+             "Tiny decorative image cannot be promoted to narrated figure")
+        if anchor["type"] == "inline_image_whole":
+            rect = image
+            category = "figure"
+        else:
+            panels = anchor.get("panels")
+            ordinal = anchor.get("panel")
+            need(type(panels) is int and 2 <= panels <= 6
+                 and type(ordinal) is int and 1 <= ordinal <= panels,
+                 "Invalid independently reviewed inline figure panel")
+            need(image.width > 200 and image.width / image.height > 2.5,
+                 "Panel selection not supported for narrow inline image")
+            width = image.width / panels
+            rect = pymupdf.Rect(image.x0 + (ordinal - 1) * width,
+                                image.y0, image.x0 + ordinal * width,
+                                image.y1)
+            category = "figure_panel"
     else:
         raise ElementStageError("Unsupported anchor type (no automatic guessing)")
     need(not rect.is_empty and rect.get_area()>=25
