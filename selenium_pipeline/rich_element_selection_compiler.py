@@ -142,7 +142,7 @@ def compile_selection(*, source_folder:Path, checkpoint:Path,
         slide_row["elements"]=[]
         for position,group in enumerate(groups,1):
             target=authored[group["target_id"]]
-            require(target["kind"]=="text_block"
+            require(target["kind"] in {"text_block","text_group"}
                     and target.get("source_evidence_verified") is False,
                     "Only verified physical source PDF text may auto process")
             slide_row["elements"].append({

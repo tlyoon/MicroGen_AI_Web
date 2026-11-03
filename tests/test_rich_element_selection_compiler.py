@@ -67,7 +67,8 @@ class ModelSourceVerifiedTechnicalSelectionTests(unittest.TestCase):
                               checkpoint=self.checkpoint,slide_number=1)
         self.req=req
         self.assertEqual(len(req["original_utterances"]),2)
-        self.assertEqual(len(req["visible_targets"]),2)
+        self.assertEqual(sum(t["kind"]=="text_block"
+                             for t in req["visible_targets"]),2)
 
     def response(self):
         return {

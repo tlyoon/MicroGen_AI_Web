@@ -67,7 +67,8 @@ class SourceVerifiedModelElementMappingTests(unittest.TestCase):
 
     def choices(self):
         units=self.req["original_utterances"]
-        targets=self.req["visible_targets"]
+        targets=[t for t in self.req["visible_targets"]
+                 if t["kind"]=="text_block"]
         self.assertEqual(len(units),2)
         self.assertEqual(len(targets),2)
         return {
