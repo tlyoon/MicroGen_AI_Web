@@ -44,10 +44,15 @@ def complete_from_published(*, source: Path, require_slide_tts_qa: bool = False)
             "Partial or conflicting multipart publication requires targeted recovery")
     require(not (lecture / "slides.mp4").exists(),
             "Old slide MP4 is protected; no silent video replacement")
-    for name in ("slides.pdf", "script.txt"):
-        p = lecture / name
-        require(p.is_file() and not p.is_symlink() and p.stat().st_size > 0,
-                f"Missing real published {name} prior to synchronized video")
+    # Legacy but independently source-proven video-only jobs may already
+    # contain a complete authored element plan and per-element PCM manifest.
+    # Those inputs are sufficient to verify/render without a separate
+    # slide-level script.txt, which may never have existed in that version.
+    # For a NEW element TTS batch, however, the original script is mandatory.
+    slides = lecture / "slides.pdf"
+    require(slides.is_file() and not slides.is_symlink()
+            and slides.stat().st_size > 0,
+            "Missing real published slides.pdf prior to synchronized video")
     if require_slide_tts_qa:
         require(check_valid("tts_qa", lecture),
                 "Complete passing original slide-WAV pronunciation QA is required "
@@ -68,6 +73,12 @@ def complete_from_published(*, source: Path, require_slide_tts_qa: bool = False)
     present = [p.exists() for p in targets]
     require(not any(present) or all(present),
             "Partial original per-element TTS batch: preserve it for recovery")
+    if require_slide_tts_qa or not any(present):
+        script = lecture / "script.txt"
+        require(script.is_file() and not script.is_symlink()
+                and script.stat().st_size > 0,
+                "Missing real published script.txt; cannot initiate new "
+                "source-bound element narration/TTS generation")
     root = Path(os.environ.get("LOCALAPPDATA") or str(Path.home() / ".cache"))
     staging = root / "MicroGen_AI_Web_VideoStaging"
     require(not staging.is_relative_to(lecture)
