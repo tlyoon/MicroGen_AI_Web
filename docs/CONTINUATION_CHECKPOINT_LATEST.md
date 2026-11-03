@@ -1,10 +1,18 @@
+# Contract clarification — do NOT loop on one PDF (4 Nov 2026)
+
+Owner explicitly reiterates GENERAL MicroGen_AI_Web codebase completion over repeated single-Thomas-PDF figure/math/audio defect campaigns. See the 4 Nov addendum to docs/BINDING_VERIFIED_EVIDENCE_REUSE_NO_DUPLICATE_WORK_20261102.md. **Supersedes the older PR487 next-step suggestion to clear all Thomas §8.4–8.6 unresolved source mappings first.** The 155 outstanding mappings are input-specific release limitations, not a prerequisite for native Windows application packaging, multi-source execution/recovery and independent eligible-input end-to-end validation. Already accepted PR362 physical Thomas §8.4 MP4/maths/TTS proof must be reused within its matched SHA/scope rather than automatically repeated under a different QA definition. Bounded one-cycle genuine bug fixes only; otherwise record a blocked source and advance GENERAL release engineering. Continue safety gates, no unauthorized model resend, paid TTS or student release.
+
+**Next priority:** release engineering / native Windows launcher and functional multi-source orchestration, NOT another Thomas Fig 8.3 or 155-mapping campaign. PR487 CI was confirmed SUCCESS at GitHub Actions run 41739138883, before this documentation-only amendment.
+
+---
+
 # PR487 — Native Windows original-source release command (4 Nov 2026)
 
 **Actual Dell-115 development state:** isolated clean-parent worktree `%LOCALAPPDATA%\MicroGen_PR487_20261104` branched from PR486 commit `fdced94f1faf25bef2b9dd6df15adcfe4641e2be`. New production `selenium_pipeline.original_windows_release` provides ONE native Windows operator command to consume the existing physical immutable PR486 campaign, verify original/source/mapping/model/section receipt SHA, reuse accepted mathematical/figure conclusions without re-running any semantic source check, and safely route exactly ONE explicitly selected fully prepared source through the established PR485 strict recorded-audio multipart renderer. No new model submission, paid TTS, original-source overwrite or student publication.
 
 **Direct physical result:** 20261103 PR486 two-original-section campaign read-only check PASS; Thomas §8.4 original 4 accepted prose/61 unresolved and §8.5 3 accepted prose/42 unresolved. Both correctly remain blocked. Newly appearing PCM/finished media or changed source evidence cannot silently use an old blocked receipt: start a new immutable versioned source campaign. Native Dell targeted combined regression **33 passed, 5 benign SWIG warnings**, and Windows-style `unittest` **13 passed**. A passing integration test is **NOT** a fresh full original lesson or student release. GitHub PR/CI state must be verified separately after push. Files: `tests/test_original_windows_release.py`, `docs/WINDOWS_ORIGINAL_RELEASE_COMMAND_PR487_20261104.md`.
 
-**Next:** create draft stacked PR #487 against #486, verify GitHub Windows CI, reconcile prior ambiguous Gemini §8.5 model request through immutable claim **without resending blindly**, produce fresh semantic source-to-figure mappings and genuine per-element PCM, then execute a truly ready original §8.4 sourcebound lecture. Do not touch dirty shared G: main or other computers; preserve all historical acceptance receipts and frozen original inputs.
+**Next (updated under 4 Nov anti-loop clarification):** PR #487 is OPEN, DRAFT and GitHub Windows CI run 41739138883 passed. Proceed to GENERAL native Windows launcher, installation/diagnostics and multi-source job orchestration/recovery. Treat Thomas §8.5 ambiguous Gemini submission and remaining 155 semantic mappings as bounded input-specific blocked records, NOT a prerequisite for these product milestones; no automatic resend. Prefer an eligible independent original source for end-to-end qualification, reusing exact SHA/scope historical proof. Do not touch dirty shared G: main or other computers; preserve all frozen publisher inputs and accepted receipts.
 
 ---
 
