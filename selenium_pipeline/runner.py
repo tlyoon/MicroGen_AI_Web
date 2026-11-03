@@ -727,6 +727,18 @@ def _execute_unlocked(s: Settings) -> Path:
         print(f"[microgen] compliant video-only handoff: {result['status']}; "
               "no student-facing publication")
         return folder
+    if final_sourcebound_video and not s.force_from:
+        # The new compliant video is a SHA-pinned multi-part series with
+        # lecture_completion.json, NOT a legacy slides.mp4 file. Reuse it
+        # before Chrome, paid element TTS or any upstream author generation.
+        # A partial/tampered part set is a blocker, never a signal to redo.
+        from .sourcebound_completion_guard import inspect_sourcebound_completion
+        prior_series=inspect_sourcebound_completion(source)
+        if prior_series["status"]=="ALREADY_COMPLETED_SOURCEBOUND_MULTIPART":
+            verify_source_tree(s.source_root,source)
+            print("[microgen] sourcebound multipart lesson already complete; "
+                  "no original slides, audio or video regenerated")
+            return folder
     # A completed lecture has already had its staging/checkpoints removed.
     # Trust only a source-and-output-matched completion receipt: otherwise
     # missing staging files would trigger an expensive, unnecessary rerun.
@@ -1133,7 +1145,14 @@ def _execute_unlocked(s: Settings) -> Path:
     # No pruning for an intermediate-stage run or a failed stage. On final
     # success, retain only published lecture deliverables plus the completion
     # receipt. Never delete inputs that may be needed by an unfinished run.
-    if s.through_stage == "video":
+    if final_sourcebound_video:
+        # The new accepted teaching deliverables are part_XX MP4/WAV,
+        # SHA-bound lecture_completion.json and source-grounded authored
+        # plan. They are not a legacy slides.mp4, and must not be pruned
+        # using the old monolithic completion/cleanup algorithm.
+        print("[microgen] sourcebound multipart outputs preserved; "
+              "legacy static-video cleanup not applicable")
+    elif s.through_stage == "video":
         final_names = ("slides.tex", "slides.pdf", "script.txt", "slides.mp4")
         if all((source.parent / name).is_file() and
                (source.parent / name).stat().st_size > 0 for name in final_names):
