@@ -708,8 +708,12 @@ def _execute_unlocked(s: Settings) -> Path:
     # from PDF text. The automatic element selector therefore accepts ONLY
     # unique, verbatim original slide narration in a source text block.
     # Ambiguous figures/text NEVER trigger paid TTS or static video fallback.
-    if (s.from_stage == "video" and s.through_stage == "video"
-            and s.force_from is None):
+    if s.from_stage == "video" and s.through_stage == "video":
+        # Even an explicit --force-from video must NOT enter the obsolete
+        # static-slide FFmpeg backend. Reuse or fail-closed under the same
+        # immutable sourcebound multipart contract as every ordinary run.
+        if s.force_from not in (None, "video"):
+            raise ValueError("Video-only force-from must be video")
         # Video-only and full-run paths share ONE sourcebound renderer, voice
         # provenance and part-install contract; no duplicate TTS/render logic.
         verify_source_tree(s.source_root, source)
@@ -838,6 +842,10 @@ def _execute_unlocked(s: Settings) -> Path:
         env["MICROGEN_TTS_PYTHON"] = tts_python_executable()
     changed_upstream = False
     for stage in planned:
+        if stage == "video":
+            raise RuntimeError(
+                "Legacy static-slide video backend is prohibited; use the "
+                "sourcebound multipart handoff instead")
         # A successful PDF compile can silently skip missing IfFileExists
         # figures. Never accept that as permission to generate narration.
         if stage == "video":
@@ -1057,24 +1065,6 @@ def _execute_unlocked(s: Settings) -> Path:
                     if not (folder / script).is_file():
                         raise FileNotFoundError(f"Missing reference entrypoint: {script}")
                     run_cmd([stage_python, script], folder, log_file, env)
-                if stage == "video":
-                    # Stage split PDFs locally before publishing; vendor
-                    # slice_pdf.py writes directly to cloud drives and can stall.
-                    run_cmd([
-                        stage_python, str(REPO / "selenium_pipeline" / "slide_pdf_split.py"),
-                        "--folder", str(folder),
-                    ], folder, log_file, env,
-                        timeout_s=int(os.getenv("MICROGEN_SLIDE_SPLIT_TIMEOUT_SECONDS", "900")),
-                        kill_tree_on_timeout=True)
-                    # Use the maintained FFmpeg assembler, NOT the old MoviePy
-                    # gen_video.py (which can pass fps=None through decorator
-                    # wrappers and fail after long audio generation).
-                    run_cmd([
-                        stage_python, str(REPO / "selenium_pipeline" / "video_ffmpeg.py"),
-                        "--folder", str(folder),
-                    ], folder, log_file, env,
-                        timeout_s=int(os.getenv("MICROGEN_VIDEO_STAGE_TIMEOUT_SECONDS", "3600")),
-                        kill_tree_on_timeout=True)
             if not check_valid(stage, folder):
                 raise RuntimeError(f"Validation failed at {stage}; see {log_file}")
             if stage == "tts_qa":
