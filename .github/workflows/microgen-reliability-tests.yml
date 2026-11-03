@@ -58,6 +58,7 @@ jobs:
             "tests.test_sourcebound_multiblock_math_focus"
             "tests.test_rich_mapping_provider_dispatch"
             "tests.test_original_source_e2e_acceptance"
+            "tests.test_original_multisource_recovery_campaign"
             "tests.test_original_fig83_angular_font_source_glyphs"
             "tests.test_figure_recovery_candidates"
             "tests.test_reliability_audit"
