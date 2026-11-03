@@ -77,7 +77,9 @@ class ExistingSourceboundVideoWithoutSlideScriptTests(unittest.TestCase):
 
     def test_full_seven_stage_requires_script_even_if_element_plan_exists(self):
         self._existing_elements()
-        with patch("selenium_pipeline.runner.check_valid", return_value=False), \
+        with patch("selenium_pipeline.runner.check_valid",
+                   side_effect=lambda stage, folder: stage == "tts_qa"), \
+             patch("selenium_pipeline.slide_narration_sync.verify"), \
              patch("selenium_pipeline.automatic_element_audio_stage.produce_element_audio",
                    side_effect=AssertionError("Must not synthesize")) as synth:
             with self.assertRaisesRegex(VideoHandoffBlocked, "script.txt"):
