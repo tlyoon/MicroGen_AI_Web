@@ -178,6 +178,8 @@ class CompliantFullVideoHandoffTests(unittest.TestCase):
         with patch("selenium_pipeline.runner.check_valid",side_effect=valid),\
              patch("selenium_pipeline.slide_narration_sync.verify"),\
              patch("selenium_pipeline.source_numbered_example_coverage.require_coverage"),\
+             patch("selenium_pipeline.rich_element_mapping_checkpoint.require_automatic_mapping_or_checkpoint",
+                   return_value={"status":"EXACT_TEXT_SOURCE_MAPPING_CAN_PROCEED"}),\
              patch("selenium_pipeline.automatic_element_audio_stage.produce_element_audio",
                    side_effect=fake_generate) as make,\
              patch("selenium_pipeline.sourcebound_production_video.render_and_install_prepared",
