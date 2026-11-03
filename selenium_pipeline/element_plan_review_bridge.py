@@ -67,6 +67,14 @@ def promoted(*,source:Path,slides:Path,script:Path,
         check(audio.is_dir() and not audio.is_symlink(),"Frozen audio folder required")
     draft=load(draft_path)
     decision=load(selection)
+    if decision.get("machine_source_evidence_mode") is not None:
+        # AI text proposals can receive technical-only processing status
+        # ONLY if every original model response is independently rerun
+        # against exact publisher/author/script PDF bytes at promotion time.
+        # Math and figure semantic ambiguities cannot be auto-promoted.
+        from .rich_element_selection_compiler import verify_machine_selection
+        verify_machine_selection(source=source,slides=slides,script=script,
+                                 draft=draft_path,selection=decision)
     check(draft.get("status")=="REVIEW_REQUIRED_NOT_TTS_READY"
           and draft.get("can_stage_or_synthesize_audio") is False
           and draft["source_sha256"]==file_hash(source)
