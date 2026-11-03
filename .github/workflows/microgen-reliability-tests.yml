@@ -49,6 +49,7 @@ jobs:
             "tests.test_video_handoff_script_optional"
             "tests.test_rich_element_mapping_checkpoint"
             "tests.test_inline_beamer_figure_candidate_mapping"
+            "tests.test_sourcebound_completion_guard"
             "tests.test_original_fig83_angular_font_source_glyphs"
             "tests.test_figure_recovery_candidates"
             "tests.test_reliability_audit"
