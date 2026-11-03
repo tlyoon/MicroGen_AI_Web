@@ -53,6 +53,7 @@ jobs:
             "tests.test_force_video_sourcebound_routing"
             "tests.test_rich_element_model_alignment"
             "tests.test_rich_element_selection_compiler"
+            "tests.test_rich_element_safe_prose_fallback"
             "tests.test_original_fig83_angular_font_source_glyphs"
             "tests.test_figure_recovery_candidates"
             "tests.test_reliability_audit"
