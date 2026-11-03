@@ -86,6 +86,15 @@ def complete_from_published(*, source: Path, require_slide_tts_qa: bool = False)
             "Local video staging must be separate from textbook source")
     staging.mkdir(parents=True, exist_ok=True)
     if not any(present):
+        # The old exact-text-only element selector failed at the first Beamer
+        # image/icon on every original Thomas section. Produce an immutable
+        # entire-lecture mapping worklist ONCE before any paid audio attempt,
+        # and reuse the same SHA-bound gap report on subsequent resumes.
+        from .rich_element_mapping_checkpoint import (
+            require_automatic_mapping_or_checkpoint)
+        require_automatic_mapping_or_checkpoint(
+            source=source, slides=lecture / "slides.pdf",
+            script=lecture / "script.txt", checkpoint_root=staging)
         from .automatic_element_audio_stage import produce_element_audio
         produce_element_audio(source=source, slides=lecture / "slides.pdf",
                               script=lecture / "script.txt", local_work_root=staging)
