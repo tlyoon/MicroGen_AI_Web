@@ -63,6 +63,14 @@ def rectangle(page, anchor: dict):
              "Text evidence not present at anchored rendered block")
         rect=pymupdf.Rect(block[:4])
         category="text"
+    elif anchor.get("type")=="text_group":
+        from .sourcebound_multiblock_text_focus import text_group_rect
+        try:
+            rect=text_group_rect(page,anchor)
+        except ValueError as exc:
+            raise ElementStageError(
+                "Original authored grouped math/text anchor is invalid") from exc
+        category="text"
     elif anchor.get("type")=="image_whole":
         index=anchor.get("index")
         images=page.get_images(full=True)

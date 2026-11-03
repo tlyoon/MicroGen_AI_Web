@@ -71,6 +71,12 @@ def draft(source:Path,slides:Path)->dict:
                     "visible_text":value[:500],
                     "proposed_spoken_text":None,
                     "review_required":True})
+            # A displayed mathematical derivation may be split across
+            # 2–3 physically adjacent PDF text blocks by Beamer/PyMuPDF.
+            # Produce review-only bounded *grouped visual targets*, rather
+            # than forcing the narrator to focus on a random fraction piece.
+            from .sourcebound_multiblock_text_focus import discover_groups
+            targets.extend(discover_groups(page,i,targets))
             xref_image_regions=[]
             for j,image in enumerate(page.get_images(full=True)):
                 rects=page.get_image_rects(image[0])

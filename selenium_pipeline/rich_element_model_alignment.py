@@ -246,7 +246,7 @@ def assess_response(*, source_folder: Path, checkpoint: Path, slide_number: int,
         if selected is None:
             problems.append("unassigned_original_utterance")
         else:
-            if selected["kind"] != "text_block":
+            if selected["kind"] not in {"text_block","text_group"}:
                 problems.append("figure_visual_semantics_require_independent_source_image_proof")
             if selected["figure_panel_review_required"]:
                 problems.append("composite_figure_panel_identity_requires_independent_review")
