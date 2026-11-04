@@ -3,7 +3,7 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from selenium_pipeline.windows_fresh_source_trial import run_trial
 from selenium_pipeline.original_multisource_recovery_campaign import CampaignRecoveryBlocked
@@ -86,6 +86,19 @@ class FreshIndependentOriginalTests(unittest.TestCase):
             run_trial(source_root=self.publisher, section="22.2",
                       trial_dir=self.trial, subprocess_run=fake)
 
+
+    def test_real_runner_contract_passes_one_send_budget_to_bounded_child(self):
+        fake = Mock(return_value=subprocess.CompletedProcess([], 1, "", ""))
+        with patch("selenium_pipeline.windows_bounded_stage_process.run_bounded",
+                   fake):
+            result = run_trial(source_root=self.publisher, section="22.1",
+                               trial_dir=self.trial, attempt_figures=True)
+        self.assertEqual(result["status"], "FIGURES_ATTEMPT_FAILED_NO_AUTO_RETRY")
+        env = fake.call_args.kwargs["environ"]
+        self.assertEqual(env["MICROGEN_SELENIUM_ATTEMPTS"], "1")
+        self.assertEqual(env["MICROGEN_API_ATTEMPTS"], "1")
+        self.assertEqual(env["MICROGEN_SINGLE_PROVIDER_SEND"], "1")
+        self.assertEqual(fake.call_count, 1)
 
 if __name__ == "__main__":
     unittest.main()

@@ -158,6 +158,13 @@ def call_with_key_failover(
         )
 
     retries = _env_int("MICROGEN_GEMINI_MAX_RETRIES", 6) if max_retries is None else max_retries
+    # A source-stage pre-send ledger permits exactly ONE provider submit.
+    # Never rotate credentials/retry a possibly submitted ambiguous request.
+    # This is opt-in for immutable Windows source campaigns only; normal
+    # caller-selected Gemini TTS and other key failover policy is unchanged.
+    if os.environ.get("MICROGEN_SINGLE_PROVIDER_SEND") == "1":
+        retries = 0
+        keys = keys[:1]
     base = _env_float("MICROGEN_GEMINI_BACKOFF_BASE_SECONDS", 15.0)
     cap = _env_float("MICROGEN_GEMINI_BACKOFF_MAX_SECONDS", 180.0)
     transient_retries_per_key = max(

@@ -176,10 +176,23 @@ def run_stage(*, trial_dir: Path, stage: str, timeout_seconds: int = 480,
         "student_publication_authorized": False,
     }
     run = run_bounded if stage_runner is None else stage_runner
+    # The native runner's Selenium+API stage adapters are normally allowed
+    # 3/2 attempts. An OUTER immutable one-send ledger MUST clamp all INNER
+    # sends to one, or an ambiguous timeout would silently be re-submitted
+    # within the same originally authorized stage invocation.
+    owned_env = {
+        **os.environ,
+        "MICROGEN_SELENIUM_ATTEMPTS": "1",
+        "MICROGEN_API_ATTEMPTS": "1",
+        "SLIDES_MAX_ATTEMPTS": "1",
+        "MICROGEN_SINGLE_PROVIDER_SEND": "1",
+        "MICROGEN_GEMINI_SDK_RETRY_ATTEMPTS": "1",
+    }
     try:
         output = run(command=command,
                      cwd=Path(__file__).resolve().parent.parent,
-                     log_path=log, timeout_seconds=timeout_seconds)
+                     log_path=log, timeout_seconds=timeout_seconds,
+                     environ=owned_env)
         report["exit_code"] = output.returncode
         report["status"] = ("STAGE_COMPLETED_AND_SOURCE_SHA_BOUND"
             if output.returncode == 0 and all(
