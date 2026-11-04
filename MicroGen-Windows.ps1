@@ -1,11 +1,16 @@
 # Native Windows operator; self-locates its checkout, never accesses user secrets.
 [CmdletBinding()]
 param(
-    [ValidateSet('Doctor', 'Inspect', 'BatchStatus', 'RenderPrepared')]
+    [ValidateSet('Doctor', 'Inspect', 'BatchStatus', 'RenderPrepared', 'LectureStatus', 'LectureAdvance')]
     [string]$Mode = 'Doctor',
     [string]$Campaign = '',
     [string]$Section = '',
     [string]$JobsDir = '',
+    [string]$SourceRoot = '',
+    [string]$TrialDir = '',
+    [ValidateSet('selenium','api')]
+    [string]$CommunicationMode = 'selenium',
+    [switch]$ConfirmContentApiCost,
     [string]$Python = ''
 )
 Set-StrictMode -Version Latest
@@ -17,6 +22,10 @@ if (-not $Python) {
     else { $Python = 'python' }
 }
 $arguments = @('-m', 'selenium_pipeline.windows_operator')
+if ($Mode -notin @('LectureStatus','LectureAdvance') -and (
+    $SourceRoot -or $TrialDir -or $ConfirmContentApiCost -or
+    $CommunicationMode -ne 'selenium'
+)) { throw 'Lecture-only arguments are not valid in legacy operator modes.' }
 switch ($Mode) {
     'Doctor' {
         if ($Campaign -or $Section -or $JobsDir) {
@@ -41,6 +50,31 @@ switch ($Mode) {
             throw 'RenderPrepared requires BOTH -Campaign and -Section, no jobs directory.'
         }
         $arguments += @('--campaign', $Campaign, '--section', $Section, '--execute-prepared')
+    }
+    'LectureStatus' {
+        if (-not $SourceRoot -or -not $Section -or -not $TrialDir -or
+            $Campaign -or $JobsDir -or $ConfirmContentApiCost -or
+            $CommunicationMode -ne 'selenium') {
+            throw 'LectureStatus requires only -SourceRoot, -Section and external -TrialDir.'
+        }
+        $arguments = @('-m', 'selenium_pipeline.windows_lecture_progression_coordinator',
+            '--source-root', $SourceRoot, '--section', $Section, '--trial-dir', $TrialDir)
+    }
+    'LectureAdvance' {
+        if (-not $SourceRoot -or -not $Section -or -not $TrialDir -or
+            $Campaign -or $JobsDir) {
+            throw 'LectureAdvance requires -SourceRoot, -Section, external -TrialDir.'
+        }
+        if ($CommunicationMode -eq 'api' -and -not $ConfirmContentApiCost) {
+            throw 'Paid Gemini API needs explicit -ConfirmContentApiCost.'
+        }
+        if ($CommunicationMode -ne 'api' -and $ConfirmContentApiCost) {
+            throw 'Paid API confirmation is invalid for Selenium mode.'
+        }
+        $arguments = @('-m', 'selenium_pipeline.windows_lecture_progression_coordinator',
+            '--source-root', $SourceRoot, '--section', $Section, '--trial-dir', $TrialDir,
+            '--execute-next-one-stage', '--communication-mode', $CommunicationMode)
+        if ($ConfirmContentApiCost) { $arguments += '--confirm-content-api-cost' }
     }
 }
 Push-Location -LiteralPath $repo
