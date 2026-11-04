@@ -30,6 +30,9 @@ class WindowsOriginalStageSequenceTests(unittest.TestCase):
         self.lecture = self.trial / "source_tree" / "22" / "22.2"
         self.lecture.mkdir(parents=True)
         (self.lecture / "source.pdf").write_bytes(self.original.read_bytes())
+        self.workspace = self.lecture / ".microgen_work"
+        self.workspace.mkdir()
+        (self.workspace / "source.pdf").write_bytes(self.original.read_bytes())
         _new_atomic(self.trial / "fresh_trial_contract.json", {
             "schema_version": 1,
             "status": "FRESH_ORIGINAL_SOURCE_WINDOWS_IMMUTABLE_TRIAL",
@@ -67,6 +70,8 @@ class WindowsOriginalStageSequenceTests(unittest.TestCase):
                           stage_runner=slides)
         self.assertEqual(first["status"], "STAGE_COMPLETED_AND_SOURCE_SHA_BOUND")
         self.assertEqual(slides.call_count, 1)
+        _valid.assert_any_call("figures", self.workspace)
+        _valid.assert_any_call("slides", self.workspace)
         self.assertIn("--from-stage", slides.call_args.kwargs["command"])
         self.assertNotIn("--confirm-gemini-api-cost",
                          slides.call_args.kwargs["command"])
@@ -121,6 +126,15 @@ class WindowsOriginalStageSequenceTests(unittest.TestCase):
         with self.assertRaises(CampaignRecoveryBlocked):
             run_stage(trial_dir=self.trial, stage="slides", stage_runner=slides)
         self.assertEqual(slides.call_count, 1)
+
+    def test_wrong_original_workspace_source_stops_without_any_paid_stage(self):
+        self.figure_receipt()
+        (self.workspace / "source.pdf").write_bytes(b"wrong workspace input")
+        never = Mock(side_effect=AssertionError("must not launch browser"))
+        with self.assertRaises(CampaignRecoveryBlocked):
+            run_stage(trial_dir=self.trial, stage="slides", stage_runner=never)
+        never.assert_not_called()
+        self.assertFalse((self.trial / "stage_slides_started.json").exists())
 
     def test_wrong_stage_or_original_source_change_rejected(self):
         with self.assertRaises(CampaignRecoveryBlocked):
