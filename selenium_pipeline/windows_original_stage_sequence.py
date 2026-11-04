@@ -70,6 +70,13 @@ def run_stage(*, trial_dir: Path, stage: str, timeout_seconds: int = 480,
     contract, original, stage_source = _trial(trial_dir)
     trial_dir = Path(trial_dir).absolute()
     lecture = stage_source.parent
+    workspace = lecture / ".microgen_work"
+    require(workspace.is_dir() and not workspace.is_symlink()
+            and (workspace / "source.pdf").is_file()
+            and not (workspace / "source.pdf").is_symlink()
+            and file_sha256(workspace / "source.pdf") ==
+            contract["source_sha256"],
+            "Source-bound execution workspace not physically verified")
     section = lecture.name
     require(re.fullmatch(r"[0-9]+\.[0-9]+", section) is not None
             and lecture.parent.name == section.split(".")[0],
@@ -88,7 +95,7 @@ def run_stage(*, trial_dir: Path, stage: str, timeout_seconds: int = 480,
                 and source_proof.get("new_video_rendered") is False
                 and source_proof.get("student_publication_authorized") is False,
                 "Cannot generate slides from failed or ambiguous figure mapping")
-        require(check_valid("figures", lecture),
+        require(check_valid("figures", workspace),
                 "Figure stage receipt exists but real source-map artifacts are invalid")
     else:
         previous = _ORDER[_ORDER.index(stage)-1]
@@ -105,7 +112,7 @@ def run_stage(*, trial_dir: Path, stage: str, timeout_seconds: int = 480,
             require(p.is_file() and not p.is_symlink() and p.stat().st_size > 0
                     and file_sha256(p) == source_proof["output_sha256"].get(name),
                     "Previous-stage output missing or changed: " + name)
-        require(check_valid(previous, lecture),
+        require(check_valid(previous, workspace),
                 "Previous-stage real technical QA did not pass")
     expected = _EXPECTED_OUTPUTS[stage]
     started = trial_dir / ("stage_" + stage + "_started.json")
@@ -131,7 +138,7 @@ def run_stage(*, trial_dir: Path, stage: str, timeout_seconds: int = 480,
                     and prior.get("source_sha256") == contract["source_sha256"]
                     and prior.get("status") ==
                     "STAGE_COMPLETED_AND_SOURCE_SHA_BOUND"):
-                require(check_valid(stage, lecture)
+                require(check_valid(stage, workspace)
                         and all((lecture / n).is_file()
                             and not (lecture / n).is_symlink()
                             and file_sha256(lecture / n) ==
@@ -179,7 +186,7 @@ def run_stage(*, trial_dir: Path, stage: str, timeout_seconds: int = 480,
                 (lecture / n).is_file()
                 and not (lecture / n).is_symlink()
                 and (lecture / n).stat().st_size > 0 for n in expected)
-            and check_valid(stage, lecture)
+            and check_valid(stage, workspace)
             else "STAGE_FAILED_OR_OUTPUT_INCOMPLETE_NO_RETRY")
     except subprocess.TimeoutExpired:
         report["status"] = "STAGE_TIMEOUT_UNKNOWN_PROVIDER_SEND_NO_RETRY"
