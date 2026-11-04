@@ -99,6 +99,119 @@ def _events(folder: Path) -> list[dict]:
     return events
 
 
+def _verified_api_capacity_events(*, folder: Path, now: float) -> list[dict]:
+    """Read only independently verified, exact source-free API 429/503 receipts.
+
+    The model API error is evidence for a single genuine request, NOT proof
+    that the entire Gemini service is down. The precautionary halt applies
+    to both new Gemini generation paths because both use the same provider.
+    """
+    from .windows_gemini_differential_probe import _read, _local_only
+    from .evidence_reuse_contract import file_sha256
+    parent = folder / "api_capacity_events"
+    if not parent.exists():
+        return []
+    if not parent.is_dir() or parent.is_symlink():
+        raise ValueError("Untrusted provider capacity evidence directory")
+    files = list(parent.iterdir())
+    if len(files) > 500:
+        raise ValueError("Capacity proof directory requires controlled archival")
+    results = []
+    for event_path in files:
+        if (event_path.suffix != ".json" or event_path.is_symlink()
+                or not event_path.is_file() or event_path.stat().st_size > 4096):
+            raise ValueError("Untrusted provider API capacity receipt")
+        e = _verified_json(event_path)
+        if (e.get("schema_version") != 1
+                or e.get("source_free_generic_api_generation") is not True
+                or e.get("original_request_resend_authorized") is not False
+                or e.get("student_publication_authorized") is not False
+                or e.get("verified_api_http_status") not in (429, 503)
+                or type(e.get("observed_unix")) not in (int, float)
+                or not re.fullmatch(r"[0-9a-f]{64}", str(e.get("canary_result_sha256", "")))
+                or not re.fullmatch(r"[0-9a-f]{64}", str(e.get("canary_claim_sha256", "")))
+                or event_path.stem != e.get("canary_result_sha256")):
+            raise ValueError("Invalid API provider-capacity event identity")
+        canary = _local_only(Path(e["source_free_canary_root"]))
+        result_path = canary / "api_probe_result.json"
+        claim_path = canary / "api_probe_started.json"
+        result = _read(result_path)
+        if (result is None
+                or result.get("verified_api_http_status") != e["verified_api_http_status"]
+                or result.get("outcome") != "NO_VERIFIED_RESPONSE"
+                or result.get("error_type") not in ("ServerError", "ClientError")
+                or result.get("paid_api_content_may_have_occurred") is not True
+                or file_sha256(result_path) != e["canary_result_sha256"]
+                or file_sha256(claim_path) != e["canary_claim_sha256"]
+                or abs(result_path.stat().st_mtime - e["observed_unix"]) > 2):
+            raise ValueError("API capacity event is not tied to genuine immutable result")
+        results.append(e)
+    return results
+
+
+def record_api_capacity(*, canary_root: Path, folder: Path | None = None,
+                        now: float | None = None) -> dict:
+    """Register exactly one already-performed paid-generation failure; NO calls.
+
+    Does not create another canary claim, retry original text, or charge API.
+    A known first-party structured API 429/503 is a temporary pause signal,
+    not a diagnosis of the owned browser capture path.
+    """
+    from .windows_gemini_differential_probe import _read, _local_only
+    from .evidence_reuse_contract import file_sha256
+    canary = _local_only(Path(canary_root))
+    result_path = canary / "api_probe_result.json"
+    claim_path = canary / "api_probe_started.json"
+    result = _read(result_path)
+    claim = _verified_json(claim_path)
+    if (result is None
+            or result.get("outcome") != "NO_VERIFIED_RESPONSE"
+            or result.get("verified_api_http_status") not in (429, 503)
+            or result.get("error_type") not in ("ServerError", "ClientError")
+            or result.get("paid_api_content_may_have_occurred") is not True
+            or claim.get("explicit_api_content_cost") is not True
+            or claim.get("no_original_source_attached") is not True
+            or claim.get("one_submission_only") is not True):
+        raise ValueError("No authenticated one-shot API 429/503 diagnostic proof")
+    observed = result_path.stat().st_mtime
+    claimed = claim_path.stat().st_mtime
+    instant = float(time.time() if now is None else now)
+    if not (0 <= observed - claimed <= 1800 and observed <= instant + 5):
+        raise ValueError("Untrusted provider capacity proof timing")
+    digest = file_sha256(result_path)
+    payload = {
+        "schema_version": 1,
+        "source_free_generic_api_generation": True,
+        "source_free_canary_root": str(canary),
+        "verified_api_http_status": result["verified_api_http_status"],
+        "canary_result_sha256": digest,
+        "canary_claim_sha256": file_sha256(claim_path),
+        "observed_unix": observed,
+        "original_request_resend_authorized": False,
+        "student_publication_authorized": False,
+    }
+    dest_root = _root(folder)
+    dest_root.mkdir(parents=True, exist_ok=True)
+    event_folder = dest_root / "api_capacity_events"
+    event_folder.mkdir(exist_ok=True)
+    if dest_root.is_symlink() or event_folder.is_symlink():
+        raise ValueError("Untrusted provider health state location")
+    event_file = event_folder / (digest + ".json")
+    if event_file.exists() or event_file.is_symlink():
+        if _verified_json(event_file) != payload:
+            raise ValueError("Conflicting immutable API capacity proof")
+        return {"status": "PRIOR_STRUCTURED_API_CAPACITY_PROOF_REUSED",
+                "verified_api_http_status": result["verified_api_http_status"],
+                "new_api_generation_calls": 0}
+    with event_file.open("x", encoding="utf8", newline="\n") as file:
+        file.write(_encode(payload))
+        file.flush()
+        os.fsync(file.fileno())
+    return {"status": "STRUCTURED_API_CAPACITY_PROOF_RECORDED",
+            "verified_api_http_status": result["verified_api_http_status"],
+            "new_api_generation_calls": 0}
+
+
 def inspect_halt(*, folder: Path | None = None, backend: str = "selenium",
                  now: float | None = None, threshold: int = THRESHOLD,
                  cooldown_seconds: int = COOLDOWN_SECONDS) -> dict:
@@ -121,13 +234,34 @@ def inspect_halt(*, folder: Path | None = None, backend: str = "selenium",
                    if len(unresolved) >= threshold and last_failure is not None
                    else None)
     paused = pause_until is not None and now < pause_until
+    # A first-party structured API error is stronger capacity evidence than
+    # browser inactivity. Treat a verified 429/503 as a bounded precaution
+    # for NEW Gemini jobs in both transports, with no automatic resend.
+    capacity = [
+        x for x in _verified_api_capacity_events(folder=_root(folder), now=now)
+        if 0 <= now - x["observed_unix"] < cooldown_seconds
+    ]
+    latest = (max(capacity, key=lambda x: x["observed_unix"])
+              if capacity else None)
+    precaution_end = (latest["observed_unix"] + cooldown_seconds
+                      if latest else None)
+    stop = paused or latest is not None
+    active_end = max(
+        (x for x in (pause_until if paused else None, precaution_end)
+         if x is not None), default=None)
     return {
         "schema_version": 1,
-        "status": "HALT_NEW_GEMINI_TASKS" if paused else "NO_PROVIDER_HALT",
+        "status": (
+            "HALT_NEW_GEMINI_TASKS_API_CAPACITY_PRECAUTION" if latest else
+            "HALT_NEW_GEMINI_TASKS" if paused else "NO_PROVIDER_HALT"
+        ),
         "backend": backend,
         "sent_but_unaccepted_after_last_success": len(unresolved),
-        "new_generation_dispatch_allowed_by_health_policy": not paused,
-        "paused_until_unix_utc": pause_until if paused else None,
+        "verified_api_capacity_http_status": (
+            latest["verified_api_http_status"] if latest else None),
+        "verified_api_capacity_applies_to_new_jobs_only": latest is not None,
+        "new_generation_dispatch_allowed_by_health_policy": not stop,
+        "paused_until_unix_utc": active_end,
         "time_expiration_is_not_permission_to_retry_old_request": True,
         "provider_server_failure_proven": False,
         "existing_ambiguous_source_resubmission_authorized": False,

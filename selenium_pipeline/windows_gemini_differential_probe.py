@@ -15,7 +15,9 @@ from pathlib import Path
 import re
 import sys
 
-from .windows_gemini_provider_halt import inspect_halt, inspect_completed_trials, record_stage
+from .windows_gemini_provider_halt import (
+    inspect_halt, inspect_completed_trials, record_stage, record_api_capacity,
+)
 from .windows_provider_readiness_probe import inspect as inspect_readiness, CONTENT_MODEL
 from .original_multisource_recovery_campaign import _verified_json
 from .evidence_reuse_contract import file_sha256
@@ -295,6 +297,8 @@ def main(argv=None) -> int:
     ap.add_argument("--api-canary-once", action="store_true")
     ap.add_argument("--confirm-api-diagnostic-cost", action="store_true")
     ap.add_argument("--canary-root", type=Path)
+    ap.add_argument("--register-api-capacity-from-canary", action="store_true",
+                    help="Import only a prior structured 429/503, no new API call")
     ap.add_argument("--prior-trial", action="append", type=Path, default=[])
     ap.add_argument("--register-terminal-trial", action="append", type=Path,
                     default=[], help="Explicitly SHA-import prior real terminal receipts to shared health")
@@ -304,8 +308,12 @@ def main(argv=None) -> int:
         ap.error("API canary requires explicit --confirm-api-diagnostic-cost")
     if args.confirm_api_diagnostic_cost and not args.api_canary_once:
         ap.error("API cost consent without an explicit canary request is invalid")
-    if (args.browser_canary_once or args.api_canary_once) and not args.canary_root:
+    if (args.browser_canary_once or args.api_canary_once
+            or args.register_api_capacity_from_canary) and not args.canary_root:
         ap.error("Explicit external LOCALAPPDATA --canary-root required")
+    if args.register_api_capacity_from_canary and (
+            args.api_canary_once or args.browser_canary_once):
+        ap.error("Import capacity evidence separately from new model generation")
     ready = inspect_readiness(
         metadata_probe=args.probe_api_model_metadata_once,
         inspect_gemini_browser=args.inspect_browser)
@@ -319,6 +327,10 @@ def main(argv=None) -> int:
     if args.api_canary_once:
         api = run_canary(checkpoint_dir=args.canary_root, backend="api",
                          confirm_api_diagnostic_cost=True)
+    capacity_registered = None
+    if args.register_api_capacity_from_canary:
+        capacity_registered = record_api_capacity(
+            canary_root=args.canary_root, folder=args.health_root)
     registered = []
     for trial in args.register_terminal_trial:
         for stage in ("figures", "slides", "narration"):
@@ -346,6 +358,7 @@ def main(argv=None) -> int:
         "comparison": conclusion,
         "prior_stage_observations": inspect_completed_trials(paths=args.prior_trial),
         "registered_prior_terminal_health": registered,
+        "registered_structured_api_capacity": capacity_registered,
         "browser_lane_halt": inspect_halt(folder=args.health_root, backend="selenium"),
         "api_lane_halt": inspect_halt(folder=args.health_root, backend="api"),
     }
