@@ -73,6 +73,7 @@ jobs:
             "tests.test_windows_lecture_media_handoff"
             "tests.test_windows_release_media_receipt_gate"
             "tests.test_windows_second_source_candidate"
+            "tests.test_windows_original_source_candidate_inventory"
             "tests.test_windows_reviewed_element_media_bridge"
             "tests.test_windows_provider_readiness_probe"
             "tests.test_windows_provider_content_route"

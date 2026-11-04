@@ -35,6 +35,27 @@ class WindowsLectureProgressionLauncherTests(unittest.TestCase):
         ], capture_output=True, text=True, encoding="utf8",
            errors="replace", timeout=60, env=self.env)
 
+    def test_lecture_candidates_is_read_only_no_model_or_tts(self):
+        run = self.invoke(
+            "-Mode", "LectureCandidates", "-SourceRoot", str(self.source),
+            "-TrialRegistryRoot", str(self.trial))
+        self.assertEqual(run.returncode, 0, run.stderr + run.stdout)
+        report = json.loads(run.stdout)
+        self.assertEqual(report["status"],
+                         "CANDIDATE_CATALOG_UNVERIFIED_WITHOUT_TRIAL_HISTORY")
+        self.assertEqual(report["publisher_source_files_examined"], 1)
+        self.assertFalse(report["automatic_model_generation_allowed"])
+        self.assertFalse(report["new_model_or_tts_calls"])
+        self.assertEqual(list(self.trial.iterdir()), [])
+
+    def test_lecture_candidates_rejects_any_paid_content_flag(self):
+        run = self.invoke(
+            "-Mode", "LectureCandidates", "-SourceRoot", str(self.source),
+            "-TrialRegistryRoot", str(self.trial),
+            "-ConfirmContentApiCost")
+        self.assertNotEqual(run.returncode, 0)
+        self.assertEqual(list(self.trial.iterdir()), [])
+
     def test_launcher_lecture_status_reads_only_unclaimed_source(self):
         run = self.invoke(
             "-Mode", "LectureStatus", "-SourceRoot", str(self.source),
