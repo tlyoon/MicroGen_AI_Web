@@ -163,7 +163,16 @@ def _browser_request(instruction: str,attachments: list[Path],
                         poll_s=2)
                     if recovered is not None:
                         return recovered
+                from .gemini_provider_ui_terminal_error import (
+                    classify_visible_reply,
+                )
+                ui_error = classify_visible_reply(
+                    text=snapshot.get("text", ""),
+                    capture_status=snapshot.get("capture_status", ""),
+                    generating=bool(snapshot.get("generating")))
                 reason = (
+                    "owned_gemini_ui_error_text" if
+                    ui_error["known_gemini_ui_error_text_observed"] else
                     "strict_json_capture_exception" if capture_error is not None
                     else "strict_json_capture_timeout"
                 )
@@ -174,6 +183,13 @@ def _browser_request(instruction: str,attachments: list[Path],
                         "Gemini JSON capture failed and recovery quarantine "
                         "could not be written; inspect the owned browser tab"
                     ) from exc
+                if ui_error["known_gemini_ui_error_text_observed"]:
+                    raise SeriesBridgeError(
+                        "Gemini browser returned a visible owned-model UI error "
+                        "without the requested JSON answer; captured and "
+                        "quarantined. This is not proof of an API outage; "
+                        "do not automatically resubmit."
+                    ) from capture_error
                 raise SeriesBridgeError(
                     "No stable complete Gemini JSON; untrusted response "
                     f"quarantined at {receipt['raw_path']}. "

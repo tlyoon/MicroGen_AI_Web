@@ -230,6 +230,11 @@ def quarantine_snapshot(snapshot: dict, *, directory: Path | None = None,
     raw = raw[:MAX_CAPTURE_CHARS]
     payload = raw.encode("utf-8")
     sha = hashlib.sha256(payload).hexdigest()
+    from .gemini_provider_ui_terminal_error import classify_visible_reply
+    ui_error = classify_visible_reply(
+        text=raw,
+        capture_status=str(snapshot.get("capture_status", "unavailable")),
+        generating=bool(snapshot.get("generating")))
     meta = {
         "schema_version": 1,
         "status": "incomplete_untrusted",
@@ -241,6 +246,10 @@ def quarantine_snapshot(snapshot: dict, *, directory: Path | None = None,
         "raw_sha256": sha,
         "raw_filename": raw_path.name,
         "not_scientifically_reviewed": True,
+        "known_gemini_ui_error_text_observed":
+            ui_error["known_gemini_ui_error_text_observed"],
+        "provider_server_outage_proven": False,
+        "original_source_retry_authorized": False,
     }
     with raw_path.open("xb") as stream:
         stream.write(payload)
