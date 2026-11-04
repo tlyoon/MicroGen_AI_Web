@@ -82,6 +82,7 @@ jobs:
             "tests.test_windows_scoped_prior_full_media_acceptance"
             "tests.test_windows_portable_review_archive"
             "tests.test_windows_gemini_differential_halt"
+            "tests.test_windows_gemini_stage_transport_triage"
             "tests.test_windows_gemini_verified_api_capacity_halt"
             "tests.test_gemini_keys"
             "tests.test_original_fig83_angular_font_source_glyphs"
@@ -300,6 +301,7 @@ jobs:
             "selenium_pipeline/figure_practice_disposition.py"
             "selenium_pipeline/series_cli.py"
             "selenium_pipeline/windows_exact_head_github_ci.py"
+            "selenium_pipeline/windows_gemini_stage_transport_triage.py"
             "selenium_pipeline/vendor_template_v2/selenium.py"
           )
           python -m py_compile @pythonEntrypoints
