@@ -6,6 +6,8 @@
 
 **Unified recovery audit (PR491):** SHA-verify existing section job receipts and a no-resend independent source browser attempt with `python -m selenium_pipeline.windows_recovery_integrity --jobs-dir <PR489 job folder> --fresh-trial-dir <PR490 trial folder>`; see [recovery audit guide](docs/WINDOWS_RECOVERY_INTEGRITY_PR491_20261104.md). This is not academic or publication approval.
 
+**Bounded Windows source-stage execution (PR494):** The fresh-original trial now writes non-overwriting raw UTF-8 subprocess logs, terminates only an owned timed-out Windows process tree, and preserves the pre-send no-retry model ledger. See [Windows bounded stage recovery](docs/WINDOWS_BOUNDED_PROVIDER_STAGE_RECOVERY_PR494_20261104.md). This is not permission to retry an earlier ambiguous Gemini attempt.
+
 **Physically accepted clean Windows worker install (PR493):** A fresh isolated virtual environment under `%LOCALAPPDATA%` passed import, pip-dependency and external tool checks on Dell-115. See [Windows clean worker installation](docs/WINDOWS_CLEAN_WORKER_INSTALL_PR493_20261104.md). This is worker setup only, not a complete generated source-to-video lecture.
 
 **Windows release gate (PR492):** The read-only release board checks cumulative Git ancestry, Windows-only CI definitions, source checkpoint integrity, and formal completion gates without merging/tagging or publishing: `python -m selenium_pipeline.windows_release_readiness_board --jobs-dir <PR489 job dir> --fresh-trial-dir <PR490 fresh trial dir>`. See [Windows release integration gate](docs/WINDOWS_SAFE_RELEASE_STACK_INTEGRATION_PR492_20261104.md).
