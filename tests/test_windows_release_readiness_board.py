@@ -59,7 +59,28 @@ class WindowsReleaseReadinessTests(unittest.TestCase):
         self.assertFalse(report["may_merge_historical_stack_automatically"])
         self.assertFalse(report["student_publication_authorized"])
         self.assertFalse(report["required_release_gates"][
-            "first_new_original_full_sourcebound_lecture_accepted"])
+            "at_least_one_full_original_source_reference_verified"])
+
+    def test_scoped_prior_source_is_real_reference_not_full_release(self):
+        with patch("selenium_pipeline.windows_release_readiness_board._git",
+                   side_effect=self.fake_git), patch(
+            "selenium_pipeline.windows_release_readiness_board.audit",
+            return_value=self.recovery,
+        ), patch(
+            "selenium_pipeline.windows_scoped_prior_full_media_acceptance.verify_scoped",
+            return_value={"status": "ONE_SCOPED_HISTORICAL_ORIGINAL_FULL_MEDIA_ACCEPTANCE_REUSED",
+                          "accepted_scoped_original_source_count": 1,
+                          "new_independent_second_source_accepted": False},
+        ):
+            report = inspect_release(repo=self.repo, jobs_dir=Path("jobs"),
+                                     fresh_trial_dir=Path("trial"),
+                                     reuse_scoped_pr362=True)
+        self.assertTrue(report["required_release_gates"][
+            "at_least_one_full_original_source_reference_verified"])
+        self.assertFalse(report["required_release_gates"][
+            "second_distinct_new_original_full_lecture_accepted"])
+        self.assertFalse(report["release_candidate_ready"])
+        self.assertFalse(report["student_publication_authorized"])
 
     def test_non_windows_ci_is_not_silently_approved(self):
         workflow = self.repo / ".github" / "workflows" / "other.yml"
@@ -117,7 +138,7 @@ class WindowsReleaseReadinessTests(unittest.TestCase):
             "clean_isolated_windows_worker_install_verified"])
         self.assertFalse(r["release_candidate_ready"])
         self.assertFalse(r["required_release_gates"][
-            "first_new_original_full_sourcebound_lecture_accepted"])
+            "at_least_one_full_original_source_reference_verified"])
 
 if __name__ == "__main__":
     unittest.main()

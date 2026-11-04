@@ -71,6 +71,7 @@ jobs:
             "tests.test_windows_reviewed_element_media_bridge"
             "tests.test_windows_provider_readiness_probe"
             "tests.test_windows_provider_content_route"
+            "tests.test_windows_scoped_prior_full_media_acceptance"
             "tests.test_original_fig83_angular_font_source_glyphs"
             "tests.test_figure_recovery_candidates"
             "tests.test_reliability_audit"
