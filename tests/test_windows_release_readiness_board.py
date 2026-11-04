@@ -190,6 +190,40 @@ class WindowsReleaseReadinessTests(unittest.TestCase):
         self.assertFalse(result["may_merge_historical_stack_automatically"])
         self.assertFalse(result["student_publication_authorized"])
 
+    def test_open_pr_dependency_catalog_never_authorizes_mass_merge(self):
+        catalog = {
+            "status": "OPEN_PR_STACK_INCOMPLETE_OR_REVIEW_REQUIRED",
+            "open_pr_count_in_audited_pages": 423,
+            "total_adjacent_disagreement_count": 10,
+            "historical_stack_fully_reviewed_or_approved": False,
+            "may_merge_automatically": False,
+            "student_publication_authorized": False,
+        }
+        with patch("selenium_pipeline.windows_release_readiness_board._git",
+                   side_effect=self.fake_git), patch(
+            "selenium_pipeline.windows_release_readiness_board.audit",
+            return_value=self.recovery,
+        ), patch(
+            "selenium_pipeline.windows_github_pr_stack_readonly_audit.audit",
+            return_value=catalog,
+        ) as prs:
+            report = inspect_release(
+                repo=self.repo, jobs_dir=Path("job"),
+                fresh_trial_dir=Path("trial"),
+                audit_open_pr_stack_online=True,
+                github_repository="tlyoon/MicroGen_AI_Web")
+        prs.assert_called_once_with(
+            repository="tlyoon/MicroGen_AI_Web",
+            expected_latest_head_sha="a" * 40)
+        self.assertEqual(
+            report["github_open_pr_dependency_catalog_read_only"][
+                "total_adjacent_disagreement_count"], 10)
+        self.assertFalse(report["required_release_gates"][
+            "entire_historical_stack_dependency_and_review_completed"])
+        self.assertFalse(report["may_merge_historical_stack_automatically"])
+        self.assertFalse(report["release_candidate_ready"])
+        self.assertFalse(report["student_publication_authorized"])
+
     def test_exact_online_ci_closes_only_independent_engineering_ci_gate(self):
         pass_run = {
             "status": "EXACT_HEAD_GITHUB_WINDOWS_CI_INDEPENDENTLY_VERIFIED",

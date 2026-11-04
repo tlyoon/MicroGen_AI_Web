@@ -88,7 +88,8 @@ def inspect_release(*, repo: Path, jobs_dir: Path,
                     reviewed_media_dir: Path | None = None,
                     include_stack_batches: bool = False,
                     verify_exact_head_ci_online: bool = False,
-                    github_repository: str = "tlyoon/MicroGen_AI_Web") -> dict:
+                    github_repository: str = "tlyoon/MicroGen_AI_Web",
+                    audit_open_pr_stack_online: bool = False) -> dict:
     require(os.name == "nt", "Native Windows-only release readiness")
     repo = Path(repo).absolute()
     require(repo.is_dir() and (repo / ".git").exists(),
@@ -156,6 +157,16 @@ def inspect_release(*, repo: Path, jobs_dir: Path,
         github_ci = inspect_ci(
             repository=github_repository, head_sha=head,
             tracked_main_sha=tracked_origin_main)
+    open_pr_catalog = {
+        "status": "LIVE_OPEN_PR_STACK_METADATA_NOT_REQUESTED",
+        "historical_stack_fully_reviewed_or_approved": False,
+        "may_merge_automatically": False,
+    }
+    if audit_open_pr_stack_online:
+        from .windows_github_pr_stack_readonly_audit import audit as pr_audit
+        open_pr_catalog = pr_audit(
+            repository=github_repository,
+            expected_latest_head_sha=head)
     gates = {
         "native_windows_only": True,
         "current_worktree_clean": not dirty,
@@ -211,6 +222,7 @@ def inspect_release(*, repo: Path, jobs_dir: Path,
         "reviewed_sourcebound_mp4_evidence": media,
         "second_independent_original_candidate": second_candidate,
         "historical_stack_review_batch_plan": stack_plan,
+        "github_open_pr_dependency_catalog_read_only": open_pr_catalog,
         "exact_head_github_windows_ci_evidence": github_ci,
         "engineering_technical_release_candidate_ready": engineering_ready,
         "engineering_candidate_not_student_release": True,
@@ -267,6 +279,8 @@ def main(argv=None) -> int:
                    help="Opt-in GitHub HTTPS read-only CI lookup, never publish")
     p.add_argument("--github-repository", default="tlyoon/MicroGen_AI_Web",
                    help="Only GitHub owner/repo exact CI source")
+    p.add_argument("--audit-open-pr-stack-online", action="store_true",
+                   help="Read-only GitHub open PR base/head dependency catalog; never merge")
     a = p.parse_args(argv)
     try:
         result = inspect_release(repo=a.repo, jobs_dir=a.jobs_dir,
@@ -276,7 +290,8 @@ def main(argv=None) -> int:
                                  reviewed_media_dir=a.reviewed_media_dir,
                                  include_stack_batches=a.include_stack_batches,
                                  verify_exact_head_ci_online=a.verify_exact_head_ci_online,
-                                 github_repository=a.github_repository)
+                                 github_repository=a.github_repository,
+                                 audit_open_pr_stack_online=a.audit_open_pr_stack_online)
     except (CampaignRecoveryBlocked, OSError, ValueError, subprocess.TimeoutExpired) as exc:
         print(json.dumps({"status": "WINDOWS_RELEASE_BOARD_REJECTED",
                           "reason": str(exc),

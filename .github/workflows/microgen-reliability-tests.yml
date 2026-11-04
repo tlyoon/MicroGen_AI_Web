@@ -75,6 +75,7 @@ jobs:
             "tests.test_windows_second_source_candidate"
             "tests.test_windows_original_source_candidate_inventory"
             "tests.test_windows_historical_stack_batch_plan"
+            "tests.test_windows_github_pr_stack_readonly_audit"
             "tests.test_windows_exact_head_github_ci"
             "tests.test_windows_reviewed_element_media_bridge"
             "tests.test_windows_provider_readiness_probe"
@@ -302,6 +303,7 @@ jobs:
             "selenium_pipeline/series_cli.py"
             "selenium_pipeline/windows_exact_head_github_ci.py"
             "selenium_pipeline/windows_gemini_stage_transport_triage.py"
+            "selenium_pipeline/windows_github_pr_stack_readonly_audit.py"
             "selenium_pipeline/vendor_template_v2/selenium.py"
           )
           python -m py_compile @pythonEntrypoints
