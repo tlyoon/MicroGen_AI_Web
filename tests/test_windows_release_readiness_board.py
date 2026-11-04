@@ -53,7 +53,8 @@ class WindowsReleaseReadinessTests(unittest.TestCase):
         self.assertTrue(report["required_release_gates"]["source_checkpoint_integrity"])
         self.assertTrue(report["required_release_gates"]["windows_ci_workflows_only"])
         self.assertEqual(report["commits_ahead_of_tracked_origin_main"], 764)
-        self.assertFalse(report["required_release_gates"]["local_main_matches_tracked_origin_main"])
+        self.assertTrue(report["local_main_is_stale_informational_only"])
+        self.assertFalse(report["required_release_gates"]["clean_isolated_windows_worker_install_verified"])
         self.assertFalse(report["release_candidate_ready"])
         self.assertFalse(report["may_merge_historical_stack_automatically"])
         self.assertFalse(report["student_publication_authorized"])
@@ -98,6 +99,25 @@ class WindowsReleaseReadinessTests(unittest.TestCase):
         self.assertFalse(r["required_release_gates"]["source_checkpoint_integrity"])
         self.assertFalse(r["release_candidate_ready"])
 
+
+    def test_verified_worker_closes_install_only_not_video(self):
+        with patch("selenium_pipeline.windows_release_readiness_board._git",
+                   side_effect=self.fake_git), patch(
+            "selenium_pipeline.windows_release_readiness_board.audit",
+            return_value=self.recovery,
+        ), patch(
+            "selenium_pipeline.windows_release_readiness_board.inspect_worker_install",
+            return_value={"status": "WINDOWS_ISOLATED_WORKER_INSTALL_PASS",
+                          "passed": True},
+        ):
+            r = inspect_release(repo=self.repo, jobs_dir=Path("job"),
+                                fresh_trial_dir=Path("trial"),
+                                worker_python=Path("C:/dummy/python.exe"))
+        self.assertTrue(r["required_release_gates"][
+            "clean_isolated_windows_worker_install_verified"])
+        self.assertFalse(r["release_candidate_ready"])
+        self.assertFalse(r["required_release_gates"][
+            "first_new_original_full_sourcebound_lecture_accepted"])
 
 if __name__ == "__main__":
     unittest.main()

@@ -46,8 +46,44 @@ def _windows_ci_only(repo: Path) -> dict:
             "non_windows_runner_declarations": non_windows}
 
 
+def inspect_worker_install(*, repo: Path,
+                           python: Path | None) -> dict:
+    """Read-only, exact interpreter worker import/venv/pip qualification."""
+    if python is None:
+        return {"status": "NO_ISOLATED_WINDOWS_WORKER_SELECTED",
+                "passed": False}
+    path = Path(python).absolute()
+    root = Path(os.environ.get("LOCALAPPDATA", "")).absolute()
+    require(path.name.lower() == "python.exe"
+            and path.parent.name.lower() == "scripts"
+            and root.is_dir() and path.is_relative_to(root)
+            and path.is_file() and not path.is_symlink(),
+            "Unsafe or missing isolated Windows worker interpreter")
+    try:
+        result = subprocess.run(
+            [str(path), "-m", "selenium_pipeline.windows_install_smoke"],
+            cwd=repo, capture_output=True, text=True, encoding="utf-8",
+            errors="replace", timeout=120)
+        data = json.loads(result.stdout)
+    except (OSError, ValueError, subprocess.TimeoutExpired):
+        return {"status": "WINDOWS_ISOLATED_WORKER_SMOKE_FAILED",
+                "passed": False}
+    passed = (result.returncode == 0
+              and data.get("status") == "WINDOWS_ISOLATED_WORKER_INSTALL_PASS"
+              and data.get("isolated_virtual_environment") is True
+              and data.get("pip_dependency_check_pass") is True
+              and data.get("model_or_paid_tts_called") is False
+              and data.get("student_publication_authorized") is False
+              and data.get("sourcebound_full_lecture_production_certified")
+              is False)
+    return {"status": data.get("status", "UNKNOWN_WORKER_SMOKE"),
+            "passed": passed,
+            "tooling_only_not_video_acceptance": True}
+
+
 def inspect_release(*, repo: Path, jobs_dir: Path,
-                    fresh_trial_dir: Path) -> dict:
+                    fresh_trial_dir: Path,
+                    worker_python: Path | None = None) -> dict:
     require(os.name == "nt", "Native Windows-only release readiness")
     repo = Path(repo).absolute()
     require(repo.is_dir() and (repo / ".git").exists(),
@@ -61,6 +97,7 @@ def inspect_release(*, repo: Path, jobs_dir: Path,
     dirty = bool(_git(repo, "status", "--porcelain"))
     ci = _windows_ci_only(repo)
     recovery = audit(jobs_dir=jobs_dir, fresh_trial_dir=fresh_trial_dir)
+    worker = inspect_worker_install(repo=repo, python=worker_python)
     safe_checkpoint = (recovery["source_job_receipts_security_or_version_rejected"] == 0
                        and recovery["fresh_original_publisher_and_stage_sha_verified"]
                        and not recovery["automatic_provider_retry_authorized"])
@@ -68,10 +105,9 @@ def inspect_release(*, repo: Path, jobs_dir: Path,
         "native_windows_only": True,
         "current_worktree_clean": not dirty,
         "tracked_origin_main_ancestor_no_divergence": behind == 0,
-        "local_main_matches_tracked_origin_main":
-            local_main == tracked_origin_main,
         "windows_ci_workflows_only": ci["all_runner_declarations_windows"],
         "source_checkpoint_integrity": safe_checkpoint,
+        "clean_isolated_windows_worker_install_verified": worker["passed"],
         "github_ci_exact_final_sha_independently_verified": False,
         "first_new_original_full_sourcebound_lecture_accepted": False,
         "second_distinct_new_original_full_lecture_accepted": False,
@@ -88,6 +124,9 @@ def inspect_release(*, repo: Path, jobs_dir: Path,
         "repository_head_sha": head,
         "local_main_sha": local_main,
         "tracked_origin_main_sha": tracked_origin_main,
+        "local_main_is_stale_informational_only":
+            local_main != tracked_origin_main,
+        "worker_installation": worker,
         "branch": branch,
         "commit_comparison_ref": "origin/main (last fetched)",
         "commits_ahead_of_tracked_origin_main": ahead,
@@ -124,10 +163,13 @@ def main(argv=None) -> int:
     p.add_argument("--repo", type=Path, default=Path(__file__).resolve().parent.parent)
     p.add_argument("--jobs-dir", type=Path, required=True)
     p.add_argument("--fresh-trial-dir", type=Path, required=True)
+    p.add_argument("--worker-python", type=Path,
+                   help="Optional exact isolated Windows venv Python executable")
     a = p.parse_args(argv)
     try:
         result = inspect_release(repo=a.repo, jobs_dir=a.jobs_dir,
-                                 fresh_trial_dir=a.fresh_trial_dir)
+                                 fresh_trial_dir=a.fresh_trial_dir,
+                                 worker_python=a.worker_python)
     except (CampaignRecoveryBlocked, OSError, ValueError, subprocess.TimeoutExpired) as exc:
         print(json.dumps({"status": "WINDOWS_RELEASE_BOARD_REJECTED",
                           "reason": str(exc),
