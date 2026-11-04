@@ -85,7 +85,8 @@ def inspect_release(*, repo: Path, jobs_dir: Path,
                     fresh_trial_dir: Path,
                     worker_python: Path | None = None,
                     reuse_scoped_pr362: bool = False,
-                    reviewed_media_dir: Path | None = None) -> dict:
+                    reviewed_media_dir: Path | None = None,
+                    include_stack_batches: bool = False) -> dict:
     require(os.name == "nt", "Native Windows-only release readiness")
     repo = Path(repo).absolute()
     require(repo.is_dir() and (repo / ".git").exists(),
@@ -134,6 +135,15 @@ def inspect_release(*, repo: Path, jobs_dir: Path,
     from .windows_second_source_candidate import compare_source_provenance
     second_candidate = compare_source_provenance(
         historic=prior_reference, candidate=media)
+    stack_plan = {
+        "status": "NO_BOUNDED_STACK_REVIEW_REQUESTED",
+        "historical_stack_review_completed": False,
+        "automatic_merge_or_release_authorized": False,
+        "student_publication_authorized": False,
+    }
+    if include_stack_batches:
+        from .windows_historical_stack_batch_plan import plan_stack
+        stack_plan = plan_stack(repo=repo)
     gates = {
         "native_windows_only": True,
         "current_worktree_clean": not dirty,
@@ -148,6 +158,10 @@ def inspect_release(*, repo: Path, jobs_dir: Path,
             media["technical_sourcebound_mp4_verified"] is True,
         "second_distinct_original_technical_candidate_verified":
             second_candidate["technical_second_source_candidate_ready_for_academic_review"],
+        "bounded_historical_stack_review_plan_available":
+            stack_plan["status"] ==
+            "HISTORICAL_STACK_READ_ONLY_BATCH_PLAN_AVAILABLE",
+        # A batch PLAN is not independent PR review, merge approval or release.
         # Technical distinctness never grants any academic or voice signoff.
         "second_distinct_new_original_full_lecture_accepted": False,
         "entire_historical_stack_dependency_and_review_completed": False,
@@ -169,6 +183,7 @@ def inspect_release(*, repo: Path, jobs_dir: Path,
         "prior_scoped_original_acceptance": prior_reference,
         "reviewed_sourcebound_mp4_evidence": media,
         "second_independent_original_candidate": second_candidate,
+        "historical_stack_review_batch_plan": stack_plan,
         "branch": branch,
         "commit_comparison_ref": "origin/main (last fetched)",
         "commits_ahead_of_tracked_origin_main": ahead,
@@ -192,6 +207,7 @@ def inspect_release(*, repo: Path, jobs_dir: Path,
         "student_publication_authorized": False,
         "next_actions": [
             "Fetch and verify current origin/main before interpreting commit distance",
+            "Review the bounded historical stack batches, then independently approve PR dependencies",
             "Independent exact-head GitHub Windows CI review",
             "Existing PR362 one-source accepted evidence is reusable only at matching SHA",
             "Recheck an exact SHA-bound reviewed MP4 using --reviewed-media-dir without encoding",
@@ -215,13 +231,16 @@ def main(argv=None) -> int:
                    help="SHA-import already accepted PR362 review-only source/media as ONE historic example")
     p.add_argument("--reviewed-media-dir", type=Path,
                    help="Read-only revalidate PR506 original-source reviewed MP4 receipt and bytes")
+    p.add_argument("--include-stack-batches", action="store_true",
+                   help="Read-only bounded plan for historical commit review, never merge")
     a = p.parse_args(argv)
     try:
         result = inspect_release(repo=a.repo, jobs_dir=a.jobs_dir,
                                  fresh_trial_dir=a.fresh_trial_dir,
                                  worker_python=a.worker_python,
                                  reuse_scoped_pr362=a.reuse_scoped_pr362,
-                                 reviewed_media_dir=a.reviewed_media_dir)
+                                 reviewed_media_dir=a.reviewed_media_dir,
+                                 include_stack_batches=a.include_stack_batches)
     except (CampaignRecoveryBlocked, OSError, ValueError, subprocess.TimeoutExpired) as exc:
         print(json.dumps({"status": "WINDOWS_RELEASE_BOARD_REJECTED",
                           "reason": str(exc),

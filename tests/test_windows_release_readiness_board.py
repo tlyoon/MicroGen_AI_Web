@@ -160,6 +160,36 @@ class WindowsReleaseReadinessTests(unittest.TestCase):
         self.assertFalse(report["release_candidate_ready"])
         self.assertFalse(report["student_publication_authorized"])
 
+    def test_historical_stack_batch_plan_is_not_merge_or_approval(self):
+        plan = {
+            "status": "HISTORICAL_STACK_READ_ONLY_BATCH_PLAN_AVAILABLE",
+            "review_batch_count": 28,
+            "historical_stack_review_completed": False,
+            "automatic_merge_or_release_authorized": False,
+            "student_publication_authorized": False,
+        }
+        with patch("selenium_pipeline.windows_release_readiness_board._git",
+                   side_effect=self.fake_git), patch(
+            "selenium_pipeline.windows_release_readiness_board.audit",
+            return_value=self.recovery,
+        ), patch(
+            "selenium_pipeline.windows_historical_stack_batch_plan.plan_stack",
+            return_value=plan,
+        ) as stack:
+            result = inspect_release(
+                repo=self.repo, jobs_dir=Path("jobs"),
+                fresh_trial_dir=Path("trial"),
+                include_stack_batches=True,
+            )
+        stack.assert_called_once_with(repo=self.repo)
+        self.assertTrue(result["required_release_gates"][
+            "bounded_historical_stack_review_plan_available"])
+        self.assertFalse(result["required_release_gates"][
+            "entire_historical_stack_dependency_and_review_completed"])
+        self.assertFalse(result["release_candidate_ready"])
+        self.assertFalse(result["may_merge_historical_stack_automatically"])
+        self.assertFalse(result["student_publication_authorized"])
+
     def test_scoped_prior_source_is_real_reference_not_full_release(self):
         with patch("selenium_pipeline.windows_release_readiness_board._git",
                    side_effect=self.fake_git), patch(
