@@ -70,6 +70,7 @@ jobs:
             "tests.test_windows_original_stage_sequence"
             "tests.test_windows_lecture_progression_coordinator"
             "tests.test_windows_lecture_progression_launcher"
+            "tests.test_windows_lecture_media_handoff"
             "tests.test_windows_reviewed_element_media_bridge"
             "tests.test_windows_provider_readiness_probe"
             "tests.test_windows_provider_content_route"
