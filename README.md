@@ -1,5 +1,7 @@
 # MicroGen_AI_Web
 
+**Native Windows operator (PR488):** Start with `powershell -NoProfile -ExecutionPolicy Bypass -File .\\MicroGen-Windows.ps1 -Mode Doctor` for read-only deployment diagnostics. Use `-Mode Inspect -Campaign <immutable Windows campaign folder>` for SHA-verified, no-billing source status; see [Windows operator runbook](docs/WINDOWS_NATIVE_OPERATOR_LAUNCHER_PR488_20261104.md). No original lecture is auto-rendered, no student publication is authorized.
+
 **Binding development contract (2 November 2026): No redundant re-verification of accepted evidence.** Before reopening a prior defect, consult the prior source-bound result, immutable receipt and exact input SHA identities. Reuse accepted same-scope evidence and work only on genuinely unverified mathematical, figure-label, word-timing or multimedia requirements; a changed checker score is not an automatic new source defect. See [verified-evidence reuse owner amendment](docs/BINDING_VERIFIED_EVIDENCE_REUSE_NO_DUPLICATE_WORK_20261102.md) and its Windows CI guard. This does not grant publication approval.
 
 **Current owner platform contract (25 October 2026): Windows only.** All GitHub Actions checks run on Windows; Dell-115 remains the sole authorized local development/test machine. See [Windows-only contract and CI migration](docs/WINDOWS_ONLY_CONTRACT_PR303_20261025.md). This does not relax mathematical correctness, figure/audio fidelity, source preservation, strict video duration, or release safeguards.
