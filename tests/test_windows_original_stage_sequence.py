@@ -154,6 +154,25 @@ class WindowsOriginalStageSequenceTests(unittest.TestCase):
             run_stage(trial_dir=self.trial, stage="slides", stage_runner=Mock())
 
     @patch("selenium_pipeline.runner.check_valid", return_value=True)
+    def test_new_source_stage_selects_fallback_key_with_single_send(self, _valid):
+        self.figure_receipt()
+        slides = self.emit("slides.tex", "slides.pdf")
+        with patch("selenium_pipeline.windows_gemini_provider_halt.inspect_halt",
+                   return_value={
+                       "status": "NO_PROVIDER_HALT",
+                       "new_generation_dispatch_allowed_by_health_policy": True,
+                       "new_source_preferred_gemini_key_ordinal": 2,
+                   }):
+            state = run_stage(trial_dir=self.trial, stage="slides",
+                              stage_runner=slides)
+        self.assertEqual(state["status"], "STAGE_COMPLETED_AND_SOURCE_SHA_BOUND")
+        self.assertEqual(slides.call_count, 1)
+        self.assertEqual(slides.call_args.kwargs["environ"][
+            "MICROGEN_GEMINI_SINGLE_SEND_KEY_ORDINAL"], "2")
+        self.assertEqual(slides.call_args.kwargs["environ"][
+            "MICROGEN_SINGLE_PROVIDER_SEND"], "1")
+
+    @patch("selenium_pipeline.runner.check_valid", return_value=True)
     def test_shared_gemini_cooldown_blocks_new_send_before_stage_claim(self, _valid):
         self.figure_receipt()
         never = Mock(side_effect=AssertionError("should not send Gemini"))

@@ -107,6 +107,27 @@ class FreshIndependentOriginalTests(unittest.TestCase):
         self.assertEqual(env["MICROGEN_SINGLE_PROVIDER_SEND"], "1")
         self.assertEqual(fake.call_count, 1)
 
+    def test_new_original_after_prior_503_uses_key_two_with_no_resend_budget(self):
+        fake = Mock(return_value=subprocess.CompletedProcess([], 1, "", ""))
+        with patch("selenium_pipeline.windows_gemini_provider_halt.inspect_halt",
+                   return_value={
+                       "status": "NO_PROVIDER_HALT",
+                       "new_generation_dispatch_allowed_by_health_policy": True,
+                       "new_source_preferred_gemini_key_ordinal": 2,
+                   }), patch("selenium_pipeline.windows_bounded_stage_process.run_bounded",
+                             fake), patch(
+                       "selenium_pipeline.windows_gemini_provider_halt.record_stage",
+                       return_value={"status": "MOCKED_TERMINAL_HEALTH"},
+                   ):
+            result = run_trial(source_root=self.publisher, section="22.1",
+                               trial_dir=self.trial, attempt_figures=True)
+        env = fake.call_args.kwargs["environ"]
+        self.assertEqual(env["MICROGEN_GEMINI_SINGLE_SEND_KEY_ORDINAL"], "2")
+        self.assertEqual(env["MICROGEN_SINGLE_PROVIDER_SEND"], "1")
+        self.assertEqual(env["MICROGEN_API_ATTEMPTS"], "1")
+        self.assertEqual(result["status"], "FIGURES_ATTEMPT_FAILED_NO_AUTO_RETRY")
+        self.assertEqual(fake.call_count, 1)
+
     def test_provider_cooldown_blocks_new_figures_before_attempt_ledger(self):
         fake = Mock(side_effect=AssertionError("should not send Gemini"))
         with patch("selenium_pipeline.windows_gemini_provider_halt.inspect_halt",

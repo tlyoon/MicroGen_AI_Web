@@ -164,7 +164,17 @@ def call_with_key_failover(
     # caller-selected Gemini TTS and other key failover policy is unchanged.
     if os.environ.get("MICROGEN_SINGLE_PROVIDER_SEND") == "1":
         retries = 0
-        keys = keys[:1]
+        # A PREVIOUS, independently verified API 503/504 may make a different
+        # configured key preferable for a DISTINCT future source task.
+        # Selection is 1-based, set only by the Windows health admission
+        # controller before the new immutable send intent is claimed.
+        # This NEVER retries or switches keys within an already sent task.
+        ordinal_raw = os.environ.get("MICROGEN_GEMINI_SINGLE_SEND_KEY_ORDINAL", "1")
+        if (not ordinal_raw.isdecimal() or not 1 <= int(ordinal_raw) <= len(keys)):
+            raise ValueError(
+                "Single-send Gemini preferred key is not a configured ordinal; "
+                "no provider request was submitted")
+        keys = [keys[int(ordinal_raw) - 1]]
     base = _env_float("MICROGEN_GEMINI_BACKOFF_BASE_SECONDS", 15.0)
     cap = _env_float("MICROGEN_GEMINI_BACKOFF_MAX_SECONDS", 180.0)
     transient_retries_per_key = max(

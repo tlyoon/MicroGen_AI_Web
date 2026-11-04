@@ -114,6 +114,68 @@ class GeminiKeyPoolTests(unittest.TestCase):
             self.assertEqual(gemini_keys.call_with_key_failover(operation), "ok")
             self.assertEqual(calls, ["first", "first", "second"])
 
+    def test_single_send_uses_explicit_fallback_key_only_for_new_task(self):
+        calls = []
+        env = {
+            "GEMINI_API_KEY_1": "primary",
+            "GEMINI_API_KEY_2": "fallback",
+            "GEMINI_API_KEY": "primary",
+            "MICROGEN_SINGLE_PROVIDER_SEND": "1",
+            "MICROGEN_GEMINI_SINGLE_SEND_KEY_ORDINAL": "2",
+            "MICROGEN_GEMINI_MAX_RETRIES": "6",
+        }
+        def failed_once(key):
+            calls.append(key)
+            raise FakeTransientError()
+        with patch.dict(os.environ, env, clear=True), patch(
+            "gemini_keys.time.sleep",
+            side_effect=AssertionError("no retry within one source claim"),
+        ):
+            with self.assertRaises(FakeTransientError):
+                gemini_keys.call_with_key_failover(failed_once, max_retries=6)
+        self.assertEqual(calls, ["fallback"])
+
+    def test_single_send_requires_real_configured_fallback_before_any_send(self):
+        calls = []
+        for invalid in ("0", "3", "abc", "-1"):
+            with self.subTest(invalid=invalid), patch.dict(os.environ, {
+                "GEMINI_API_KEY_1": "primary",
+                "GEMINI_API_KEY_2": "fallback",
+                "MICROGEN_SINGLE_PROVIDER_SEND": "1",
+                "MICROGEN_GEMINI_SINGLE_SEND_KEY_ORDINAL": invalid,
+            }, clear=True):
+                with self.assertRaises(ValueError):
+                    gemini_keys.call_with_key_failover(
+                        lambda key: calls.append(key), max_retries=6)
+        self.assertEqual(calls, [])
+
+    def test_503_and_504_normal_api_pool_rotation_already_supported(self):
+        for status in (503, 504):
+            calls = []
+            class VerifiedHttpError(Exception):
+                code = status
+            def operation(key):
+                calls.append(key)
+                if key == "primary":
+                    raise VerifiedHttpError("SDK terminal service error")
+                return "ok"
+            env = {
+                "GEMINI_API_KEY_1": "primary",
+                "GEMINI_API_KEY_2": "fallback",
+                "MICROGEN_GEMINI_MAX_RETRIES": "1",
+                "MICROGEN_GEMINI_TRANSIENT_RETRIES_PER_KEY": "2",
+                "MICROGEN_GEMINI_BACKOFF_BASE_SECONDS": "0",
+                "MICROGEN_GEMINI_BACKOFF_MAX_SECONDS": "0",
+            }
+            with self.subTest(status=status), patch.dict(
+                os.environ, env, clear=True,
+            ), patch("gemini_keys.time.sleep"), patch(
+                "gemini_keys.random.uniform", return_value=0.0,
+            ):
+                self.assertEqual(gemini_keys.call_with_key_failover(
+                    operation, max_retries=1), "ok")
+                self.assertEqual(calls, ["primary", "primary", "fallback"])
+
     def test_immutable_original_source_single_send_never_retries_or_rotates_keys(self):
         calls = []
         env = {

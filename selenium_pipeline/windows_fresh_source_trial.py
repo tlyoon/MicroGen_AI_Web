@@ -176,6 +176,8 @@ def run_trial(*, source_root: Path, section: str, trial_dir: Path,
                 "MICROGEN_API_ATTEMPTS": "1",
                 "SLIDES_MAX_ATTEMPTS": "1",
                 "MICROGEN_SINGLE_PROVIDER_SEND": "1",
+                "MICROGEN_GEMINI_SINGLE_SEND_KEY_ORDINAL": str(
+                    provider_gate.get("new_source_preferred_gemini_key_ordinal", 1)),
                 "MICROGEN_GEMINI_SDK_RETRY_ATTEMPTS": "1",
             }
             completed = run_bounded(
