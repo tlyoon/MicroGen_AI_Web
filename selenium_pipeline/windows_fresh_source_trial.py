@@ -19,6 +19,7 @@ import subprocess
 import sys
 
 from .evidence_reuse_contract import file_sha256
+from .windows_bounded_stage_process import WindowsStageRecoveryError
 from .original_multisource_recovery_campaign import (
     CampaignRecoveryBlocked, _new_atomic, _verified_json, require,
 )
@@ -128,16 +129,30 @@ def run_trial(*, source_root: Path, section: str, trial_dir: Path,
         "stage": "figures", "single_provider_attempt_only": True,
     })
     try:
-        completed = run(command, cwd=Path(__file__).resolve().parent.parent,
-                        capture_output=True, text=True, encoding="utf-8",
-                        errors="replace", timeout=timeout_seconds)
+        if subprocess_run is None:
+            from .windows_bounded_stage_process import run_bounded
+            log_file = trial_dir / "figures_stage_stdout.raw.log"
+            result["figure_stage_raw_log"] = str(log_file)
+            # Persist actual raw Unicode output without CP1252 pipe threads.
+            # A scope-limited Windows taskkill terminates the owned stage
+            # descendants on timeout; never close unrelated browser sessions.
+            completed = run_bounded(
+                command=command,
+                cwd=Path(__file__).resolve().parent.parent,
+                log_path=log_file,
+                timeout_seconds=timeout_seconds)
+        else:
+            # Mockable offline test seam. Never used for a real model attempt.
+            completed = run(command, cwd=Path(__file__).resolve().parent.parent,
+                            capture_output=True, text=True, encoding="utf-8",
+                            errors="replace", timeout=timeout_seconds)
         result["figure_stage_exit_code"] = completed.returncode
         result["status"] = ("FIGURES_STAGE_RETURNED_SUCCESS_NOT_FULL_LECTURE"
                             if completed.returncode == 0
                             else "FIGURES_ATTEMPT_FAILED_NO_AUTO_RETRY")
     except subprocess.TimeoutExpired:
         result["status"] = "FIGURES_ATTEMPT_TIMEOUT_NO_AUTO_RETRY"
-    except OSError:
+    except (OSError, WindowsStageRecoveryError):
         result["status"] = "FIGURES_EXECUTION_ERROR_NO_AUTO_RETRY"
     result["provider_figure_attempt_may_have_occurred"] = True
     # A Selenium browser may have sent a request even if the process failed.

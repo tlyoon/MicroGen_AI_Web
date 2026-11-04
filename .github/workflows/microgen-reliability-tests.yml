@@ -66,6 +66,7 @@ jobs:
             "tests.test_windows_recovery_integrity"
             "tests.test_windows_release_readiness_board"
             "tests.test_windows_install_smoke"
+            "tests.test_windows_bounded_stage_process"
             "tests.test_original_fig83_angular_font_source_glyphs"
             "tests.test_figure_recovery_candidates"
             "tests.test_reliability_audit"
