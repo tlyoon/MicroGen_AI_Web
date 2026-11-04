@@ -74,6 +74,21 @@ class GeminiProviderVisibleUIErrorTests(unittest.TestCase):
         self.assertTrue(meta["known_gemini_ui_error_text_observed"])
         self.assertFalse(meta["provider_server_outage_proven"])
 
+    def test_canonical_windows_quarantine_root_alias_from_temp(self):
+        # GitHub Actions' Windows temp can be a reparse-path alias.
+        # snapshot() resolves its root but .absolute() retains '..'.
+        saved = quarantine_snapshot({
+            "text": UI_ERROR, "generating": False,
+            "capture_status": "visible_model_response",
+        }, directory=self.root)
+        alias = self.root / ".." / self.root.name
+        self.assertNotEqual(alias.absolute(), self.root.absolute())
+        self.assertEqual(alias.resolve(), self.root.resolve())
+        result = inspect_quarantine(
+            metadata_path=saved["meta_path"], allowed_root=alias)
+        self.assertTrue(result["known_gemini_ui_error_text_observed"])
+        self.assertTrue(result["quarantine_payload_sha256_verified"])
+
     def test_tamper_prevents_reclassification(self):
         saved = quarantine_snapshot({
             "text": UI_ERROR, "generating": False,

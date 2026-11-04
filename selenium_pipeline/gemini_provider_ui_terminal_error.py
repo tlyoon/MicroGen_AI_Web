@@ -47,10 +47,20 @@ def inspect_quarantine(*, metadata_path: Path,
                        allowed_root: Path | None = None) -> dict:
     """Independently re-check existing hash-bound quarantine; no modifications."""
     from .gemini_response_recovery import read_quarantined_response
-    root = (Path(allowed_root) if allowed_root is not None else
-            Path(os.environ.get("LOCALAPPDATA", "")) /
-            "Microvid" / "gemini_quarantine").absolute()
-    meta_path = Path(metadata_path).absolute()
+    root_arg = (Path(allowed_root) if allowed_root is not None else
+                Path(os.environ.get("LOCALAPPDATA", "")) /
+                "Microvid" / "gemini_quarantine")
+    meta_arg = Path(metadata_path)
+    # quarantine_snapshot writes to .resolve(); .absolute() retains '..'
+    # segments and Windows temporary-root/junction aliases. Both inputs
+    # must be canonicalized the SAME way before comparing their parents.
+    # Keep the direct symlink checks before resolution, and still require
+    # the canonical metadata file to be an immediate child of the
+    # explicitly trusted canonical root.
+    if root_arg.is_symlink() or meta_arg.is_symlink():
+        raise ValueError("Quarantine metadata must be in trusted local root")
+    root = root_arg.resolve(strict=True)
+    meta_path = meta_arg.resolve(strict=True)
     if (not root.is_dir() or root.is_symlink()
             or meta_path.parent != root
             or meta_path.is_symlink() or not meta_path.is_file()
