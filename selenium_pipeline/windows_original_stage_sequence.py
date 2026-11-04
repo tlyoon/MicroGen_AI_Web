@@ -156,6 +156,17 @@ def run_stage(*, trial_dir: Path, stage: str, timeout_seconds: int = 480,
             and all(not (lecture / n).exists()
                     and not (lecture / n).is_symlink() for n in expected),
             "Unexpected existing stage artifacts; preserve and review")
+    if stage in ("slides", "narration"):
+        from .windows_gemini_provider_halt import inspect_halt
+        health = inspect_halt(backend=communication_mode)
+        if not health["new_generation_dispatch_allowed_by_health_policy"]:
+            return {
+                "status": "GEMINI_PROVIDER_COOLDOWN_NO_SUBMISSION",
+                "stage": stage, "source_sha256": contract["source_sha256"],
+                "provider_health_gate": health,
+                "new_model_or_tts_calls": False,
+                "student_publication_authorized": False,
+            }
     _new_atomic(started, intent)
     command = [
         sys.executable, "-m", "selenium_pipeline",
@@ -212,6 +223,10 @@ def run_stage(*, trial_dir: Path, stage: str, timeout_seconds: int = 480,
             == contract["source_sha256"],
             "Original source altered by stage; stop without authorizing reuse")
     _new_atomic(finished, report)
+    if stage_runner is None and stage in ("slides", "narration"):
+        from .windows_gemini_provider_halt import record_stage
+        report["shared_gemini_health"] = record_stage(
+            trial_dir=trial_dir, stage=stage, backend=communication_mode)
     return report
 
 

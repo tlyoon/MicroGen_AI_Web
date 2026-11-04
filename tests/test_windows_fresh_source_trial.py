@@ -90,7 +90,10 @@ class FreshIndependentOriginalTests(unittest.TestCase):
     def test_real_runner_contract_passes_one_send_budget_to_bounded_child(self):
         fake = Mock(return_value=subprocess.CompletedProcess([], 1, "", ""))
         with patch("selenium_pipeline.windows_bounded_stage_process.run_bounded",
-                   fake):
+                   fake), patch(
+            "selenium_pipeline.windows_gemini_provider_halt.record_stage",
+            return_value={"status": "MOCK_ONLY_NO_HEALTH_MUTATION"},
+        ):
             result = run_trial(source_root=self.publisher, section="22.1",
                                trial_dir=self.trial, attempt_figures=True)
         self.assertEqual(result["status"], "FIGURES_ATTEMPT_FAILED_NO_AUTO_RETRY")
@@ -99,6 +102,22 @@ class FreshIndependentOriginalTests(unittest.TestCase):
         self.assertEqual(env["MICROGEN_API_ATTEMPTS"], "1")
         self.assertEqual(env["MICROGEN_SINGLE_PROVIDER_SEND"], "1")
         self.assertEqual(fake.call_count, 1)
+
+    def test_provider_cooldown_blocks_new_figures_before_attempt_ledger(self):
+        fake = Mock(side_effect=AssertionError("should not send Gemini"))
+        with patch("selenium_pipeline.windows_gemini_provider_halt.inspect_halt",
+                   return_value={
+                       "status": "HALT_NEW_GEMINI_TASKS",
+                       "new_generation_dispatch_allowed_by_health_policy": False,
+                       "paused_until_unix_utc": 12345,
+                   }):
+            result = run_trial(source_root=self.publisher, section="22.1",
+                               trial_dir=self.trial, attempt_figures=True,
+                               subprocess_run=fake)
+        self.assertEqual(result["status"], "GEMINI_PROVIDER_COOLDOWN_NO_SUBMISSION")
+        self.assertFalse((self.trial / "figures_attempt_started.json").exists())
+        fake.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()
