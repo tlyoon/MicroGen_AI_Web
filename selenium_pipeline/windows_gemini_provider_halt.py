@@ -154,6 +154,17 @@ def record_stage(*, trial_dir: Path, stage: str,
         raise ValueError("Not a terminal original-source stage receipt")
     contract = _verified_json(trial / "fresh_trial_contract.json")
     source_sha = contract.get("source_sha256")
+    claim_file = (trial / "figures_attempt_started.json" if stage == "figures"
+                  else trial / ("stage_" + stage + "_started.json"))
+    claim = _verified_json(claim_file)
+    actual_backend = claim.get("communication_mode", "selenium")
+    if (claim.get("stage") != stage
+            or claim.get("source_sha256") != source_sha
+            or actual_backend not in VALID_BACKENDS
+            or backend != actual_backend
+            or (actual_backend == "api" and
+                claim.get("paid_content_api_explicitly_authorized") is not True)):
+        raise ValueError("Stage's authentic provider send intent does not match this lane")
     if (not re.fullmatch(r"[0-9a-f]{64}", str(source_sha))
         or (item.get("original_source_sha256") if stage == "figures"
             else item.get("source_sha256")) != source_sha

@@ -325,10 +325,14 @@ def main(argv=None) -> int:
             receipt = Path(trial) / ("figures_attempt_result.json" if stage == "figures"
                                      else f"stage_{stage}_result.json")
             if receipt.is_file():
+                claim = Path(trial) / ("figures_attempt_started.json"
+                    if stage == "figures" else f"stage_{stage}_started.json")
+                intent = _verified_json(claim)
+                backend = intent.get("communication_mode", "selenium")
                 registered.append({
                     "trial": Path(trial).name, "stage": stage,
                     **record_stage(trial_dir=trial, stage=stage,
-                                   backend="selenium", folder=args.health_root)})
+                                   backend=backend, folder=args.health_root)})
     conclusion = classify(
         browser=browser, api=api,
         metadata_reachable=ready.get("api_model_metadata") ==

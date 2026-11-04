@@ -135,6 +135,10 @@ class CrossTaskGeminiHaltTests(unittest.TestCase):
                 "student_publication_authorized": False}
             log_name = f"stage_{stage}_stdout.raw.log"
         _new_atomic(root / result_name, item)
+        claim_name = ("figures_attempt_started.json" if stage == "figures"
+                      else f"stage_{stage}_started.json")
+        _new_atomic(root / claim_name, {
+            "schema_version": 1, "source_sha256": source, "stage": stage})
         (root / log_name).write_text(
             "[2026-11-04 15:32:05] [INFO] Gemini submission registered via "
             "new-user-turn+composer-cleared.\n" if send else
@@ -177,6 +181,13 @@ class CrossTaskGeminiHaltTests(unittest.TestCase):
         self.assertEqual(first["outcome"], "UNKNOWN_SUBMISSION")
         self.assertEqual(inspect_halt(folder=self.health, now=1100)["status"],
                          "NO_PROVIDER_HALT")
+
+    def test_wrong_backend_cannot_poison_browser_or_api_health(self):
+        a = self.receipt("41", "figures", False)
+        with self.assertRaisesRegex(ValueError, "send intent"):
+            record_stage(trial_dir=a, stage="figures",
+                         backend="api", folder=self.health)
+        self.assertFalse(self.health.exists())
 
     def test_readonly_log_evidence_does_not_dispatch(self):
         a = self.receipt("31", "figures", False)
