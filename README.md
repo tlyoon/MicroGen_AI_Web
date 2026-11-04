@@ -6,6 +6,8 @@
 
 **Unified recovery audit (PR491):** SHA-verify existing section job receipts and a no-resend independent source browser attempt with `python -m selenium_pipeline.windows_recovery_integrity --jobs-dir <PR489 job folder> --fresh-trial-dir <PR490 trial folder>`; see [recovery audit guide](docs/WINDOWS_RECOVERY_INTEGRITY_PR491_20261104.md). This is not academic or publication approval.
 
+**Source-reviewed element MP4 review bridge (PR496):** A single read-only-input operator now connects existing independently reviewed element selection + SHA-verifiable recorded per-element WAVs to actual synchronized H264/AAC review videos with decoded-pixel QA. No model call, paid TTS, academic approval or student release. See [Windows reviewed multimedia bridge](docs/WINDOWS_REVIEWED_ELEMENT_MEDIA_BRIDGE_PR496_20261104.md).
+
 **One-stage original-source progression (PR495):** `python -m selenium_pipeline.windows_original_stage_sequence --trial-dir <versioned genuine original trial> --stage slides|narration|script_qa` advances only after the previous sourcebound stage has passed current physical QA, retains accepted receipts and refuses ambiguous provider resend. See [Windows source-stage sequence](docs/WINDOWS_ORIGINAL_STAGE_SEQUENCE_PR495_20261104.md).
 
 **Bounded Windows source-stage execution (PR494):** The fresh-original trial now writes non-overwriting raw UTF-8 subprocess logs, terminates only an owned timed-out Windows process tree, and preserves the pre-send no-retry model ledger. See [Windows bounded stage recovery](docs/WINDOWS_BOUNDED_PROVIDER_STAGE_RECOVERY_PR494_20261104.md). This is not permission to retry an earlier ambiguous Gemini attempt.
