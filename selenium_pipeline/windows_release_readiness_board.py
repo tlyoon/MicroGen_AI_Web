@@ -83,7 +83,8 @@ def inspect_worker_install(*, repo: Path,
 
 def inspect_release(*, repo: Path, jobs_dir: Path,
                     fresh_trial_dir: Path,
-                    worker_python: Path | None = None) -> dict:
+                    worker_python: Path | None = None,
+                    reuse_scoped_pr362: bool = False) -> dict:
     require(os.name == "nt", "Native Windows-only release readiness")
     repo = Path(repo).absolute()
     require(repo.is_dir() and (repo / ".git").exists(),
@@ -98,6 +99,13 @@ def inspect_release(*, repo: Path, jobs_dir: Path,
     ci = _windows_ci_only(repo)
     recovery = audit(jobs_dir=jobs_dir, fresh_trial_dir=fresh_trial_dir)
     worker = inspect_worker_install(repo=repo, python=worker_python)
+    prior_reference = None
+    if reuse_scoped_pr362:
+        from .windows_scoped_prior_full_media_acceptance import (
+            verify_scoped, sources_at_checkpoint,
+        )
+        historical_root = Path(os.environ["LOCALAPPDATA"]) / "MicroGen_AI_Web_Checkpoints"
+        prior_reference = verify_scoped(**sources_at_checkpoint(historical_root))
     safe_checkpoint = (recovery["source_job_receipts_security_or_version_rejected"] == 0
                        and recovery["fresh_original_publisher_and_stage_sha_verified"]
                        and not recovery["automatic_provider_retry_authorized"])
@@ -109,7 +117,8 @@ def inspect_release(*, repo: Path, jobs_dir: Path,
         "source_checkpoint_integrity": safe_checkpoint,
         "clean_isolated_windows_worker_install_verified": worker["passed"],
         "github_ci_exact_final_sha_independently_verified": False,
-        "first_new_original_full_sourcebound_lecture_accepted": False,
+        "at_least_one_full_original_source_reference_verified":
+            prior_reference is not None,
         "second_distinct_new_original_full_lecture_accepted": False,
         "entire_historical_stack_dependency_and_review_completed": False,
         "production_installation_smoke_and_release_approval": False,
@@ -127,6 +136,7 @@ def inspect_release(*, repo: Path, jobs_dir: Path,
         "local_main_is_stale_informational_only":
             local_main != tracked_origin_main,
         "worker_installation": worker,
+        "prior_scoped_original_acceptance": prior_reference,
         "branch": branch,
         "commit_comparison_ref": "origin/main (last fetched)",
         "commits_ahead_of_tracked_origin_main": ahead,
@@ -151,7 +161,8 @@ def inspect_release(*, repo: Path, jobs_dir: Path,
         "next_actions": [
             "Fetch and verify current origin/main before interpreting commit distance",
             "Independent exact-head GitHub Windows CI review",
-            "Genuine full original-source synchronized multipart video, then a distinct second input",
+            "Existing PR362 one-source accepted evidence is reusable only at matching SHA",
+            "Qualify a DISTINCT new original-source full synchronized multimedia lecture",
             f"Review stacked draft dependencies in safe batches; never merge {ahead} commits blindly",
             "Clean Windows installation smoke and separate explicit student release authorization",
         ],
@@ -165,11 +176,14 @@ def main(argv=None) -> int:
     p.add_argument("--fresh-trial-dir", type=Path, required=True)
     p.add_argument("--worker-python", type=Path,
                    help="Optional exact isolated Windows venv Python executable")
+    p.add_argument("--reuse-scoped-pr362", action="store_true",
+                   help="SHA-import already accepted PR362 review-only source/media as ONE historic example")
     a = p.parse_args(argv)
     try:
         result = inspect_release(repo=a.repo, jobs_dir=a.jobs_dir,
                                  fresh_trial_dir=a.fresh_trial_dir,
-                                 worker_python=a.worker_python)
+                                 worker_python=a.worker_python,
+                                 reuse_scoped_pr362=a.reuse_scoped_pr362)
     except (CampaignRecoveryBlocked, OSError, ValueError, subprocess.TimeoutExpired) as exc:
         print(json.dumps({"status": "WINDOWS_RELEASE_BOARD_REJECTED",
                           "reason": str(exc),
