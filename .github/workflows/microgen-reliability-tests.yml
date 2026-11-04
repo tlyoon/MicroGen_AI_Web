@@ -68,6 +68,7 @@ jobs:
             "tests.test_windows_install_smoke"
             "tests.test_windows_bounded_stage_process"
             "tests.test_windows_original_stage_sequence"
+            "tests.test_windows_reviewed_element_media_bridge"
             "tests.test_original_fig83_angular_font_source_glyphs"
             "tests.test_figure_recovery_candidates"
             "tests.test_reliability_audit"
