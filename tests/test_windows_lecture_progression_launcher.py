@@ -55,6 +55,33 @@ class WindowsLectureProgressionLauncherTests(unittest.TestCase):
         self.assertNotEqual(run.returncode, 0)
         self.assertEqual(list(self.trial.iterdir()), [])
 
+    def test_media_review_mode_blocks_when_source_stages_incomplete(self):
+        args = [
+            "-Mode", "LectureMediaReview",
+            "-SourceRoot", str(self.source),
+            "-Section", "77.9", "-TrialDir", str(self.trial),
+            "-ReviewDraft", str(self.root / "not_yet_reviewed.json"),
+            "-ReviewSelection", str(self.root / "review_selection.json"),
+            "-TtsRequest", str(self.root / "not_yet_tts_request.json"),
+            "-AudioDir", str(self.root / "no_wavs"),
+            "-ReviewOutDir", str(self.root / "no_output"),
+        ]
+        run = self.invoke(*args)
+        self.assertEqual(run.returncode, 2, run.stderr + run.stdout)
+        self.assertEqual(
+            json.loads(run.stdout)["status"],
+            "MEDIA_PREREQUISITES_NOT_ACCEPTED_NO_ENCODING")
+        self.assertFalse((self.root / "no_output").exists())
+
+    def test_ffmpeg_render_switch_not_transferable_to_source_status(self):
+        run = self.invoke(
+            "-Mode", "LectureStatus",
+            "-SourceRoot", str(self.source),
+            "-Section", "77.9", "-TrialDir", str(self.trial),
+            "-ConfirmMediaReviewRender")
+        self.assertNotEqual(run.returncode, 0)
+        self.assertEqual(list(self.trial.iterdir()), [])
+
     def test_launcher_api_needs_explicit_cost_consent_before_any_send(self):
         run = self.invoke(
             "-Mode", "LectureAdvance",

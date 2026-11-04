@@ -126,6 +126,9 @@ class WindowsSourceProgressionTests(unittest.TestCase):
         self.assertIsNone(state["next_stage"])
         self.assertEqual(state["slides_pdf_sha256"],
                          file_sha256(self.lecture / "slides.pdf"))
+        self.assertEqual(Path(state["source"]), self.lecture / "source.pdf")
+        self.assertEqual(Path(state["publisher_source"]), self.original)
+        self.assertEqual(state["staged_source_sha256"], self.sha)
         self.assertFalse(state["reviewed_tts_or_video_generated"])
         self.assertFalse(state["student_publication_authorized"])
         self.assertEqual(len(state["required_following_steps"]), 6)

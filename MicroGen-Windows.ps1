@@ -1,7 +1,7 @@
 # Native Windows operator; self-locates its checkout, never accesses user secrets.
 [CmdletBinding()]
 param(
-    [ValidateSet('Doctor', 'Inspect', 'BatchStatus', 'RenderPrepared', 'LectureStatus', 'LectureAdvance')]
+    [ValidateSet('Doctor', 'Inspect', 'BatchStatus', 'RenderPrepared', 'LectureStatus', 'LectureAdvance', 'LectureMediaReview')]
     [string]$Mode = 'Doctor',
     [string]$Campaign = '',
     [string]$Section = '',
@@ -11,6 +11,12 @@ param(
     [ValidateSet('selenium','api')]
     [string]$CommunicationMode = 'selenium',
     [switch]$ConfirmContentApiCost,
+    [string]$ReviewDraft = '',
+    [string]$ReviewSelection = '',
+    [string]$TtsRequest = '',
+    [string]$AudioDir = '',
+    [string]$ReviewOutDir = '',
+    [switch]$ConfirmMediaReviewRender,
     [string]$Python = ''
 )
 Set-StrictMode -Version Latest
@@ -22,10 +28,14 @@ if (-not $Python) {
     else { $Python = 'python' }
 }
 $arguments = @('-m', 'selenium_pipeline.windows_operator')
-if ($Mode -notin @('LectureStatus','LectureAdvance') -and (
+if ($Mode -notin @('LectureStatus','LectureAdvance','LectureMediaReview') -and (
     $SourceRoot -or $TrialDir -or $ConfirmContentApiCost -or
     $CommunicationMode -ne 'selenium'
 )) { throw 'Lecture-only arguments are not valid in legacy operator modes.' }
+if ($Mode -ne 'LectureMediaReview' -and (
+    $ReviewDraft -or $ReviewSelection -or $TtsRequest -or $AudioDir -or
+    $ReviewOutDir -or $ConfirmMediaReviewRender
+)) { throw 'Reviewed media inputs and FFmpeg consent require LectureMediaReview.' }
 switch ($Mode) {
     'Doctor' {
         if ($Campaign -or $Section -or $JobsDir) {
@@ -75,6 +85,24 @@ switch ($Mode) {
             '--source-root', $SourceRoot, '--section', $Section, '--trial-dir', $TrialDir,
             '--execute-next-one-stage', '--communication-mode', $CommunicationMode)
         if ($ConfirmContentApiCost) { $arguments += '--confirm-content-api-cost' }
+    }
+    'LectureMediaReview' {
+        if (-not $SourceRoot -or -not $Section -or -not $TrialDir -or
+            -not $ReviewDraft -or -not $ReviewSelection -or
+            -not $TtsRequest -or -not $AudioDir -or -not $ReviewOutDir -or
+            $Campaign -or $JobsDir -or $ConfirmContentApiCost -or
+            $CommunicationMode -ne 'selenium') {
+            throw 'LectureMediaReview requires source/trial and reviewed input paths, no Gemini API flags.'
+        }
+        $arguments = @('-m', 'selenium_pipeline.windows_lecture_media_handoff',
+            '--source-root', $SourceRoot, '--section', $Section,
+            '--trial-dir', $TrialDir,
+            '--draft', $ReviewDraft, '--selection', $ReviewSelection,
+            '--tts-request', $TtsRequest, '--audio', $AudioDir,
+            '--outdir', $ReviewOutDir)
+        if ($ConfirmMediaReviewRender) {
+            $arguments += '--render-reviewed-media-once'
+        }
     }
 }
 Push-Location -LiteralPath $repo
