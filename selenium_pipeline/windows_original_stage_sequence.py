@@ -55,8 +55,16 @@ def _trial(trial_dir: Path) -> tuple[dict, Path, Path]:
 
 
 def run_stage(*, trial_dir: Path, stage: str, timeout_seconds: int = 480,
-              stage_runner=None) -> dict:
-    require(stage in _ORDER, "Only unbilled slides/narration/script QA stages supported")
+              stage_runner=None, communication_mode: str = "selenium",
+              confirm_content_api_cost: bool = False) -> dict:
+    require(stage in _ORDER, "Only vetted slides/narration/script QA stages supported")
+    require(communication_mode in {"selenium", "api"},
+            "Automatic API fallback prohibited after uncertain browser send")
+    require(not confirm_content_api_cost or communication_mode == "api",
+            "Paid content consent only applies to explicit API mode")
+    require(communication_mode != "api" or stage == "script_qa"
+            or confirm_content_api_cost,
+            "Paid Gemini content API requires explicit per-stage cost approval")
     require(type(timeout_seconds) is int and 30 <= timeout_seconds <= 900,
             "Finite native Windows stage deadline required")
     contract, original, stage_source = _trial(trial_dir)
@@ -111,6 +119,9 @@ def run_stage(*, trial_dir: Path, stage: str, timeout_seconds: int = 480,
         "paid_tts_authorized": False,
         "student_publication_authorized": False,
     }
+    if communication_mode == "api" and stage != "script_qa":
+        intent["communication_mode"] = "api"
+        intent["paid_content_api_explicitly_authorized"] = True
     if started.exists() or started.is_symlink():
         require(_verified_json(started) == intent,
                 "Stage attempt intent changed; do not reinterpret old provider work")
@@ -144,7 +155,7 @@ def run_stage(*, trial_dir: Path, stage: str, timeout_seconds: int = 480,
         "--source-root", str(stage_source.parents[2]),
         "--subchapter", section, "--from-stage", stage,
         "--through-stage", stage,
-        "--communication-mode", "selenium",
+        "--communication-mode", communication_mode,
     ]
     log = trial_dir / ("stage_" + stage + "_stdout.raw.log")
     report = {
@@ -189,10 +200,16 @@ def main(argv=None) -> int:
     p.add_argument("--trial-dir", type=Path, required=True)
     p.add_argument("--stage", choices=_ORDER, required=True)
     p.add_argument("--timeout-seconds", type=int, default=480)
+    p.add_argument("--communication-mode", choices=("selenium", "api"),
+                   default="selenium")
+    p.add_argument("--confirm-content-api-cost", action="store_true",
+                   help="Explicit approval for one newly attempted content API stage")
     args = p.parse_args(argv)
     try:
         outcome = run_stage(trial_dir=args.trial_dir, stage=args.stage,
-                            timeout_seconds=args.timeout_seconds)
+                            timeout_seconds=args.timeout_seconds,
+                            communication_mode=args.communication_mode,
+                            confirm_content_api_cost=args.confirm_content_api_cost)
     except (CampaignRecoveryBlocked, OSError, ValueError) as exc:
         outcome = {
             "status": "STAGE_NOT_AUTHORIZED",
