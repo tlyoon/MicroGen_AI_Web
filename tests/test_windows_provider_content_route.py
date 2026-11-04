@@ -5,6 +5,7 @@ These tests use only synthetic source PDF bytes and simulated processes.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import tempfile
 import unittest
@@ -21,6 +22,9 @@ class ProviderContentRouteTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
+        env = patch.dict(os.environ, {"LOCALAPPDATA": str(self.root)})
+        env.start()
+        self.addCleanup(env.stop)
         self.book = self.root / "publisher"
         self.section = self.book / "22" / "22.4"
         self.section.mkdir(parents=True)

@@ -1,4 +1,5 @@
 """Bounded new original-source trial: synthetic fixtures, no browser/API."""
+import os
 import subprocess
 import tempfile
 import unittest
@@ -15,6 +16,9 @@ class FreshIndependentOriginalTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name)
+        env = patch.dict(os.environ, {"LOCALAPPDATA": str(self.root)})
+        env.start()
+        self.addCleanup(env.stop)
         self.publisher = self.root / "publisher"
         self.lecture = self.publisher / "22" / "22.1"
         self.lecture.mkdir(parents=True)

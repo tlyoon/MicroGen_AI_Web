@@ -2,6 +2,7 @@
 
 No browser, Gemini, paid TTS or actual publisher PDF is accessed by tests.
 """
+import os
 import subprocess
 import tempfile
 import unittest
@@ -20,6 +21,9 @@ class WindowsOriginalStageSequenceTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name)
+        env = patch.dict(os.environ, {"LOCALAPPDATA": str(self.root)})
+        env.start()
+        self.addCleanup(env.stop)
         self.publisher = self.root / "publisher" / "22" / "22.2"
         self.publisher.mkdir(parents=True)
         self.original = self.publisher / "source.pdf"
