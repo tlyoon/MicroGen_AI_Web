@@ -140,6 +140,15 @@ def run_trial(*, source_root: Path, section: str, trial_dir: Path,
                 "Untrusted previous figure-model attempt ledger")
         result["status"] = "PREVIOUS_PROVIDER_ATTEMPT_NOT_RESENT"
         return result
+    # Cross-source provider halt: pause NEW jobs after repeated verified
+    # post-send missing replies, not simply because the UI has a login box
+    # or the API model metadata is reachable. Old jobs may never be resent.
+    from .windows_gemini_provider_halt import inspect_halt
+    provider_gate = inspect_halt(backend=communication_mode)
+    if not provider_gate["new_generation_dispatch_allowed_by_health_policy"]:
+        result["status"] = "GEMINI_PROVIDER_COOLDOWN_NO_SUBMISSION"
+        result["provider_health_gate"] = provider_gate
+        return result
     # Persist the send-intent *before* invoking an unpredictable browser.
     # A crash, ambiguous send or timeout must NEVER be silently retried.
     model_attempt = {
@@ -198,6 +207,11 @@ def run_trial(*, source_root: Path, section: str, trial_dir: Path,
             and file_sha256(staged_source) == original_sha,
             "Original publisher source changed during figure stage")
     _new_atomic(trial_dir / "figures_attempt_result.json", result)
+    if subprocess_run is None:
+        from .windows_gemini_provider_halt import record_stage
+        result["shared_gemini_health"] = record_stage(
+            trial_dir=trial_dir, stage="figures",
+            backend=communication_mode)
     return result
 
 

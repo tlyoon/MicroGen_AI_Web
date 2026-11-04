@@ -149,6 +149,22 @@ class WindowsOriginalStageSequenceTests(unittest.TestCase):
         with self.assertRaises(CampaignRecoveryBlocked):
             run_stage(trial_dir=self.trial, stage="slides", stage_runner=Mock())
 
+    @patch("selenium_pipeline.runner.check_valid", return_value=True)
+    def test_shared_gemini_cooldown_blocks_new_send_before_stage_claim(self, _valid):
+        self.figure_receipt()
+        never = Mock(side_effect=AssertionError("should not send Gemini"))
+        with patch("selenium_pipeline.windows_gemini_provider_halt.inspect_halt",
+                   return_value={
+                       "status": "HALT_NEW_GEMINI_TASKS",
+                       "new_generation_dispatch_allowed_by_health_policy": False,
+                       "paused_until_unix_utc": 12345,
+                   }):
+            result = run_stage(trial_dir=self.trial, stage="slides",
+                               stage_runner=never)
+        self.assertEqual(result["status"], "GEMINI_PROVIDER_COOLDOWN_NO_SUBMISSION")
+        self.assertFalse((self.trial / "stage_slides_started.json").exists())
+        never.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()
