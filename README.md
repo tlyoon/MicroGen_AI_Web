@@ -6,6 +6,8 @@
 
 **Unified recovery audit (PR491):** SHA-verify existing section job receipts and a no-resend independent source browser attempt with `python -m selenium_pipeline.windows_recovery_integrity --jobs-dir <PR489 job folder> --fresh-trial-dir <PR490 trial folder>`; see [recovery audit guide](docs/WINDOWS_RECOVERY_INTEGRITY_PR491_20261104.md). This is not academic or publication approval.
 
+**One-stage original-source progression (PR495):** `python -m selenium_pipeline.windows_original_stage_sequence --trial-dir <versioned genuine original trial> --stage slides|narration|script_qa` advances only after the previous sourcebound stage has passed current physical QA, retains accepted receipts and refuses ambiguous provider resend. See [Windows source-stage sequence](docs/WINDOWS_ORIGINAL_STAGE_SEQUENCE_PR495_20261104.md).
+
 **Bounded Windows source-stage execution (PR494):** The fresh-original trial now writes non-overwriting raw UTF-8 subprocess logs, terminates only an owned timed-out Windows process tree, and preserves the pre-send no-retry model ledger. See [Windows bounded stage recovery](docs/WINDOWS_BOUNDED_PROVIDER_STAGE_RECOVERY_PR494_20261104.md). This is not permission to retry an earlier ambiguous Gemini attempt.
 
 **Physically accepted clean Windows worker install (PR493):** A fresh isolated virtual environment under `%LOCALAPPDATA%` passed import, pip-dependency and external tool checks on Dell-115. See [Windows clean worker installation](docs/WINDOWS_CLEAN_WORKER_INSTALL_PR493_20261104.md). This is worker setup only, not a complete generated source-to-video lecture.
