@@ -248,7 +248,7 @@ def classify(*, browser: dict | None, api: dict | None,
     b_bad = b in ("NO_VERIFIED_RESPONSE", "RESPONSE_RETURNED_BUT_NONCONFORMING")
     a_bad = a in ("NO_VERIFIED_RESPONSE", "RESPONSE_RETURNED_BUT_NONCONFORMING")
     api_http_status = api.get("verified_api_http_status") if api else None
-    if api_http_status in (429, 503) and a_bad:
+    if api_http_status in (429, 503, 504) and a_bad:
         label = ("API_REPORTED_CAPACITY_AND_BROWSER_FAILED"
                  if b_bad else "API_REPORTED_CAPACITY_GENERATION_UNAVAILABLE")
     elif api_http_status in (401, 403) and a_bad:

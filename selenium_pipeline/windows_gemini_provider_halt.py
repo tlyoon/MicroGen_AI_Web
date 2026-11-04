@@ -100,7 +100,7 @@ def _events(folder: Path) -> list[dict]:
 
 
 def _verified_api_capacity_events(*, folder: Path, now: float) -> list[dict]:
-    """Read only independently verified, exact source-free API 429/503 receipts.
+    """Read only independently verified, exact source-free API 429/503/504 receipts.
 
     The model API error is evidence for a single genuine request, NOT proof
     that the entire Gemini service is down. The precautionary halt applies
@@ -126,7 +126,7 @@ def _verified_api_capacity_events(*, folder: Path, now: float) -> list[dict]:
                 or e.get("source_free_generic_api_generation") is not True
                 or e.get("original_request_resend_authorized") is not False
                 or e.get("student_publication_authorized") is not False
-                or e.get("verified_api_http_status") not in (429, 503)
+                or e.get("verified_api_http_status") not in (429, 503, 504)
                 or type(e.get("observed_unix")) not in (int, float)
                 or not re.fullmatch(r"[0-9a-f]{64}", str(e.get("canary_result_sha256", "")))
                 or not re.fullmatch(r"[0-9a-f]{64}", str(e.get("canary_claim_sha256", "")))
@@ -166,13 +166,13 @@ def record_api_capacity(*, canary_root: Path, folder: Path | None = None,
     claim = _verified_json(claim_path)
     if (result is None
             or result.get("outcome") != "NO_VERIFIED_RESPONSE"
-            or result.get("verified_api_http_status") not in (429, 503)
+            or result.get("verified_api_http_status") not in (429, 503, 504)
             or result.get("error_type") not in ("ServerError", "ClientError")
             or result.get("paid_api_content_may_have_occurred") is not True
             or claim.get("explicit_api_content_cost") is not True
             or claim.get("no_original_source_attached") is not True
             or claim.get("one_submission_only") is not True):
-        raise ValueError("No authenticated one-shot API 429/503 diagnostic proof")
+        raise ValueError("No authenticated one-shot API 429/503/504 diagnostic proof")
     observed = result_path.stat().st_mtime
     claimed = claim_path.stat().st_mtime
     instant = float(time.time() if now is None else now)
@@ -235,7 +235,7 @@ def inspect_halt(*, folder: Path | None = None, backend: str = "selenium",
                    else None)
     paused = pause_until is not None and now < pause_until
     # A first-party structured API error is stronger capacity evidence than
-    # browser inactivity. Treat a verified 429/503 as a bounded precaution
+    # browser inactivity. Treat a verified 429/503/504 as a bounded precaution
     # for NEW Gemini jobs in both transports, with no automatic resend.
     capacity = [
         x for x in _verified_api_capacity_events(folder=_root(folder), now=now)
@@ -243,6 +243,15 @@ def inspect_halt(*, folder: Path | None = None, backend: str = "selenium",
     ]
     latest = (max(capacity, key=lambda x: x["observed_unix"])
               if capacity else None)
+    # The original source worker may select the SECOND configured key on a
+    # DISTINCT future request after expiry. The diagnostic canary's immutable
+    # code sends only on the FIRST key; no key values enter these receipts.
+    # 504 may be ambiguous: rotation is NEVER permission to resend its job.
+    recent_key_failure = [
+        x for x in _verified_api_capacity_events(folder=_root(folder), now=now)
+        if 0 <= now - x["observed_unix"] < 21600
+    ]
+    prefer_other_key = bool(recent_key_failure)
     precaution_end = (latest["observed_unix"] + cooldown_seconds
                       if latest else None)
     stop = paused or latest is not None
@@ -260,6 +269,8 @@ def inspect_halt(*, folder: Path | None = None, backend: str = "selenium",
         "verified_api_capacity_http_status": (
             latest["verified_api_http_status"] if latest else None),
         "verified_api_capacity_applies_to_new_jobs_only": latest is not None,
+        "new_source_preferred_gemini_key_ordinal": 2 if prefer_other_key else 1,
+        "new_source_key_rotation_never_resends_old_source": True,
         "new_generation_dispatch_allowed_by_health_policy": not stop,
         "paused_until_unix_utc": active_end,
         "time_expiration_is_not_permission_to_retry_old_request": True,

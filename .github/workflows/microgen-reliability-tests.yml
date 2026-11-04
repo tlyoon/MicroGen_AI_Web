@@ -75,6 +75,7 @@ jobs:
             "tests.test_windows_portable_review_archive"
             "tests.test_windows_gemini_differential_halt"
             "tests.test_windows_gemini_verified_api_capacity_halt"
+            "tests.test_gemini_keys"
             "tests.test_original_fig83_angular_font_source_glyphs"
             "tests.test_figure_recovery_candidates"
             "tests.test_reliability_audit"
