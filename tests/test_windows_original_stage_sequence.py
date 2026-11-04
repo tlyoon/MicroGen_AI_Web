@@ -73,6 +73,11 @@ class WindowsOriginalStageSequenceTests(unittest.TestCase):
         _valid.assert_any_call("figures", self.workspace)
         _valid.assert_any_call("slides", self.workspace)
         self.assertIn("--from-stage", slides.call_args.kwargs["command"])
+        limited = slides.call_args.kwargs["environ"]
+        self.assertEqual(limited["MICROGEN_SELENIUM_ATTEMPTS"], "1")
+        self.assertEqual(limited["MICROGEN_API_ATTEMPTS"], "1")
+        self.assertEqual(limited["SLIDES_MAX_ATTEMPTS"], "1")
+        self.assertEqual(limited["MICROGEN_SINGLE_PROVIDER_SEND"], "1")
         self.assertNotIn("--confirm-gemini-api-cost",
                          slides.call_args.kwargs["command"])
         self.assertFalse(first["new_tts_calls"])

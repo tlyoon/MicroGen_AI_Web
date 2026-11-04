@@ -114,6 +114,27 @@ class GeminiKeyPoolTests(unittest.TestCase):
             self.assertEqual(gemini_keys.call_with_key_failover(operation), "ok")
             self.assertEqual(calls, ["first", "first", "second"])
 
+    def test_immutable_original_source_single_send_never_retries_or_rotates_keys(self):
+        calls = []
+        env = {
+            "GEMINI_API_KEY_1": "first",
+            "GEMINI_API_KEY_2": "second",
+            "MICROGEN_SINGLE_PROVIDER_SEND": "1",
+            "MICROGEN_GEMINI_MAX_RETRIES": "6",
+        }
+
+        def ambiguous_provider_response(key):
+            calls.append(key)
+            raise FakeTransientError()
+
+        with patch.dict(os.environ, env, clear=True), patch(
+            "gemini_keys.time.sleep", side_effect=AssertionError("should not retry")
+        ):
+            with self.assertRaises(FakeTransientError):
+                gemini_keys.call_with_key_failover(
+                    ambiguous_provider_response, max_retries=6)
+        self.assertEqual(calls, ["first"])
+
     def test_mixed_transient_and_billing_failure_does_not_open_circuit(self):
         with tempfile.TemporaryDirectory() as tmp:
             calls = []

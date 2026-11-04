@@ -158,11 +158,23 @@ def run_trial(*, source_root: Path, section: str, trial_dir: Path,
             # Persist actual raw Unicode output without CP1252 pipe threads.
             # A scope-limited Windows taskkill terminates the owned stage
             # descendants on timeout; never close unrelated browser sessions.
+            # The outer immutable send ledger promises one attempt. Prevent
+            # nested map/vendor/API failover from making hidden duplicate
+            # requests when Gemini was already sent but the reply is absent.
+            owned_env = {
+                **os.environ,
+                "MICROGEN_SELENIUM_ATTEMPTS": "1",
+                "MICROGEN_API_ATTEMPTS": "1",
+                "SLIDES_MAX_ATTEMPTS": "1",
+                "MICROGEN_SINGLE_PROVIDER_SEND": "1",
+                "MICROGEN_GEMINI_SDK_RETRY_ATTEMPTS": "1",
+            }
             completed = run_bounded(
                 command=command,
                 cwd=Path(__file__).resolve().parent.parent,
                 log_path=log_file,
-                timeout_seconds=timeout_seconds)
+                timeout_seconds=timeout_seconds,
+                environ=owned_env)
         else:
             # Mockable offline test seam. Never used for a real model attempt.
             completed = run(command, cwd=Path(__file__).resolve().parent.parent,
