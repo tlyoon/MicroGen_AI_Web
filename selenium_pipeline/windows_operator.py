@@ -72,10 +72,11 @@ def diagnose(*, platform_name: str | None = None,
 
 
 def operate(*, doctor: bool = False, campaign: Path | None = None,
-            section: str | None = None,
+            section: str | None = None, jobs_dir: Path | None = None,
             execute_prepared: bool = False) -> tuple[int, dict]:
     if doctor:
-        if campaign is not None or section is not None or execute_prepared:
+        if (campaign is not None or section is not None
+                or execute_prepared or jobs_dir is not None):
             return 2, {"status": "INVALID_MIXED_DOCTOR_AND_CAMPAIGN_OPTIONS"}
         report = diagnose()
         return (0 if report["status"] ==
@@ -86,6 +87,20 @@ def operate(*, doctor: bool = False, campaign: Path | None = None,
         return 2, {"status": "EXPLICIT_SECTION_REQUIRED_FOR_RENDER"}
     if sys.platform != "win32":
         return 2, {"status": "WINDOWS_ONLY_OPERATOR"}
+    if jobs_dir is not None:
+        if execute_prepared:
+            return 2, {"status": "BATCH_RENDERING_NOT_AUTHORIZED"}
+        from .original_windows_batch_controller import run_batch
+        from .original_multisource_recovery_campaign import CampaignRecoveryBlocked
+        try:
+            batch = run_batch(campaign=Path(campaign), jobs_dir=Path(jobs_dir),
+                              sections=[section] if section else None)
+        except (CampaignRecoveryBlocked, OSError, ValueError) as exc:
+            return 2, {"status": "WINDOWS_JOB_REJECTED",
+                       "reason": str(exc),
+                       "new_model_or_tts_calls": False,
+                       "student_publication_authorized": False}
+        return (2 if batch["security_rejected_sections"] else 0), batch
     # Do not reinterpret failed SHA/source checks or blocked rendering as success.
     from .original_windows_release import inspect_campaign
     from .original_multisource_recovery_campaign import CampaignRecoveryBlocked
@@ -112,11 +127,13 @@ def main(argv=None) -> int:
                         help="Immutable, already-reviewed original campaign")
     parser.add_argument("--section",
                         help="Select one section (mandatory for rendering)")
+    parser.add_argument("--jobs-dir", type=Path,
+                        help="External immutable status-job folder (read-only batch)")
     parser.add_argument("--execute-prepared", action="store_true",
                         help="Strict recorded-audio execution; never batch")
     args = parser.parse_args(argv)
     code, report = operate(doctor=args.doctor, campaign=args.campaign,
-                           section=args.section,
+                           section=args.section, jobs_dir=args.jobs_dir,
                            execute_prepared=args.execute_prepared)
     print(json.dumps(report, indent=2))
     return code

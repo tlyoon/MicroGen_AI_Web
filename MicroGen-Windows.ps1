@@ -1,10 +1,11 @@
 # Native Windows operator; self-locates its checkout, never accesses user secrets.
 [CmdletBinding()]
 param(
-    [ValidateSet('Doctor', 'Inspect', 'RenderPrepared')]
+    [ValidateSet('Doctor', 'Inspect', 'BatchStatus', 'RenderPrepared')]
     [string]$Mode = 'Doctor',
     [string]$Campaign = '',
     [string]$Section = '',
+    [string]$JobsDir = '',
     [string]$Python = ''
 )
 Set-StrictMode -Version Latest
@@ -18,17 +19,26 @@ if (-not $Python) {
 $arguments = @('-m', 'selenium_pipeline.windows_operator')
 switch ($Mode) {
     'Doctor' {
-        if ($Campaign -or $Section) { throw 'Doctor cannot select an original campaign.' }
+        if ($Campaign -or $Section -or $JobsDir) {
+            throw 'Doctor cannot select campaign or jobs directory.'
+        }
         $arguments += '--doctor'
     }
     'Inspect' {
-        if (-not $Campaign) { throw 'Inspect requires -Campaign.' }
+        if (-not $Campaign -or $JobsDir) { throw 'Inspect requires only -Campaign.' }
         $arguments += @('--campaign', $Campaign)
         if ($Section) { $arguments += @('--section', $Section) }
     }
+    'BatchStatus' {
+        if (-not $Campaign -or -not $JobsDir) {
+            throw 'BatchStatus requires both -Campaign and external -JobsDir.'
+        }
+        $arguments += @('--campaign', $Campaign, '--jobs-dir', $JobsDir)
+        if ($Section) { $arguments += @('--section', $Section) }
+    }
     'RenderPrepared' {
-        if (-not $Campaign -or -not $Section) {
-            throw 'RenderPrepared requires BOTH -Campaign and -Section.'
+        if (-not $Campaign -or -not $Section -or $JobsDir) {
+            throw 'RenderPrepared requires BOTH -Campaign and -Section, no jobs directory.'
         }
         $arguments += @('--campaign', $Campaign, '--section', $Section, '--execute-prepared')
     }
