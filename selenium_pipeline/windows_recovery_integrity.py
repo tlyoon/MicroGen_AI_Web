@@ -128,12 +128,19 @@ def audit(*, jobs_dir: Path, fresh_trial_dir: Path) -> dict:
     result_path = fresh_trial_dir / "figures_attempt_result.json"
     if attempt_path.exists() or attempt_path.is_symlink():
         started = _verified_json(attempt_path)
-        require(started == {
+        expected_intent = {
             "schema_version": 1,
             "source_sha256": fresh["source_sha256"],
             "stage": "figures",
             "single_provider_attempt_only": True,
-        }, "Ambiguous provider attempt-ledger tampering")
+        }
+        if fresh.get("communication_mode") == "api":
+            require(fresh.get("paid_content_api_explicitly_authorized") is True,
+                    "Gemini content API trial lacks explicit cost permission")
+            expected_intent["communication_mode"] = "api"
+            expected_intent["paid_content_api_explicitly_authorized"] = True
+        require(started == expected_intent,
+                "Ambiguous provider attempt-ledger tampering")
         if result_path.exists() or result_path.is_symlink():
             state = _verified_json(result_path)
             require(state.get("source_section") ==

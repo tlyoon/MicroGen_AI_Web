@@ -41,8 +41,17 @@ def _source_paths(source_root: Path, section: str) -> tuple[Path, Path]:
 
 def run_trial(*, source_root: Path, section: str, trial_dir: Path,
               attempt_figures: bool = False,
-              subprocess_run=None, timeout_seconds: int = 180) -> dict:
+              subprocess_run=None, timeout_seconds: int = 180,
+              communication_mode: str = "selenium",
+              confirm_content_api_cost: bool = False) -> dict:
     require(os.name == "nt", "Only native Windows Dell-115 original trials")
+    require(communication_mode in {"selenium", "api"},
+            "No automatic API fallback after uncertain Selenium send")
+    require(not confirm_content_api_cost or communication_mode == "api",
+            "Paid content authorization only applies to API mode")
+    require(not (attempt_figures and communication_mode == "api")
+            or confirm_content_api_cost,
+            "Explicit --confirm-content-api-cost required before API model generation")
     require(30 <= timeout_seconds <= 600,
             "One bounded attempt must have a finite 30-600 second deadline")
     source_root = Path(source_root).absolute()
@@ -76,6 +85,9 @@ def run_trial(*, source_root: Path, section: str, trial_dir: Path,
         "paid_tts_authorized": False,
         "student_publication_authorized": False,
     }
+    if communication_mode == "api":
+        source_contract["communication_mode"] = "api"
+        source_contract["paid_content_api_explicitly_authorized"] = True
     locked = trial_dir / "fresh_trial_contract.json"
     if locked.exists() or locked.is_symlink():
         require(_verified_json(locked) == source_contract,
@@ -86,7 +98,7 @@ def run_trial(*, source_root: Path, section: str, trial_dir: Path,
     command = [sys.executable, "-m", "selenium_pipeline",
                "--source-root", str(staged_root),
                "--subchapter", section, "--through-stage", "figures",
-               "--communication-mode", "selenium"]
+               "--communication-mode", communication_mode]
     result = {
         "schema_version": 1,
         "source_section": section,
@@ -115,19 +127,29 @@ def run_trial(*, source_root: Path, section: str, trial_dir: Path,
     attempt = trial_dir / "figures_attempt_started.json"
     if attempt.exists() or attempt.is_symlink():
         prior = _verified_json(attempt)
-        require(prior == {"schema_version": 1,
-                           "source_sha256": original_sha,
-                           "stage": "figures",
-                           "single_provider_attempt_only": True},
+        expected_attempt = {
+            "schema_version": 1,
+            "source_sha256": original_sha,
+            "stage": "figures",
+            "single_provider_attempt_only": True,
+        }
+        if communication_mode == "api":
+            expected_attempt["communication_mode"] = "api"
+            expected_attempt["paid_content_api_explicitly_authorized"] = True
+        require(prior == expected_attempt,
                 "Untrusted previous figure-model attempt ledger")
         result["status"] = "PREVIOUS_PROVIDER_ATTEMPT_NOT_RESENT"
         return result
     # Persist the send-intent *before* invoking an unpredictable browser.
     # A crash, ambiguous send or timeout must NEVER be silently retried.
-    _new_atomic(attempt, {
+    model_attempt = {
         "schema_version": 1, "source_sha256": original_sha,
         "stage": "figures", "single_provider_attempt_only": True,
-    })
+    }
+    if communication_mode == "api":
+        model_attempt["communication_mode"] = "api"
+        model_attempt["paid_content_api_explicitly_authorized"] = True
+    _new_atomic(attempt, model_attempt)
     try:
         if subprocess_run is None:
             from .windows_bounded_stage_process import run_bounded
@@ -173,13 +195,20 @@ def main(argv=None) -> int:
     ap.add_argument("--subchapter", required=True)
     ap.add_argument("--trial-dir", type=Path, required=True)
     ap.add_argument("--attempt-figures-once", action="store_true")
+    ap.add_argument("--communication-mode", choices=("selenium", "api"),
+                    default="selenium",
+                    help="API is independently opt-in; never auto-fallback after UI timeout")
+    ap.add_argument("--confirm-content-api-cost", action="store_true",
+                    help="Explicit authorize one NEW Gemini API content-generation stage")
     ap.add_argument("--timeout-seconds", type=int, default=180)
     a = ap.parse_args(argv)
     try:
         result = run_trial(source_root=a.source_root, section=a.subchapter,
                            trial_dir=a.trial_dir,
                            attempt_figures=a.attempt_figures_once,
-                           timeout_seconds=a.timeout_seconds)
+                           timeout_seconds=a.timeout_seconds,
+                           communication_mode=a.communication_mode,
+                           confirm_content_api_cost=a.confirm_content_api_cost)
     except CampaignRecoveryBlocked as exc:
         result = {"status": "FRESH_SOURCE_TRIAL_REJECTED", "reason": str(exc),
                   "student_publication_authorized": False}
