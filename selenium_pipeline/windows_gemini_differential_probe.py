@@ -352,11 +352,24 @@ def main(argv=None) -> int:
         browser_authenticated=(
             ready.get("browser_ui_readiness") == "AUTHENTICATED_COMPOSER_READY"
             if args.inspect_browser else None))
+    # Source-independent evidence from the existing immutable attempts.
+    # This is read-only, never triggers another model request. It records
+    # separately whether local extraction, Chrome attach, and registered send
+    # were observed, without claiming Gemini's service was down.
+    from .windows_gemini_stage_transport_triage import diagnose
+    prior_phase_triage = []
+    for trial in args.prior_trial:
+        for stage in ("figures", "slides", "narration"):
+            name = ("figures_attempt_started.json" if stage == "figures"
+                    else f"stage_{stage}_started.json")
+            if (Path(trial) / name).exists() or (Path(trial) / name).is_symlink():
+                prior_phase_triage.append(diagnose(trial_dir=trial, stage=stage))
     report = {
         "schema_version": 1,
         "readiness": ready,
         "comparison": conclusion,
         "prior_stage_observations": inspect_completed_trials(paths=args.prior_trial),
+        "prior_stage_transport_phase_triage": prior_phase_triage,
         "registered_prior_terminal_health": registered,
         "registered_structured_api_capacity": capacity_registered,
         "browser_lane_halt": inspect_halt(folder=args.health_root, backend="selenium"),
