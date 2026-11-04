@@ -86,7 +86,9 @@ def inspect_release(*, repo: Path, jobs_dir: Path,
                     worker_python: Path | None = None,
                     reuse_scoped_pr362: bool = False,
                     reviewed_media_dir: Path | None = None,
-                    include_stack_batches: bool = False) -> dict:
+                    include_stack_batches: bool = False,
+                    verify_exact_head_ci_online: bool = False,
+                    github_repository: str = "tlyoon/MicroGen_AI_Web") -> dict:
     require(os.name == "nt", "Native Windows-only release readiness")
     repo = Path(repo).absolute()
     require(repo.is_dir() and (repo / ".git").exists(),
@@ -144,6 +146,16 @@ def inspect_release(*, repo: Path, jobs_dir: Path,
     if include_stack_batches:
         from .windows_historical_stack_batch_plan import plan_stack
         stack_plan = plan_stack(repo=repo)
+    github_ci = {
+        "status": "EXACT_HEAD_ONLINE_CI_CHECK_NOT_REQUESTED",
+        "exact_head_windows_ci_verified": False,
+        "student_publication_authorized": False,
+    }
+    if verify_exact_head_ci_online:
+        from .windows_exact_head_github_ci import inspect_ci
+        github_ci = inspect_ci(
+            repository=github_repository, head_sha=head,
+            tracked_main_sha=tracked_origin_main)
     gates = {
         "native_windows_only": True,
         "current_worktree_clean": not dirty,
@@ -151,7 +163,10 @@ def inspect_release(*, repo: Path, jobs_dir: Path,
         "windows_ci_workflows_only": ci["all_runner_declarations_windows"],
         "source_checkpoint_integrity": safe_checkpoint,
         "clean_isolated_windows_worker_install_verified": worker["passed"],
-        "github_ci_exact_final_sha_independently_verified": False,
+        "github_ci_exact_final_sha_independently_verified":
+            github_ci["exact_head_windows_ci_verified"] is True,
+        "github_live_origin_main_freshness_verified":
+            github_ci.get("remote_tracked_main_matches_current_github") is True,
         "at_least_one_full_original_source_reference_verified":
             prior_reference is not None,
         "reviewed_sourcebound_mp4_technical_integrity_verified":
@@ -167,6 +182,18 @@ def inspect_release(*, repo: Path, jobs_dir: Path,
         "entire_historical_stack_dependency_and_review_completed": False,
         "production_installation_smoke_and_release_approval": False,
     }
+    # Native engineering qualification can pass independently of human
+    # academic acceptance. A successful build NEVER authorizes release.
+    engineering_keys = (
+        "native_windows_only", "current_worktree_clean",
+        "tracked_origin_main_ancestor_no_divergence",
+        "windows_ci_workflows_only", "source_checkpoint_integrity",
+        "clean_isolated_windows_worker_install_verified",
+        "github_ci_exact_final_sha_independently_verified",
+        "github_live_origin_main_freshness_verified",
+        "bounded_historical_stack_review_plan_available",
+    )
+    engineering_ready = all(gates[k] for k in engineering_keys)
     # Never promote historical PR362 scope to a new generated source or infer
     # video acceptance from a successful Windows test run or dry-run.
     ready = all(gates.values())
@@ -184,6 +211,9 @@ def inspect_release(*, repo: Path, jobs_dir: Path,
         "reviewed_sourcebound_mp4_evidence": media,
         "second_independent_original_candidate": second_candidate,
         "historical_stack_review_batch_plan": stack_plan,
+        "exact_head_github_windows_ci_evidence": github_ci,
+        "engineering_technical_release_candidate_ready": engineering_ready,
+        "engineering_candidate_not_student_release": True,
         "branch": branch,
         "commit_comparison_ref": "origin/main (last fetched)",
         "commits_ahead_of_tracked_origin_main": ahead,
@@ -233,6 +263,10 @@ def main(argv=None) -> int:
                    help="Read-only revalidate PR506 original-source reviewed MP4 receipt and bytes")
     p.add_argument("--include-stack-batches", action="store_true",
                    help="Read-only bounded plan for historical commit review, never merge")
+    p.add_argument("--verify-exact-head-ci-online", action="store_true",
+                   help="Opt-in GitHub HTTPS read-only CI lookup, never publish")
+    p.add_argument("--github-repository", default="tlyoon/MicroGen_AI_Web",
+                   help="Only GitHub owner/repo exact CI source")
     a = p.parse_args(argv)
     try:
         result = inspect_release(repo=a.repo, jobs_dir=a.jobs_dir,
@@ -240,7 +274,9 @@ def main(argv=None) -> int:
                                  worker_python=a.worker_python,
                                  reuse_scoped_pr362=a.reuse_scoped_pr362,
                                  reviewed_media_dir=a.reviewed_media_dir,
-                                 include_stack_batches=a.include_stack_batches)
+                                 include_stack_batches=a.include_stack_batches,
+                                 verify_exact_head_ci_online=a.verify_exact_head_ci_online,
+                                 github_repository=a.github_repository)
     except (CampaignRecoveryBlocked, OSError, ValueError, subprocess.TimeoutExpired) as exc:
         print(json.dumps({"status": "WINDOWS_RELEASE_BOARD_REJECTED",
                           "reason": str(exc),

@@ -190,6 +190,82 @@ class WindowsReleaseReadinessTests(unittest.TestCase):
         self.assertFalse(result["may_merge_historical_stack_automatically"])
         self.assertFalse(result["student_publication_authorized"])
 
+    def test_exact_online_ci_closes_only_independent_engineering_ci_gate(self):
+        pass_run = {
+            "status": "EXACT_HEAD_GITHUB_WINDOWS_CI_INDEPENDENTLY_VERIFIED",
+            "exact_head_windows_ci_verified": True,
+            "remote_tracked_main_matches_current_github": True,
+            "student_publication_authorized": False,
+        }
+        with patch("selenium_pipeline.windows_release_readiness_board._git",
+                   side_effect=self.fake_git), patch(
+            "selenium_pipeline.windows_release_readiness_board.audit",
+            return_value=self.recovery,
+        ), patch(
+            "selenium_pipeline.windows_exact_head_github_ci.inspect_ci",
+            return_value=pass_run,
+        ) as ci:
+            report = inspect_release(
+                repo=self.repo, jobs_dir=Path("jobs"),
+                fresh_trial_dir=Path("trial"),
+                verify_exact_head_ci_online=True,
+                github_repository="tlyoon/MicroGen_AI_Web",
+            )
+        ci.assert_called_once_with(
+            repository="tlyoon/MicroGen_AI_Web", head_sha="a" * 40,
+            tracked_main_sha="b" * 40)
+        self.assertTrue(report["required_release_gates"][
+            "github_ci_exact_final_sha_independently_verified"])
+        self.assertTrue(report["required_release_gates"][
+            "github_live_origin_main_freshness_verified"])
+        self.assertFalse(report["engineering_technical_release_candidate_ready"])
+        self.assertTrue(report["engineering_candidate_not_student_release"])
+        self.assertFalse(report["release_candidate_ready"])
+        self.assertFalse(report["student_publication_authorized"])
+
+    def test_engineering_technical_ready_still_not_academic_approval(self):
+        pass_run = {
+            "status": "EXACT_HEAD_GITHUB_WINDOWS_CI_INDEPENDENTLY_VERIFIED",
+            "exact_head_windows_ci_verified": True,
+            "remote_tracked_main_matches_current_github": True,
+            "student_publication_authorized": False,
+        }
+        stack = {
+            "status": "HISTORICAL_STACK_READ_ONLY_BATCH_PLAN_AVAILABLE",
+            "historical_stack_review_completed": False,
+            "automatic_merge_or_release_authorized": False,
+        }
+        with patch("selenium_pipeline.windows_release_readiness_board._git",
+                   side_effect=self.fake_git), patch(
+            "selenium_pipeline.windows_release_readiness_board.audit",
+            return_value=self.recovery,
+        ), patch(
+            "selenium_pipeline.windows_exact_head_github_ci.inspect_ci",
+            return_value=pass_run,
+        ), patch(
+            "selenium_pipeline.windows_historical_stack_batch_plan.plan_stack",
+            return_value=stack,
+        ), patch(
+            "selenium_pipeline.windows_release_readiness_board.inspect_worker_install",
+            return_value={"status": "WINDOWS_ISOLATED_WORKER_INSTALL_PASS",
+                          "passed": True},
+        ):
+            report = inspect_release(
+                repo=self.repo, jobs_dir=Path("jobs"),
+                fresh_trial_dir=Path("trial"),
+                include_stack_batches=True,
+                verify_exact_head_ci_online=True,
+                worker_python=Path("C:/synthetic/python.exe"),
+            )
+        self.assertTrue(report["engineering_technical_release_candidate_ready"])
+        self.assertFalse(report["required_release_gates"][
+            "second_distinct_new_original_full_lecture_accepted"])
+        self.assertFalse(report["required_release_gates"][
+            "entire_historical_stack_dependency_and_review_completed"])
+        self.assertFalse(report["release_candidate_ready"])
+        self.assertFalse(report["may_merge_historical_stack_automatically"])
+        self.assertFalse(report["student_publication_authorized"])
+
     def test_scoped_prior_source_is_real_reference_not_full_release(self):
         with patch("selenium_pipeline.windows_release_readiness_board._git",
                    side_effect=self.fake_git), patch(
