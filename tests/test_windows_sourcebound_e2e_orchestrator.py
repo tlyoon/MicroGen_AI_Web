@@ -49,6 +49,56 @@ class WindowsSourceBoundOrchestratorTests(unittest.TestCase):
             # No reliance on hashlib.file_digest: unavailable in Python 3.10.
             self.assertEqual(sha(f),expected)
 
+    def test_retired_legacy_live_cannot_stage_original_or_send_any_request(self):
+        with tempfile.TemporaryDirectory() as t:
+            from unittest.mock import Mock
+            base = Path(t)
+            source = base / "publisher" / "77" / "77.9"
+            source.mkdir(parents=True)
+            (source / "source.pdf").write_bytes(b"%PDF-1.7\n" + b"original" * 30)
+            staged = base / "never_written_snapshot"
+            child = Mock(side_effect=AssertionError("old pipeline sent content"))
+            with self.assertRaisesRegex(
+                SourceboundE2EError, "LEGACY_AUTOMATIC_MULTIRETRY_GENERATION_RETIRED"
+            ):
+                execute_windows(
+                    source_root=base / "publisher", snapshot_root=staged,
+                    work_root=base / "never_written_work", subchapter="77.9",
+                    pipeline_python=base / "nothing.exe",
+                    tts_python=base / "nothingtts.exe", repo=base,
+                    allow_live=True, max_retries=3, run_command=child)
+            self.assertFalse(staged.exists())
+            self.assertFalse((base / "never_written_work").exists())
+            child.assert_not_called()
+
+    def test_deprecated_cli_live_is_clean_json_rejection_not_traceback(self):
+        import contextlib
+        import io
+        import json
+        from selenium_pipeline.windows_sourcebound_e2e_orchestrator import main
+        with tempfile.TemporaryDirectory() as t:
+            base = Path(t)
+            output = io.StringIO()
+            args = [
+                "--source-root", str(base / "orig"),
+                "--snapshot-root", str(base / "snapshot"),
+                "--work-root", str(base / "work"),
+                "--subchapter", "77.9",
+                "--pipeline-python", str(base / "missing-py.exe"),
+                "--tts-python", str(base / "missing-tts.exe"),
+                "--repo", str(base),
+                "--execute-live",
+            ]
+            with contextlib.redirect_stdout(output):
+                code = main(args)
+            self.assertEqual(code, 2)
+            data = json.loads(output.getvalue())
+            self.assertEqual(data["status"], "LEGACY_MULTIRETRY_PIPELINE_RETIRED")
+            self.assertFalse(data["new_model_or_tts_calls"])
+            self.assertFalse(data["student_publication_authorized"])
+            self.assertFalse((base / "snapshot").exists())
+            self.assertFalse((base / "work").exists())
+
     def test_live_routines_explicitly_source_bound(self):
         self.assertEqual([p[0] for p in PHASES],[
             "source_content","narrated_audio","sourcebound_video"])
