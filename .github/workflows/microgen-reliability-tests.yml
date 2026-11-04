@@ -64,6 +64,7 @@ jobs:
             "tests.test_original_windows_batch_controller"
             "tests.test_windows_fresh_source_trial"
             "tests.test_windows_recovery_integrity"
+            "tests.test_windows_release_readiness_board"
             "tests.test_original_fig83_angular_font_source_glyphs"
             "tests.test_figure_recovery_candidates"
             "tests.test_reliability_audit"
