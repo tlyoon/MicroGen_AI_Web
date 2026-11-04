@@ -72,7 +72,7 @@ jobs:
             "tests.test_windows_lecture_progression_launcher"
             "tests.test_windows_lecture_media_handoff"
             "tests.test_windows_release_media_receipt_gate"
-            "tests.test_windows_sourcebound_e2e_orchestrator"
+            "tests.test_windows_second_source_candidate"
             "tests.test_windows_reviewed_element_media_bridge"
             "tests.test_windows_provider_readiness_probe"
             "tests.test_windows_provider_content_route"

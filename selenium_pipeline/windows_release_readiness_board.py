@@ -131,6 +131,9 @@ def inspect_release(*, repo: Path, jobs_dir: Path,
                 "new_model_or_tts_calls": False,
                 "student_publication_authorized": False,
             }
+    from .windows_second_source_candidate import compare_source_provenance
+    second_candidate = compare_source_provenance(
+        historic=prior_reference, candidate=media)
     gates = {
         "native_windows_only": True,
         "current_worktree_clean": not dirty,
@@ -143,6 +146,9 @@ def inspect_release(*, repo: Path, jobs_dir: Path,
             prior_reference is not None,
         "reviewed_sourcebound_mp4_technical_integrity_verified":
             media["technical_sourcebound_mp4_verified"] is True,
+        "second_distinct_original_technical_candidate_verified":
+            second_candidate["technical_second_source_candidate_ready_for_academic_review"],
+        # Technical distinctness never grants any academic or voice signoff.
         "second_distinct_new_original_full_lecture_accepted": False,
         "entire_historical_stack_dependency_and_review_completed": False,
         "production_installation_smoke_and_release_approval": False,
@@ -162,6 +168,7 @@ def inspect_release(*, repo: Path, jobs_dir: Path,
         "worker_installation": worker,
         "prior_scoped_original_acceptance": prior_reference,
         "reviewed_sourcebound_mp4_evidence": media,
+        "second_independent_original_candidate": second_candidate,
         "branch": branch,
         "commit_comparison_ref": "origin/main (last fetched)",
         "commits_ahead_of_tracked_origin_main": ahead,
@@ -188,6 +195,8 @@ def inspect_release(*, repo: Path, jobs_dir: Path,
             "Independent exact-head GitHub Windows CI review",
             "Existing PR362 one-source accepted evidence is reusable only at matching SHA",
             "Recheck an exact SHA-bound reviewed MP4 using --reviewed-media-dir without encoding",
+            "Compare a SHA-distinct second original-source technical candidate with the historical accepted reference",
+            "Obtain independent scientific, figure, voice and synchronized media acceptance for that new source",
             "Qualify a DISTINCT new original-source full synchronized multimedia lecture",
             f"Review stacked draft dependencies in safe batches; never merge {ahead} commits blindly",
             "Clean Windows installation smoke and separate explicit student release authorization",

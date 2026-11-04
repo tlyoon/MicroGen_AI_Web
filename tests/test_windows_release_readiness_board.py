@@ -113,6 +113,53 @@ class WindowsReleaseReadinessTests(unittest.TestCase):
             "reviewed_sourcebound_mp4_technical_integrity_verified"])
         self.assertFalse(r["release_candidate_ready"])
 
+    def test_distinct_second_technical_mp4_is_not_automatically_academic_approval(self):
+        from selenium_pipeline.windows_second_source_candidate import (
+            compare_source_provenance,
+        )
+        historical = {
+            "status": "ONE_SCOPED_HISTORICAL_ORIGINAL_FULL_MEDIA_ACCEPTANCE_REUSED",
+            "accepted_scoped_original_source_count": 1,
+            "source_sha256": "a" * 64,
+            "new_independent_second_source_accepted": False,
+            "student_publication_authorized": False,
+        }
+        media = {
+            "status": "EXACT_SOURCEBOUND_MP4_TECHNICAL_EVIDENCE_VERIFIED_ONLY",
+            "technical_sourcebound_mp4_verified": True,
+            "source_sha256": "b" * 64,
+            "decoded_mp4_parts_verified": 2,
+            "full_lecture_release_authorized": False,
+            "student_publication_authorized": False,
+            "new_model_or_tts_calls": False,
+        }
+        with patch("selenium_pipeline.windows_release_readiness_board._git",
+                   side_effect=self.fake_git), patch(
+            "selenium_pipeline.windows_release_readiness_board.audit",
+            return_value=self.recovery,
+        ), patch(
+            "selenium_pipeline.windows_scoped_prior_full_media_acceptance.verify_scoped",
+            return_value=historical,
+        ), patch(
+            "selenium_pipeline.windows_lecture_media_handoff."
+            "inspect_reviewed_media_for_release",
+            return_value=media,
+        ):
+            report = inspect_release(
+                repo=self.repo, jobs_dir=Path("jobs"),
+                fresh_trial_dir=Path("source_trial"),
+                reviewed_media_dir=Path("reviewed_mp4"),
+                reuse_scoped_pr362=True,
+            )
+        self.assertTrue(report["required_release_gates"][
+            "second_distinct_original_technical_candidate_verified"])
+        self.assertEqual(report["second_independent_original_candidate"]["status"],
+                         "DISTINCT_SECOND_SOURCE_TECHNICAL_MEDIA_FOR_INDEPENDENT_REVIEW")
+        self.assertFalse(report["required_release_gates"][
+            "second_distinct_new_original_full_lecture_accepted"])
+        self.assertFalse(report["release_candidate_ready"])
+        self.assertFalse(report["student_publication_authorized"])
+
     def test_scoped_prior_source_is_real_reference_not_full_release(self):
         with patch("selenium_pipeline.windows_release_readiness_board._git",
                    side_effect=self.fake_git), patch(
