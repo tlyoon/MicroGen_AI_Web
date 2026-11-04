@@ -231,6 +231,12 @@ def run_canary(*, checkpoint_dir: Path, backend: str,
         # Never persist API key, exception .args, original prompt or raw
         # model text. Generic error type and structured HTTP status only.
         answer["error_type"] = type(error).__name__
+        if backend == "browser":
+            from .gemini_bridge_failure_triage import (
+                classify_owned_gemini_failure,
+            )
+            answer["browser_bridge_stage"] = (
+                classify_owned_gemini_failure(error)["stage"])
         answer["verified_api_http_status"] = (
             _code(error) if backend == "api" else None)
     _write_new(result, answer)
