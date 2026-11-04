@@ -1,0 +1,135 @@
+"""One-stage original-source checkpointing, recovery, and no-resend tests.
+
+No browser, Gemini, paid TTS or actual publisher PDF is accessed by tests.
+"""
+import subprocess
+import tempfile
+import unittest
+from pathlib import Path
+from unittest.mock import Mock, patch
+
+from selenium_pipeline.original_multisource_recovery_campaign import (
+    CampaignRecoveryBlocked, _new_atomic,
+)
+from selenium_pipeline.evidence_reuse_contract import file_sha256
+from selenium_pipeline.windows_original_stage_sequence import run_stage
+
+
+class WindowsOriginalStageSequenceTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        self.publisher = self.root / "publisher" / "22" / "22.2"
+        self.publisher.mkdir(parents=True)
+        self.original = self.publisher / "source.pdf"
+        self.original.write_bytes(b"%PDF-1.7\n" + b"Independent PDF" * 40)
+        self.sha = file_sha256(self.original)
+        self.trial = self.root / "trial_external"
+        self.trial.mkdir()
+        self.lecture = self.trial / "source_tree" / "22" / "22.2"
+        self.lecture.mkdir(parents=True)
+        (self.lecture / "source.pdf").write_bytes(self.original.read_bytes())
+        _new_atomic(self.trial / "fresh_trial_contract.json", {
+            "schema_version": 1,
+            "status": "FRESH_ORIGINAL_SOURCE_WINDOWS_IMMUTABLE_TRIAL",
+            "source_path": str(self.original),
+            "source_sha256": self.sha,
+            "staged_source_path": str(self.lecture / "source.pdf"),
+            "stage_goal": "figures",
+            "paid_tts_authorized": False,
+            "student_publication_authorized": False,
+        })
+
+    def figure_receipt(self, successful=True):
+        _new_atomic(self.trial / "figures_attempt_result.json", {
+            "status": ("FIGURES_STAGE_RETURNED_SUCCESS_NOT_FULL_LECTURE"
+                       if successful else "FIGURES_ATTEMPT_TIMEOUT_NO_AUTO_RETRY"),
+            "figure_stage_exit_code": 0 if successful else None,
+            "original_source_sha256": self.sha,
+            "staged_original_sha256": self.sha,
+            "new_video_rendered": False,
+            "student_publication_authorized": False,
+        })
+
+    def emit(self, *names):
+        def runner(**kwargs):
+            for name in names:
+                (self.lecture / name).write_bytes(b"valid synthetic " + name.encode())
+            return subprocess.CompletedProcess([], 0)
+        return Mock(side_effect=runner)
+
+    @patch("selenium_pipeline.runner.check_valid", return_value=True)
+    def test_sequential_forward_stages_and_receipt_reuse(self, _valid):
+        self.figure_receipt()
+        slides = self.emit("slides.tex", "slides.pdf")
+        first = run_stage(trial_dir=self.trial, stage="slides",
+                          stage_runner=slides)
+        self.assertEqual(first["status"], "STAGE_COMPLETED_AND_SOURCE_SHA_BOUND")
+        self.assertEqual(slides.call_count, 1)
+        self.assertIn("--from-stage", slides.call_args.kwargs["command"])
+        self.assertNotIn("--confirm-gemini-api-cost",
+                         slides.call_args.kwargs["command"])
+        self.assertFalse(first["new_tts_calls"])
+        self.assertFalse(first["new_video_rendered"])
+        second = run_stage(trial_dir=self.trial, stage="slides",
+                           stage_runner=slides)
+        self.assertEqual(second["status"], "REUSED_PREVIOUS_SOURCE_STAGE")
+        self.assertEqual(slides.call_count, 1)
+        narration = self.emit("script.txt")
+        n = run_stage(trial_dir=self.trial, stage="narration",
+                      stage_runner=narration)
+        self.assertEqual(n["status"], "STAGE_COMPLETED_AND_SOURCE_SHA_BOUND")
+        math = self.emit("script_risk_report.json", "math_semantic_report.json")
+        m = run_stage(trial_dir=self.trial, stage="script_qa",
+                      stage_runner=math)
+        self.assertEqual(m["status"], "STAGE_COMPLETED_AND_SOURCE_SHA_BOUND")
+        self.assertFalse(m["new_model_or_tts_calls"])
+        self.assertEqual(file_sha256(self.original), self.sha)
+        self.assertFalse((self.lecture / "element_wav").exists())
+        self.assertFalse((self.lecture / "lecture_completion.json").exists())
+
+    @patch("selenium_pipeline.runner.check_valid", return_value=True)
+    def test_predecessor_timeout_blocks_next_stage_before_browser(self, _valid):
+        self.figure_receipt(successful=False)
+        never = Mock(side_effect=AssertionError("model submitted"))
+        with self.assertRaises(CampaignRecoveryBlocked):
+            run_stage(trial_dir=self.trial, stage="slides",
+                      stage_runner=never)
+        never.assert_not_called()
+        self.assertFalse((self.trial / "stage_slides_started.json").exists())
+
+    @patch("selenium_pipeline.runner.check_valid", return_value=True)
+    def test_stage_timeout_is_quarantined_and_not_resent(self, _valid):
+        self.figure_receipt()
+        timeout = Mock(side_effect=subprocess.TimeoutExpired("stage", 30))
+        first = run_stage(trial_dir=self.trial, stage="slides",
+                          stage_runner=timeout, timeout_seconds=30)
+        self.assertEqual(first["status"],
+                         "STAGE_TIMEOUT_UNKNOWN_PROVIDER_SEND_NO_RETRY")
+        second = run_stage(trial_dir=self.trial, stage="slides",
+                           stage_runner=timeout)
+        self.assertEqual(second["status"], "PREVIOUS_STAGE_ATTEMPT_NOT_RESENT")
+        self.assertEqual(timeout.call_count, 1)
+
+    @patch("selenium_pipeline.runner.check_valid", return_value=True)
+    def test_source_and_accepted_artifact_mutation_fail_closed(self, _valid):
+        self.figure_receipt()
+        slides = self.emit("slides.tex", "slides.pdf")
+        run_stage(trial_dir=self.trial, stage="slides", stage_runner=slides)
+        (self.lecture / "slides.pdf").write_bytes(b"stale modified slides")
+        with self.assertRaises(CampaignRecoveryBlocked):
+            run_stage(trial_dir=self.trial, stage="slides", stage_runner=slides)
+        self.assertEqual(slides.call_count, 1)
+
+    def test_wrong_stage_or_original_source_change_rejected(self):
+        with self.assertRaises(CampaignRecoveryBlocked):
+            run_stage(trial_dir=self.trial, stage="tts", stage_runner=Mock())
+        self.figure_receipt()
+        self.original.write_bytes(b"edited publisher source")
+        with self.assertRaises(CampaignRecoveryBlocked):
+            run_stage(trial_dir=self.trial, stage="slides", stage_runner=Mock())
+
+
+if __name__ == "__main__":
+    unittest.main()
