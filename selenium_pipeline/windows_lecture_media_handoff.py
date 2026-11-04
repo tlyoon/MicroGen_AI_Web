@@ -203,6 +203,15 @@ def handoff_media(*, source_root: Path, section: str, trial_dir: Path,
         "slides_pdf_sha256": original["slides_pdf_sha256"],
         "script_sha256": original["script_sha256"],
         "review_input_sha256": inputs,
+        # Role paths are stored separately from hashes so the independent
+        # release inspector can re-evaluate the *same* reviewed audio
+        # inputs, without submitting a model request or trusting a label.
+        "review_input_paths": {
+            "draft": str(draft),
+            "selection": str(selection),
+            "tts_request": str(tts_request),
+            "audio": str(audio),
+        },
         "base_review_receipt_sha256": file_sha256(base),
         "encoded_video_sha256": receipt["part_sha256"],
         "new_model_or_tts_calls": False,
@@ -216,6 +225,72 @@ def handoff_media(*, source_root: Path, section: str, trial_dir: Path,
         "status": "SOURCEBOUND_REVIEWED_MEDIA_NEW_MP4_TECHNICAL_PASS_ONLY",
         "new_video_rendered": True,
         "no_student_publication": True,
+    }
+
+
+def inspect_reviewed_media_for_release(*, trial_dir: Path,
+                                       media_dir: Path,
+                                       technical_check=None) -> dict:
+    """Independently attest real PR506 MP4 review; release remains BLOCKED.
+
+    Takes no publisher content-generation arguments or secret keys. It
+    reconstructs exact roles from the immutable PR506 receipt and then
+    delegates to the FULL source/stage/reviewed-input/output SHA checks.
+    """
+    require(os.name == "nt", "Native Windows-only release media inspection")
+    trial_dir = Path(trial_dir).absolute()
+    media_dir = Path(media_dir).absolute()
+    require(trial_dir.is_dir() and not trial_dir.is_symlink()
+            and media_dir.is_dir() and not media_dir.is_symlink()
+            and not media_dir.is_relative_to(trial_dir)
+            and not trial_dir.is_relative_to(media_dir),
+            "Review MP4 evidence must be in a distinct existing external directory")
+    contract = _verified_json(trial_dir / "fresh_trial_contract.json")
+    require(contract.get("status") ==
+            "FRESH_ORIGINAL_SOURCE_WINDOWS_IMMUTABLE_TRIAL"
+            and contract.get("student_publication_authorized") is False
+            and contract.get("paid_tts_authorized") is False,
+            "Release inspection requires a locked original source trial")
+    source = Path(contract.get("source_path", "")).absolute()
+    require(source.name == "source.pdf"
+            and re.fullmatch(r"[0-9]+\.[0-9]+", source.parent.name) is not None
+            and source.parent.parent.name == source.parent.name.split(".")[0]
+            and source.is_file() and not source.is_symlink(),
+            "Original publisher path does not identify a genuine section")
+    manifest = _verified_json(media_dir / _RECEIPT)
+    roles = manifest.get("review_input_paths")
+    require(type(roles) is dict
+            and set(roles) == {"draft", "selection", "tts_request", "audio"}
+            and all(type(v) is str and v and len(v) < 2048
+                    and Path(v).is_absolute()
+                    and str(Path(v).absolute()) == v for v in roles.values()),
+            "No uniquely bound independent author/audio input roles in MP4 receipt")
+    verified = handoff_media(
+        source_root=source.parents[2], section=source.parent.name,
+        trial_dir=trial_dir, draft=Path(roles["draft"]),
+        selection=Path(roles["selection"]),
+        tts_request=Path(roles["tts_request"]), audio=Path(roles["audio"]),
+        outdir=media_dir, execute_encode=False,
+        technical_check=technical_check)
+    require(verified.get("status") ==
+            "SOURCEBOUND_REVIEWED_MEDIA_REUSED_SHA_VERIFIED"
+            and verified.get("decoded_mp4_parts_verified", 0) > 0
+            and verified.get("new_model_or_tts_calls") is False
+            and verified.get("new_video_rendered") is False
+            and verified.get("student_publication_authorized") is False,
+            "Independent MP4 original-source technical evidence not complete")
+    return {
+        "schema_version": 1,
+        "status": "EXACT_SOURCEBOUND_MP4_TECHNICAL_EVIDENCE_VERIFIED_ONLY",
+        "source_sha256": verified["source_sha256"],
+        "decoded_mp4_parts_verified": verified["decoded_mp4_parts_verified"],
+        "technical_sourcebound_mp4_verified": True,
+        "second_distinct_original_academic_acceptance_verified": False,
+        "human_voice_and_figure_review_certified": False,
+        "full_lecture_release_authorized": False,
+        "new_model_or_tts_calls": False,
+        "new_video_rendered": False,
+        "student_publication_authorized": False,
     }
 
 

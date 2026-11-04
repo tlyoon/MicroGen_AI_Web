@@ -61,6 +61,58 @@ class WindowsReleaseReadinessTests(unittest.TestCase):
         self.assertFalse(report["required_release_gates"][
             "at_least_one_full_original_source_reference_verified"])
 
+    def test_existing_reviewed_mp4_is_separate_technical_release_gate_only(self):
+        with patch("selenium_pipeline.windows_release_readiness_board._git",
+                   side_effect=self.fake_git), patch(
+            "selenium_pipeline.windows_release_readiness_board.audit",
+            return_value=self.recovery,
+        ), patch(
+            "selenium_pipeline.windows_lecture_media_handoff."
+            "inspect_reviewed_media_for_release",
+            return_value={
+                "status": "EXACT_SOURCEBOUND_MP4_TECHNICAL_EVIDENCE_VERIFIED_ONLY",
+                "technical_sourcebound_mp4_verified": True,
+                "decoded_mp4_parts_verified": 2,
+                "second_distinct_original_academic_acceptance_verified": False,
+                "student_publication_authorized": False,
+            }
+        ) as media:
+            r = inspect_release(
+                repo=self.repo, jobs_dir=Path("jobs"),
+                fresh_trial_dir=Path("trial"),
+                reviewed_media_dir=Path("separate_review_media"))
+        media.assert_called_once()
+        self.assertTrue(r["required_release_gates"][
+            "reviewed_sourcebound_mp4_technical_integrity_verified"])
+        self.assertFalse(r["required_release_gates"][
+            "second_distinct_new_original_full_lecture_accepted"])
+        self.assertFalse(r["release_candidate_ready"])
+        self.assertFalse(r["student_publication_authorized"])
+
+    def test_corrupt_mp4_evidence_is_explicitly_reported_and_never_passes(self):
+        from selenium_pipeline.original_multisource_recovery_campaign import (
+            CampaignRecoveryBlocked,
+        )
+        with patch("selenium_pipeline.windows_release_readiness_board._git",
+                   side_effect=self.fake_git), patch(
+            "selenium_pipeline.windows_release_readiness_board.audit",
+            return_value=self.recovery,
+        ), patch(
+            "selenium_pipeline.windows_lecture_media_handoff."
+            "inspect_reviewed_media_for_release",
+            side_effect=CampaignRecoveryBlocked("changed MP4 bytes"),
+        ):
+            r = inspect_release(
+                repo=self.repo, jobs_dir=Path("jobs"),
+                fresh_trial_dir=Path("trial"),
+                reviewed_media_dir=Path("untrusted_media"))
+        self.assertEqual(
+            r["reviewed_sourcebound_mp4_evidence"]["status"],
+            "SOURCEBOUND_REVIEWED_MP4_EVIDENCE_REJECTED")
+        self.assertFalse(r["required_release_gates"][
+            "reviewed_sourcebound_mp4_technical_integrity_verified"])
+        self.assertFalse(r["release_candidate_ready"])
+
     def test_scoped_prior_source_is_real_reference_not_full_release(self):
         with patch("selenium_pipeline.windows_release_readiness_board._git",
                    side_effect=self.fake_git), patch(

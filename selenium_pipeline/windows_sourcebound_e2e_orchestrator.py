@@ -1,6 +1,11 @@
-"""Windows-only, source-safe, resumable real end-to-end MicroGen run.
+"""LEGACY Windows sourcebound orchestrator. LIVE multi-retry execution RETIRED.
 
-Runs ORIGINAL source.pdf through existing production runner's actual
+Historical checkpoints, verification helpers and read-only planning are kept
+for backward evidence compatibility. New original-source generation must use
+windows_lecture_progression_coordinator (one explicitly authorized stage per
+invocation), followed by windows_lecture_media_handoff for already recorded WAVs.
+
+Formerly ran ORIGINAL source.pdf through existing production runner's actual
 Gemini Selenium figures/slides/narration/math checks; only after that
 passes, routine owner-authorized Gemini Flash-Lite TTS + tolerant QA;
 then the SOURCE-BOUND highlighted multipart video (never legacy static
@@ -129,6 +134,14 @@ def execute_windows(*,source_root:Path,snapshot_root:Path,
                     retry_seconds:int=90,
                     run_command=None,sleep=None)->dict:
     require(sys.platform=="win32","No Ubuntu/Linux/macOS production: Windows required")
+    # A previous 429/503/504 or missing browser answer MUST NEVER cause the
+    # old 3-attempt source/TTS/video loop to replay an ambiguous provider send.
+    # This guard fires before staging PDFs, creating checkpoints or billing.
+    if allow_live or resume_after_code_repair:
+        raise SourceboundE2EError(
+            "LEGACY_AUTOMATIC_MULTIRETRY_GENERATION_RETIRED: use "
+            "windows_lecture_progression_coordinator --execute-next-one-stage "
+            "and windows_lecture_media_handoff for previously reviewed WAVs")
     require(type(max_retries) is int and 1<=max_retries<=3,
             "Automatic retry budget must be 1 to 3")
     require(type(retry_seconds) is int and 0<=retry_seconds<=300,
@@ -273,12 +286,20 @@ def main(argv:list[str]|None=None)->int:
     p.add_argument("--max-retries",type=int,default=3)
     p.add_argument("--retry-seconds",type=int,default=90)
     a=p.parse_args(argv)
-    result=execute_windows(source_root=a.source_root,snapshot_root=a.snapshot_root,
-        work_root=a.work_root,subchapter=a.subchapter,
-        pipeline_python=a.pipeline_python,tts_python=a.tts_python,
-        repo=a.repo,allow_live=a.execute_live,
-        max_retries=a.max_retries,retry_seconds=a.retry_seconds,
-        resume_after_code_repair=a.resume_after_code_repair)
+    try:
+        result=execute_windows(source_root=a.source_root,snapshot_root=a.snapshot_root,
+            work_root=a.work_root,subchapter=a.subchapter,
+            pipeline_python=a.pipeline_python,tts_python=a.tts_python,
+            repo=a.repo,allow_live=a.execute_live,
+            max_retries=a.max_retries,retry_seconds=a.retry_seconds,
+            resume_after_code_repair=a.resume_after_code_repair)
+    except SourceboundE2EError as exc:
+        print(json.dumps({
+            "status": "LEGACY_MULTIRETRY_PIPELINE_RETIRED",
+            "reason": str(exc),
+            "new_model_or_tts_calls": False,
+            "student_publication_authorized": False}, indent=2))
+        return 2
     print(json.dumps({k:v for k,v in result.items() if k not in ("dry_run_commands",)},
         indent=2))
     return 0
