@@ -1,9 +1,14 @@
 """Key rotation metadata checks: per-key and no paid/replayed generation."""
+import io
+import json
 import unittest
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import patch, Mock
+from urllib.error import HTTPError
 
-from selenium_pipeline.windows_gemini_api_key_pool_preflight import inspect_key_pool
+from selenium_pipeline.windows_gemini_api_key_pool_preflight import (
+    CONTENT_MODEL, _NoRedirect, _one_shot_model_metadata_get, inspect_key_pool,
+)
 
 
 class KeyPoolMetadataPreflightTests(unittest.TestCase):
@@ -98,6 +103,57 @@ class KeyPoolMetadataPreflightTests(unittest.TestCase):
             transport=lambda *a: self.fail("No remote"))
         self.assertEqual(r["status"], "NATIVE_WINDOWS_REQUIRED")
         self.assertEqual(r["model_generate_content_calls"], 0)
+
+
+class OneShotHttpMetadataTests(unittest.TestCase):
+    @patch("selenium_pipeline.windows_gemini_api_key_pool_preflight.build_opener")
+    def test_single_https_get_with_key_in_header_not_url(self, builder):
+        opener = Mock()
+        opener.open.return_value = io.BytesIO(
+            json.dumps({"name": "models/" + CONTENT_MODEL}).encode("utf-8"))
+        builder.return_value = opener
+        metadata = _one_shot_model_metadata_get("private-test-key", CONTENT_MODEL)
+        self.assertEqual(metadata.name, "models/" + CONTENT_MODEL)
+        builder.assert_called_once_with(_NoRedirect)
+        opener.open.assert_called_once()
+        req = opener.open.call_args.args[0]
+        self.assertEqual(req.get_method(), "GET")
+        self.assertEqual(req.full_url,
+                         "https://generativelanguage.googleapis.com/v1beta/models/"
+                         + CONTENT_MODEL)
+        self.assertNotIn("private-test-key", req.full_url)
+        headers = {k.lower(): v for k, v in req.header_items()}
+        self.assertEqual(headers["x-goog-api-key"], "private-test-key")
+        self.assertEqual(opener.open.call_args.kwargs["timeout"], 10)
+
+    @patch("selenium_pipeline.windows_gemini_api_key_pool_preflight.build_opener")
+    @patch("selenium_pipeline.windows_gemini_api_key_pool_preflight.sys.platform", "win32")
+    def test_http_503_metadata_fails_each_key_without_retry_or_secret(self, builder):
+        opener = Mock()
+        opener.open.side_effect = HTTPError("https://example.invalid", 503,
+                                            "API error", None, None)
+        builder.return_value = opener
+        result = inspect_key_pool(
+            probe_metadata=True,
+            configured_keys=["private-test-key-one", "private-test-key-two"])
+        self.assertEqual(opener.open.call_count, 2)
+        self.assertEqual(result["status"], "KEY_POOL_METADATA_CHECKED_NONE_REACHABLE")
+        self.assertEqual([x["structured_http_code"]
+                          for x in result["per_key_metadata_results"]], [503, 503])
+        self.assertNotIn("private-test-key", str(result))
+        self.assertFalse(result["automatic_replay_or_key_rotation_after_uncertain_send"])
+
+    @patch("selenium_pipeline.windows_gemini_api_key_pool_preflight.build_opener")
+    def test_bad_model_and_oversized_body_fail_closed(self, builder):
+        with self.assertRaises(ValueError):
+            _one_shot_model_metadata_get("private-test-key", "not-vetted")
+        builder.assert_not_called()
+        opener = Mock()
+        opener.open.return_value = io.BytesIO(b"x" * 16385)
+        builder.return_value = opener
+        with self.assertRaises(ValueError):
+            _one_shot_model_metadata_get("private-test-key", CONTENT_MODEL)
+        opener.open.assert_called_once()
 
 
 if __name__ == "__main__":
