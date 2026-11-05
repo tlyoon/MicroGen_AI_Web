@@ -26,11 +26,19 @@ SEND_BUTTON_CSS = (
 
 
 def _local_root(path: Path) -> Path:
+    """Canonical Windows containment without rejecting equivalent temp aliases.
+
+    Resolve both sides consistently (unlike Path.absolute on a Windows CI
+    workspace), while rejecting symlinked inputs and directory traversal.
+    """
     base = Path(os.environ["LOCALAPPDATA"]).resolve(strict=True)
-    root = Path(path).absolute()
+    requested = Path(path)
+    if (".." in requested.parts or requested.is_symlink()
+            or requested.parent.is_symlink()):
+        raise ValueError("Unsafe local checkpoint path")
+    root = requested.resolve(strict=False)
     if (sys.platform != "win32" or root == base
-            or not root.is_relative_to(base)
-            or root.is_symlink() or root.parent.is_symlink()):
+            or not root.is_relative_to(base)):
         raise ValueError("Use a fresh local Windows checkpoint, not a shared source")
     return root
 
@@ -51,6 +59,68 @@ def _replace_json(path: Path, obj: dict) -> None:
 
 def expected_text(token: str) -> str:
     return "MICROGEN_CHATGPT_CANARY_" + token + "_OK"
+
+
+def _prompt_for_marker(marker: str) -> str:
+    return ("This is a new, source-free MicroGen Selenium transport check. "
+            "Reply with exactly this single line and nothing else: " + marker)
+
+
+def prior_owned_draft(checkpoint: Path) -> str:
+    """Only return exact text of an OWNED, terminal, non-click-confirmed canary.
+
+    Does not claim a missing legacy send-intent proves no submission. It only
+    authorizes replacing the identical self-authored text in a NEW owned tab;
+    never resends the previous request or touches an unrelated draft.
+    """
+    import re
+    previous = _local_root(checkpoint)
+    if not previous.is_dir() or previous.is_symlink():
+        raise ValueError("Previous owned checkpoint must already exist locally")
+    claim = previous / "chatgpt_canary_claim.json"
+    result = previous / "chatgpt_canary_result.json"
+    for file in (claim, result):
+        if file.is_symlink() or not file.is_file() or file.stat().st_size > 4096:
+            raise ValueError("Owned canary receipt missing or unsafe")
+    c = json.loads(claim.read_text(encoding="utf-8"))
+    r = json.loads(result.read_text(encoding="utf-8"))
+    marker = c.get("expected_response_marker")
+    if (type(marker) is not str
+            or not re.fullmatch(r"MICROGEN_CHATGPT_CANARY_[0-9A-F]{12}_OK", marker)):
+        raise ValueError("Prior marker is not a canonical owned diagnostic")
+    previous_prompt = _prompt_for_marker(marker)
+    digest = hashlib.sha256(previous_prompt.encode("utf-8")).hexdigest()
+    if not (c.get("schema_version") == 1
+            and c.get("provider") == "chatgpt"
+            and c.get("debug_port") == PORT
+            and c.get("one_send_only") is True
+            and c.get("source_files_attached") is False
+            and c.get("prompt_sha256") == digest
+            and r.get("status") == "CANARY_TERMINAL"
+            and r.get("expected_response_marker") == marker
+            and r.get("outcome") != "VALID_ATTRIBUTED_RESPONSE"
+            and r.get("send_click_attempted") is not True
+            and r.get("student_publication_authorized") is False):
+        raise ValueError("Prior diagnostic was sent, accepted, or unverifiable")
+    return previous_prompt
+
+
+def _current_ui_exact_canary(main_text: str, marker: str) -> bool:
+    """Fail-closed semantic fallback for current fresh-chat ChatGPT said UI."""
+    if type(main_text) is not str or len(main_text) > 25000:
+        return False
+    prompt = _prompt_for_marker(marker)
+    if main_text.count(prompt) != 1 or main_text.count(marker) != 2:
+        return False
+    start = main_text.find(prompt) + len(prompt)
+    tag = main_text.find("ChatGPT said:", start)
+    if tag < start:
+        return False
+    lines = [line.strip() for line in
+             main_text[tag + len("ChatGPT said:"):].splitlines()
+             if line.strip()]
+    return (len(lines) >= 2 and lines[0] == marker
+            and lines[1].startswith("ChatGPT can make mistakes."))
 
 
 def _real_browser_once(prompt: str, expected: str, timeout: int,
@@ -136,6 +206,17 @@ def _real_browser_once(prompt: str, expected: str, timeout: int,
                     '[data-message-author-role="assistant"]')
                 messages = [(x.text or "").strip() for x in assistants
                             if (x.text or "").strip()]
+                if not messages or not observed["user_turn_confirmed"]:
+                    # Current 2026 ChatGPT UI uses visible "ChatGPT said:"
+                    # transcript labels, not old data-message-author-role.
+                    # Accept only an exact, unique, owned prompt+assistant pair.
+                    page = driver.execute_script(
+                        "return (document.querySelector('main')?.innerText || '')"
+                        ".slice(0, 25001);")
+                    if (str(driver.current_url).startswith("https://chatgpt.com/c/")
+                            and _current_ui_exact_canary(page, expected)):
+                        observed["user_turn_confirmed"] = True
+                        messages = [expected]
                 if messages:
                     value = messages[-1]
                     observed["assistant_response_seen"] = True
@@ -177,9 +258,17 @@ def _real_browser_once(prompt: str, expected: str, timeout: int,
 
 
 def run(*, root: Path, live: bool = False, browser=None, readiness=None,
-        timeout: int = WAIT_SECONDS, owned_draft_exact: str | None = None) -> dict:
+        timeout: int = WAIT_SECONDS, owned_draft_exact: str | None = None,
+        prior_owned_checkpoint: Path | None = None) -> dict:
     root = _local_root(root)
-    if owned_draft_exact is not None:
+    if owned_draft_exact is not None and prior_owned_checkpoint is not None:
+        raise ValueError("Only one exact owned-draft source may be specified")
+    if prior_owned_checkpoint is not None:
+        previous = _local_root(prior_owned_checkpoint)
+        if previous == root:
+            raise ValueError("Cannot replay or self-reconcile the same checkpoint")
+        owned_draft_exact = prior_owned_draft(previous)
+    if owned_draft_exact is not None and prior_owned_checkpoint is None:
         import re
         if (type(owned_draft_exact) is not str
                 or not re.fullmatch(r"MICROGEN_EDITOR_TYPING_DIAGNOSTIC_[A-Z0-9]{4,32}",
@@ -213,8 +302,7 @@ def run(*, root: Path, live: bool = False, browser=None, readiness=None,
         raise ValueError("Checkpoint changed during preflight")
     token = secrets.token_hex(6).upper()
     expected = expected_text(token)
-    prompt = ("This is a new, source-free MicroGen Selenium transport check. "
-              "Reply with exactly this single line and nothing else: " + expected)
+    prompt = _prompt_for_marker(expected)
     initial = {
         "schema_version": 1, "status": "MAY_HAVE_SUBMITTED_NO_RESEND",
         "provider": "chatgpt", "debug_port": PORT,
@@ -266,6 +354,119 @@ def run(*, root: Path, live: bool = False, browser=None, readiness=None,
     return final
 
 
+def _existing_owned_chatgpt_snapshots(marker: str) -> list[dict]:
+    """Read only existing port-9223 tabs containing this unique owned marker."""
+    from selenium import webdriver
+    from selenium.webdriver.chrome.options import Options
+    opts = Options()
+    opts.add_experimental_option("debuggerAddress", "127.0.0.1:9223")
+    driver = webdriver.Chrome(options=opts)
+    found = []
+    try:
+        for handle in list(driver.window_handles)[:20]:
+            try:
+                driver.switch_to.window(handle)
+                url = str(driver.current_url)
+                if not url.startswith("https://chatgpt.com/c/"):
+                    continue
+                has_marker = driver.execute_script(
+                    "return (document.querySelector('main')?.innerText || '')"
+                    ".includes(arguments[0]);", marker)
+                if not has_marker:
+                    continue
+                raw = driver.execute_script(
+                    "return (document.querySelector('main')?.innerText || '')"
+                    ".slice(0, 25001);")
+                stop = bool(driver.execute_script(
+                    "return [...document.querySelectorAll('button')]"
+                    ".some(b => b.offsetWidth && "
+                    "(/stop/i).test(b.getAttribute('aria-label') || ''));"))
+                found.append({"url": url, "main_text": raw,
+                              "stop_visible": stop})
+            except Exception:
+                continue
+    finally:
+        driver.service.stop()  # Do not close or navigate user Chrome
+    return found
+
+
+def reconcile_existing(*, root: Path, snapshots: list[dict] | None = None) -> dict:
+    """Independent, zero-send certification of a prior ambiguous owned canary."""
+    import re
+    root = _local_root(root)
+    claim = root / "chatgpt_canary_claim.json"
+    result = root / "chatgpt_canary_result.json"
+    intent = root / "chatgpt_send_click_intent.json"
+    output = root / "chatgpt_canary_independent_reconciliation.json"
+    def read_exact(file: Path) -> dict:
+        if (file.is_symlink() or not file.is_file()
+                or file.stat().st_size > 4096):
+            raise ValueError("Missing or unsafe immutable owned canary proof")
+        value = json.loads(file.read_text(encoding="utf-8"))
+        if type(value) is not dict:
+            raise ValueError("Owned canary proof must be a JSON object")
+        return value
+    c, r, click = read_exact(claim), read_exact(result), read_exact(intent)
+    marker = c.get("expected_response_marker")
+    if (type(marker) is not str
+            or not re.fullmatch(r"MICROGEN_CHATGPT_CANARY_[0-9A-F]{12}_OK", marker)):
+        raise ValueError("Unrecognized source-free marker")
+    p = _prompt_for_marker(marker)
+    if not (c.get("schema_version") == 1
+            and c.get("provider") == "chatgpt"
+            and c.get("debug_port") == PORT
+            and c.get("one_send_only") is True
+            and c.get("prompt_sha256") ==
+                hashlib.sha256(p.encode("utf-8")).hexdigest()
+            and c.get("source_files_attached") is False
+            and r.get("status") == "CANARY_TERMINAL"
+            and r.get("expected_response_marker") == marker
+            and r.get("send_click_attempted") is True
+            and r.get("outcome") == "TIMEOUT_RECONCILE_NO_RESEND"
+            and click.get("status") == "SEND_CLICK_INTENT_NOT_DELIVERY_PROOF"
+            and click.get("expected_response_marker") == marker
+            and click.get("one_click_only") is True):
+        raise ValueError("Not a matching immutable ambiguous one-send canary")
+    if output.exists():
+        prior = read_exact(output)
+        if (prior.get("source_result_sha256") ==
+                hashlib.sha256(result.read_bytes()).hexdigest()
+                and prior.get("exact_marker_response_confirmed") is True):
+            return {**prior, "status": "PRIOR_RECONCILIATION_REUSED_NO_SEND"}
+        raise ValueError("Unexpected or changed reconciliation")
+    rows = (snapshots if snapshots is not None
+            else _existing_owned_chatgpt_snapshots(marker))
+    matches = [s for s in rows if (
+        type(s) is dict and type(s.get("url")) is str
+        and s["url"].startswith("https://chatgpt.com/c/")
+        and s.get("stop_visible") is False
+        and _current_ui_exact_canary(s.get("main_text"), marker))]
+    if len(matches) != 1:
+        return {"status": "RESPONSE_NOT_INDEPENDENTLY_VERIFIED_NO_SEND",
+                "matching_verified_conversations": len(matches),
+                "model_submissions_this_call": 0,
+                "student_publication_authorized": False}
+    proof = {
+        "schema_version": 1,
+        "status": "CHATGPT_CANARY_EXACT_RESPONSE_INDEPENDENTLY_VERIFIED",
+        "provider": "chatgpt", "debug_port": PORT,
+        "source_claim_sha256": hashlib.sha256(claim.read_bytes()).hexdigest(),
+        "source_result_sha256": hashlib.sha256(result.read_bytes()).hexdigest(),
+        "source_click_intent_sha256": hashlib.sha256(intent.read_bytes()).hexdigest(),
+        "conversation_url_sha256": hashlib.sha256(
+            matches[0]["url"].encode("utf-8")).hexdigest(),
+        "response_sha256": hashlib.sha256(marker.encode("utf-8")).hexdigest(),
+        "response_characters": len(marker),
+        "exact_marker_response_confirmed": True,
+        "original_timeout_receipt_overwritten": False,
+        "model_submissions_this_call": 0,
+        "source_pdf_transmitted": False,
+        "student_publication_authorized": False,
+    }
+    _create_json(output, proof)
+    return proof
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--checkpoint", type=Path, required=True)
@@ -273,14 +474,29 @@ def main(argv=None) -> int:
                         help="One new source-free prompt, never replay an old claim")
     parser.add_argument("--replace-exact-owned-draft",
                         help="Only an exact previous MicroGen editor diagnostic text")
+    parser.add_argument("--replace-owned-draft-from-checkpoint", type=Path,
+                        help="Verify exact self-authored prior terminal canary draft")
+    parser.add_argument("--reconcile-existing", action="store_true",
+                        help="Read previous sent canary response, never submit another prompt")
     args = parser.parse_args(argv)
     try:
-        report = run(root=args.checkpoint, live=args.live,
-                     owned_draft_exact=args.replace_exact_owned_draft)
+        if args.reconcile_existing:
+            if args.live or args.replace_exact_owned_draft or args.replace_owned_draft_from_checkpoint:
+                raise ValueError("Read-only reconciliation cannot request a model send")
+            report = reconcile_existing(root=args.checkpoint)
+        else:
+            report = run(root=args.checkpoint, live=args.live,
+                         owned_draft_exact=args.replace_exact_owned_draft,
+                         prior_owned_checkpoint=args.replace_owned_draft_from_checkpoint)
     except (ValueError, OSError, KeyError) as exc:
         report = {"status": "CANARY_REJECTED_NO_SUBMISSION",
                   "error_type": type(exc).__name__}
     print(json.dumps(report, sort_keys=True, indent=2))
+    if args.reconcile_existing:
+        return 0 if report.get("status") in {
+            "CHATGPT_CANARY_EXACT_RESPONSE_INDEPENDENTLY_VERIFIED",
+            "PRIOR_RECONCILIATION_REUSED_NO_SEND",
+        } else 2
     return 0 if report.get("outcome") == "VALID_ATTRIBUTED_RESPONSE" or not args.live else 2
 
 
