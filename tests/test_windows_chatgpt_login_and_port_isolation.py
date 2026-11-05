@@ -134,6 +134,38 @@ class ProviderPortIsolationTests(unittest.TestCase):
                 execute(s)
             self.assertEqual(lock.call_args.args[0], "gemini_port_9225")
 
+    def test_legacy_launcher_rejects_guest_even_if_composer_is_visible(self):
+        from unittest.mock import Mock
+        from selenium_pipeline.vendor_template_v2 import launch_chatgpt_chrome
+        login_button = Mock()
+        login_button.is_displayed.return_value = True
+        guest = Mock()
+        guest.find_elements.side_effect = lambda _kind, selector: (
+            [login_button] if selector == 'button[data-testid="login-button"]'
+            else []
+        )
+        by = Mock(CSS_SELECTOR="css selector")
+        self.assertFalse(
+            launch_chatgpt_chrome.authenticated_chatgpt_composer_only(
+                guest, by))
+        with patch.object(launch_chatgpt_chrome, "launch_chrome_debug"), patch.object(
+            launch_chatgpt_chrome, "import_real_selenium",
+            return_value=(Mock(), Mock(By=by), Mock(), Mock(), Mock()),
+        ), patch.object(
+            launch_chatgpt_chrome, "list_debug_targets", return_value=[],
+        ), patch.object(
+            launch_chatgpt_chrome, "attach_driver", return_value=guest,
+        ), patch.object(
+            launch_chatgpt_chrome, "find_interactable_composer",
+            return_value=Mock(),
+        ), patch.object(
+            launch_chatgpt_chrome, "send_keepalive_to_composer",
+            side_effect=AssertionError("Guest must never be prompted"),
+        ):
+            launch_chatgpt_chrome.main()
+        guest.service.stop.assert_called_once_with()
+        guest.quit.assert_not_called()
+
     def test_legacy_chatgpt_launcher_detaches_without_closing_user_chrome(self):
         from unittest.mock import Mock
         from selenium_pipeline.vendor_template_v2 import launch_chatgpt_chrome

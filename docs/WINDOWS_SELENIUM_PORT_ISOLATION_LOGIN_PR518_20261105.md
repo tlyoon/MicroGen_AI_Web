@@ -21,9 +21,11 @@ can falsely report a Selenium/login issue or attach to the wrong service.
   port from 9223 to 9225 and reject a Gemini job on reserved ChatGPT 9223
   before any attachment or prompt transmission.
 - The legacy ChatGPT Chrome launcher now defaults to 9223 and rejects
-  Gemini's 9222 and 9225. Its teardown stops only temporary ChromeDriver,
-  not `driver.quit()` of the user's persistent browser, preserving session
-  continuity.
+  Gemini's 9222 and 9225. Even if a guest-mode ChatGPT composer is visible,
+  it checks visible login/sign-up controls and **refuses** to send the
+  historical keepalive prompt until logged in. Its teardown stops only
+  temporary ChromeDriver, not `driver.quit()` of the user's persistent
+  browser, preserving session continuity.
 - The new `windows_chatgpt_login_recovery` reports truthful
   `LOGIN_REQUIRED` versus `AUTHENTICATED_COMPOSER_READY` from the
   **existing profile only**, and optionally focuses an EXISTING ChatGPT

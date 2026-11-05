@@ -320,6 +320,28 @@ def attach_driver(webdriver, Service, options):
         ) from e
 
 
+def authenticated_chatgpt_composer_only(driver, By) -> bool:
+    """A guest ChatGPT textarea is never evidence of a logged-in account."""
+    try:
+        selectors = (
+            'button[data-testid="login-button"]',
+            'button[data-testid="signup-button"]',
+        )
+        for selector in selectors:
+            if any(x.is_displayed() for x in driver.find_elements(
+                    By.CSS_SELECTOR, selector)):
+                return False
+        for button in driver.find_elements(By.CSS_SELECTOR, "button"):
+            if (button.is_displayed()
+                    and (button.text or "").strip().casefold()
+                    in {"log in", "sign up", "sign up for free"}):
+                return False
+        return True
+    except Exception:
+        # Changed UI or inaccessible controls must never trigger a send.
+        return False
+
+
 def main():
     launch_chrome_debug()
 
@@ -362,6 +384,11 @@ def main():
         if composer is None:
             print("[WARN] ChatGPT composer not detected or not interactable.")
             print("[WARN] If ChatGPT is on login screen, please log in manually in this automation Chrome, then re-run.")
+            return
+
+        if not authenticated_chatgpt_composer_only(driver, By):
+            print("[WARN] ChatGPT is on guest/login screen; sign in manually in "
+                  "the dedicated port 9223 profile. No prompt submitted.")
             return
 
         ok = send_keepalive_to_composer(driver, composer, Keys)
