@@ -46,66 +46,19 @@ def _update_claim(path:Path,payload:dict)->None:
     os.replace(pending,path)
 
 
-def _chatgpt_browser_once(prompt:str,*,port:int,wait_cap_s:int)->str:
-    """Use the existing vendor client in a new owned tab, never guest mode."""
-    from .series_gemini import _vendor_module
-    from .rich_mapping_provider_readiness import inspect_provider
-    health=inspect_provider("chatgpt",port)
-    require(health["authenticated_ui_ready"],
-            "Authenticated ChatGPT browser unavailable; do not send")
-    vendor=_vendor_module()
-    cache=Path(os.getenv("LOCALAPPDATA") or str(Path.home()/
-               "AppData"/"Local"))/"Microvid"/"RichModelProposals"
-    cache.mkdir(parents=True,exist_ok=True)
-    cfg=vendor.Config(root=cache,debug_port=port,
-                      use_persistent_chrome=True,
-                      force_kill_chrome_to_free_port=False)
-    client=vendor.ChatGPTSeleniumClient(cfg)
-    owned=None
-    previous=None
-    try:
-        client.start(ensure_chatgpt_on_launch=False)
-        driver=client.driver
-        require(driver is not None,"ChatGPT remote browser driver unavailable")
-        previous=driver.current_window_handle
-        driver.switch_to.new_window("tab")
-        owned=driver.current_window_handle
-        driver.get("https://chatgpt.com/")
-        from selenium.webdriver.common.by import By
-        from selenium.webdriver.support.ui import WebDriverWait
-        WebDriverWait(driver,15).until(
-            lambda d: bool(d.find_elements(By.CSS_SELECTOR,
-                               "#prompt-textarea")))
-        require(not any((x.text or "").strip().lower()=="log in"
-                   for x in driver.find_elements(By.CSS_SELECTOR,"button")
-                   if x.is_displayed()),
-                "ChatGPT tab is guest; must not send model prompt")
-        raw=client.send_prompt_and_copy_response(
-            prompt,wait_cap=wait_cap_s)
-        require(isinstance(raw,str) and bool(raw.strip()),
-                "ChatGPT did not provide a complete copied response")
-        return raw
-    finally:
-        try:
-            if owned and client.driver:
-                driver=client.driver
-                if owned in driver.window_handles:
-                    driver.switch_to.window(owned)
-                    driver.close()  # Only tab opened by this request
-                if previous in driver.window_handles:
-                    driver.switch_to.window(previous)
-        except Exception:
-            pass
-        try:
-            # Do not call client.shutdown(): that may terminate the existing
-            # authenticated Chrome instance rather than only our driver.
-            if client.driver:
-                client.driver.service.stop()
-        except Exception:
-            pass
+def _chatgpt_browser_once(prompt:str,*,port:int,wait_cap_s:int,
+                          click_intent_path:Path)->str:
+    """Bounded, single-click ChatGPT transport; never replay an uncertain job."""
+    from .windows_chatgpt_once_transport import chatgpt_once
+    local=Path(os.environ.get("LOCALAPPDATA",str(Path.home()/"AppData"/"Local")))
+    return chatgpt_once(
+        prompt,port=port,wait_cap_s=wait_cap_s,
+        click_intent_path=click_intent_path,
+        checkpoint_root=local/"MicroGen_AI_Web_Checkpoints")
 
 
-def _real_transport(provider:str,prompt:str,port:int,wait_cap_s:int)->str:
+def _real_transport(provider:str,prompt:str,port:int,wait_cap_s:int,
+                    *,click_intent_path:Path|None=None)->str:
     if provider=="gemini":
         from .series_gemini import _browser_request
         from .rich_element_model_alignment import complete_json_response
@@ -113,8 +66,11 @@ def _real_transport(provider:str,prompt:str,port:int,wait_cap_s:int)->str:
             wait_cap_s=wait_cap_s,min_chars=110,
             accept_fn=complete_json_response)
     if provider=="chatgpt":
+        require(click_intent_path is not None,
+                "Durable send-intent location required before ChatGPT sends")
         return _chatgpt_browser_once(prompt,
-            port=port,wait_cap_s=wait_cap_s)
+            port=port,wait_cap_s=wait_cap_s,
+            click_intent_path=click_intent_path)
     raise RichMappingError("Unsupported provider, no local LLM allowed")
 
 
@@ -189,9 +145,16 @@ def dispatch_one(*,source_folder:Path,checkpoint:Path,fallback_dir:Path,
     raw_out=attempt_root/f"slide_{slide:03d}.raw_model_response.txt"
     result_out=attempt_root/f"slide_{slide:03d}.merged_response.json"
     audit_out=attempt_root/f"slide_{slide:03d}.source_audit.json"
+    click_intent=attempt_root/f"slide_{slide:03d}.chatgpt_click_intent.json"
     try:
-        call=transport or _real_transport
-        response=call(provider,prompt,port,wait_cap_s)
+        if transport is None:
+            # Real production ChatGPT uses one click and an fsynced send
+            # boundary. Synthetic/fault-injection transports remain injectable.
+            response=_real_transport(
+                provider,prompt,port,wait_cap_s,
+                click_intent_path=click_intent if provider=="chatgpt" else None)
+        else:
+            response=transport(provider,prompt,port,wait_cap_s)
         require(isinstance(response,str) and bool(response.strip()),
                 "Model returned no captured source-bound response")
         _write_new(raw_out,{"status":"RAW_PROVIDER_COPY_UNVERIFIED",
@@ -220,9 +183,20 @@ def dispatch_one(*,source_folder:Path,checkpoint:Path,fallback_dir:Path,
         }
         _update_claim(claim,final)
         return final
-    except Exception:
-        # Preserve the original MAY_HAVE_SUBMITTED receipt, and any original
-        # response bytes if captured; never auto-switch to ChatGPT or retry.
+    except Exception as error:
+        # Proven pre-click block may be classified without claiming generation.
+        # Do NOT retry this original slide automatically even in that case.
+        if provider=="chatgpt":
+            from .windows_chatgpt_once_transport import ChatGPTPreSendBlocked
+            if isinstance(error,ChatGPTPreSendBlocked) and not click_intent.exists():
+                _update_claim(claim,{**initial,
+                    "status":"CHATGPT_PRE_SEND_BLOCKED_NO_MODEL_SUBMISSION",
+                    "blocked_reason_code":str(error),
+                    "model_submissions":0,
+                    "automatic_retry_authorized":False})
+        # Otherwise retain MAY_HAVE_SUBMITTED and the owned tab for
+        # reconciliation. Never switch to another provider after an
+        # uncertain click or overwrite the historical source request.
         raise
 
 
