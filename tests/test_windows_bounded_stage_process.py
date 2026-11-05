@@ -25,16 +25,24 @@ class WindowsBoundedStageProcessTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0)
         self.assertIn("π", out.read_text(encoding="utf8"))
         self.assertIn("∫", out.read_text(encoding="utf8"))
+        self.assertIn("[microgen-supervisor] OWNED_STAGE_EXIT_CODE=0",
+                      out.read_text(encoding="utf8"))
 
     def test_actual_sleeping_child_is_killed_on_bounded_timeout(self):
         out = self.root / "timed_out_stdout.log"
         with self.assertRaises(subprocess.TimeoutExpired):
             run_bounded(
                 command=[sys.executable, "-c",
-                         "import time;print('stage started', flush=True);time.sleep(12)"],
+                         "import time;print('stage started WITHOUT explicit flush');time.sleep(12)"],
                 cwd=self.root, log_path=out, timeout_seconds=0.6)
         self.assertTrue(out.is_file())
-        self.assertIn(b"stage started", out.read_bytes())
+        raw = out.read_bytes()
+        # Redirected stdout would lose this line on timeout without
+        # PYTHONUNBUFFERED=1. An immutable stage must never be resent merely
+        # to recover missing diagnostic logs.
+        self.assertIn(b"stage started WITHOUT explicit flush", raw)
+        self.assertIn(b"[microgen-supervisor] OWNED_STAGE_TIMEOUT", raw)
+        self.assertIn(b"SEND_STATUS_UNVERIFIED", raw)
 
     def test_existing_log_is_not_overwritten_or_stage_started(self):
         out = self.root / "already_exists.log"

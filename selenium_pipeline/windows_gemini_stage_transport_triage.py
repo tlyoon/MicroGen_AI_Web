@@ -83,6 +83,10 @@ def diagnose(*, trial_dir: Path, stage: str = "figures") -> dict:
     session = bool(_ATTACH.search(raw)) if backend == "selenium" else False
     local_extract = bool(_LOCAL_EXTRACTION.search(raw))
     send = bool(_SEND_PROOF.search(raw)) if backend == "selenium" else False
+    supervisor_timeout = (
+        "[microgen-supervisor] OWNED_STAGE_TIMEOUT" in raw)
+    supervisor_completed = (
+        "[microgen-supervisor] OWNED_STAGE_EXIT_CODE=" in raw)
     state = result.get("status") if result is not None else None
     if state in ACCEPTED:
         label = "TECHNICAL_STAGE_RECEIPT_SUCCESS_NOT_FULL_LECTURE"
@@ -94,6 +98,8 @@ def diagnose(*, trial_dir: Path, stage: str = "figures") -> dict:
         label = "LOCAL_EXTRACTION_DONE_BROWSER_SESSION_SEEN_SEND_UNVERIFIED"
     elif session:
         label = "BROWSER_SESSION_SEEN_SEND_UNVERIFIED"
+    elif supervisor_timeout:
+        label = "OWNED_STAGE_TIMEOUT_WITHOUT_VERIFIED_BROWSER_SEND"
     elif backend == "api":
         label = "API_STAGE_TERMINAL_WITHOUT_VERIFIED_RESPONSE"
     else:
@@ -106,6 +112,10 @@ def diagnose(*, trial_dir: Path, stage: str = "figures") -> dict:
         "local_figure_extraction_finished_in_log": local_extract,
         "browser_debug_session_seen_in_log": session,
         "owned_browser_send_registered": send,
+        "owned_stage_supervisor_timeout_recorded": supervisor_timeout,
+        "owned_stage_supervisor_exit_recorded": supervisor_completed,
+        "unbuffered_child_output_evidence_present": (
+            supervisor_timeout or supervisor_completed),
         "stage_accepted_receipt_present": state in ACCEPTED,
         "api_generation_status_observed": "NOT_CHECKED" if backend == "selenium"
                                           else "CONTENT_GENERATION_NOT_INFERRED_FROM_LOG",
