@@ -129,6 +129,38 @@ class WindowsProviderRoutePreflightTests(unittest.TestCase):
         self.assertFalse(r["owned_gemini_ui_error_sha_verified"])
         self.assertFalse(r["gemini_browser_auto_selection_suppressed_by_prior_evidence"])
 
+    def test_second_key_metadata_can_qualify_new_route_when_first_key_fails(self):
+        broken_first = dict(self.api, api_model_metadata="API_METADATA_LOOKUP_FAILED")
+        verified_pool = {
+            "status": "KEY_POOL_METADATA_CHECKED_AT_LEAST_ONE_REACHABLE",
+            "metadata_eligible_new_source_key_ordinals": [2],
+            "model_generate_content_calls": 0,
+            "paid_api_content_generation_authorized": False,
+        }
+        r = self.recommend(
+            api_preflight=broken_first,
+            api_key_pool=verified_pool)
+        self.assertEqual(
+            r["suggested_new_unsent_job_route"],
+            "GEMINI_API_METADATA_REACHABLE_COST_APPROVAL_REQUIRED")
+        self.assertEqual(r["api_key_pool_metadata_verified_candidate_ordinals"], [2])
+        self.assertFalse(r["gemini_api_content_generation_proven_healthy"])
+        self.assertFalse(r["automatic_browser_to_api_fallback_authorized"])
+
+    def test_fake_pool_with_prior_content_charge_never_qualifies_key(self):
+        r = self.recommend(
+            api_preflight=dict(self.api, api_model_metadata="API_METADATA_LOOKUP_FAILED"),
+            api_key_pool={
+                "status": "KEY_POOL_METADATA_CHECKED_AT_LEAST_ONE_REACHABLE",
+                "metadata_eligible_new_source_key_ordinals": [2],
+                "model_generate_content_calls": 1,
+                "paid_api_content_generation_authorized": True,
+            })
+        self.assertEqual(r["api_key_pool_metadata_verified_candidate_ordinals"], [])
+        self.assertEqual(
+            r["suggested_new_unsent_job_route"],
+            "NO_GENERATION_TRANSPORT_CERTIFIED_FOR_AUTOMATIC_DISPATCH")
+
     def test_preflight_invokes_no_model_transport_or_source_operations(self):
         with patch(
             "selenium_pipeline.rich_mapping_provider_readiness.inspect_provider",
