@@ -1,11 +1,14 @@
 """Offline single-send ChatGPT diagnostic: no PDF, no duplicate model job."""
+import hashlib
+import json
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
 from selenium_pipeline.windows_chatgpt_sourcefree_canary import (
-    _local_root, expected_text, run, SEND_BUTTON_CSS,
+    _local_root, _prompt_for_marker, _current_ui_exact_canary,
+    prior_owned_draft, reconcile_existing, expected_text, run, SEND_BUTTON_CSS,
 )
 
 
@@ -93,6 +96,14 @@ class OneSendChatGPTCanaryTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             _local_root(Path(self.tmp.name).parent / "not_localappdata")
 
+    def test_canonical_local_temp_paths_and_parent_traversal_guard(self):
+        expected = (Path(self.tmp.name) / "nested" / "new").resolve()
+        self.assertEqual(_local_root(expected), expected)
+        self.assertEqual(_local_root(Path(self.tmp.name) / "nested" / "new"),
+                         expected)
+        with self.assertRaises(ValueError):
+            _local_root(Path(self.tmp.name) / ".." / "not_owned")
+
     def test_only_exact_self_authored_draft_marker_is_eligible(self):
         with self.assertRaises(ValueError):
             run(root=self.root, live=True,
@@ -133,6 +144,129 @@ class OneSendChatGPTCanaryTests(unittest.TestCase):
         self.assertEqual(report["model_submissions_this_call"], 1)
         self.assertTrue((self.root / "chatgpt_send_click_intent.json").is_file())
         self.assertEqual(report["outcome"], "NO_VERIFIED_RESPONSE")
+
+    def make_prior(self, *, clicked=False, tamper=False):
+        previous = Path(self.tmp.name) / "prior_owned"
+        previous.mkdir()
+        marker = "MICROGEN_CHATGPT_CANARY_A1B2C3D4E5F6_OK"
+        prompt = _prompt_for_marker(marker)
+        claim = {
+            "schema_version": 1, "provider": "chatgpt",
+            "debug_port": 9223, "one_send_only": True,
+            "source_files_attached": False,
+            "expected_response_marker": marker,
+            "prompt_sha256": (
+                "wrong" if tamper else hashlib.sha256(prompt.encode()).hexdigest()),
+        }
+        result = {
+            "status": "CANARY_TERMINAL",
+            "outcome": "NO_VERIFIED_RESPONSE",
+            "expected_response_marker": marker,
+            "send_click_attempted": clicked,
+            "student_publication_authorized": False,
+        }
+        (previous / "chatgpt_canary_claim.json").write_text(json.dumps(claim))
+        (previous / "chatgpt_canary_result.json").write_text(json.dumps(result))
+        return previous, prompt
+
+    def test_exact_prior_owned_draft_replaces_only_owned_text(self):
+        previous, prompt = self.make_prior()
+        self.assertEqual(prior_owned_draft(previous), prompt)
+        report = run(
+            root=self.root, live=True, prior_owned_checkpoint=previous,
+            readiness=self.ready,
+            browser=lambda new, marker, wait: {
+                "outcome": "VALID_ATTRIBUTED_RESPONSE",
+                "send_click_attempted": True,
+                "user_turn_confirmed": True,
+                "assistant_response_seen": True,
+            })
+        self.assertTrue(report["known_owned_draft_replacement"])
+        self.assertNotEqual(report["expected_response_marker"],
+                            "MICROGEN_CHATGPT_CANARY_A1B2C3D4E5F6_OK")
+        again = run(
+            root=self.root, live=True, prior_owned_checkpoint=previous,
+            readiness=self.ready, browser=lambda *a: self.fail("duplicate"))
+        self.assertEqual(again["status"], "EXISTING_CLAIM_REUSED_NO_NEW_SEND")
+
+    def test_tampered_or_previously_clicked_prior_never_qualifies(self):
+        previous, _ = self.make_prior(tamper=True)
+        with self.assertRaises(ValueError):
+            prior_owned_draft(previous)
+        claim = previous / "chatgpt_canary_claim.json"
+        data = json.loads(claim.read_text())
+        data["prompt_sha256"] = hashlib.sha256(
+            _prompt_for_marker(data["expected_response_marker"]).encode()).hexdigest()
+        claim.write_text(json.dumps(data))
+        rfile = previous / "chatgpt_canary_result.json"
+        result = json.loads(rfile.read_text())
+        result["send_click_attempted"] = True
+        rfile.write_text(json.dumps(result))
+        with self.assertRaises(ValueError):
+            prior_owned_draft(previous)
+
+    def test_no_self_reconciliation_and_no_conflicting_allowlist(self):
+        previous, _ = self.make_prior()
+        with self.assertRaises(ValueError):
+            run(root=previous, prior_owned_checkpoint=previous)
+        with self.assertRaises(ValueError):
+            run(root=self.root, prior_owned_checkpoint=previous,
+                owned_draft_exact="MICROGEN_EDITOR_TYPING_DIAGNOSTIC_52E0")
+
+    def test_visible_2026_chatgpt_said_parser_requires_exact_pair(self):
+        marker = "MICROGEN_CHATGPT_CANARY_A1B2C3D4E5F6_OK"
+        text = (_prompt_for_marker(marker) + "\nChatGPT said:\n\n"
+                + marker + "\n\nChatGPT can make mistakes. Check important info.")
+        self.assertTrue(_current_ui_exact_canary(text, marker))
+        self.assertFalse(_current_ui_exact_canary(text.replace(
+            "ChatGPT said:", "Unknown said:"), marker))
+        self.assertFalse(_current_ui_exact_canary(text.replace(
+            marker + "\n\nChatGPT can", "WRONG\n\nChatGPT can"), marker))
+        self.assertFalse(_current_ui_exact_canary(text + "\n" + marker, marker))
+
+    def test_existing_timeout_reconciled_with_no_new_send(self):
+        prior, prompt = self.make_prior(clicked=True)
+        result = prior / "chatgpt_canary_result.json"
+        obj = json.loads(result.read_text())
+        obj["outcome"] = "TIMEOUT_RECONCILE_NO_RESEND"
+        result.write_text(json.dumps(obj))
+        marker = obj["expected_response_marker"]
+        (prior / "chatgpt_send_click_intent.json").write_text(json.dumps({
+            "schema_version": 1,
+            "status": "SEND_CLICK_INTENT_NOT_DELIVERY_PROOF",
+            "expected_response_marker": marker, "one_click_only": True,
+        }))
+        main = prompt + "\nChatGPT said:\n\n" + marker + (
+            "\n\nChatGPT can make mistakes. Check important info.")
+        snapshot = {"url": "https://chatgpt.com/c/synthetic-owned",
+                    "main_text": main, "stop_visible": False}
+        first = reconcile_existing(root=prior, snapshots=[snapshot])
+        self.assertEqual(first["status"],
+                         "CHATGPT_CANARY_EXACT_RESPONSE_INDEPENDENTLY_VERIFIED")
+        self.assertTrue(first["exact_marker_response_confirmed"])
+        self.assertEqual(first["model_submissions_this_call"], 0)
+        self.assertFalse(first["original_timeout_receipt_overwritten"])
+        second = reconcile_existing(root=prior, snapshots=[])
+        self.assertEqual(second["status"], "PRIOR_RECONCILIATION_REUSED_NO_SEND")
+
+    def test_reconcile_missing_or_nonconforming_response_fails_closed(self):
+        prior, prompt = self.make_prior(clicked=True)
+        rpath = prior / "chatgpt_canary_result.json"
+        r = json.loads(rpath.read_text())
+        r["outcome"] = "TIMEOUT_RECONCILE_NO_RESEND"
+        rpath.write_text(json.dumps(r))
+        marker = r["expected_response_marker"]
+        (prior / "chatgpt_send_click_intent.json").write_text(json.dumps({
+            "status": "SEND_CLICK_INTENT_NOT_DELIVERY_PROOF",
+            "expected_response_marker": marker, "one_click_only": True,
+        }))
+        snapshot = {"url": "https://chatgpt.com/c/owned",
+                    "main_text": prompt + "\nChatGPT said:\n\nWRONG",
+                    "stop_visible": False}
+        rejected = reconcile_existing(root=prior, snapshots=[snapshot])
+        self.assertEqual(rejected["status"],
+                         "RESPONSE_NOT_INDEPENDENTLY_VERIFIED_NO_SEND")
+        self.assertFalse((prior / "chatgpt_canary_independent_reconciliation.json").exists())
 
     def test_expected_marker_is_exact_single_line(self):
         self.assertEqual(expected_text("ABC012"),
