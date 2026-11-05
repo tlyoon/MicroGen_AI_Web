@@ -21,7 +21,8 @@ _BAD_CANARY = frozenset((
 def recommend_routes(*, gemini_browser: dict, chatgpt_browser: dict,
                      api_preflight: dict, browser_canary: dict | None,
                      owned_ui_error: dict | None,
-                     browser_halt: dict, api_halt: dict) -> dict:
+                     browser_halt: dict, api_halt: dict,
+                     api_key_pool: dict | None = None) -> dict:
     """Qualify *future independent* requests without sending or credential use."""
     if any(type(x) is not dict for x in (
             gemini_browser, chatgpt_browser, api_preflight,
@@ -31,6 +32,8 @@ def recommend_routes(*, gemini_browser: dict, chatgpt_browser: dict,
         raise ValueError("Canary evidence must be a verified object")
     if owned_ui_error is not None and type(owned_ui_error) is not dict:
         raise ValueError("Owned UI error evidence must be verified")
+    if api_key_pool is not None and type(api_key_pool) is not dict:
+        raise ValueError("API key pool evidence must be an object")
     gemini_ready = (
         gemini_browser.get("provider") == "gemini"
         and gemini_browser.get("authenticated_ui_ready") is True
@@ -70,8 +73,22 @@ def recommend_routes(*, gemini_browser: dict, chatgpt_browser: dict,
         and api_preflight.get("paid_api_content_generation_performed") is False
         and api_preflight.get("new_model_generation_calls") == 0
     )
+    # An opt-in independent models.get check of EACH numbered key can
+    # qualify a fallback as metadata-reachable even when key #1 fails.
+    # It never proves generate_content quota or grants billing consent.
+    pool_ordinals = []
+    if (api_key_pool is not None
+            and api_key_pool.get("status") ==
+                "KEY_POOL_METADATA_CHECKED_AT_LEAST_ONE_REACHABLE"
+            and api_key_pool.get("model_generate_content_calls") == 0
+            and api_key_pool.get("paid_api_content_generation_authorized") is False):
+        entries = api_key_pool.get("metadata_eligible_new_source_key_ordinals")
+        if (type(entries) is list and all(type(x) is int and 1 <= x <= 6
+                                          for x in entries)
+                and len(set(entries)) == len(entries)):
+            pool_ordinals = entries
     api_new_source_candidate = (
-        api_model_reachable
+        (api_model_reachable or bool(pool_ordinals))
         and api_halt.get("new_generation_dispatch_allowed_by_health_policy")
             is True
     )
@@ -97,6 +114,9 @@ def recommend_routes(*, gemini_browser: dict, chatgpt_browser: dict,
             bool(api_model_reachable),
         "api_distinct_new_source_candidate_with_separate_cost_authorization":
             bool(api_new_source_candidate),
+        "api_key_pool_metadata_verified_candidate_ordinals": list(pool_ordinals),
+        "api_key_rotation_metadata_checked_not_content_proven":
+            api_key_pool is not None,
         "gemini_browser_generation_proven_healthy": False,
         "gemini_api_content_generation_proven_healthy": False,
         "old_uncertain_lecture_retry_authorized": False,
@@ -112,7 +132,8 @@ def recommend_routes(*, gemini_browser: dict, chatgpt_browser: dict,
 def inspect(*, inspect_browsers: bool = False,
             check_api_metadata: bool = False,
             prior_canary_root: Path | None = None,
-            prior_owned_ui_quarantine: Path | None = None) -> dict:
+            prior_owned_ui_quarantine: Path | None = None,
+            inspect_all_api_keys_metadata: bool = False) -> dict:
     """Trusted read-only collectors; do not infer an API success from models.get."""
     from .rich_mapping_provider_readiness import inspect_provider
     from .windows_provider_readiness_probe import inspect as api_inspect
@@ -126,7 +147,12 @@ def inspect(*, inspect_browsers: bool = False,
     }
     gemini = inspect_provider("gemini") if inspect_browsers else blank("gemini")
     chatgpt = inspect_provider("chatgpt") if inspect_browsers else blank("chatgpt")
-    api = api_inspect(metadata_probe=check_api_metadata)
+    api = api_inspect(
+        metadata_probe=check_api_metadata and not inspect_all_api_keys_metadata)
+    pool = None
+    if inspect_all_api_keys_metadata:
+        from .windows_gemini_api_key_pool_preflight import inspect_key_pool
+        pool = inspect_key_pool(probe_metadata=True)
     canary = None
     if prior_canary_root is not None:
         root = _local_only(Path(prior_canary_root))
@@ -141,6 +167,7 @@ def inspect(*, inspect_browsers: bool = False,
         owned_ui_error=owned_ui,
         browser_halt=inspect_halt(backend="selenium"),
         api_halt=inspect_halt(backend="api"),
+        api_key_pool=pool,
     )
 
 
@@ -150,6 +177,8 @@ def main(argv=None) -> int:
                    help="Read existing Chrome sessions only; do not send or login")
     p.add_argument("--check-api-model-metadata", action="store_true",
                    help="One Gemini models.get only; not generate_content")
+    p.add_argument("--verify-all-api-key-metadata", action="store_true",
+                   help="Read-only models.get once per configured key; no generation")
     p.add_argument("--prior-browser-canary-root", type=Path)
     p.add_argument("--prior-owned-ui-quarantine-meta", type=Path)
     a = p.parse_args(argv)
@@ -158,7 +187,8 @@ def main(argv=None) -> int:
             inspect_browsers=a.inspect_browsers,
             check_api_metadata=a.check_api_model_metadata,
             prior_canary_root=a.prior_browser_canary_root,
-            prior_owned_ui_quarantine=a.prior_owned_ui_quarantine_meta)
+            prior_owned_ui_quarantine=a.prior_owned_ui_quarantine_meta,
+            inspect_all_api_keys_metadata=a.verify_all_api_key_metadata)
     except (ValueError, OSError, TypeError, KeyError, UnicodeError) as exc:
         report = {
             "status": "PROVIDER_PREFLIGHT_EVIDENCE_REJECTED",
