@@ -207,5 +207,62 @@ class OneShotOriginalSourceQueueTests(unittest.TestCase):
         self.assertEqual(received,[("chatgpt",9223)])
         self.assertEqual(done["provider"],"chatgpt")
 
+    def test_default_chatgpt_route_uses_bounded_transport_and_click_intent(self):
+        from unittest.mock import ANY
+        statuses=[{"provider":"chatgpt","debug_port":9223,
+                   "status":"AUTHENTICATED_COMPOSER_READY",
+                   "authenticated_ui_ready":True,
+                   "model_submission_performed":False}]
+        with patch(
+            "selenium_pipeline.rich_mapping_provider_dispatch._real_transport",
+            return_value=self.reply()) as sender:
+            result=self._call(None,providers=statuses)
+        self.assertEqual(result["status"],"CAPTURED_SOURCE_VERIFIED_REVIEW_ONLY")
+        sender.assert_called_once_with(
+            "chatgpt",ANY,9223,12,
+            click_intent_path=self.out/"slide_001.chatgpt_click_intent.json")
+
+    def test_real_chatgpt_preclick_block_records_no_send_and_never_replays(self):
+        from selenium_pipeline.windows_chatgpt_once_transport import ChatGPTPreSendBlocked
+        statuses=[{"provider":"chatgpt","debug_port":9223,
+                   "status":"AUTHENTICATED_COMPOSER_READY",
+                   "authenticated_ui_ready":True,
+                   "model_submission_performed":False}]
+        with patch(
+            "selenium_pipeline.rich_mapping_provider_dispatch._real_transport",
+            side_effect=ChatGPTPreSendBlocked("UNOWNED_OR_UNCERTAIN_DRAFT_NO_OVERWRITE")):
+            with self.assertRaises(ChatGPTPreSendBlocked):
+                self._call(None,providers=statuses)
+        claim=json.loads((self.out/"slide_001.one_submission.json").read_text("utf8"))
+        self.assertEqual(claim["status"],
+                         "CHATGPT_PRE_SEND_BLOCKED_NO_MODEL_SUBMISSION")
+        self.assertEqual(claim["model_submissions"],0)
+        self.assertFalse(claim["automatic_retry_authorized"])
+        self.assertFalse((self.out/"slide_001.chatgpt_click_intent.json").exists())
+        with self.assertRaisesRegex(RichMappingError,"already claimed"):
+            self._call(lambda *a:self.fail("duplicate send"),providers=statuses)
+
+    def test_after_click_uncertainty_retains_claim_and_click_intent(self):
+        from selenium_pipeline.windows_chatgpt_once_transport import (
+            ChatGPTUncertainSubmission,write_click_intent)
+        statuses=[{"provider":"chatgpt","debug_port":9223,
+                   "status":"AUTHENTICATED_COMPOSER_READY",
+                   "authenticated_ui_ready":True,
+                   "model_submission_performed":False}]
+        def uncertain(provider,prompt,port,wait_cap_s,*,click_intent_path):
+            write_click_intent(click_intent_path,prompt)
+            raise ChatGPTUncertainSubmission("RESPONSE_CAPTURE_PENDING_RECONCILE_NO_RESEND")
+        with patch(
+            "selenium_pipeline.rich_mapping_provider_dispatch._real_transport",
+            side_effect=uncertain):
+            with self.assertRaises(ChatGPTUncertainSubmission):
+                self._call(None,providers=statuses)
+        claim=json.loads((self.out/"slide_001.one_submission.json").read_text("utf8"))
+        self.assertEqual(claim["status"],
+                         "MAY_HAVE_SUBMITTED_RECONCILE_BEFORE_RESEND")
+        self.assertTrue((self.out/"slide_001.chatgpt_click_intent.json").is_file())
+        with self.assertRaisesRegex(RichMappingError,"already claimed"):
+            self._call(lambda *a:self.fail("duplicate send"),providers=statuses)
+
 if __name__=="__main__":
     unittest.main()
