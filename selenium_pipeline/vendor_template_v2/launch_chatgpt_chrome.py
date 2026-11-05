@@ -16,7 +16,8 @@ import urllib.request
 from pathlib import Path
 import importlib
 
-DEBUG_PORT = int(os.getenv("CHATGPT_DEBUG_PORT", os.getenv("CHATGPT_DEVTOOLS_PORT", "9222")))
+# Deliberately separate from Gemini's default 9222 and alternate 9225.
+DEBUG_PORT = int(os.getenv("CHATGPT_DEBUG_PORT", os.getenv("CHATGPT_DEVTOOLS_PORT", "9223")))
 CHATGPT_URL = os.getenv("CHATGPT_URL", "https://chatgpt.com/")
 KEEPALIVE_PROMPT = "Keep alive while waiting for my prompt"
 
@@ -107,6 +108,10 @@ def import_real_selenium():
 
 
 def launch_chrome_debug():
+    if DEBUG_PORT in (9222, 9225):
+        raise RuntimeError(
+            "ChatGPT Chrome cannot use Gemini's reserved port 9222 or 9225. "
+            "Use ChatGPT's dedicated port 9223; no browser was modified.")
     if port_in_use(DEBUG_PORT):
         print(f"[INFO] Debug port {DEBUG_PORT} already active; using existing Chrome.")
         if not wait_for_devtools_ready(DEBUG_PORT, timeout=DEVTOOLS_WAIT_SECONDS):
@@ -315,6 +320,28 @@ def attach_driver(webdriver, Service, options):
         ) from e
 
 
+def authenticated_chatgpt_composer_only(driver, By) -> bool:
+    """A guest ChatGPT textarea is never evidence of a logged-in account."""
+    try:
+        selectors = (
+            'button[data-testid="login-button"]',
+            'button[data-testid="signup-button"]',
+        )
+        for selector in selectors:
+            if any(x.is_displayed() for x in driver.find_elements(
+                    By.CSS_SELECTOR, selector)):
+                return False
+        for button in driver.find_elements(By.CSS_SELECTOR, "button"):
+            if (button.is_displayed()
+                    and (button.text or "").strip().casefold()
+                    in {"log in", "sign up", "sign up for free"}):
+                return False
+        return True
+    except Exception:
+        # Changed UI or inaccessible controls must never trigger a send.
+        return False
+
+
 def main():
     launch_chrome_debug()
 
@@ -359,6 +386,11 @@ def main():
             print("[WARN] If ChatGPT is on login screen, please log in manually in this automation Chrome, then re-run.")
             return
 
+        if not authenticated_chatgpt_composer_only(driver, By):
+            print("[WARN] ChatGPT is on guest/login screen; sign in manually in "
+                  "the dedicated port 9223 profile. No prompt submitted.")
+            return
+
         ok = send_keepalive_to_composer(driver, composer, Keys)
         if not ok:
             print("[WARN] Composer detected, but keepalive typing/submission failed.")
@@ -371,7 +403,10 @@ def main():
     finally:
         if driver is not None:
             try:
-                driver.quit()
+                # The authenticated Chrome profile belongs to the user.
+                # driver.quit() may close it, losing the persistent login.
+                # Stop only this temporary ChromeDriver service.
+                driver.service.stop()
             except Exception:
                 pass
 

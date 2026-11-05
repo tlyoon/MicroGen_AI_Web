@@ -648,7 +648,10 @@ def execute(s: Settings) -> Path:
         return _execute_unlocked(s)
     from .three_pc_worker import LocalInstanceLock
     base = Path(os.getenv("LOCALAPPDATA") or (Path.home() / ".cache")) / "Microvid"
-    port = 9223 if s.alternate_gemini_user and s.chrome_port == 9222 else s.chrome_port
+    from .launch_gemini import ALT_PORT, CHATGPT_RESERVED_PORT
+    port = ALT_PORT if s.alternate_gemini_user and s.chrome_port == 9222 else s.chrome_port
+    if port == CHATGPT_RESERVED_PORT:
+        raise ValueError("Port 9223 is reserved for ChatGPT, not Gemini; no model send")
     with LocalInstanceLock(f"gemini_port_{port}", base / "browser_locks"):
         return _execute_unlocked(s)
 
@@ -936,10 +939,10 @@ def _execute_unlocked(s: Settings) -> Path:
         try:
             if _needs_browser(stage):
                 if not browser_initialized:
-                    from .launch_gemini import launch
+                    from .launch_gemini import launch, ALT_PORT
                     requested_port=s.chrome_port
                     if s.alternate_gemini_user and requested_port==9222:
-                        requested_port=9223
+                        requested_port=ALT_PORT
                     actual_port,_=launch(s.alternate_gemini_user,requested_port)
                     s.chrome_port=actual_port
                     env["GEMINI_DEBUG_PORT"]=str(actual_port)
