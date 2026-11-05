@@ -12,10 +12,39 @@ import argparse
 import json
 import sys
 from collections.abc import Callable
+from types import SimpleNamespace
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from .windows_provider_readiness_probe import CONTENT_MODEL, _safe_code
 
 MAX_KEYS = 6
+
+
+class _NoRedirect(HTTPRedirectHandler):
+    """One outbound request only: even an HTTP redirect is not followed."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+def _one_shot_model_metadata_get(key: str, model: str) -> object:
+    """SDK-independent, single non-generating Google models.get HTTPS request."""
+    if model != CONTENT_MODEL:
+        raise ValueError("Only the vetted content model may be inspected")
+    request = Request(
+        "https://generativelanguage.googleapis.com/v1beta/models/" + model,
+        headers={"X-Goog-Api-Key": key, "Accept": "application/json"},
+        method="GET",
+    )
+    # No SDK retry layer, redirects, prompt, or content generation.
+    with build_opener(_NoRedirect).open(request, timeout=10) as response:
+        payload = response.read(16385)
+    if len(payload) > 16384:
+        raise ValueError("Metadata response exceeded size bound")
+    obj = json.loads(payload.decode("utf-8"))
+    if type(obj) is not dict:
+        raise ValueError("Metadata response was not an object")
+    return SimpleNamespace(name=obj.get("name", ""))
 
 
 def inspect_key_pool(*, probe_metadata: bool = False,
@@ -65,20 +94,9 @@ def inspect_key_pool(*, probe_metadata: bool = False,
         base["status"] = "KEY_POOL_IDENTIFIED_METADATA_NOT_CHECKED"
         return base
     if transport is None:
-        from google import genai
-        from google.genai import types
-
-        def transport(key: str, model: str) -> object:
-            # No SDK retries, no model content. Client is closed on either result.
-            opts = types.HttpOptions(
-                timeout=10000,
-                retry_options=types.HttpRetryOptions(attempts=1),
-            )
-            client = genai.Client(api_key=key, http_options=opts)
-            try:
-                return client.models.get(model=model)
-            finally:
-                client.close()
+        # Avoid SDK-specific HttpRetryOptions: not present in google-genai 1.4.0.
+        # Direct HTTPS GET has no content/model generation and no retry layer.
+        transport = _one_shot_model_metadata_get
 
     for ordinal, key in enumerate(unique, 1):
         try:
