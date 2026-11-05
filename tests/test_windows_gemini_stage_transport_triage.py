@@ -69,6 +69,29 @@ class GeminiStageTransportTriageTests(unittest.TestCase):
         self.assertNotIn("KEY_NOT_TO_REPORT", str(r))
         self.assertEqual(before, sorted(self.trial.iterdir()))
 
+    def test_supervisor_timeout_is_classified_without_fabricating_provider_outage(self):
+        p = self.begun()
+        self.finish(p, "FIGURES_ATTEMPT_TIMEOUT_NO_AUTO_RETRY")
+        self.log("[microgen-supervisor] OWNED_STAGE_TIMEOUT "
+                 "NO_AUTOMATIC_RESUBMISSION SEND_STATUS_UNVERIFIED")
+        report = diagnose(trial_dir=self.trial)
+        self.assertEqual(report["status"],
+                         "OWNED_STAGE_TIMEOUT_WITHOUT_VERIFIED_BROWSER_SEND")
+        self.assertTrue(report["owned_stage_supervisor_timeout_recorded"])
+        self.assertTrue(report["unbuffered_child_output_evidence_present"])
+        self.assertFalse(report["owned_browser_send_registered"])
+        self.assertFalse(report["provider_outage_proven"])
+        self.assertFalse(report["original_submission_resend_authorized"])
+
+    def test_legacy_buffered_timeout_cannot_be_inferred_as_unbuffered(self):
+        p = self.begun()
+        self.finish(p, "FIGURES_ATTEMPT_TIMEOUT_NO_AUTO_RETRY")
+        self.log("[microgen] loaded environment settings; no additional output")
+        report = diagnose(trial_dir=self.trial)
+        self.assertEqual(report["status"], "SOURCE_STAGE_HALTED_NO_REGISTERED_SEND")
+        self.assertFalse(report["unbuffered_child_output_evidence_present"])
+        self.assertFalse(report["provider_outage_proven"])
+
     def test_owned_browser_send_registered_without_accepted_output(self):
         p = self.begun()
         self.finish(p, "FIGURES_ATTEMPT_TIMEOUT_NO_AUTO_RETRY")

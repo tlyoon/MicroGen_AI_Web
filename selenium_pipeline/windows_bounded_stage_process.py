@@ -61,7 +61,11 @@ def run_bounded(*, command: list[str], cwd: Path, log_path: Path,
             or log_path.exists() or log_path.is_symlink()):
         raise WindowsStageRecoveryError("New external stage log and existing cwd required")
     env = os.environ.copy() if environ is None else dict(environ)
-    env.update({"PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1"})
+    # Redirected Windows Python stdout is block-buffered by default.
+    # Preserve the last phase/progress lines even if a stage is terminated
+    # by the one-shot deadline, so provider vs Selenium faults are diagnosable.
+    env.update({"PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1",
+                "PYTHONUNBUFFERED": "1"})
     opener = subprocess.Popen if subprocess_popen is None else subprocess_popen
     with log_path.open("xb") as output:
         proc = opener(command, cwd=str(cwd), env=env,
@@ -71,8 +75,16 @@ def run_bounded(*, command: list[str], cwd: Path, log_path: Path,
                       shell=False)
         try:
             exit_code = proc.wait(timeout=timeout_seconds)
+            output.write(
+                ("\n[microgen-supervisor] OWNED_STAGE_EXIT_CODE=" +
+                 str(exit_code) + " NO_AUTOMATIC_RESUBMISSION\n").encode("utf-8"))
         except subprocess.TimeoutExpired:
             _stop_owned_tree(proc, command_runner=command_runner)
+            # This is evidence of an owned PROCESS timeout only. It does
+            # not imply a Gemini outage or prove whether a prompt was sent.
+            output.write(
+                b"\n[microgen-supervisor] OWNED_STAGE_TIMEOUT "
+                b"NO_AUTOMATIC_RESUBMISSION SEND_STATUS_UNVERIFIED\n")
             raise
         finally:
             output.flush()
