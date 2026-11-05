@@ -16,7 +16,8 @@ import urllib.request
 from pathlib import Path
 import importlib
 
-DEBUG_PORT = int(os.getenv("CHATGPT_DEBUG_PORT", os.getenv("CHATGPT_DEVTOOLS_PORT", "9222")))
+# Deliberately separate from Gemini's default 9222 and alternate 9225.
+DEBUG_PORT = int(os.getenv("CHATGPT_DEBUG_PORT", os.getenv("CHATGPT_DEVTOOLS_PORT", "9223")))
 CHATGPT_URL = os.getenv("CHATGPT_URL", "https://chatgpt.com/")
 KEEPALIVE_PROMPT = "Keep alive while waiting for my prompt"
 
@@ -107,6 +108,10 @@ def import_real_selenium():
 
 
 def launch_chrome_debug():
+    if DEBUG_PORT in (9222, 9225):
+        raise RuntimeError(
+            "ChatGPT Chrome cannot use Gemini's reserved port 9222 or 9225. "
+            "Use ChatGPT's dedicated port 9223; no browser was modified.")
     if port_in_use(DEBUG_PORT):
         print(f"[INFO] Debug port {DEBUG_PORT} already active; using existing Chrome.")
         if not wait_for_devtools_ready(DEBUG_PORT, timeout=DEVTOOLS_WAIT_SECONDS):
@@ -371,7 +376,10 @@ def main():
     finally:
         if driver is not None:
             try:
-                driver.quit()
+                # The authenticated Chrome profile belongs to the user.
+                # driver.quit() may close it, losing the persistent login.
+                # Stop only this temporary ChromeDriver service.
+                driver.service.stop()
             except Exception:
                 pass
 

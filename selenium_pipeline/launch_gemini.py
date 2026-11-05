@@ -16,7 +16,10 @@ from pathlib import Path
 
 GEMINI_URL = "https://gemini.google.com/app"
 DEFAULT_PORT = 9222
-ALT_PORT = 9223
+# 9223 is reserved for the existing persistent ChatGPT Chrome profile.
+# The alternate Gemini account MUST use a distinct debugging session.
+ALT_PORT = 9225
+CHATGPT_RESERVED_PORT = 9223
 
 
 def chrome_exe() -> str:
@@ -61,6 +64,16 @@ def wait_ready(port: int, timeout: int = 20) -> bool:
 
 def launch(alternate_user: str | None = None, port: int | None = None) -> tuple[int, Path]:
     port = port or (ALT_PORT if alternate_user else DEFAULT_PORT)
+    if port == CHATGPT_RESERVED_PORT:
+        raise ValueError(
+            "Port 9223 belongs to the dedicated ChatGPT Selenium Chrome profile; "
+            "Gemini must use 9222 (default) or 9225 (alternate). "
+            "No Chrome session was opened, reused, or modified.")
+    if (alternate_user is not None and port == DEFAULT_PORT) or (
+            alternate_user is None and port == ALT_PORT):
+        raise ValueError(
+            "Gemini primary and alternate Chrome profiles must not share "
+            "each other's reserved port; no browser was changed.")
     profile = profile_root(alternate_user)
     if ready(port):
         print(f"[gemini] reusing active debug session on port {port}")

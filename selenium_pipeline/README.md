@@ -106,7 +106,7 @@ The production runner now launches/reuses a **persistent MicroGen Gemini Chrome 
 .\.venv\Scripts\python.exe -m selenium_pipeline.launch_gemini
 ```
 
-To deliberately use another Google account, invoke the explicit alternate-profile option. The value is only a local profile label; MicroGen never types a username/password into Google. Chrome opens a separate persistent profile on port 9223 and the user signs in interactively if required.
+To deliberately use another Google account, invoke the explicit alternate-profile option. The value is only a local profile label; MicroGen never types a username/password into Google. Chrome opens a separate persistent Gemini alternate profile on port 9225 (port 9223 is reserved for ChatGPT) and the user signs in interactively if required.
 
 ```powershell
 # Explicit alternate account/profile
