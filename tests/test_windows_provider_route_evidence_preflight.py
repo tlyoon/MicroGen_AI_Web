@@ -161,6 +161,43 @@ class WindowsProviderRoutePreflightTests(unittest.TestCase):
             r["suggested_new_unsent_job_route"],
             "NO_GENERATION_TRANSPORT_CERTIFIED_FOR_AUTOMATIC_DISPATCH")
 
+    def test_verified_short_browser_canary_is_positive_but_not_long_form(self):
+        prior = {
+            "schema_version": 1, "backend": "browser",
+            "outcome": "VALID_CANARY_RESPONSE",
+            "status": "GENERIC_CANARY_TERMINAL",
+            "response_character_count": 33,
+            "new_model_generation_calls": 1,
+            "paid_api_content_may_have_occurred": False,
+            "source_pdf_transmitted": False,
+            "student_publication_authorized": False,
+        }
+        result = self.recommend(browser_canary=prior, owned_ui_error=None)
+        self.assertTrue(result["prior_short_browser_generation_success_recorded"])
+        self.assertTrue(result["prior_short_success_never_certifies_current_long_form"])
+        self.assertEqual(
+            result["suggested_new_unsent_job_route"],
+            "GEMINI_BROWSER_PRIOR_SHORT_CANARY_OK_LONG_FORM_UNTESTED")
+        self.assertFalse(result["gemini_browser_generation_proven_healthy"])
+        self.assertFalse(result["automatic_new_model_generation_authorized"])
+        self.assertFalse(result["old_uncertain_lecture_retry_authorized"])
+        self.assertFalse(result["paid_api_generation_authorized"])
+        self.assertFalse(result["student_publication_authorized"])
+
+        # Historical UI-error evidence remains a safe override. The prior
+        # canary cannot erase a newer source-bound error or permit resends.
+        blocked = self.recommend(browser_canary=prior)
+        self.assertTrue(blocked["prior_short_browser_generation_success_recorded"])
+        self.assertTrue(blocked["gemini_browser_auto_selection_suppressed_by_prior_evidence"])
+        self.assertNotEqual(
+            blocked["suggested_new_unsent_job_route"],
+            "GEMINI_BROWSER_PRIOR_SHORT_CANARY_OK_LONG_FORM_UNTESTED")
+
+        untrusted = dict(prior, source_pdf_transmitted=True)
+        self.assertFalse(self.recommend(
+            browser_canary=untrusted, owned_ui_error=None
+        )["prior_short_browser_generation_success_recorded"])
+
     def test_preflight_invokes_no_model_transport_or_source_operations(self):
         with patch(
             "selenium_pipeline.rich_mapping_provider_readiness.inspect_provider",

@@ -52,6 +52,23 @@ def recommend_routes(*, gemini_browser: dict, chatgpt_browser: dict,
         and browser_canary.get("outcome") in _BAD_CANARY
         and browser_canary.get("student_publication_authorized") is False
     )
+    # A successful *historical* short canary is independently verified by
+    # inspect() via the immutable on-disk Send claim and response digest.
+    # It proves only that one source-free model response was captured, not
+    # current long-form capacity or authorization to dispatch textbooks.
+    short_browser_response_observed = (
+        browser_canary is not None
+        and browser_canary.get("schema_version") == 1
+        and browser_canary.get("backend") == "browser"
+        and browser_canary.get("outcome") == "VALID_CANARY_RESPONSE"
+        and browser_canary.get("status") == "GENERIC_CANARY_TERMINAL"
+        and type(browser_canary.get("response_character_count")) is int
+        and 0 < browser_canary["response_character_count"] <= 5000
+        and browser_canary.get("new_model_generation_calls") == 1
+        and browser_canary.get("paid_api_content_may_have_occurred") is False
+        and browser_canary.get("source_pdf_transmitted") is False
+        and browser_canary.get("student_publication_authorized") is False
+    )
     ui_error_observed = (
         owned_ui_error is not None
         and owned_ui_error.get("known_gemini_ui_error_text_observed") is True
@@ -95,7 +112,11 @@ def recommend_routes(*, gemini_browser: dict, chatgpt_browser: dict,
     if chatgpt_ready and gemini_not_healthy_enough_to_select:
         route = "CHATGPT_BROWSER_AVAILABLE_FOR_A_DISTINCT_NEW_JOB_ONLY"
     elif gemini_ready and not gemini_not_healthy_enough_to_select:
-        route = "GEMINI_BROWSER_COMPOSER_READY_GENERATION_NOT_CERTIFIED"
+        route = (
+            "GEMINI_BROWSER_PRIOR_SHORT_CANARY_OK_LONG_FORM_UNTESTED"
+            if short_browser_response_observed else
+            "GEMINI_BROWSER_COMPOSER_READY_GENERATION_NOT_CERTIFIED"
+        )
     elif api_new_source_candidate:
         route = "GEMINI_API_METADATA_REACHABLE_COST_APPROVAL_REQUIRED"
     else:
@@ -107,6 +128,9 @@ def recommend_routes(*, gemini_browser: dict, chatgpt_browser: dict,
         "gemini_browser_authenticated": gemini_ready,
         "chatgpt_browser_authenticated": chatgpt_ready,
         "prior_source_free_browser_canary_unverified": bool(prior_response_failed),
+        "prior_short_browser_generation_success_recorded":
+            bool(short_browser_response_observed),
+        "prior_short_success_never_certifies_current_long_form": True,
         "owned_gemini_ui_error_sha_verified": bool(ui_error_observed),
         "gemini_browser_auto_selection_suppressed_by_prior_evidence":
             bool(gemini_not_healthy_enough_to_select),

@@ -16,6 +16,36 @@ The read-only `windows_autonomous_lecture_qa.inspect` returns `AI_SOURCE_SPEECH_
 
 The native release board now accepts optional **all-or-none** arguments `--autonomous-qa-folder`, `--autonomous-qa-queue-root`, `--autonomous-qa-plan`, `--autonomous-qa-audio`, `--autonomous-qa-asr-dir`. It executes the same verifiers again in read-only mode, only attaches the new AI evidence to a **different** SHA-bound independently reviewed original MP4, and never treats an absent or incomplete report as academic approval, a merge decision or student-release consent. Default usage requires none of those options and remains compatible.
 
+## Source-free Gemini connectivity observation (6 November 2026)
+
+An explicitly source-free **single Send** Gemini web browser canary was
+executed on Dell-115 using the existing
+`windows_gemini_differential_probe --browser-canary-once` code, not an
+original-source generation job. The complete Send claim was written in advance
+at `%LOCALAPPDATA%\MicroGen_AI_Web_Checkpoints\20261106_PR528_GEMINI_BROWSER_CANARY_V1`.
+Chrome attached; Gemini login and Flash mode were available; the Send was
+independently registered. A valid model reply was subsequently captured and
+validated as exact JSON. Terminal immutable outcome:
+`VALID_CANARY_RESPONSE`; classification:
+`BROWSER_SHORT_CANARY_WORKS_LONG_FORM_NOT_CERTIFIED`.
+
+This disproves a continuous, total Gemini-web connectivity outage at the
+sample time, but **does not establish sustained long-form textbook
+generation**. No 503/504 HTTP API problem was demonstrated, no API billing
+occurred, and no previously claimed source was resent. Do not silently
+repeat this canary or reuse its prior Send budget.
+
+The existing `windows_provider_route_evidence_preflight` now preserves
+positively verified, historical *short-response* evidence as
+`prior_short_browser_generation_success_recorded` and selects
+`GEMINI_BROWSER_PRIOR_SHORT_CANARY_OK_LONG_FORM_UNTESTED` for an authenticated
+unsuppressed Gemini browser. It still reports long-form generation as
+unverified, allows no automatic model generation, and does not override
+source-bound visible-error or health-halt evidence. The existing immutable
+canary claim+receipt verifier remains the trust boundary. Source-free tests
+cover positive evidence, invalid partial input and overrides. This change
+belongs to PR528 rather than starting another PR.
+
 ## Verification and deliberately remaining limits
 
 New source-free Windows fault-injection tests cover success at the *technical-only* scope and rejection of incomplete AI consensus, missing or duplicated WAV evidence, missing independent ASR, changed source/plan/script hashes, incorrectly long MP4 and no pixel-reverified source-bound plan. Production depends on existing unmocked real validators; injected functions are only offline test seams.
