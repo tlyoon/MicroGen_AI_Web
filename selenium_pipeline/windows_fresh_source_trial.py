@@ -211,9 +211,14 @@ def run_trial(*, source_root: Path, section: str, trial_dir: Path,
     _new_atomic(trial_dir / "figures_attempt_result.json", result)
     if subprocess_run is None:
         from .windows_gemini_provider_halt import record_stage
+        from .windows_gemini_stage_transport_triage import persist_terminal_triage
         result["shared_gemini_health"] = record_stage(
             trial_dir=trial_dir, stage="figures",
             backend=communication_mode)
+        # Post-terminal, source-bound and read-only. Records whether actual
+        # Selenium/model progress was observed; never resends the source.
+        result["automatic_transport_triage"] = persist_terminal_triage(
+            trial_dir=trial_dir, stage="figures")
     return result
 
 

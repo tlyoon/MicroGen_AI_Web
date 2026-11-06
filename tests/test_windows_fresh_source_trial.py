@@ -101,6 +101,11 @@ class FreshIndependentOriginalTests(unittest.TestCase):
             result = run_trial(source_root=self.publisher, section="22.1",
                                trial_dir=self.trial, attempt_figures=True)
         self.assertEqual(result["status"], "FIGURES_ATTEMPT_FAILED_NO_AUTO_RETRY")
+        self.assertTrue((self.trial / "figures_transport_triage.json").is_file())
+        self.assertEqual(
+            result["automatic_transport_triage"]["model_requests_during_diagnosis"], 0)
+        self.assertFalse(
+            result["automatic_transport_triage"]["automatic_resubmission_authorized"])
         env = fake.call_args.kwargs["environ"]
         self.assertEqual(env["MICROGEN_SELENIUM_ATTEMPTS"], "1")
         self.assertEqual(env["MICROGEN_API_ATTEMPTS"], "1")

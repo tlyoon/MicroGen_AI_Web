@@ -228,8 +228,13 @@ def run_stage(*, trial_dir: Path, stage: str, timeout_seconds: int = 480,
     _new_atomic(finished, report)
     if stage_runner is None and stage in ("slides", "narration"):
         from .windows_gemini_provider_halt import record_stage
+        from .windows_gemini_stage_transport_triage import persist_terminal_triage
         report["shared_gemini_health"] = record_stage(
             trial_dir=trial_dir, stage=stage, backend=communication_mode)
+        # Capture an immutable, SHA-bound classification after the one-shot
+        # terminal receipt. Never add a second Send or API call.
+        report["automatic_transport_triage"] = persist_terminal_triage(
+            trial_dir=trial_dir, stage=stage)
     return report
 
 

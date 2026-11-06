@@ -127,6 +127,28 @@ class WindowsOriginalStageSequenceTests(unittest.TestCase):
         self.assertEqual(timeout.call_count, 1)
 
     @patch("selenium_pipeline.runner.check_valid", return_value=True)
+    def test_real_slide_stage_auto_records_triage_without_another_send(self, _valid):
+        self.figure_receipt()
+        with patch("selenium_pipeline.windows_original_stage_sequence.run_bounded",
+                   side_effect=subprocess.TimeoutExpired("slides", 30)) as runner, patch(
+                   "selenium_pipeline.windows_gemini_provider_halt.record_stage",
+                   return_value={"status": "MOCK_HEALTH"}):
+            report = run_stage(trial_dir=self.trial, stage="slides",
+                               timeout_seconds=30)
+        self.assertEqual(runner.call_count, 1)
+        self.assertEqual(report["status"], "STAGE_TIMEOUT_UNKNOWN_PROVIDER_SEND_NO_RETRY")
+        self.assertTrue((self.trial / "stage_slides_transport_triage.json").is_file())
+        self.assertEqual(
+            report["automatic_transport_triage"]["model_requests_during_diagnosis"], 0)
+        self.assertFalse(
+            report["automatic_transport_triage"]["automatic_resubmission_authorized"])
+        no_second_run = Mock(side_effect=AssertionError("duplicate model send"))
+        replay = run_stage(trial_dir=self.trial, stage="slides",
+                           stage_runner=no_second_run)
+        self.assertEqual(replay["status"], "PREVIOUS_STAGE_ATTEMPT_NOT_RESENT")
+        no_second_run.assert_not_called()
+
+    @patch("selenium_pipeline.runner.check_valid", return_value=True)
     def test_source_and_accepted_artifact_mutation_fail_closed(self, _valid):
         self.figure_receipt()
         slides = self.emit("slides.tex", "slides.pdf")

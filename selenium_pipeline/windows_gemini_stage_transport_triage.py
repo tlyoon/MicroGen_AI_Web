@@ -12,7 +12,8 @@ import json
 from pathlib import Path
 import re
 
-from .original_multisource_recovery_campaign import _verified_json
+from .original_multisource_recovery_campaign import _new_atomic, _verified_json
+from .evidence_reuse_contract import file_sha256
 from .windows_gemini_differential_probe import _local_only
 from .windows_gemini_provider_halt import _SEND_PROOF, ACCEPTED, FAILED
 
@@ -128,13 +129,64 @@ def diagnose(*, trial_dir: Path, stage: str = "figures") -> dict:
     }
 
 
+def persist_terminal_triage(*, trial_dir: Path, stage: str) -> dict:
+    """Automatically capture a safe, immutable diagnostic after ONE stage.
+
+    Reads existing source/claim/result/log, writes one separate SHA-bound
+    classification receipt. It never uses a browser, sends a provider request,
+    retries a job, or overwrites original stage records.
+    """
+    if stage not in STAGES:
+        raise ValueError("Only original model stages may be diagnosed")
+    trial = _local_only(trial_dir)
+    result_file = trial / ("figures_attempt_result.json" if stage == "figures"
+                           else f"stage_{stage}_result.json")
+    diagnostic_file = trial / ("figures_transport_triage.json" if stage == "figures"
+                               else f"stage_{stage}_transport_triage.json")
+    if (not result_file.is_file() or result_file.is_symlink()
+            or result_file.stat().st_size > MAX_LOG_BYTES):
+        raise ValueError("Exact immutable terminal stage result required")
+    result_hash = file_sha256(result_file)
+    log_file = trial / ("figures_stage_stdout.raw.log" if stage == "figures"
+                        else f"stage_{stage}_stdout.raw.log")
+    if log_file.exists() or log_file.is_symlink():
+        if (not log_file.is_file() or log_file.is_symlink()
+                or log_file.stat().st_size > MAX_LOG_BYTES):
+            raise ValueError("Unsafe original terminal stage log")
+        log_hash = file_sha256(log_file)
+    else:
+        log_hash = None
+    diagnostic = diagnose(trial_dir=trial, stage=stage)
+    report = {
+        **diagnostic,
+        "terminal_result_sha256": result_hash,
+        "terminal_log_sha256": log_hash,
+        "automatic_terminal_diagnosis": True,
+        "automatic_resubmission_authorized": False,
+        "model_requests_during_diagnosis": 0,
+        "original_source_pdf_modified": False,
+        "student_publication_authorized": False,
+    }
+    if diagnostic_file.exists() or diagnostic_file.is_symlink():
+        prior = _verified_json(diagnostic_file)
+        if prior != report:
+            raise ValueError("Historical stage diagnosis or evidence changed")
+        return {**prior, "status": "PRIOR_SHA_BOUND_TRIAGE_REUSED_NO_SEND"}
+    _new_atomic(diagnostic_file, report)
+    return report
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--trial-dir", required=True, type=Path)
     parser.add_argument("--stage", choices=sorted(STAGES), default="figures")
+    parser.add_argument("--persist-terminal-triage", action="store_true",
+                        help="Save a separate immutable diagnostic of an existing result; never resend")
     args = parser.parse_args(argv)
     try:
-        output = diagnose(trial_dir=args.trial_dir, stage=args.stage)
+        output = (persist_terminal_triage(trial_dir=args.trial_dir, stage=args.stage)
+                  if args.persist_terminal_triage else
+                  diagnose(trial_dir=args.trial_dir, stage=args.stage))
     except (ValueError, OSError, TypeError, KeyError) as exc:
         output = {
             "status": "STAGE_TRANSPORT_TRIAGE_EVIDENCE_REJECTED",
