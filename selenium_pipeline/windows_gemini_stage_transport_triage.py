@@ -143,6 +143,9 @@ def diagnose(*, trial_dir: Path, stage: str = "figures") -> dict:
     response_unverified = (
         "[GEMINI-RESPONSE] POST_SUBMIT_NO_ATTRIBUTED_RESPONSE_NO_RESEND"
         in raw)
+    owned_ui_terminal = (
+        "[GEMINI-RESPONSE] OWNED_VISIBLE_UI_TERMINAL_ERROR_NO_RESEND"
+        in raw)
     supervisor_timeout = (
         "[microgen-supervisor] OWNED_STAGE_TIMEOUT" in raw)
     supervisor_completed = (
@@ -150,6 +153,8 @@ def diagnose(*, trial_dir: Path, stage: str = "figures") -> dict:
     state = result.get("status") if result is not None else None
     if state in ACCEPTED:
         label = "TECHNICAL_STAGE_RECEIPT_SUCCESS_NOT_FULL_LECTURE"
+    elif send and owned_ui_terminal:
+        label = "REGISTERED_BROWSER_SEND_OWNED_UI_ERROR_NO_RESEND"
     elif send and response_unverified:
         label = "REGISTERED_BROWSER_SEND_NO_ATTRIBUTED_REPLY_NO_RESEND"
     elif send:
@@ -178,6 +183,7 @@ def diagnose(*, trial_dir: Path, stage: str = "figures") -> dict:
         "browser_debug_session_seen_in_log": session,
         "owned_browser_send_registered": send,
         "post_submit_model_reply_attribution_unverified": response_unverified,
+        "owned_visible_ui_terminal_error_verified": (send and owned_ui_terminal),
         "owned_stage_supervisor_timeout_recorded": supervisor_timeout,
         "owned_stage_supervisor_exit_recorded": supervisor_completed,
         "unbuffered_child_output_evidence_present": (
@@ -244,6 +250,7 @@ def persist_terminal_triage(*, trial_dir: Path, stage: str) -> dict:
                 "local_crop_process_seen_in_workspace", "local_crop_phase",
                 "local_crop_heartbeat_present", "local_crop_log_sha256",
                 "post_submit_model_reply_attribution_unverified",
+                "owned_visible_ui_terminal_error_verified",
             }
             only_new_fields = set(report) - set(prior)
             compatible_status = (

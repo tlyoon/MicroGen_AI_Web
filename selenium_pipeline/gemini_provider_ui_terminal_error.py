@@ -11,10 +11,39 @@ import json
 import os
 from pathlib import Path
 
-_KNOWN_ERROR = (
-    "I seem to be encountering an error. "
-    "Can I try something else for you?"
-)
+_KNOWN_ERRORS = {
+    # Both variants have been observed as complete Gemini model replies.
+    # Exact matching, not substring matching, avoids treating user prompts,
+    # normal physics discussion, or the browser interface as an outage.
+    "I seem to be encountering an error. Can I try something else for you?":
+        "OLDER_GEMINI_MODEL_ERROR",
+    "Sorry, something went wrong. Please try your request again.":
+        "GEMINI_MODEL_REQUEST_ERROR",
+}
+
+
+class GeminiOwnedVisibleTerminalError(RuntimeError):
+    """A model-attributed terminal UI error after Send, never retry evidence."""
+
+
+def require_no_owned_terminal_error(driver, owned_handle: str | None) -> None:
+    """Fail early ONLY for an exact terminal reply in our current Gemini tab.
+
+    Reuse the existing strict owned-response reader; do not inspect page text,
+    the user's other tabs or generic clipboard contents. Never submit a prompt.
+    """
+    from .gemini_response_recovery import latest_owned_response
+
+    snapshot = latest_owned_response(driver, owned_handle)
+    evidence = classify_visible_reply(
+        text=snapshot.get("text", ""),
+        capture_status=snapshot.get("capture_status", "unavailable"),
+        generating=bool(snapshot.get("generating")),
+    )
+    if evidence["known_gemini_ui_error_text_observed"]:
+        raise GeminiOwnedVisibleTerminalError(
+            "GEMINI_OWNED_VISIBLE_TERMINAL_ERROR_NO_RESEND"
+        )
 
 
 def classify_visible_reply(*, text: str, capture_status: str,
@@ -25,13 +54,15 @@ def classify_visible_reply(*, text: str, capture_status: str,
     normalized = raw.replace("\r\n", "\n").strip()
     if normalized.startswith("Gemini said\n"):
         normalized = normalized[len("Gemini said\n"):].strip()
-    known = visible and not generating and normalized == _KNOWN_ERROR
+    variant = _KNOWN_ERRORS.get(normalized) if visible and not generating else None
+    known = variant is not None
     return {
         "schema_version": 1,
         "status": (
             "GEMINI_OWNED_MODEL_VISIBLE_UI_ERROR_NOT_API_OUTAGE_PROOF"
             if known else "NO_CONFIRMED_KNOWN_PROVIDER_UI_ERROR"),
         "known_gemini_ui_error_text_observed": bool(known),
+        "known_gemini_ui_error_code": variant,
         "owned_visible_model_response_text_observed":
             bool(visible and raw.strip()),
         "gemini_api_generation_tested": False,

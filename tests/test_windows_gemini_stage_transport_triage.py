@@ -94,6 +94,24 @@ class GeminiStageTransportTriageTests(unittest.TestCase):
         again = persist_terminal_triage(trial_dir=self.trial, stage="slides")
         self.assertEqual(again["status"], "PRIOR_SHA_BOUND_TRIAGE_REUSED_NO_SEND")
 
+    def test_owned_terminal_gemini_ui_error_does_not_prove_api_outage(self):
+        prefix = self.begun("figures")
+        self.finish(prefix, "FIGURES_ATTEMPT_FAILED_NO_AUTO_RETRY")
+        self.log(
+            "[2026-11-06 00:00:00] [INFO] Gemini submission registered via "
+            "new-user-turn+composer-cleared.\n"
+            "[2026-11-06 00:00:01] [WARN] [GEMINI-RESPONSE] "
+            "OWNED_VISIBLE_UI_TERMINAL_ERROR_NO_RESEND\n"
+        )
+        report = persist_terminal_triage(trial_dir=self.trial, stage="figures")
+        self.assertEqual(report["status"],
+                         "REGISTERED_BROWSER_SEND_OWNED_UI_ERROR_NO_RESEND")
+        self.assertTrue(report["owned_browser_send_registered"])
+        self.assertTrue(report["owned_visible_ui_terminal_error_verified"])
+        self.assertFalse(report["provider_outage_proven"])
+        self.assertFalse(report["automatic_resubmission_authorized"])
+        self.assertEqual(report["model_requests_during_diagnosis"], 0)
+
     def nested_crop_log(self):
         staged = self.trial / "source_tree" / "10" / "10.1" / "source.pdf"
         staged.parent.mkdir(parents=True, exist_ok=True)

@@ -259,3 +259,27 @@ def test_invalid_mode_fails_before_gemini_or_file_processing(tmp_path, monkeypat
         run("pages", "crops", 1, 1, 30, False, False)
     assert not calls and not clients
     assert not (crop / "gemini_transport_attempts.json").exists()
+
+def test_owned_gemini_terminal_error_stops_all_fallback_resubmissions(
+    tmp_path, monkeypatch,
+):
+    """Known post-Send UI error is terminal even if generic fallback is enabled."""
+    from selenium_pipeline.gemini_provider_ui_terminal_error import (
+        GeminiOwnedVisibleTerminalError,
+    )
+    monkeypatch.setenv("MICROGEN_COMMUNICATION_MODE", "fallback")
+    monkeypatch.setenv("MICROGEN_SELENIUM_ATTEMPTS", "3")
+    monkeypatch.setenv("MICROGEN_API_ATTEMPTS", "2")
+    calls = []
+
+    def fake_mapper(client, page, folder, **kwargs):
+        calls.append(kwargs["backend_override"])
+        raise GeminiOwnedVisibleTerminalError(
+            "GEMINI_OWNED_VISIBLE_TERMINAL_ERROR_NO_RESEND"
+        )
+
+    run, clients, _crop = make_runner(tmp_path, monkeypatch, fake_mapper)
+    with pytest.raises(RuntimeError, match="no completion claim"):
+        run("pages", "crops", 1, 1, 30, False, False)
+    assert calls == ["browser"], "Must not retry browser or fall through to paid API"
+    assert clients[0].shutdown_calls == 1
