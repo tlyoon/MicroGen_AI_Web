@@ -6,7 +6,9 @@ import unittest
 from unittest.mock import patch
 
 from selenium_pipeline.original_multisource_recovery_campaign import _new_atomic
-from selenium_pipeline.windows_gemini_stage_transport_triage import diagnose
+from selenium_pipeline.windows_gemini_stage_transport_triage import (
+    diagnose, persist_terminal_triage,
+)
 
 
 class GeminiStageTransportTriageTests(unittest.TestCase):
@@ -68,6 +70,41 @@ class GeminiStageTransportTriageTests(unittest.TestCase):
         self.assertFalse(r["original_submission_resend_authorized"])
         self.assertNotIn("KEY_NOT_TO_REPORT", str(r))
         self.assertEqual(before, sorted(self.trial.iterdir()))
+
+    def test_auto_persist_terminal_source_log_sha_and_reject_tampering(self):
+        name = self.begun()
+        self.finish(name, "FIGURES_ATTEMPT_TIMEOUT_NO_AUTO_RETRY")
+        self.log("[microgen-supervisor] OWNED_STAGE_TIMEOUT "
+                 "NO_AUTOMATIC_RESUBMISSION SEND_STATUS_UNVERIFIED")
+        before = sorted(self.trial.iterdir())
+        first = persist_terminal_triage(trial_dir=self.trial, stage="figures")
+        proof = self.trial / "figures_transport_triage.json"
+        self.assertTrue(proof.is_file())
+        self.assertEqual(len(list(self.trial.iterdir())), len(before) + 1)
+        self.assertTrue(first["automatic_terminal_diagnosis"])
+        self.assertEqual(first["model_requests_during_diagnosis"], 0)
+        self.assertIsNotNone(first["terminal_log_sha256"])
+        self.assertEqual(first["status"],
+                         "OWNED_STAGE_TIMEOUT_WITHOUT_VERIFIED_BROWSER_SEND")
+        second = persist_terminal_triage(trial_dir=self.trial, stage="figures")
+        self.assertEqual(second["status"], "PRIOR_SHA_BOUND_TRIAGE_REUSED_NO_SEND")
+        self.assertEqual(second["terminal_result_sha256"],
+                         first["terminal_result_sha256"])
+        self.log("[microgen-supervisor] OWNED_STAGE_TIMEOUT changed log")
+        with self.assertRaisesRegex(ValueError, "diagnosis or evidence changed"):
+            persist_terminal_triage(trial_dir=self.trial, stage="figures")
+        self.assertFalse(first["automatic_resubmission_authorized"])
+        self.assertFalse(first["provider_outage_proven"])
+
+    def test_auto_persist_rejects_result_without_preceding_send_claim(self):
+        _new_atomic(self.trial / "figures_attempt_result.json", {
+            "schema_version": 1, "status": "FIGURES_ATTEMPT_TIMEOUT_NO_AUTO_RETRY",
+            "original_source_sha256": self.sha,
+            "student_publication_authorized": False,
+        })
+        with self.assertRaisesRegex(ValueError, "Result without pre-send"):
+            persist_terminal_triage(trial_dir=self.trial, stage="figures")
+        self.assertFalse((self.trial / "figures_transport_triage.json").exists())
 
     def test_supervisor_timeout_is_classified_without_fabricating_provider_outage(self):
         p = self.begun()
