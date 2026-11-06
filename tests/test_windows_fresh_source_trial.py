@@ -6,7 +6,9 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from selenium_pipeline.windows_fresh_source_trial import run_trial
+from selenium_pipeline.windows_fresh_source_trial import (
+    run_trial, DEFAULT_FIGURE_STAGE_TIMEOUT_SECONDS,
+)
 from selenium_pipeline.original_multisource_recovery_campaign import CampaignRecoveryBlocked
 from selenium_pipeline.evidence_reuse_contract import file_sha256
 
@@ -65,6 +67,7 @@ class FreshIndependentOriginalTests(unittest.TestCase):
                            trial_dir=self.trial, attempt_figures=True,
                            subprocess_run=fake, timeout_seconds=30)
         self.assertEqual(result["status"], "FIGURES_ATTEMPT_TIMEOUT_NO_AUTO_RETRY")
+        self.assertEqual(result["bounded_figure_stage_deadline_seconds"], 30)
         second = run_trial(source_root=self.publisher, section="22.1",
                            trial_dir=self.trial, attempt_figures=True,
                            subprocess_run=fake)
@@ -101,6 +104,9 @@ class FreshIndependentOriginalTests(unittest.TestCase):
             result = run_trial(source_root=self.publisher, section="22.1",
                                trial_dir=self.trial, attempt_figures=True)
         self.assertEqual(result["status"], "FIGURES_ATTEMPT_FAILED_NO_AUTO_RETRY")
+        self.assertEqual(DEFAULT_FIGURE_STAGE_TIMEOUT_SECONDS, 600)
+        self.assertEqual(fake.call_args.kwargs["timeout_seconds"], 600)
+        self.assertEqual(result["bounded_figure_stage_deadline_seconds"], 600)
         self.assertTrue((self.trial / "figures_transport_triage.json").is_file())
         self.assertEqual(
             result["automatic_transport_triage"]["model_requests_during_diagnosis"], 0)

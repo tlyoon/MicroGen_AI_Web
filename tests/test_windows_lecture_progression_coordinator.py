@@ -185,6 +185,9 @@ class WindowsSourceProgressionTests(unittest.TestCase):
         self.assertEqual(result["attempted_stage"], "figures")
         self.assertEqual(result["attempted_stage_status"],
                          "FIGURES_ATTEMPT_FAILED_NO_AUTO_RETRY")
+        self.assertEqual(
+            result["source_stage_receipt"]["bounded_figure_stage_deadline_seconds"],
+            600)
         self.assertEqual(worker.call_count, 1)
         self.assertFalse((self.trial / "stage_slides_started.json").exists())
         self.assertEqual(self.plan()["status"],
