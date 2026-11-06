@@ -48,8 +48,29 @@ print("📘 Starting figure extraction from:", input_doc_path)
 print(f"⚙️  Minimum image size threshold: {ikB:.2f} kB")
 
 # --- Convert PDF pages to PNGs and page-level PDFs ---
+# Each phase is logged before blocking on external PDF/Docling work.
+# The owning Windows runner sets PYTHONUNBUFFERED=1 so these lines survive
+# a bounded stage timeout and can be classified without another model send.
+print("[microgen-phase] LOCAL_FIGURE_PDF_RENDER_START", flush=True)
 pdf_pages = convert_from_path(str(input_doc_path), dpi=200)
 reader = PdfReader(str(input_doc_path))
+print(f"[microgen-phase] LOCAL_FIGURE_PDF_RENDER_DONE pages={len(pdf_pages)}", flush=True)
+
+# Docling's converter can process successive page PDFs. Constructing it
+# inside the per-page loop repeatedly reloads costly model/pipeline state.
+# Reuse the *same* configured converter, with all original OCR/picture flags.
+print("[microgen-phase] LOCAL_FIGURE_DOCLING_INIT_START", flush=True)
+pipeline_options = PdfPipelineOptions(
+    images_scale=1.5,
+    generate_page_images=False,
+    generate_picture_images=True,
+    do_ocr=False,
+    do_table_structure=False,
+)
+doc_converter = DocumentConverter(
+    format_options={InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)}
+)
+print("[microgen-phase] LOCAL_FIGURE_DOCLING_READY", flush=True)
 
 for i, (page_image, pdf_page) in enumerate(zip(pdf_pages, reader.pages), start=1):
     page_dir = pages_root / f"page_{i}"
@@ -67,18 +88,8 @@ for i, (page_image, pdf_page) in enumerate(zip(pdf_pages, reader.pages), start=1
 
     print(f"\n🖼️ Processing {pdf_path.name}...")
 
-    # --- Extract figures using Docling ---
-    pipeline_options = PdfPipelineOptions(
-        images_scale=1.5,
-        generate_page_images=False,
-        generate_picture_images=True,
-        do_ocr=False,
-        do_table_structure=False,
-    )
-    doc_converter = DocumentConverter(
-        format_options={InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)}
-    )
-
+    # --- Extract figures using the single cached Docling converter ---
+    print(f"[microgen-phase] LOCAL_FIGURE_CROP_PAGE_START page={i}", flush=True)
     try:
         conv_res = doc_converter.convert(pdf_path)
         doc = conv_res.document
@@ -96,6 +107,7 @@ for i, (page_image, pdf_page) in enumerate(zip(pdf_pages, reader.pages), start=1
                     print(f"✅ Saved figure: {fig_path.name}")
         if fig_counter == 0:
             print("⚠️  No figures found on this page.")
+        print(f"[microgen-phase] LOCAL_FIGURE_CROP_PAGE_DONE page={i}", flush=True)
 
     except Exception as e:
         print(f"❌ Error extracting figures from {pdf_path.name}: {e}")

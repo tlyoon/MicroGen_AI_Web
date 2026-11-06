@@ -1,11 +1,12 @@
 """Windows Gemini transport triage: synthetic immutable offline evidence."""
 import os
+import json
 from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
 
-from selenium_pipeline.original_multisource_recovery_campaign import _new_atomic
+from selenium_pipeline.original_multisource_recovery_campaign import _new_atomic, _encode
 from selenium_pipeline.windows_gemini_stage_transport_triage import (
     diagnose, persist_terminal_triage,
 )
@@ -70,6 +71,77 @@ class GeminiStageTransportTriageTests(unittest.TestCase):
         self.assertFalse(r["original_submission_resend_authorized"])
         self.assertNotIn("KEY_NOT_TO_REPORT", str(r))
         self.assertEqual(before, sorted(self.trial.iterdir()))
+
+    def nested_crop_log(self):
+        staged = self.trial / "source_tree" / "10" / "10.1" / "source.pdf"
+        staged.parent.mkdir(parents=True, exist_ok=True)
+        staged.write_bytes(b"synthetic source")
+        claim = self.trial / "fresh_trial_contract.json"
+        value = json.loads(claim.read_text("utf-8"))
+        value["staged_source_path"] = str(staged)
+        claim.write_text(_encode(value), encoding="utf-8")
+        nested = staged.parent / ".microgen_work" / "microgen_figures.log"
+        nested.parent.mkdir()
+        return nested
+
+    def test_nested_crop_phase_is_detected_without_falsely_blaming_gemini(self):
+        p = self.begun()
+        self.finish(p, "FIGURES_ATTEMPT_TIMEOUT_NO_AUTO_RETRY")
+        nested = self.nested_crop_log()
+        nested.write_text(
+            "$ python crop_figs_v3.py\n"
+            "[microgen-phase] LOCAL_FIGURE_PDF_RENDER_START\n"
+            "[microgen-phase] LOCAL_FIGURE_PDF_RENDER_DONE pages=3\n"
+            "[microgen-phase] LOCAL_FIGURE_DOCLING_READY\n"
+            "[microgen-phase] LOCAL_FIGURE_CROP_PAGE_START page=2\n",
+            encoding="utf-8")
+        state = diagnose(trial_dir=self.trial)
+        self.assertEqual(state["status"],
+                         "LOCAL_PDF_FIGURE_CROP_PROGRESSED_SEND_UNVERIFIED")
+        self.assertEqual(state["local_crop_phase"], "LOCAL_FIGURE_CROP_PAGE_START")
+        self.assertTrue(state["local_crop_process_seen_in_workspace"])
+        self.assertTrue(state["local_crop_heartbeat_present"])
+        self.assertFalse(state["owned_browser_send_registered"])
+        self.assertFalse(state["provider_outage_proven"])
+        first = persist_terminal_triage(trial_dir=self.trial, stage="figures")
+        self.assertIsNotNone(first["local_crop_log_sha256"])
+        nested.write_text(nested.read_text() + "more progress\\n", encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "diagnosis or evidence changed"):
+            persist_terminal_triage(trial_dir=self.trial, stage="figures")
+
+    def test_windows_temp_directory_aliases_are_canonicalized_consistently(self):
+        p = self.begun()
+        self.finish(p, "FIGURES_ATTEMPT_TIMEOUT_NO_AUTO_RETRY")
+        nested = self.nested_crop_log()
+        nested.write_text("$ python crop_figs_v3.py", encoding="utf-8")
+        # A lexical alias pointing to the SAME local trial must be compared
+        # after both containment operands are canonicalized.
+        (self.trial / "benign_alias").mkdir()
+        alias = self.trial / "benign_alias" / ".."
+        state = diagnose(trial_dir=alias)
+        self.assertEqual(state["status"],
+                         "LOCAL_PDF_FIGURE_CROP_PROGRESSED_SEND_UNVERIFIED")
+        self.assertTrue(state["local_crop_process_seen_in_workspace"])
+
+    def test_prior_diagnostic_before_phase_fields_reuses_without_overwrite(self):
+        p = self.begun()
+        self.finish(p, "FIGURES_ATTEMPT_TIMEOUT_NO_AUTO_RETRY")
+        nested = self.nested_crop_log()
+        diagnostic = self.trial / "figures_transport_triage.json"
+        persist_terminal_triage(trial_dir=self.trial, stage="figures")
+        legacy = json.loads(diagnostic.read_text("utf-8"))
+        for field in ("local_crop_process_seen_in_workspace", "local_crop_phase",
+                      "local_crop_heartbeat_present", "local_crop_log_sha256"):
+            legacy.pop(field)
+        diagnostic.write_text(_encode(legacy), encoding="utf-8")
+        previous_bytes = diagnostic.read_bytes()
+        nested.write_text("$ python crop_figs_v3.py", encoding="utf-8")
+        reused = persist_terminal_triage(trial_dir=self.trial, stage="figures")
+        self.assertEqual(reused["status"], "PRIOR_SHA_BOUND_TRIAGE_REUSED_NO_SEND")
+        self.assertEqual(reused["new_readonly_classification"],
+                         "LOCAL_PDF_FIGURE_CROP_PROGRESSED_SEND_UNVERIFIED")
+        self.assertEqual(diagnostic.read_bytes(), previous_bytes)
+        self.assertFalse(reused["original_submission_resend_authorized"])
 
     def test_auto_persist_terminal_source_log_sha_and_reject_tampering(self):
         name = self.begun()

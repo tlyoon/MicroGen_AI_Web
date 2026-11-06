@@ -26,6 +26,56 @@ _LOCAL_EXTRACTION = re.compile(
     r"(?i)Figure extraction completed successfully\.")
 # No raw stdout, prompts, paths to credentials or provider error arguments.
 MAX_LOG_BYTES = 4_000_000
+_CROP_HEARTBEAT = re.compile(
+    r"(?m)^\[microgen-phase\] (LOCAL_FIGURE_[A-Z_]+)"
+    r"(?: (?:page|pages)=\d+)?\s*$")
+
+
+def _local_crop_evidence(trial: Path, contract: dict) -> dict:
+    """Safe phase-only observation from the staged, source-bound crop log.
+
+    The nested Docling worker writes in .microgen_work and may not emit any
+    lines to the outer subprocess's captured log before being terminated.
+    Report only phase tokens and hashes, never raw textbook/path/model data.
+    """
+    observed = {
+        "local_crop_process_seen_in_workspace": False,
+        "local_crop_phase": "NOT_OBSERVED",
+        "local_crop_heartbeat_present": False,
+        "local_crop_log_sha256": None,
+    }
+    source = contract.get("staged_source_path")
+    if type(source) is not str or not source:
+        return observed
+    staged = Path(source)
+    # Both operands must be canonicalized identically: Windows CI may
+    # expose LOCALAPPDATA and TemporaryDirectory through different aliases.
+    # Comparing Path.resolve() against Path.absolute() silently hides valid
+    # nested crop evidence on those hosts.
+    if (not staged.is_absolute() or
+            not staged.resolve(strict=False).is_relative_to(
+                trial.resolve(strict=True)) or
+            staged.is_symlink() or staged.parent.is_symlink()):
+        return observed
+    work = staged.parent / ".microgen_work"
+    log = work / "microgen_figures.log"
+    if (work.is_symlink() or log.is_symlink() or not log.is_file()):
+        return observed
+    if log.stat().st_size > MAX_LOG_BYTES:
+        raise ValueError("Untrusted nested local figure crop log")
+    raw = log.read_text(encoding="utf-8", errors="replace")
+    phases = _CROP_HEARTBEAT.findall(raw)
+    observed["local_crop_log_sha256"] = file_sha256(log)
+    observed["local_crop_process_seen_in_workspace"] = (
+        "crop_figs_v3.py" in raw or bool(phases))
+    observed["local_crop_heartbeat_present"] = bool(phases)
+    if phases:
+        observed["local_crop_phase"] = phases[-1]
+    elif observed["local_crop_process_seen_in_workspace"]:
+        observed["local_crop_phase"] = "CROP_PROCESS_STARTED_NO_HEARTBEAT"
+    if "Figure extraction completed successfully." in raw:
+        observed["local_crop_phase"] = "LOCAL_FIGURE_CROP_COMPLETED"
+    return observed
 
 
 def diagnose(*, trial_dir: Path, stage: str = "figures") -> dict:
@@ -81,8 +131,14 @@ def diagnose(*, trial_dir: Path, stage: str = "figures") -> dict:
                 or log_path.stat().st_size > MAX_LOG_BYTES):
             raise ValueError("Untrusted original-stage evidence log")
         raw = log_path.read_text(encoding="utf8", errors="replace")
+    crop = (_local_crop_evidence(trial, contract) if stage == "figures"
+            else {"local_crop_process_seen_in_workspace": False,
+                  "local_crop_phase": "NOT_APPLICABLE",
+                  "local_crop_heartbeat_present": False,
+                  "local_crop_log_sha256": None})
     session = bool(_ATTACH.search(raw)) if backend == "selenium" else False
-    local_extract = bool(_LOCAL_EXTRACTION.search(raw))
+    local_extract = (bool(_LOCAL_EXTRACTION.search(raw)) or
+                     crop["local_crop_phase"] == "LOCAL_FIGURE_CROP_COMPLETED")
     send = bool(_SEND_PROOF.search(raw)) if backend == "selenium" else False
     supervisor_timeout = (
         "[microgen-supervisor] OWNED_STAGE_TIMEOUT" in raw)
@@ -99,6 +155,8 @@ def diagnose(*, trial_dir: Path, stage: str = "figures") -> dict:
         label = "LOCAL_EXTRACTION_DONE_BROWSER_SESSION_SEEN_SEND_UNVERIFIED"
     elif session:
         label = "BROWSER_SESSION_SEEN_SEND_UNVERIFIED"
+    elif crop["local_crop_process_seen_in_workspace"]:
+        label = "LOCAL_PDF_FIGURE_CROP_PROGRESSED_SEND_UNVERIFIED"
     elif supervisor_timeout:
         label = "OWNED_STAGE_TIMEOUT_WITHOUT_VERIFIED_BROWSER_SEND"
     elif backend == "api":
@@ -111,6 +169,7 @@ def diagnose(*, trial_dir: Path, stage: str = "figures") -> dict:
         "status": label,
         "terminal_stage_receipt_status": state or "MISSING_UNRESOLVED",
         "local_figure_extraction_finished_in_log": local_extract,
+        **crop,
         "browser_debug_session_seen_in_log": session,
         "owned_browser_send_registered": send,
         "owned_stage_supervisor_timeout_recorded": supervisor_timeout,
@@ -170,6 +229,34 @@ def persist_terminal_triage(*, trial_dir: Path, stage: str) -> dict:
     if diagnostic_file.exists() or diagnostic_file.is_symlink():
         prior = _verified_json(diagnostic_file)
         if prior != report:
+            # Older evidence was recorded before optional nested Docling phase
+            # inspection existed. Keep its original classification immutable,
+            # but safely expose the newly observed phase on read-only reuse.
+            # Exact original-result/log SHA and all historical fields must
+            # still agree: an actual change to either receipt remains fatal.
+            new_fields = {
+                "local_crop_process_seen_in_workspace", "local_crop_phase",
+                "local_crop_heartbeat_present", "local_crop_log_sha256",
+            }
+            only_new_fields = set(report) - set(prior)
+            compatible_status = (
+                prior.get("status") == report["status"] or
+                (prior.get("status") == "SOURCE_STAGE_HALTED_NO_REGISTERED_SEND"
+                 and report["status"] ==
+                    "LOCAL_PDF_FIGURE_CROP_PROGRESSED_SEND_UNVERIFIED"))
+            old_claim_safe = (
+                prior.get("automatic_resubmission_authorized") is False
+                and prior.get("model_requests_during_diagnosis") == 0
+                and prior.get("automatic_terminal_diagnosis") is True
+                and prior.get("student_publication_authorized") is False)
+            compatible = (
+                old_claim_safe and compatible_status
+                and only_new_fields.issubset(new_fields)
+                and set(prior).issubset(report)
+                and all(prior[k] == report[k] for k in prior if k != "status"))
+            if compatible:
+                return {**prior, "status": "PRIOR_SHA_BOUND_TRIAGE_REUSED_NO_SEND",
+                        "new_readonly_classification": report["status"]}
             raise ValueError("Historical stage diagnosis or evidence changed")
         return {**prior, "status": "PRIOR_SHA_BOUND_TRIAGE_REUSED_NO_SEND"}
     _new_atomic(diagnostic_file, report)
