@@ -61,6 +61,39 @@ class GeminiProviderVisibleUIErrorTests(unittest.TestCase):
                     text=text, capture_status=capture, generating=generating)
                 self.assertFalse(rejected["known_gemini_ui_error_text_observed"])
 
+    def test_third_owned_gemini_model_error_reclassified_without_resend(self):
+        third = ("Gemini said\n\nI'm having a hard time fulfilling your "
+                 "request. Can I help you with something else instead?")
+        result = classify_visible_reply(
+            text=third, capture_status="visible_model_response")
+        self.assertTrue(result["known_gemini_ui_error_text_observed"])
+        self.assertEqual(result["known_gemini_ui_error_code"],
+                         "GEMINI_MODEL_COULD_NOT_FULFILL_REQUEST")
+        self.assertFalse(result["provider_server_outage_proven"])
+        self.assertFalse(result["browser_capture_total_failure_proven"])
+        self.assertFalse(result["original_source_retry_authorized"])
+        self.assertNotIn(third, str(result))
+        for changed, status, generating in (
+            ("Please analyze: " + third, "visible_model_response", False),
+            (third + " additional explanation", "visible_model_response", False),
+            (third, "unavailable", False),
+            (third, "visible_model_response", True),
+        ):
+            self.assertFalse(classify_visible_reply(
+                text=changed, capture_status=status, generating=generating
+            )["known_gemini_ui_error_text_observed"])
+        saved = quarantine_snapshot({
+            "text": third, "capture_status": "visible_model_response",
+            "generating": False,
+        }, directory=self.root, reason="strict_json_capture_exception")
+        validated = inspect_quarantine(
+            metadata_path=saved["meta_path"], allowed_root=self.root)
+        self.assertTrue(validated["quarantine_payload_sha256_verified"])
+        self.assertEqual(validated["known_gemini_ui_error_code"],
+                         "GEMINI_MODEL_COULD_NOT_FULFILL_REQUEST")
+        self.assertFalse(validated["new_model_or_tts_calls"])
+        self.assertFalse(validated["original_source_retry_authorized"])
+
     def test_owned_gemini_terminal_guard_fails_closed_on_other_tab(self):
         from selenium_pipeline.gemini_provider_ui_terminal_error import (
             GeminiOwnedVisibleTerminalError, require_no_owned_terminal_error)
@@ -104,7 +137,8 @@ class GeminiProviderVisibleUIErrorTests(unittest.TestCase):
         tree = ast.parse(source.read_text(encoding="utf8"))
         func = next(n for n in tree.body if isinstance(n, ast.FunctionDef)
                     and n.name == "wait_for_mapping_response_ready")
-        error = "Sorry, something went wrong. Please try your request again."
+        error = ("Gemini said\n\nI'm having a hard time fulfilling your "
+                 "request. Can I help you with something else instead?")
 
         class FakeDriver:
             current_window_handle = "microgen_owned"
@@ -119,8 +153,8 @@ class GeminiProviderVisibleUIErrorTests(unittest.TestCase):
             "os": os, "time": time, "log": lambda *v: emitted.append(v),
             "clean_model_text": lambda text: text,
             "get_latest_response_text": lambda driver: error,
-            "_looks_like_gemini_failure_text":
-                lambda text: "something went wrong" in text.lower(),
+            # The production watcher must call shared strict classification
+            # without any separate handwritten substring error list.
             "parse_mapping_lines": lambda text: [],
             "GeminiGenerationStalled": RuntimeError,
         }

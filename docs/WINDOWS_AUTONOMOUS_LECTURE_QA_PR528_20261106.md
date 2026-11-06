@@ -53,3 +53,46 @@ New source-free Windows fault-injection tests cover success at the *technical-on
 **Not yet complete:** A new original lecture successfully passing figures → slides → narration → Gemini Flash-Lite TTS → highlighted multipart MP4; autonomous multimodal source-figure meaning and audible voice-continuity checks; reviewed historical PR dependencies; formal production installation and separate publication permission. Do not revise the definition of release success to match incomplete evidence.
 
 No Serway §10.1/10.2/11.1/11.2 replay, paid API/TTS, local LLM, non-Dell machine, Linux CI, or student publication.
+
+## 6 November 2026 — Source-sized synthetic Gemini health: one-shot failure
+
+A new, **one-time** Gemini web diagnostic profile was added to the existing
+`windows_gemini_differential_probe`, reusing the prior synthetic 1,200–3,000
+character harmless test prompt generator and the existing immutable Send claim,
+owned-tab Selenium capture, SHA-bound receipt verifier and no-resend policy.
+The previous short profile remains backward-compatible and unchanged.
+
+Live Dell-115 test at
+`%LOCALAPPDATA%\MicroGen_AI_Web_Checkpoints\20261106_PR528_SOURCE_SIZED_SYNTHETIC_GEMINI_CANARY_V1`:
+1,535-character text-only prompt, authenticated Gemini Flash, positively
+registered browser Send, ONE model request, no PDF or API/TTS. The *exact*
+requested JSON was **not** returned. Immutable result
+`NO_VERIFIED_RESPONSE`, bridge stage
+`OWNED_RESPONSE_UNVERIFIED_QUARANTINED`. The independently owned model-reply
+quarantine captured 104 characters of a terminal UI message:
+`Gemini said ... I'm having a hard time fulfilling your request...`.
+The SHA-verified quarantined text was inspected *read-only*; it is now
+recognized by the shared classifier as
+`GEMINI_MODEL_COULD_NOT_FULFILL_REQUEST`, not an HTTP 503/504,
+login failure, API key-rotation failure, or proven total browser capture failure.
+
+The normal `map_and_rename_selenium_v8` figure-mapping watcher now asks that
+ONE strict owned-model-response classifier to inspect all completed responses,
+rather than using a separate outdated string heuristic. It stops safely for
+recognized terminal errors without retry or paid API fallback.
+
+Read-only provider route preflight now distinguishes prior source-sized
+success from prior short success. A verified SHA-bound source-sized failure
+plus a verified owned-model UI error suppresses new automatic Gemini-browser
+selection and never resets any old source attempt. The actual read-only route
+reported `CHATGPT_BROWSER_AVAILABLE_FOR_A_DISTINCT_NEW_JOB_ONLY`, with both
+logins authenticated and **no authorization for automatic generation**.
+This is an alternative *candidate* for a future distinct source, not proof of
+long-form ChatGPT output. No service trial was repeated and no previously
+failed Serway PDF was resent.
+
+Local tests: **54 targeted pytest PASS** covering normal figure-mapper failure,
+strict owned-model UI variant, immutable quarantine, source-sized/short
+profile isolation and no-resend, and provider selection. GitHub exact-head
+Windows CI still needs fresh verification after these follow-on changes.
+The earlier short Gemini canary and its genuine success remain intact.

@@ -31,6 +31,21 @@ _OUTCOMES = ("VALID_CANARY_RESPONSE", "RESPONSE_RETURNED_BUT_NONCONFORMING",
 _SHA = hashlib.sha256(_PROMPT.encode("utf8")).hexdigest()
 
 
+def _profile_spec(profile: str):
+    """Keep short historical claims stable; reuse existing longer safe probe."""
+    if profile == "short":
+        return _PROMPT, _EXPECTED, _SHA
+    if profile == "source_sized":
+        from .one_shot_gemini_source_health_probe import (
+            make_source_sized_probe, EXPECTED,
+        )
+        prompt = make_source_sized_probe()
+        if not 1200 <= len(prompt) <= 3000:
+            raise ValueError("Source-sized canary exceeds established bounded scope")
+        return prompt, EXPECTED, hashlib.sha256(prompt.encode("utf8")).hexdigest()
+    raise ValueError("Unrecognized source-free Gemini diagnostic profile")
+
+
 def _code(error: Exception) -> int | None:
     try:
         code = getattr(error, "code", None)
@@ -41,11 +56,12 @@ def _code(error: Exception) -> int | None:
         return None
 
 
-def _valid(raw: str) -> bool:
+def _valid(raw: str, profile: str = "short") -> bool:
     if type(raw) is not str or len(raw) > 5000:
         return False
     try:
-        return json.loads(raw.strip()) == _EXPECTED
+        _, expected, _ = _profile_spec(profile)
+        return json.loads(raw.strip()) == expected
     except (ValueError, UnicodeError):
         return False
 
@@ -86,11 +102,17 @@ def _read(path: Path) -> dict | None:
             or record.get("student_publication_authorized") is not False):
         raise ValueError("Invalid existing Gemini canary record")
     claim = _verified_json(path.parent / f"{backend}_probe_started.json")
+    profile = claim.get("probe_profile", "short")
+    try:
+        _, _, profile_sha = _profile_spec(profile)
+    except ValueError as exc:
+        raise ValueError("Unknown immutable canary claim profile") from exc
     if (claim.get("schema_version") != 1
             or claim.get("backend") != backend
-            or claim.get("generic_prompt_sha256") != _SHA
+            or claim.get("generic_prompt_sha256") != profile_sha
             or claim.get("content_model") != CONTENT_MODEL
-            or claim.get("one_submission_only") is not True):
+            or claim.get("one_submission_only") is not True
+            or record.get("probe_profile", "short") != profile):
         raise ValueError("Canary result has no matching immutable send intent")
     # Original PR502 browser canary has no claim_sha256. Validate its exact
     # independent physical claim without retroactively altering any bytes.
@@ -101,11 +123,15 @@ def _read(path: Path) -> dict | None:
     return record
 
 
-def _request_browser(prompt: str) -> str:
+def _request_browser(prompt: str, *, profile: str = "short") -> str:
     from .series_gemini import _browser_request
     # Only the owned browser tab and its attributed response may be captured.
-    return _browser_request(prompt, [], port=9222, wait_cap_s=90,
-                            min_chars=8, accept_fn=_valid)
+    # This longer-input check uses NO original source and no model/API retry.
+    return _browser_request(
+        prompt, [], port=9222,
+        wait_cap_s=(150 if profile == "source_sized" else 90),
+        min_chars=8, accept_fn=lambda raw: _valid(raw, profile=profile),
+    )
 
 
 def _request_api(prompt: str) -> str:
@@ -139,7 +165,7 @@ def _request_api(prompt: str) -> str:
 def run_canary(*, checkpoint_dir: Path, backend: str,
                confirm_api_diagnostic_cost: bool = False,
                browser_transport=None, api_transport=None,
-               browser_ready=None) -> dict:
+               browser_ready=None, profile: str = "short") -> dict:
     """One optional backend-specific new canary, no original files/TTS.
 
     Caller may inject *test-only* transports; CLI uses real owned services.
@@ -150,11 +176,27 @@ def run_canary(*, checkpoint_dir: Path, backend: str,
         raise ValueError("Explicit --confirm-api-diagnostic-cost required")
     if confirm_api_diagnostic_cost and backend != "api":
         raise ValueError("API diagnostic cost consent never applies to browser")
+    if profile != "short" and backend != "browser":
+        raise ValueError("Source-sized diagnostic is browser-only, never paid API")
+    prompt, _, prompt_sha = _profile_spec(profile)
     root = _local_only(checkpoint_dir)
     root.mkdir(parents=True, exist_ok=True)
     claim = root / f"{backend}_probe_started.json"
     result = root / f"{backend}_probe_result.json"
     if claim.exists() or claim.is_symlink():
+        # A preclaim might have been partially written by an older crashed
+        # worker. Never interpret that as a fresh sending opportunity.
+        # Only *complete* trusted receipts require canonical immutable proof.
+        saved_claim = None
+        try:
+            if (claim.is_file() and not claim.is_symlink()
+                    and 0 < claim.stat().st_size <= 4096):
+                saved_claim = json.loads(claim.read_text(encoding="utf8"))
+        except (OSError, ValueError, UnicodeError, TypeError):
+            pass
+        if (type(saved_claim) is dict
+                and saved_claim.get("probe_profile", "short") != profile):
+            raise ValueError("Different canary profiles cannot reuse same Send claim")
         if result.is_file():
             previous = _read(result)
             return {**previous, "status": "PRIOR_CANARY_RECEIPT_REUSED"}
@@ -196,7 +238,8 @@ def run_canary(*, checkpoint_dir: Path, backend: str,
     # Claim is durably persisted before any API or browser submission.
     _write_new(claim, {
         "schema_version": 1, "backend": backend,
-        "content_model": CONTENT_MODEL, "generic_prompt_sha256": _SHA,
+        "content_model": CONTENT_MODEL, "generic_prompt_sha256": prompt_sha,
+        "probe_profile": profile,
         "one_submission_only": True,
         "explicit_api_content_cost": backend == "api",
         "no_original_source_attached": True,
@@ -207,7 +250,9 @@ def run_canary(*, checkpoint_dir: Path, backend: str,
         "status": "GENERIC_CANARY_TERMINAL",
         "content_model": CONTENT_MODEL,
         "claim_sha256": file_sha256(claim),
-        "generic_prompt_sha256": _SHA,
+        "generic_prompt_sha256": prompt_sha,
+        "probe_profile": profile,
+        "prompt_characters": len(prompt),
         "outcome": "NO_VERIFIED_RESPONSE",
         "error_type": None,
         "verified_api_http_status": None,
@@ -220,12 +265,13 @@ def run_canary(*, checkpoint_dir: Path, backend: str,
         "existing_original_source_retry_permitted": False,
     }
     try:
-        transport = ((browser_transport or _request_browser) if backend == "browser"
-                     else (api_transport or _request_api))
-        raw = transport(_PROMPT)
+        transport = ((browser_transport or
+                      (lambda text: _request_browser(text, profile=profile)))
+                     if backend == "browser" else (api_transport or _request_api))
+        raw = transport(prompt)
         answer["response_character_count"] = (
             min(len(raw), 5000) if isinstance(raw, str) else 0)
-        answer["outcome"] = ("VALID_CANARY_RESPONSE" if _valid(raw)
+        answer["outcome"] = ("VALID_CANARY_RESPONSE" if _valid(raw, profile=profile)
                              else "RESPONSE_RETURNED_BUT_NONCONFORMING")
     except Exception as error:
         # Never persist API key, exception .args, original prompt or raw
@@ -268,7 +314,11 @@ def classify(*, browser: dict | None, api: dict | None,
     elif b_bad and a_bad:
         label = "SERVICE_OR_NETWORK_OR_BOTH_TRANSPORTS_SUSPECTED"
     elif b_ok:
-        label = "BROWSER_SHORT_CANARY_WORKS_LONG_FORM_NOT_CERTIFIED"
+        label = (
+            "BROWSER_SOURCE_SIZED_INPUT_CANARY_OK_FULL_LESSON_NOT_CERTIFIED"
+            if browser.get("probe_profile", "short") == "source_sized"
+            else "BROWSER_SHORT_CANARY_WORKS_LONG_FORM_NOT_CERTIFIED"
+        )
     elif a_ok and browser_authenticated is False:
         label = "BROWSER_AUTHENTICATION_OR_CAPTURE_PROBLEM"
     elif a_ok:
@@ -286,6 +336,11 @@ def classify(*, browser: dict | None, api: dict | None,
         "metadata_reachable_not_generation_proof": metadata_reachable,
         "api_structured_http_status": api_http_status,
         "browser_canary": b or "NOT_TESTED",
+        "browser_canary_profile": (
+            browser.get("probe_profile", "short") if browser else "NOT_TESTED"),
+        "source_sized_text_input_response_verified": bool(
+            b_ok and browser and browser.get("probe_profile") == "source_sized"),
+        "source_sized_input_is_not_full_lecture_generation": True,
         "api_canary": a or "NOT_TESTED",
         "provider_server_outage_proven": False,
         "cause_estimate_not_causal_proof": True,
@@ -300,6 +355,9 @@ def main(argv=None) -> int:
     ap.add_argument("--inspect-browser", action="store_true")
     ap.add_argument("--probe-api-model-metadata-once", action="store_true")
     ap.add_argument("--browser-canary-once", action="store_true")
+    ap.add_argument("--browser-canary-profile",
+                    choices=("short", "source_sized"), default="short",
+                    help="Source-sized profile sends 1.2-3k synthetic characters; never a PDF")
     ap.add_argument("--api-canary-once", action="store_true")
     ap.add_argument("--confirm-api-diagnostic-cost", action="store_true")
     ap.add_argument("--canary-root", type=Path)
@@ -314,6 +372,8 @@ def main(argv=None) -> int:
         ap.error("API canary requires explicit --confirm-api-diagnostic-cost")
     if args.confirm_api_diagnostic_cost and not args.api_canary_once:
         ap.error("API cost consent without an explicit canary request is invalid")
+    if args.browser_canary_profile != "short" and not args.browser_canary_once:
+        ap.error("Source-sized profile requires a fresh explicit browser canary")
     if (args.browser_canary_once or args.api_canary_once
             or args.register_api_capacity_from_canary) and not args.canary_root:
         ap.error("Explicit external LOCALAPPDATA --canary-root required")
@@ -329,7 +389,8 @@ def main(argv=None) -> int:
         browser = _read(root / "browser_probe_result.json")
         api = _read(root / "api_probe_result.json")
     if args.browser_canary_once:
-        browser = run_canary(checkpoint_dir=args.canary_root, backend="browser")
+        browser = run_canary(checkpoint_dir=args.canary_root, backend="browser",
+                             profile=args.browser_canary_profile)
     if args.api_canary_once:
         api = run_canary(checkpoint_dir=args.canary_root, backend="api",
                          confirm_api_diagnostic_cost=True)

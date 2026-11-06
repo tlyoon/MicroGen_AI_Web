@@ -56,7 +56,7 @@ def recommend_routes(*, gemini_browser: dict, chatgpt_browser: dict,
     # inspect() via the immutable on-disk Send claim and response digest.
     # It proves only that one source-free model response was captured, not
     # current long-form capacity or authorization to dispatch textbooks.
-    short_browser_response_observed = (
+    verified_browser_response_observed = (
         browser_canary is not None
         and browser_canary.get("schema_version") == 1
         and browser_canary.get("backend") == "browser"
@@ -68,6 +68,16 @@ def recommend_routes(*, gemini_browser: dict, chatgpt_browser: dict,
         and browser_canary.get("paid_api_content_may_have_occurred") is False
         and browser_canary.get("source_pdf_transmitted") is False
         and browser_canary.get("student_publication_authorized") is False
+    )
+    short_browser_response_observed = (
+        verified_browser_response_observed
+        and browser_canary.get("probe_profile", "short") == "short"
+    )
+    source_sized_browser_response_observed = (
+        verified_browser_response_observed
+        and browser_canary.get("probe_profile") == "source_sized"
+        and type(browser_canary.get("prompt_characters")) is int
+        and 1200 <= browser_canary["prompt_characters"] <= 3000
     )
     ui_error_observed = (
         owned_ui_error is not None
@@ -113,6 +123,8 @@ def recommend_routes(*, gemini_browser: dict, chatgpt_browser: dict,
         route = "CHATGPT_BROWSER_AVAILABLE_FOR_A_DISTINCT_NEW_JOB_ONLY"
     elif gemini_ready and not gemini_not_healthy_enough_to_select:
         route = (
+            "GEMINI_BROWSER_PRIOR_SOURCE_SIZED_INPUT_OK_FULL_LESSON_UNTESTED"
+            if source_sized_browser_response_observed else
             "GEMINI_BROWSER_PRIOR_SHORT_CANARY_OK_LONG_FORM_UNTESTED"
             if short_browser_response_observed else
             "GEMINI_BROWSER_COMPOSER_READY_GENERATION_NOT_CERTIFIED"
@@ -130,7 +142,10 @@ def recommend_routes(*, gemini_browser: dict, chatgpt_browser: dict,
         "prior_source_free_browser_canary_unverified": bool(prior_response_failed),
         "prior_short_browser_generation_success_recorded":
             bool(short_browser_response_observed),
+        "prior_source_sized_text_input_success_recorded":
+            bool(source_sized_browser_response_observed),
         "prior_short_success_never_certifies_current_long_form": True,
+        "prior_source_sized_input_never_certifies_full_lecture": True,
         "owned_gemini_ui_error_sha_verified": bool(ui_error_observed),
         "gemini_browser_auto_selection_suppressed_by_prior_evidence":
             bool(gemini_not_healthy_enough_to_select),

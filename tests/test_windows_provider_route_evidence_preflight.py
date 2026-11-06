@@ -198,6 +198,44 @@ class WindowsProviderRoutePreflightTests(unittest.TestCase):
             browser_canary=untrusted, owned_ui_error=None
         )["prior_short_browser_generation_success_recorded"])
 
+    def test_source_sized_synthetic_canary_is_not_misreported_as_short_or_lecture(self):
+        evidence = {
+            "schema_version": 1, "backend": "browser",
+            "outcome": "VALID_CANARY_RESPONSE",
+            "status": "GENERIC_CANARY_TERMINAL",
+            "probe_profile": "source_sized",
+            "prompt_characters": 1535,
+            "response_character_count": 39,
+            "new_model_generation_calls": 1,
+            "paid_api_content_may_have_occurred": False,
+            "source_pdf_transmitted": False,
+            "student_publication_authorized": False,
+        }
+        result = self.recommend(browser_canary=evidence, owned_ui_error=None)
+        self.assertEqual(result["suggested_new_unsent_job_route"],
+                         "GEMINI_BROWSER_PRIOR_SOURCE_SIZED_INPUT_OK_FULL_LESSON_UNTESTED")
+        self.assertTrue(result["prior_source_sized_text_input_success_recorded"])
+        self.assertFalse(result["prior_short_browser_generation_success_recorded"])
+        self.assertTrue(result["prior_source_sized_input_never_certifies_full_lecture"])
+        self.assertFalse(result["gemini_browser_generation_proven_healthy"])
+        self.assertFalse(result["automatic_new_model_generation_authorized"])
+        self.assertFalse(result["student_publication_authorized"])
+        for changed in (
+            {**evidence, "prompt_characters": 3001},
+            {**evidence, "outcome": "NO_VERIFIED_RESPONSE"},
+            {**evidence, "source_pdf_transmitted": True},
+        ):
+            self.assertFalse(self.recommend(
+                browser_canary=changed, owned_ui_error=None
+            )["prior_source_sized_text_input_success_recorded"])
+        # An independently verified prior source-bound terminal UI error
+        # always takes precedence over a positive source-free canary.
+        blocked = self.recommend(browser_canary=evidence)
+        self.assertTrue(blocked["gemini_browser_auto_selection_suppressed_by_prior_evidence"])
+        self.assertNotEqual(
+            blocked["suggested_new_unsent_job_route"],
+            "GEMINI_BROWSER_PRIOR_SOURCE_SIZED_INPUT_OK_FULL_LESSON_UNTESTED")
+
     def test_preflight_invokes_no_model_transport_or_source_operations(self):
         with patch(
             "selenium_pipeline.rich_mapping_provider_readiness.inspect_provider",

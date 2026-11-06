@@ -556,7 +556,10 @@ def wait_for_mapping_response_ready(client, baseline_text: str = "", timeout: fl
         # never resubmit the already registered request. The shared guard
         # checks the exact response in the MicroGen-owned tab, not generic
         # page text, clipboard data or someone else's browser conversation.
-        if cur and _looks_like_gemini_failure_text(cur) and not generating:
+        if cur and not generating:
+            # Classify all completed owned responses through ONE strict
+            # shared model-error contract. Do not maintain a second
+            # brittle substring list that misses new Gemini UI variants.
             from selenium_pipeline.gemini_provider_ui_terminal_error import (
                 GeminiOwnedVisibleTerminalError, require_no_owned_terminal_error,
             )
