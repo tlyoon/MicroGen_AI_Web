@@ -1011,6 +1011,51 @@ def beamer_stack_sanity_check(
     return len(reasons) == 0, reasons
 
 
+def _reconcile_existing_submitted_slides(client, *, wait_s: float = 18.0) -> str:
+    """Recover a completed Beamer reply in the SAME already-owned Gemini tab.
+
+    Uses the shared strict, owner-bound capture/Copy recovery from the normal
+    Selenium transport. Does not navigate, upload, click Send or change models.
+    Unknown tab ownership or an incomplete/streaming response fails closed.
+    """
+    from selenium_pipeline.gemini_response_recovery import (
+        poll_existing_owned_response, response_snapshot_with_scoped_copy,
+    )
+
+    driver = client.driver
+    owned = getattr(client, "_automation_tab", None)
+    if driver is None or not owned:
+        return ""
+
+    def full_beamer(raw: str) -> bool:
+        if not isinstance(raw, str):
+            return False
+        latex = extract_fenced_latex_block(raw) or raw
+        return all(part in latex for part in (
+            r"\documentclass", r"\begin{document}", r"\begin{frame}",
+            r"\end{frame}", r"\end{document}",
+        ))
+
+    def read_existing():
+        return response_snapshot_with_scoped_copy(
+            driver, owned,
+            copy_response=gemsel._copy_via_toolbar_copy_button,
+            accept_fn=full_beamer,
+        )
+
+    try:
+        recovered, _snapshot = poll_existing_owned_response(
+            read_existing, accept_fn=full_beamer,
+            wait_s=min(max(float(wait_s), 1.0), 30.0), poll_s=1.5,
+        )
+        if recovered:
+            return (extract_fenced_latex_block(recovered) or recovered).strip()
+    except Exception:
+        # An unreadable/changed UI is not a reason to resend original source.
+        pass
+    return ""
+
+
 def send_prompt_and_capture_transport_block(
     client: "gemsel.GeminiSeleniumClient",
     instruction_text: str,
@@ -1022,49 +1067,81 @@ def send_prompt_and_capture_transport_block(
     if not client.type_prompt_text(instruction_text, retries=3):
         raise RuntimeError("Could not type into Gemini prompt field after retries.")
 
-    if not client.click_send_with_fallbacks(retries=3):
-        raise RuntimeError("Could not send the prompt after retries.")
+    # One registered browser Send per source stage. Do not try to re-send
+    # an already uncertain prompt via vendor fallback retries.
+    try:
+        send_registered = client.click_send_with_fallbacks(retries=1)
+    except Exception as exc:
+        raise gemsel.GeminiPostSubmitUnverified(
+            "SEND_OUTCOME_UNVERIFIED_NO_RESEND"
+        ) from exc
+    if not send_registered:
+        raise gemsel.GeminiPostSubmitUnverified(
+            "SEND_OUTCOME_UNVERIFIED_NO_RESEND"
+        )
 
-    # -----------------------------
-    # First choice: use Gemini's own Copy action
-    # -----------------------------
-    copied = capture_transport_block_via_copy_icon(client, wait_cap=wait_cap, retries=8)
-    if copied:
-        return copied.strip()
+    try:
+        # Prefer Gemini's response-scoped Copy action, never arbitrary clipboard.
+        copied = capture_transport_block_via_copy_icon(
+            client, wait_cap=wait_cap, retries=8,
+        )
+        if copied and r"\documentclass" in copied and r"\end{document}" in copied:
+            return copied.strip()
 
-    # -----------------------------
-    # Last-resort fallback: DOM scrape
-    # -----------------------------
-    _wait_until_generation_finishes(client.driver, timeout=float(wait_cap), poll=0.5)
+        # Fall back to attributed same-tab DOM response, with complete structure.
+        _wait_until_generation_finishes(
+            client.driver, timeout=float(wait_cap), poll=0.5,
+        )
+        deadline = time.time() + 20.0
+        best = ""
+        stable = 0
+        while time.time() < deadline:
+            block = extract_longest_codeblock_from_latest_response(client.driver)
+            if block:
+                if block == best:
+                    stable += 1
+                else:
+                    best = block
+                    stable = 0
+                if (r"\documentclass" in block and r"\end{document}" in block
+                        and stable >= 1):
+                    return block.strip()
+            time.sleep(0.8)
 
-    deadline = time.time() + 20.0
-    best = ""
-    stable = 0
+        fallback = extract_latest_response_text_from_dom(client.driver).strip()
+        fenced = extract_fenced_latex_block(fallback) if fallback else ""
+        candidate = fenced or fallback
+        if (candidate and r"\documentclass" in candidate
+                and r"\end{document}" in candidate):
+            return candidate.strip()
+    except Exception as exc:
+        # The Send is already registered. Re-observe only the same MicroGen
+        # owned tab. Never reload the PDF, click Send, or switch providers.
+        recovered = _reconcile_existing_submitted_slides(client, wait_s=18)
+        if recovered:
+            log("[GEMINI-RESPONSE] EXISTING_OWNED_BEAMER_RESPONSE_RECOVERED_NO_SEND")
+            return recovered
+        log(
+            "[GEMINI-RESPONSE] POST_SUBMIT_NO_ATTRIBUTED_RESPONSE_NO_RESEND: "
+            "reply unverified; provider versus browser DOM unknown.",
+            "WARN",
+        )
+        raise gemsel.GeminiPostSubmitUnverified(
+            "POST_SUBMIT_NO_ATTRIBUTED_RESPONSE_NO_RESEND"
+        ) from exc
 
-    while time.time() < deadline:
-        block = extract_longest_codeblock_from_latest_response(client.driver)
-
-        if block:
-            if block == best:
-                stable += 1
-            else:
-                best = block
-                stable = 0
-
-            if "\\documentclass" in block and "\\end{document}" in block and stable >= 1:
-                return block.strip()
-
-        time.sleep(0.8)
-
-    fallback = extract_latest_response_text_from_dom(client.driver).strip()
-    if fallback:
-        fenced = extract_fenced_latex_block(fallback)
-        if fenced:
-            return fenced.strip()
-        return fallback
-
-    return ""
-
+    recovered = _reconcile_existing_submitted_slides(client, wait_s=18)
+    if recovered:
+        log("[GEMINI-RESPONSE] EXISTING_OWNED_BEAMER_RESPONSE_RECOVERED_NO_SEND")
+        return recovered
+    log(
+        "[GEMINI-RESPONSE] POST_SUBMIT_NO_ATTRIBUTED_RESPONSE_NO_RESEND: "
+        "no complete Beamer answer; do not retry the original source.",
+        "WARN",
+    )
+    raise gemsel.GeminiPostSubmitUnverified(
+        "POST_SUBMIT_NO_ATTRIBUTED_RESPONSE_NO_RESEND"
+    )
 
 def request_slides_api_once(
     instruction_text: str,
@@ -1182,7 +1259,14 @@ def generate_slides_tex(
                 log(f"[slides-transport] attempt={attempt}/{max_attempts} backend={backend}")
                 response_text = response_provider(backend, instruction)
         except Exception as exc:
-            if isinstance(exc, (FileNotFoundError, PermissionError, ValueError)):
+            if (isinstance(exc, (
+                    FileNotFoundError, PermissionError, ValueError,
+                )) or type(exc).__name__ == "GeminiPostSubmitUnverified"):
+                # Fail closed for a post-Send uncertainty even when this
+                # function is loaded independently by an offline QA harness.
+                # Do not depend on a vendor module injected as a global.
+                # A false-positive class-name match also safely halts rather
+                # than issuing a duplicate provider request.
                 raise
             log(f"[slides-transport] attempt {attempt}: "
                 f"{type(exc).__name__}; no response accepted", "WARN")

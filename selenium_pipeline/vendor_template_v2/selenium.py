@@ -193,6 +193,15 @@ def _looks_like_latex_doc(s: str) -> bool:
         return False
     return ("\\documentclass" in s) and ("\\end{document}" in s)
 
+
+class GeminiPostSubmitUnverified(RuntimeError):
+    """An attempted Gemini Send has no independently attributed completed reply.
+
+    The caller must preserve its one-send claim and reconcile existing evidence.
+    Never interpret this as permission to submit another prompt or switch models.
+    """
+
+
 def _wait_until_generation_finishes(driver, timeout: float = 180.0, poll: float = 0.5) -> None:
     """
     Wait until Gemini is done generating.
@@ -215,6 +224,7 @@ def _wait_until_generation_finishes(driver, timeout: float = 180.0, poll: float 
     stable = 0
     stable_needed = 3
     blank_since = None
+    blank_grace_s = 12.0  # transient UI navigation is not a failed generation
 
     stop_xpaths = [
         "//button[contains(@aria-label,'Stop')]",
@@ -292,14 +302,17 @@ def _wait_until_generation_finishes(driver, timeout: float = 180.0, poll: float 
 
         if blank_conversation:
             if blank_since is None:
-                blank_since = time.time()
-            elif time.time() - blank_since >= 3.0:
+                blank_since = time.monotonic()
+            elif time.monotonic() - blank_since >= blank_grace_s:
                 log(
-                    "Gemini conversation returned to a blank state after submission; "
-                    "aborting response wait early.",
+                    "[GEMINI-RESPONSE] POST_SUBMIT_NO_ATTRIBUTED_RESPONSE_NO_RESEND: "
+                    "Gemini conversation stayed blank after verified submission; "
+                    "model generation versus browser DOM failure is UNVERIFIED.",
                     "WARN",
                 )
-                return
+                raise GeminiPostSubmitUnverified(
+                    "POST_SUBMIT_NO_ATTRIBUTED_RESPONSE_NO_RESEND"
+                )
         else:
             blank_since = None
 
@@ -571,11 +584,13 @@ def _copied_text_matches_latest_response(driver, copied_text: str) -> bool:
 
     scope = _latest_response_container(driver)
     if scope is None:
-        return True
+        # A changed/empty Gemini DOM is NOT proof that copied text belongs to
+        # this model turn. Never accept arbitrary clipboard contents.
+        return False
 
     resp = _normalize_textish(_element_visible_text(scope))
     if not resp:
-        return True
+        return False
 
     if len(copied) <= 120:
         return copied in resp

@@ -551,6 +551,24 @@ def wait_for_mapping_response_ready(client, baseline_text: str = "", timeout: fl
         except Exception:
             model_count = 0
 
+        # The ordinary model UI can return a terminal error instead of a
+        # figure mapping. Do not burn the remaining wait/capture budget, and
+        # never resubmit the already registered request. The shared guard
+        # checks the exact response in the MicroGen-owned tab, not generic
+        # page text, clipboard data or someone else's browser conversation.
+        if cur and _looks_like_gemini_failure_text(cur) and not generating:
+            from selenium_pipeline.gemini_provider_ui_terminal_error import (
+                GeminiOwnedVisibleTerminalError, require_no_owned_terminal_error,
+            )
+            try:
+                require_no_owned_terminal_error(
+                    client.driver, getattr(client, "_automation_tab", None),
+                )
+            except GeminiOwnedVisibleTerminalError:
+                log("[GEMINI-RESPONSE] OWNED_VISIBLE_UI_TERMINAL_ERROR_NO_RESEND",
+                    "WARN")
+                raise
+
         if generating and model_count == 0:
             if stall_started is None:
                 stall_started = time.time()
@@ -1856,7 +1874,12 @@ def run_mapping(
                         # Invalid local inputs, unsafe filenames and missing
                         # permissions are permanent, not transient Gemini
                         # failures. Do not waste API quota or circumvent them.
-                        if isinstance(e, (ValueError, FileNotFoundError, PermissionError)):
+                        if (isinstance(e, (ValueError, FileNotFoundError,
+                                          PermissionError))
+                                or type(e).__name__ == "GeminiOwnedVisibleTerminalError"):
+                            # A verified model-side terminal UI error AFTER Send
+                            # is not a new provider budget or an API fallback
+                            # invitation; stop this source, preserve its claim.
                             raise
                         final_error = e
                         attempt_trace.append({
