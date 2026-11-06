@@ -72,6 +72,28 @@ class GeminiStageTransportTriageTests(unittest.TestCase):
         self.assertNotIn("KEY_NOT_TO_REPORT", str(r))
         self.assertEqual(before, sorted(self.trial.iterdir()))
 
+    def test_registered_slide_send_with_unattributed_reply_is_not_resubmitted(self):
+        prefix = self.begun("slides")
+        self.finish(prefix, "STAGE_FAILED_OR_OUTPUT_INCOMPLETE_NO_RETRY",
+                    stage="slides")
+        self.log(
+            "[2026-11-06 00:00:00] [INFO] Gemini submission registered via "
+            "new-user-turn+composer-cleared.\n"
+            "[2026-11-06 00:04:00] [WARN] [GEMINI-RESPONSE] "
+            "POST_SUBMIT_NO_ATTRIBUTED_RESPONSE_NO_RESEND\n",
+            stage="slides",
+        )
+        report = persist_terminal_triage(trial_dir=self.trial, stage="slides")
+        self.assertEqual(report["status"],
+                         "REGISTERED_BROWSER_SEND_NO_ATTRIBUTED_REPLY_NO_RESEND")
+        self.assertTrue(report["owned_browser_send_registered"])
+        self.assertTrue(report["post_submit_model_reply_attribution_unverified"])
+        self.assertFalse(report["provider_outage_proven"])
+        self.assertFalse(report["automatic_resubmission_authorized"])
+        self.assertEqual(report["model_requests_during_diagnosis"], 0)
+        again = persist_terminal_triage(trial_dir=self.trial, stage="slides")
+        self.assertEqual(again["status"], "PRIOR_SHA_BOUND_TRIAGE_REUSED_NO_SEND")
+
     def nested_crop_log(self):
         staged = self.trial / "source_tree" / "10" / "10.1" / "source.pdf"
         staged.parent.mkdir(parents=True, exist_ok=True)

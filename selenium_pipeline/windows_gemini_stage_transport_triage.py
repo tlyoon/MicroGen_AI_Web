@@ -140,6 +140,9 @@ def diagnose(*, trial_dir: Path, stage: str = "figures") -> dict:
     local_extract = (bool(_LOCAL_EXTRACTION.search(raw)) or
                      crop["local_crop_phase"] == "LOCAL_FIGURE_CROP_COMPLETED")
     send = bool(_SEND_PROOF.search(raw)) if backend == "selenium" else False
+    response_unverified = (
+        "[GEMINI-RESPONSE] POST_SUBMIT_NO_ATTRIBUTED_RESPONSE_NO_RESEND"
+        in raw)
     supervisor_timeout = (
         "[microgen-supervisor] OWNED_STAGE_TIMEOUT" in raw)
     supervisor_completed = (
@@ -147,6 +150,8 @@ def diagnose(*, trial_dir: Path, stage: str = "figures") -> dict:
     state = result.get("status") if result is not None else None
     if state in ACCEPTED:
         label = "TECHNICAL_STAGE_RECEIPT_SUCCESS_NOT_FULL_LECTURE"
+    elif send and response_unverified:
+        label = "REGISTERED_BROWSER_SEND_NO_ATTRIBUTED_REPLY_NO_RESEND"
     elif send:
         label = "REGISTERED_BROWSER_SEND_BUT_NO_ACCEPTED_STAGE"
     elif result is None:
@@ -172,6 +177,7 @@ def diagnose(*, trial_dir: Path, stage: str = "figures") -> dict:
         **crop,
         "browser_debug_session_seen_in_log": session,
         "owned_browser_send_registered": send,
+        "post_submit_model_reply_attribution_unverified": response_unverified,
         "owned_stage_supervisor_timeout_recorded": supervisor_timeout,
         "owned_stage_supervisor_exit_recorded": supervisor_completed,
         "unbuffered_child_output_evidence_present": (
@@ -237,13 +243,17 @@ def persist_terminal_triage(*, trial_dir: Path, stage: str) -> dict:
             new_fields = {
                 "local_crop_process_seen_in_workspace", "local_crop_phase",
                 "local_crop_heartbeat_present", "local_crop_log_sha256",
+                "post_submit_model_reply_attribution_unverified",
             }
             only_new_fields = set(report) - set(prior)
             compatible_status = (
                 prior.get("status") == report["status"] or
                 (prior.get("status") == "SOURCE_STAGE_HALTED_NO_REGISTERED_SEND"
                  and report["status"] ==
-                    "LOCAL_PDF_FIGURE_CROP_PROGRESSED_SEND_UNVERIFIED"))
+                    "LOCAL_PDF_FIGURE_CROP_PROGRESSED_SEND_UNVERIFIED") or
+                (prior.get("status") == "REGISTERED_BROWSER_SEND_BUT_NO_ACCEPTED_STAGE"
+                 and report["status"] ==
+                    "REGISTERED_BROWSER_SEND_NO_ATTRIBUTED_REPLY_NO_RESEND"))
             old_claim_safe = (
                 prior.get("automatic_resubmission_authorized") is False
                 and prior.get("model_requests_during_diagnosis") == 0
