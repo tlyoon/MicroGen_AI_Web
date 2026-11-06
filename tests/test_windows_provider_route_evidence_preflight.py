@@ -78,6 +78,44 @@ class WindowsProviderRoutePreflightTests(unittest.TestCase):
         self.assertFalse(r["automatic_browser_to_api_fallback_authorized"])
         self.assertFalse(r["old_uncertain_lecture_retry_authorized"])
 
+    def test_sha_verified_chatgpt_editor_failure_suppresses_fallback_route(self):
+        authenticated = dict(
+            self.chatgpt, status="AUTHENTICATED_COMPOSER_READY",
+            authenticated_ui_ready=True)
+        previous = {
+            "status": "CHATGPT_OWNED_EDITOR_INPUT_NOT_VERIFIED_NO_SEND",
+            "pre_send_editor_failure_independently_verified": True,
+            "browser_submission_proven_successful": False,
+            "new_model_or_tts_calls": False,
+            "old_source_retry_authorized": False,
+            "student_publication_authorized": False,
+        }
+        result = self.recommend(
+            chatgpt_browser=authenticated, chatgpt_canary=previous,
+            api_preflight=dict(self.api, api_key_count_nonsecret=0))
+        self.assertTrue(result["chatgpt_browser_authenticated"])
+        self.assertTrue(
+            result["chatgpt_browser_editor_unverified_by_sha_bound_canary"])
+        self.assertEqual(
+            result["suggested_new_unsent_job_route"],
+            "NO_GENERATION_TRANSPORT_CERTIFIED_FOR_AUTOMATIC_DISPATCH")
+        self.assertFalse(result["automatic_new_model_generation_authorized"])
+        self.assertFalse(result["old_uncertain_lecture_retry_authorized"])
+        self.assertFalse(result["paid_api_generation_authorized"])
+        # Forged/incomplete evidence without an actual validated pre-click
+        # report can never supersede live login evidence.
+        for changed in (
+            {**previous, "pre_send_editor_failure_independently_verified": False},
+            {**previous, "new_model_or_tts_calls": True},
+            {**previous, "status": "UNCONFIRMED_PRE_SEND_FAILURE"},
+        ):
+            other = self.recommend(
+                chatgpt_browser=authenticated, chatgpt_canary=changed)
+            self.assertFalse(
+                other["chatgpt_browser_editor_unverified_by_sha_bound_canary"])
+            self.assertEqual(other["suggested_new_unsent_job_route"],
+                             "CHATGPT_BROWSER_AVAILABLE_FOR_A_DISTINCT_NEW_JOB_ONLY")
+
     def test_guest_chatgpt_composer_never_counted_as_authentication(self):
         guest = dict(self.chatgpt, status="LOGIN_REQUIRED",
                      authenticated_ui_ready=True)

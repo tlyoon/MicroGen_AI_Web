@@ -96,3 +96,41 @@ strict owned-model UI variant, immutable quarantine, source-sized/short
 profile isolation and no-resend, and provider selection. GitHub exact-head
 Windows CI still needs fresh verification after these follow-on changes.
 The earlier short Gemini canary and its genuine success remain intact.
+
+## 7 November 2026 — Source-free ChatGPT fallback test: pre-Send editor failure
+
+The owner-approved Windows Selenium scope was used on **Dell-115 only**. The
+existing ChatGPT source-free once-canary was invoked with a completely new
+claim root and Chrome 9223, after a clean login preflight and no-send dry-run.
+No PDF was opened, uploaded or regenerated. New immutable result at
+`%LOCALAPPDATA%\MicroGen_AI_Web_Checkpoints\20261107_PR528_CHATGPT_BROWSER_DISTINCT_CANARY_V1`:
+`PROMPT_NOT_CONFIRMED_NO_SEND`, `send_click_attempted=false`,
+`model_submissions_this_call=0`, `user_turn_confirmed=false`. Thus **no model
+generation was tested**, and an existing authenticated composer was not
+proof that the new owned-tab editor could accept the prompt. A separate
+editor-only fresh-tab diagnostic encountered a composer timeout; it never
+clicked Send. No previous canary or PDF was resubmitted.
+
+**Reusable correction:** The existing
+`windows_chatgpt_sourcefree_canary.inspect_existing_no_send` independently
+verifies the strict claim/receipt marker and SHA, exact terminal no-Send
+state, and absence of a click-intent journal without opening Chrome. The
+existing `windows_provider_route_evidence_preflight` supports the optional
+`--prior-chatgpt-canary-root` and suppresses ChatGPT as a new-job route when
+that SHA-bound editor failure is verified. It does not change the meaning
+of Gemini's independently verified model-side synthetic error and never
+authorizes a new model, API, TTS, old-PDF retry or student publishing.
+
+Read-only combined provider evidence (Gemini source-sized response failure,
+Gemini SHA-verified owned UI error, ChatGPT SHA-verified pre-Send failure):
+`%LOCALAPPDATA%\MicroGen_AI_Web_Checkpoints\20261107_PR528_BOTH_BROWSER_CANARIES_READONLY_ROUTE.json`.
+Result: `NO_GENERATION_TRANSPORT_CERTIFIED_FOR_AUTOMATIC_DISPATCH`,
+`chatgpt_browser_editor_unverified_by_sha_bound_canary=true`,
+`gemini_browser_auto_selection_suppressed_by_prior_evidence=true`,
+`automatic_new_model_generation_authorized=false`.
+
+**Local verification:** 44 source-free Windows pytest PASS, py_compile and
+`git diff --check` PASS. Fresh exact-head GitHub CI required before
+qualifying the new code as CI-verified. The full second-original lecture
+and reviewed historical PR integration remain incomplete. Do not resume
+fixes to individual Serway PDFs or silently reset any previous claim.

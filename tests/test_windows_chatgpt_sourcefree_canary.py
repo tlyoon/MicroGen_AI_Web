@@ -9,6 +9,7 @@ from unittest.mock import patch
 from selenium_pipeline.windows_chatgpt_sourcefree_canary import (
     _local_root, _prompt_for_marker, _current_ui_exact_canary,
     prior_owned_draft, reconcile_existing, expected_text, run, SEND_BUTTON_CSS,
+    inspect_existing_no_send,
 )
 
 
@@ -77,6 +78,48 @@ class OneSendChatGPTCanaryTests(unittest.TestCase):
         again = run(root=self.root, live=True, readiness=self.ready,
                     browser=lambda *a: self.fail("No retry permitted"))
         self.assertEqual(again["status"], "EXISTING_CLAIM_REUSED_NO_NEW_SEND")
+
+    def test_readonly_sha_bound_no_click_failure_is_never_generation_proof(self):
+        def no_editor_input(prompt, expected, timeout):
+            return {
+                "outcome": "PROMPT_NOT_CONFIRMED_NO_SEND",
+                "send_click_attempted": False,
+                "user_turn_confirmed": False,
+                "assistant_response_seen": False,
+            }
+        run(root=self.root, live=True, readiness=self.ready, browser=no_editor_input)
+        before = (self.root / "chatgpt_canary_result.json").read_bytes()
+        status = inspect_existing_no_send(root=self.root)
+        self.assertEqual(status["status"],
+                         "CHATGPT_OWNED_EDITOR_INPUT_NOT_VERIFIED_NO_SEND")
+        self.assertTrue(status["pre_send_editor_failure_independently_verified"])
+        self.assertFalse(status["browser_submission_proven_successful"])
+        self.assertFalse(status["old_source_retry_authorized"])
+        self.assertFalse(status["new_model_or_tts_calls"])
+        self.assertEqual(before, (self.root / "chatgpt_canary_result.json").read_bytes())
+        self.assertFalse((self.root / "chatgpt_send_click_intent.json").exists())
+        result = self.root / "chatgpt_canary_result.json"
+        data = json.loads(result.read_text(encoding="utf8"))
+        data["prompt_sha256"] = "0" * 64
+        result.write_text(json.dumps(data), encoding="utf8")
+        with self.assertRaisesRegex(ValueError, "Unmatched or untrusted"):
+            inspect_existing_no_send(root=self.root)
+
+    def test_send_click_intent_can_never_be_labeled_editor_no_send(self):
+        def uncertain(prompt, expected, timeout):
+            return {
+                "outcome": "NO_VERIFIED_RESPONSE",
+                "send_click_attempted": True,
+                "user_turn_confirmed": False,
+            }
+        run(root=self.root, live=True, readiness=self.ready, browser=uncertain)
+        report = inspect_existing_no_send(root=self.root)
+        self.assertFalse(report["pre_send_editor_failure_independently_verified"])
+        self.assertEqual(report["status"],
+                         "CHATGPT_PRIOR_CANARY_NOT_A_PROVEN_EDITOR_FAILURE")
+        (self.root / "chatgpt_send_click_intent.json").write_text("{}")
+        self.assertFalse(inspect_existing_no_send(
+            root=self.root)["pre_send_editor_failure_independently_verified"])
 
     def test_orphan_claim_is_reconciliation_only(self):
         self.root.mkdir()
