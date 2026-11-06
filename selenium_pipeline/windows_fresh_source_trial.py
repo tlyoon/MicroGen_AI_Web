@@ -24,6 +24,13 @@ from .original_multisource_recovery_campaign import (
     CampaignRecoveryBlocked, _new_atomic, _verified_json, require,
 )
 
+# This deadline includes LOCAL Docling rasterization/crop AND later browser
+# model work; 180 seconds was consumed by local crop alone in genuine
+# one-shot Serway trials. This is not the unrelated <600s OUTPUT MP4 limit.
+# Never extend an already-started/ambiguous source attempt; only new jobs use it.
+DEFAULT_FIGURE_STAGE_TIMEOUT_SECONDS = 600
+
+
 def _digest(value: dict) -> str:
     return hashlib.sha256(json.dumps(value, sort_keys=True, ensure_ascii=False,
         separators=(",", ":")).encode("utf8")).hexdigest()
@@ -41,7 +48,8 @@ def _source_paths(source_root: Path, section: str) -> tuple[Path, Path]:
 
 def run_trial(*, source_root: Path, section: str, trial_dir: Path,
               attempt_figures: bool = False,
-              subprocess_run=None, timeout_seconds: int = 180,
+              subprocess_run=None,
+              timeout_seconds: int = DEFAULT_FIGURE_STAGE_TIMEOUT_SECONDS,
               communication_mode: str = "selenium",
               confirm_content_api_cost: bool = False) -> dict:
     require(os.name == "nt", "Only native Windows Dell-115 original trials")
@@ -102,6 +110,7 @@ def run_trial(*, source_root: Path, section: str, trial_dir: Path,
     result = {
         "schema_version": 1,
         "source_section": section,
+        "bounded_figure_stage_deadline_seconds": timeout_seconds,
         "original_source_sha256": original_sha,
         "staged_original_sha256": file_sha256(staged_source),
         "new_model_or_tts_calls": False,
@@ -233,7 +242,9 @@ def main(argv=None) -> int:
                     help="API is independently opt-in; never auto-fallback after UI timeout")
     ap.add_argument("--confirm-content-api-cost", action="store_true",
                     help="Explicit authorize one NEW Gemini API content-generation stage")
-    ap.add_argument("--timeout-seconds", type=int, default=180)
+    ap.add_argument("--timeout-seconds", type=int,
+                    default=DEFAULT_FIGURE_STAGE_TIMEOUT_SECONDS,
+                    help="One bounded local Docling + browser figures stage, 30-600s; no resend")
     a = ap.parse_args(argv)
     try:
         result = run_trial(source_root=a.source_root, section=a.subchapter,
