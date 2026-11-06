@@ -1259,12 +1259,14 @@ def generate_slides_tex(
                 log(f"[slides-transport] attempt={attempt}/{max_attempts} backend={backend}")
                 response_text = response_provider(backend, instruction)
         except Exception as exc:
-            if isinstance(exc, (
-                FileNotFoundError, PermissionError, ValueError,
-                gemsel.GeminiPostSubmitUnverified,
-            )):
-                # An unverified POST-SEND outcome cannot be retried within
-                # this source-bound job or silently switched to paid API.
+            if (isinstance(exc, (
+                    FileNotFoundError, PermissionError, ValueError,
+                )) or type(exc).__name__ == "GeminiPostSubmitUnverified"):
+                # Fail closed for a post-Send uncertainty even when this
+                # function is loaded independently by an offline QA harness.
+                # Do not depend on a vendor module injected as a global.
+                # A false-positive class-name match also safely halts rather
+                # than issuing a duplicate provider request.
                 raise
             log(f"[slides-transport] attempt {attempt}: "
                 f"{type(exc).__name__}; no response accepted", "WARN")

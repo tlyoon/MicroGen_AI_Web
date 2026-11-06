@@ -201,7 +201,7 @@ class GeminiPostSubmitNoResendTests(unittest.TestCase):
                  and node.name == "generate_slides_tex"]
         self.assertEqual(len(funcs), 1)
         src = ast.unparse(funcs[0])
-        self.assertIn("gemsel.GeminiPostSubmitUnverified", src)
+        self.assertIn('type(exc).__name__ == \'GeminiPostSubmitUnverified\'', src)
         self.assertIn("raise", src)
 
 
