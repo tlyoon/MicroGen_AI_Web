@@ -48,8 +48,13 @@ def _local_crop_evidence(trial: Path, contract: dict) -> dict:
     if type(source) is not str or not source:
         return observed
     staged = Path(source)
+    # Both operands must be canonicalized identically: Windows CI may
+    # expose LOCALAPPDATA and TemporaryDirectory through different aliases.
+    # Comparing Path.resolve() against Path.absolute() silently hides valid
+    # nested crop evidence on those hosts.
     if (not staged.is_absolute() or
-            not staged.resolve(strict=False).is_relative_to(trial) or
+            not staged.resolve(strict=False).is_relative_to(
+                trial.resolve(strict=True)) or
             staged.is_symlink() or staged.parent.is_symlink()):
         return observed
     work = staged.parent / ".microgen_work"

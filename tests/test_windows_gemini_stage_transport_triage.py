@@ -109,6 +109,20 @@ class GeminiStageTransportTriageTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "diagnosis or evidence changed"):
             persist_terminal_triage(trial_dir=self.trial, stage="figures")
 
+    def test_windows_temp_directory_aliases_are_canonicalized_consistently(self):
+        p = self.begun()
+        self.finish(p, "FIGURES_ATTEMPT_TIMEOUT_NO_AUTO_RETRY")
+        nested = self.nested_crop_log()
+        nested.write_text("$ python crop_figs_v3.py", encoding="utf-8")
+        # A lexical alias pointing to the SAME local trial must be compared
+        # after both containment operands are canonicalized.
+        (self.trial / "benign_alias").mkdir()
+        alias = self.trial / "benign_alias" / ".."
+        state = diagnose(trial_dir=alias)
+        self.assertEqual(state["status"],
+                         "LOCAL_PDF_FIGURE_CROP_PROGRESSED_SEND_UNVERIFIED")
+        self.assertTrue(state["local_crop_process_seen_in_workspace"])
+
     def test_prior_diagnostic_before_phase_fields_reuses_without_overwrite(self):
         p = self.begun()
         self.finish(p, "FIGURES_ATTEMPT_TIMEOUT_NO_AUTO_RETRY")

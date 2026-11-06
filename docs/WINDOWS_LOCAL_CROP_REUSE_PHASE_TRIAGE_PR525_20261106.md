@@ -16,6 +16,10 @@ The source implementation of `vendor_template_v2/crop_figs_v3.py` previously con
 - Previously written PR524 immutable diagnosis receipts remain unmodified and reusable if all earlier fields and source/log SHA values still match. Only the newly added crop-observation fields and the documented local-crop-vs-unknown category transition can differ; raw evidence changes or tampering fail closed.
 - The existing one-shot model request budget and stage deadlines remain unchanged; there is no per-source repair loop, no fallback key request after an uncertain job, and no release authorization.
 
+## Windows CI regression follow-up
+
+The first exact-head GitHub Actions run (#670, commit `4dfddadd01bb6cd460892cefaa682254c62ca0ea`) failed two new nested-crop diagnostics despite 70 local tests passing. This was a **Windows temporary-directory alias** mismatch: `Path.resolve()` for the staged original was compared with `Path.absolute()` for the trial root, repeating the earlier generic path-canonicalization problem. The read-only nested-log containment check now resolves BOTH path operands consistently while retaining symlink/out-of-root refusals. A new regression deliberately passes a benign lexical alias to the same existing local trial. Expanded Dell-115 checks: **71 focused unittest PASS**. A new exact-commit GitHub CI run is required for acceptance; the failed #670 remains historical evidence and is not misreported as green.
+
 ## Verification
 
 A source-free physical behavioral regression runs the actual figure-crop script's processing body under fake PDF/Docling drivers for **two pages**, asserting that exactly one converter is constructed, both page-level outputs are produced, the original picture settings remain and phase heartbeats are emitted. Separate synthetic diagnostics exercise nested crop markers, SHA-binding, post-record tamper refusal, and compatibility with older immutable receipts. Dell-115 focused test suite and exact-head GitHub Windows CI are to be independently checked before marking the PR accepted.
