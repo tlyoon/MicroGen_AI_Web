@@ -1,10 +1,10 @@
 # MicroGen_AI_Web — Binding Closure-First Development Contract
 
-**Version:** 4.0 / 7 November 2026  
+**Version:** 4.0 / 7 November 2026
 **Status:** Owner-directed, effective immediately for subsequent development turns and
-automated development prompts.  
+automated development prompts.
 **Applies only to:** `tlyoon/MicroGen_AI_Web` (Windows/Selenium). The separate
-API-based `microgen_ai` project must never inherit this agreement by accident.  
+API-based `microgen_ai` project must never inherit this agreement by accident.
 **Recorded implementation base:** draft PR #528, Dell-115 isolated worktree,
 commit `67f49ca68fce7519b1c031752cb21e0ce28f5e41` (both hosted Windows
 CI jobs successful). Subsequent commit IDs are resolved afresh each turn.
