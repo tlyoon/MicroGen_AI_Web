@@ -22,7 +22,8 @@ def recommend_routes(*, gemini_browser: dict, chatgpt_browser: dict,
                      api_preflight: dict, browser_canary: dict | None,
                      owned_ui_error: dict | None,
                      browser_halt: dict, api_halt: dict,
-                     api_key_pool: dict | None = None) -> dict:
+                     api_key_pool: dict | None = None,
+                     chatgpt_canary: dict | None = None) -> dict:
     """Qualify *future independent* requests without sending or credential use."""
     if any(type(x) is not dict for x in (
             gemini_browser, chatgpt_browser, api_preflight,
@@ -34,6 +35,8 @@ def recommend_routes(*, gemini_browser: dict, chatgpt_browser: dict,
         raise ValueError("Owned UI error evidence must be verified")
     if api_key_pool is not None and type(api_key_pool) is not dict:
         raise ValueError("API key pool evidence must be an object")
+    if chatgpt_canary is not None and type(chatgpt_canary) is not dict:
+        raise ValueError("ChatGPT canary evidence must be a verified object")
     gemini_ready = (
         gemini_browser.get("provider") == "gemini"
         and gemini_browser.get("authenticated_ui_ready") is True
@@ -46,11 +49,52 @@ def recommend_routes(*, gemini_browser: dict, chatgpt_browser: dict,
         and chatgpt_browser.get("status") == "AUTHENTICATED_COMPOSER_READY"
         and chatgpt_browser.get("model_submission_performed") is False
     )
+    # Read-only collector independently verifies the exact immutable
+    # ChatGPT source-free Send claim and terminal receipt. An existing login
+    # does not prove that a NEW tab can accept a new unsent prompt.
+    chatgpt_editor_pre_send_blocked = (
+        chatgpt_canary is not None
+        and chatgpt_canary.get("status") ==
+            "CHATGPT_OWNED_EDITOR_INPUT_NOT_VERIFIED_NO_SEND"
+        and chatgpt_canary.get("pre_send_editor_failure_independently_verified")
+            is True
+        and chatgpt_canary.get("browser_submission_proven_successful") is False
+        and chatgpt_canary.get("new_model_or_tts_calls") is False
+        and chatgpt_canary.get("old_source_retry_authorized") is False
+        and chatgpt_canary.get("student_publication_authorized") is False
+    )
     prior_response_failed = (
         browser_canary is not None
         and browser_canary.get("backend") == "browser"
         and browser_canary.get("outcome") in _BAD_CANARY
         and browser_canary.get("student_publication_authorized") is False
+    )
+    # A successful *historical* short canary is independently verified by
+    # inspect() via the immutable on-disk Send claim and response digest.
+    # It proves only that one source-free model response was captured, not
+    # current long-form capacity or authorization to dispatch textbooks.
+    verified_browser_response_observed = (
+        browser_canary is not None
+        and browser_canary.get("schema_version") == 1
+        and browser_canary.get("backend") == "browser"
+        and browser_canary.get("outcome") == "VALID_CANARY_RESPONSE"
+        and browser_canary.get("status") == "GENERIC_CANARY_TERMINAL"
+        and type(browser_canary.get("response_character_count")) is int
+        and 0 < browser_canary["response_character_count"] <= 5000
+        and browser_canary.get("new_model_generation_calls") == 1
+        and browser_canary.get("paid_api_content_may_have_occurred") is False
+        and browser_canary.get("source_pdf_transmitted") is False
+        and browser_canary.get("student_publication_authorized") is False
+    )
+    short_browser_response_observed = (
+        verified_browser_response_observed
+        and browser_canary.get("probe_profile", "short") == "short"
+    )
+    source_sized_browser_response_observed = (
+        verified_browser_response_observed
+        and browser_canary.get("probe_profile") == "source_sized"
+        and type(browser_canary.get("prompt_characters")) is int
+        and 1200 <= browser_canary["prompt_characters"] <= 3000
     )
     ui_error_observed = (
         owned_ui_error is not None
@@ -92,10 +136,16 @@ def recommend_routes(*, gemini_browser: dict, chatgpt_browser: dict,
         and api_halt.get("new_generation_dispatch_allowed_by_health_policy")
             is True
     )
-    if chatgpt_ready and gemini_not_healthy_enough_to_select:
+    if chatgpt_ready and gemini_not_healthy_enough_to_select and not chatgpt_editor_pre_send_blocked:
         route = "CHATGPT_BROWSER_AVAILABLE_FOR_A_DISTINCT_NEW_JOB_ONLY"
     elif gemini_ready and not gemini_not_healthy_enough_to_select:
-        route = "GEMINI_BROWSER_COMPOSER_READY_GENERATION_NOT_CERTIFIED"
+        route = (
+            "GEMINI_BROWSER_PRIOR_SOURCE_SIZED_INPUT_OK_FULL_LESSON_UNTESTED"
+            if source_sized_browser_response_observed else
+            "GEMINI_BROWSER_PRIOR_SHORT_CANARY_OK_LONG_FORM_UNTESTED"
+            if short_browser_response_observed else
+            "GEMINI_BROWSER_COMPOSER_READY_GENERATION_NOT_CERTIFIED"
+        )
     elif api_new_source_candidate:
         route = "GEMINI_API_METADATA_REACHABLE_COST_APPROVAL_REQUIRED"
     else:
@@ -106,7 +156,16 @@ def recommend_routes(*, gemini_browser: dict, chatgpt_browser: dict,
         "suggested_new_unsent_job_route": route,
         "gemini_browser_authenticated": gemini_ready,
         "chatgpt_browser_authenticated": chatgpt_ready,
+        "chatgpt_browser_editor_unverified_by_sha_bound_canary":
+            bool(chatgpt_editor_pre_send_blocked),
+        "chatgpt_login_not_evidence_of_new_prompt_submission": True,
         "prior_source_free_browser_canary_unverified": bool(prior_response_failed),
+        "prior_short_browser_generation_success_recorded":
+            bool(short_browser_response_observed),
+        "prior_source_sized_text_input_success_recorded":
+            bool(source_sized_browser_response_observed),
+        "prior_short_success_never_certifies_current_long_form": True,
+        "prior_source_sized_input_never_certifies_full_lecture": True,
         "owned_gemini_ui_error_sha_verified": bool(ui_error_observed),
         "gemini_browser_auto_selection_suppressed_by_prior_evidence":
             bool(gemini_not_healthy_enough_to_select),
@@ -133,7 +192,8 @@ def inspect(*, inspect_browsers: bool = False,
             check_api_metadata: bool = False,
             prior_canary_root: Path | None = None,
             prior_owned_ui_quarantine: Path | None = None,
-            inspect_all_api_keys_metadata: bool = False) -> dict:
+            inspect_all_api_keys_metadata: bool = False,
+            prior_chatgpt_canary_root: Path | None = None) -> dict:
     """Trusted read-only collectors; do not infer an API success from models.get."""
     from .rich_mapping_provider_readiness import inspect_provider
     from .windows_provider_readiness_probe import inspect as api_inspect
@@ -161,13 +221,18 @@ def inspect(*, inspect_browsers: bool = False,
             raise ValueError("No trusted prior source-free browser canary")
     owned_ui = (inspect_quarantine(metadata_path=prior_owned_ui_quarantine)
                 if prior_owned_ui_quarantine is not None else None)
+    chatgpt_canary = None
+    if prior_chatgpt_canary_root is not None:
+        from .windows_chatgpt_sourcefree_canary import inspect_existing_no_send
+        chatgpt_canary = inspect_existing_no_send(
+            root=Path(prior_chatgpt_canary_root))
     return recommend_routes(
         gemini_browser=gemini, chatgpt_browser=chatgpt,
         api_preflight=api, browser_canary=canary,
         owned_ui_error=owned_ui,
         browser_halt=inspect_halt(backend="selenium"),
         api_halt=inspect_halt(backend="api"),
-        api_key_pool=pool,
+        api_key_pool=pool, chatgpt_canary=chatgpt_canary,
     )
 
 
@@ -180,6 +245,8 @@ def main(argv=None) -> int:
     p.add_argument("--verify-all-api-key-metadata", action="store_true",
                    help="Read-only models.get once per configured key; no generation")
     p.add_argument("--prior-browser-canary-root", type=Path)
+    p.add_argument("--prior-chatgpt-canary-root", type=Path,
+                   help="Read-only verify previous source-free editor failure; no Send")
     p.add_argument("--prior-owned-ui-quarantine-meta", type=Path)
     a = p.parse_args(argv)
     try:
@@ -187,6 +254,7 @@ def main(argv=None) -> int:
             inspect_browsers=a.inspect_browsers,
             check_api_metadata=a.check_api_model_metadata,
             prior_canary_root=a.prior_browser_canary_root,
+            prior_chatgpt_canary_root=a.prior_chatgpt_canary_root,
             prior_owned_ui_quarantine=a.prior_owned_ui_quarantine_meta,
             inspect_all_api_keys_metadata=a.verify_all_api_key_metadata)
     except (ValueError, OSError, TypeError, KeyError, UnicodeError) as exc:

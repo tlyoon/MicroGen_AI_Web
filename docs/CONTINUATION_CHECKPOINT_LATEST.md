@@ -1,3 +1,249 @@
+# 7 November 2026 — G1 materially advanced: new Gemini Selenium original-source slides and narration
+
+**Project:** MicroGen_AI_Web only, Dell-115 native Windows, isolated
+`feature/pr528-autonomous-ai-lecture-acceptance` draft, original entry
+HEAD `db77942d6a768beb266d34157f75d5fef6b72cba`.
+Owner authorized a fresh Selenium provider check; original submitted
+PDFs may not be replayed. No ChatGPT request, paid content API/TTS,
+YouTube publication, protected-main merge or non-Dell machine was used.
+
+**New qualifying G1 evidence (real original source, not merely a canary):**
+
+- A distinct, fresh **source-free** 1,535-character Gemini browser input
+  returned `VALID_CANARY_RESPONSE` under checkpoint
+  `20261107_PR528_OWNER_AUTHORIZED_GEMINI_SOURCE_SIZED_ONE_SHOT_V1`.
+  This is independent of the prior **failed** 6-Nov source-sized canary,
+  which must not be resent.
+- Read-only `windows_original_source_candidate_inventory` on Serway_1_7:
+  46 physical publisher PDFs, 8 earlier trial contracts and 10 Send-intent
+  receipts, 1.1 excluded. Chose 7.1 **before** execution by its minimal
+  source size / absence from scoped SHA claims; independently searched
+  checkpoint JSON for its original SHA and Git section history, with no
+  match. Not a guarantee of all possible historical environments.
+- New isolated original source `G:\My Drive\Serway\Serway_1_7\7\7.1\source.pdf`,
+  SHA256 `7015a479b52964d9385c00cf1f2ad4a16589c780b93335d825bf62b6203928c3`,
+  external immutable trial
+  `%LOCALAPPDATA%\MicroGen_AI_Web_Checkpoints\20261107_PR528_SERWAY7_1_DISTINCT_ORIGINAL_TRIAL_V1`;
+  source-copy hash verified and 7-stage dry-run passed.
+- **Figures:** exit 0, source-bound receipt
+  `FIGURES_STAGE_RETURNED_SUCCESS_NOT_FULL_LECTURE`. The 1-page PDF
+  had no figure crops requiring Gemini; figure stage was local only.
+- **Slides:** one real Selenium Send of source.pdf plus prompt and PNG
+  metadata; Gemini returned accepted `slides.tex` and compiled
+  10-page `slides.pdf`. Immutable
+  `STAGE_COMPLETED_AND_SOURCE_SHA_BOUND`; slides.pdf SHA
+  `dda52f91192a54cf23239cf7c685bc775602620bb92a32ed63fc79a3f5622e62`.
+- **Narration:** one new Selenium Send of that deck, original source and
+  rendered prompt; Gemini returned a 5,669-character capture and validated
+  10-block `script.txt`; immutable
+  `STAGE_COMPLETED_AND_SOURCE_SHA_BOUND`; script SHA
+  `902f40954c2698db7ba7b801382b69897d848936e917ba43c9763b5ee40ed478`.
+- The earlier `NO_GENERATION_TRANSPORT_CERTIFIED_FOR_AUTOMATIC_DISPATCH`
+  preflight applied **before** this new real success. G1 can now be
+  reported `PASS_VERIFIED` for this distinct source-sized **slides and
+  narration** route, not an unlimited uptime or full-lecture certificate.
+
+**G2 issue revealed and generalized once, with no source/PDF replay:**
+
+- Script QA actual process EXIT 0; local script risk `blocking=0`,
+  `warnings=0`; `.microgen_work/math_semantic_report.json` exists and
+  is hash-pinned in the runner state, with `blocking_count=0` under a
+  **limited** math/domain/sign ruleset.
+- The publisher code `selenium_pipeline/output_paths.py` omitted the
+  `math_semantic_report.json` and `math_semantic_repair_prompt.json`
+  artifacts from `script_qa`'s published output list, despite the
+  runner and immutable stage controller requiring them. The trial's
+  `stage_script_qa_result.json` is **immutable**
+  `STAGE_FAILED_OR_OUTPUT_INCOMPLETE_NO_RETRY`; the operator correctly
+  reports `HALTED_PREVIOUS_STAGE_FAILED_NO_RESEND`.
+- **Permanent general fix:** publish both verified math report and repair
+  prompt on future successful/diagnostic script-QA stages, preserving
+  their actual status flags. Two positive/negative publication regression
+  tests added; **38 focused Windows tests PASS** (source-adjacent outputs,
+  Windows stage sequence and source-SHA stage reuse). No model retries
+  and no changed original/staged source. The existing failed terminal
+  receipt is **not** edited, overwritten or falsely promoted.
+- The actual limited math report says
+  `all_mathematics_verified=false`,
+  `independent_source_math_ai_review_approved=false`,
+  `automatic_tts_authorized=false`. Its zero domain-sign hazard count
+  **does not** certify complete mathematical accuracy or permit TTS/media
+  release. No generated WAV/MP4 and no student publication.
+
+**Current closure status:**
+
+- **G1:** source-sized Gemini Selenium generation of **real original slides
+  and narration** PASS_VERIFIED once, with immutable SHA-bound receipts.
+  Future availability remains external and cannot be guaranteed.
+- **G2:** PARTIAL / NOT_VERIFIED: no complete autonomous independent
+  source/figure/math/voice review, no accepted TTS/WAV, synchronized
+  highlighted <600-second MP4, or second independently accepted lecture.
+  Source 7.1 script-QA terminal remains failed, with no authorized retry.
+  Do not solve this by editing the QA flags.
+- **G3:** underlying Windows engineering candidate was verified at
+  entry `db77942` with exact-head 2/2 hosted CI, but latest code change
+  requires new exact-head hosted CI. Historical release-critical PR review
+  remains incomplete; draft PR #528 unmerged.
+- **Next permitted step:** independently reconcile the *existing* physical,
+  hash-verified limited QA artifacts under the no-resend/evidence-reuse
+  policy, and complete genuine autonomous source-math/audio/media QA
+  without overriding `automatic_tts_authorized=false`. Alternatively
+  run a distinct new-source pilot only after the general publisher fix is
+  exact-head CI-green, with a fresh SHA/receipt; never replay Serway 7.1.
+  Stop if the required independent QA cannot be legitimately satisfied.
+
+**No code change other than the narrow general QA publishing fix.** This
+is genuine G1 acceptance advancement and reusable G2 defect correction,
+not full production closure. All new original/model attempt claims are
+one-shot and terminal.
+
+---
+
+# 7 November 2026 — v4.0 frozen closure charter (Google Drive master prompt)
+
+**Operating source:** owner's Google Drive `auto_cont_dev_prompt_v4.0.md`
+(file `1wYIvmymMSudafl_BWEmj5V1mjWE232tI`) was read and applied to
+**MicroGen_AI_Web** only. It supersedes v3.0 as the general development
+procedure; the repository's
+`docs/BINDING_CLOSURE_FIRST_DEVELOPMENT_CONTRACT_20261107.md` supplies
+the project-specific scientific, cost, device and release boundaries.
+No new model, TTS, source or student publication authorization is inferred.
+
+**Frozen entry identity:** Dell-115, native Windows, isolated clean draft
+`feature/pr528-autonomous-ai-lecture-acceptance`, examined code
+`c578ae9ce32431ee5fd590282bd787ddad1fe4eb`. Both hosted Windows
+CI jobs at this revision SUCCESS. The following charter is fixed *before*
+a new acceptance attempt; changing candidate, tests or thresholds after
+an unsuccessful run is prohibited. A documentation-only revision after
+this entry must independently reverify exact-head CI.
+
+| Gate / necessity | Status (7 Nov) | Required independent acceptance evidence | Owner, prerequisite and stop rule |
+| --- | --- | --- | --- |
+| **G1** original-source-sized generation transport (mandatory operational prerequisite) | **BLOCKED_EXTERNAL**; no unattended route certified | Fresh, **new** claimed job and complete attributable source-sized model output, ownership and exact-one-Send receipt; login/metadata/short canary are NOT enough | Authorized owner/provider must allow ordinary new-tab operation, or new independently verifiable provider capacity/route evidence. Do not bypass ChatGPT verification or replay earlier Gemini failed source-sized canary and claimed PDFs. One new bounded test only if a material change creates a distinct, justified hypothesis and within existing cost policy. Otherwise terminal for this failure signature. |
+| **G2** independent genuine full lecture (mandatory domain + pilot) | **NOT_VERIFIED**, blocked by G1 | Different original PDF, registered SHA and rights, all original figure panels, correct slides/script, actual TTS WAV and voice evidence, source-cited autonomous AI maths/figure/speech QA, active narration-synced highlighted MP4 frames, every encoded part **strictly <600 s**, immutable receipts | Exact source/selection rationale and distinct prior-attempt history must be frozen **before** submission. The 45 scoped inventory candidates are NOT globally verified unused. Do not select an easier replacement after failure; one-Send source/stage policy remains. No mandatory human academic review for internal stage progression; external release separate. |
+| **G3-E** engineering technical baseline (separately reportable track) | **PASS_VERIFIED** when complete release-board review inputs provided | Isolated Windows worker PASS, clean source tree, actual source/recovery receipts, read-only historical stack batch *plan*, and exact-head 2/2 hosted CI; engineering candidate only | Previously verified on c578ae9 using the same `--include-stack-batches` plus `--verify-exact-head-ci-online` flags; omitting optional batch-plan evidence returns engineering_ready false. Neither flag establishes a completed independent PR review nor student release. Do not reopen without changed code/dependencies/evidence. |
+| **G3-R** integrated approved production release (mandatory code/release) | **NOT_VERIFIED** | Actual required PR dependency/technical review and frozen reproducible final Windows package/installation on exact released commit, G1 and G2 actual acceptance, permission for any merge and external release | No mass historical draft merges, feature additions, or publication. Next independent G3 work only when it demonstrably reduces a release-critical dependency, not for more CI/doc/PR churn. |
+
+**Bounded terminal provider evidence, not to be replayed:** Gemini browser source-sized
+synthetic one-shot `20261106_PR528_SOURCE_SIZED_SYNTHETIC_GEMINI_CANARY_V1`
+ended after verified Send with SHA-bound model UI error; not proven HTTP 503/504.
+ChatGPT new owned tab on Dell-115 showed `Just a moment...` security
+verification with **zero Send**; distinct no-Send receipt
+`20261107_PR528_CHATGPT_BROWSER_DISTINCT_CANARY_V1`. Existing authenticated
+tabs are not a certified new-tab transport; never circumvent the challenge.
+No new external model request or source generation was made in this
+v4 charter invocation.
+
+**v4 anti-stall decision:** The preceding contract-renewal invocation and
+this acceptance-status invocation have not supplied a fully accepted new
+lecture or reliable new generation route. Mark **CLOSURE_STALL for G1/G2
+external-path advancement**. This is NOT grounds to invent another test,
+change computers, use a different key to replay, or weaken quality gates.
+Resume G1 only after a materially changed authorized browser verification
+state or independently verified new provider path. Continue a *distinct*
+G3 release-critical dependency only if it has concrete acceptance criteria.
+If none is actionable, stop and report `NOT_COMPLETE_WITH_NAMED_BLOCKERS`.
+
+**Measured outcome of this v4 invocation:** recovered latest evidence and
+froze all acceptance identities, exact evidence requirements, owner/stop
+conditions and prior failed-request limits. **No acceptance gate advanced**;
+the previously reported engineering technical readiness was independently
+reconfirmed with all required optional inputs. Existing original sources
+and old trial receipts preserved. This is a scope/stop-control checkpoint,
+not new software functionality or completed production release.
+
+---
+
+# 7 November 2026 — Binding closure-first contract v4.0 adopted
+
+- **Authority:** Owner directed a revised procedure learned from repeated blocker-fixing rounds. `docs/BINDING_CLOSURE_FIRST_DEVELOPMENT_CONTRACT_20261107.md` now controls *future development procedure* and is linked from existing effective contract and autonomous-development protocol. Existing technical/scientific/TTS/security/source/publication requirements remain.
+- **New operating gates:** G1 reliable legitimately available model route (currently BLOCKED); G2 genuinely independent complete lecture with AI-only scientific, figure, speech and synchronized MP4 acceptance (BLOCKED by G1); G3 reproducible Windows release with verified release-critical dependencies and exact-head CI (PARTIAL, engineering candidate already verified). No new unrelated features or PRs.
+- **Historical knowledge retained:** immutable no-resend and SHA reuse, no repeated PDF perfection, no mistaken Gemini API-vs-browser diagnosis, no ChatGPT challenge bypass, bounded retries across sessions, no blanket historical PR merge; these rules remain effective under future v3.0 autonomous prompt invocations.
+- **Validation for adoption:** contract/index links inspected and targeted Windows contract regressions to be recorded at commit/push. An updated doc pointer is NOT provider recovery, complete lecture or production release.
+
+---
+
+# 7 Nov 2026 — Universal orphan Send-intent source inventory exclusion
+
+- **Project:** MicroGen_AI_Web / Dell-115 Windows-only Selenium; extend existing PR528; preceding exact code HEAD `272ded40debb11291bcf2b6b68f554107321f7e0`, both Windows CI jobs SUCCESS.
+- **Actual model-stage enforcement:** `windows_fresh_source_trial.run_trial` now checks strictly validated sibling trial contracts and figures/slides/narration/script-QA Send intents for the exact original SHA *before* copying/staging a new source or writing any new Send intent. The current trial's own receipts remain handled by existing one-Send logic. This registry is scoped, never global proof. Three focused production-path tests (same-SHA orphan blocked; unrelated SHA permitted; malformed sibling blocked) PASS.
+- **Permanent cross-source safeguard:** Native `windows_original_source_candidate_inventory` now checks SHA-formatted, strict-schema previous `figures_attempt_started.json` and `stage_{slides,narration,script_qa}_started.json` receipts as well as full trial contracts. Missing trial contract no longer permits an old pre-Send claimed source into the new-source candidate pool. No global proof of never-attempted and no model-send authority added. Existing Windows operator uses the same routine.
+- **Verified on Dell-115:** 50 focused source selection, progression, launch and stage regression tests passed; source-free fault-injection tests include orphan, duplicates, malformed receipts and bounded registry. Real read-only publisher/registry inspection: 46 Serway_1_7 PDFs; 8 trial contracts; 10 Send intents (8 distinct SHAs); 1.1 excluded by BOTH existing contract and Send-intent evidence; 45 remaining possible candidates, not verified globally unattempted. No regeneration or model calls.
+- **Previous milestones retained:** exact-head Windows CI green on prior `272ded4`; read-only engineering candidate true but actual release blocked; standalone Windows source-only package from `105ed34` validated. Gemini source-sized browser UI failure and ChatGPT browser `Just a moment...` challenge still prevent reliable unattended new model dispatch. Second distinct complete academic/audio/MP4 lesson, historical PR reconciliation, final release and separate student publication remain incomplete.
+- **Next:** Continue distinct new source only with genuine transport/claim eligibility, zero duplicate replays; finish autonomous AI-science/figure/voice/media acceptance and reviewed historical integration. No paid API/TTS without authorization, no HP/Yoga/local models/Ubuntu, no unaudited merge or release.
+
+---
+
+# 2026-11-07 PR528 source-only engineering acceptance and batch-one regression
+
+- **Project:** MicroGen_AI_Web native Windows Selenium. Sole authorized PC Dell-115; branch `feature/pr528-autonomous-ai-lecture-acceptance`. Latest verified **code** commit `105ed344b5ae32eb4b3c7ba8bf9672eb6d429eb7`; both exact-head Windows CI jobs SUCCESS in GitHub run `42335084092`; read-only GitHub main freshness matches `84cb105ff3a21411ac6b0de6665d6c832e11b6be`.
+- **Read-only production release board:** Actual pre-existing multisource jobs `20261104_PR489_WINDOWS_MULTISOURCE_JOBS_V1`, original trial `20261104_PR490_FRESH_SERWAY22_1_V1`, installed PR493 isolated Windows worker, tracked GitHub CI: `engineering_technical_release_candidate_ready=true` but `WINDOWS_RELEASE_CANDIDATE_BLOCKED`. Worker install PASS; second original `SECOND_SOURCE_PROVENANCE_INCOMPLETE`; autonomous original lecture QA not provided; reviewed sourcebound MP4 not selected; historical PR review incomplete. No model, TTS, FFmpeg or publication operations.
+- **Fresh portable source-only candidate:** `%LOCALAPPDATA%\MicroGen_AI_Web_Checkpoints\20261107_PR528_EXACT_HEAD_WINDOWS_SOURCE_REVIEW_ONLY_V1`, built with the existing guarded `Build-MicroGen-WindowsReviewCandidate.ps1` from exact code commit `105ed34`. `CLEAN_EXTRACTED_WINDOWS_SOURCE_REVIEW_CANDIDATE_ONLY`, 1,421 tracked source files; ZIP SHA256 `f16fc4a00747e196fe5efd7a323f086666d85b81aeb11f4f4c23efb5e243616b`; clean extracted isolated worker + Windows operator doctor PASS. Excludes private PDFs, credentials, WAV, MP4 and source output. Not a production installation or release. A subsequent documentation-only checkpoint commit will differ from the packaged source SHA.
+- **First bounded historical review batch, regression scope only:** 20 commits `d42413c1...` to `98cbbae9...` after live `origin/main`; 59 changed files, approximately 6,234 insertions/36 deletions. Focused native Windows tests on latest code for strict part duration, source-anchored narration, synchronization, ASR, mathematical identity and TTS gates: **68 PASS**, five third-party SWIG deprecation warnings. These are current-head functional regressions, not individual historic PR diff/CI/academic approvals.
+- **Important PR mapping caveat:** GitHub `commits/{sha}/pulls` returned tens of later stacked PRs for a single early commit; membership alone cannot identify the introducing PR in this cumulative branch topology. A complete first-batch independent PR dependency review was **not** claimed. Prior live audit: 439 open PRs, 158 contiguous newest drafts, historic adjacency disagreements; 810 commits ahead of tracked main as of code commit `105ed34`; 41 review batches. No automatic merge authorization.
+- **Persistent blockers:** Gemini's source-sized web model request previously ended with a model UI error, not proven HTTP 503/504; fresh ChatGPT Selenium tab hits a `Just a moment...` verification interstitial, now explicitly classified without challenge bypass. No automatic original-source generation route certified; second genuinely completed original-source PDF→figure→slides→narration→Flash-Lite TTS→synchronized <600s MP4 plus AI-based science/figure/voice acceptance still absent. No historic PR stack integration or student publication approval.
+- **Next:** Resolve generation transport only on new evidence without replaying any claimed canary or prior Serway PDF; independently verify a distinct unattempted full source using authorised, bounded provider route when available; perform bounded historical per-PR code/science/voice reviews, not simplistic many-to-many commit associations. No repeated per-PDF fixes, no paid API/TTS without separate authority, no HP/Yoga, local LLM, student publication or unreviewed merge.
+
+---
+# 7 Nov 2026 — PR528 ChatGPT new-tab verification diagnosis and safeguard
+
+- **Verified cause of fresh-tab editor unavailability (Dell-115 port 9223):** Two *existing* ChatGPT tabs had visible authenticated contenteditable editors, while one *new* MicroGen-owned zero-input tab loaded `https://chatgpt.com/` into a `Just a moment...` browser-verification interstitial with no editor/main across six read-only polls spanning 12.4 seconds. Navigation itself completed (~1.75 seconds). The diagnostic never typed or sent any prompt and closed only its own empty tab. Underlying reason the website demands new-tab verification is not proven; this is **not** evidence of ChatGPT model generation failure or Gemini API 503/504.
+- **Permanent code correction:** `windows_chatgpt_sourcefree_canary.owned_browser_verification_visible` checks that exact observed title on the ChatGPT domain (no bypass). Both the source-free one-shot canary and actual production `windows_chatgpt_once_transport` classify a missing composer accompanied by that verification page as `CHATGPT_BROWSER_VERIFICATION_REQUIRED_NO_SEND`, not a generic missing editor or a model outage. Canary zero-click case closes only its new empty owned tab; old claims and sent/uncertain tabs remain protected. Independent immutable prior-result verifier accepts the new clearly zero-send diagnostic with an explicit `browser_verification_interstitial_reported` flag. No verification challenges are automatically solved, no resubmissions are performed.
+- **Validation:** 72 focused native Windows tests PASS (ChatGPT once-transport, one-shot canary, route evidence preflight, login/port isolation and release-readiness board). `git diff --check` PASS. Exact-head hosted Windows CI must be rechecked after the new commit.
+- **Release gates unchanged:** Browser verification still prevents reliable *new* ChatGPT tab creation; Gemini source-sized model-side failure remains independently recorded. Neither transport is certified for unattended new lecture dispatch. The fully accepted second original source, source-grounded academic/audio/figure/MP4 QA, historical draft-PR reconciliation, production release and student publication remain incomplete. Dell-115 only; no replay of earlier canaries or Serway 10.1/10.2/11.1/11.2; no paid API/TTS, local models, non-Dell machine or unauthorized merges/publication.
+
+---
+
+# 2026-11-07 PR528 recovery verification (second session)
+
+- Device/branch: Dell-115 only; isolated clean branch `feature/pr528-autonomous-ai-lecture-acceptance`, exact source HEAD `7d6657d30889e4a86ad60b8d956b7adcfb0f316e`. Original older `MicroGen_AI_Web_LatestRun` worktree has two pre-existing dirty files and was NOT changed.
+- Hosted exact-head evidence: `gh pr view 528` reported both Windows checks SUCCESS on that exact SHA; draft OPEN, mergeable but not merge/release approved.
+- Native Dell focused tests: `python -m pytest -q tests/test_windows_provider_route_evidence_preflight.py tests/test_windows_chatgpt_sourcefree_canary.py tests/test_windows_release_readiness_board.py`: **48 PASS**.
+- Live read-only provider preflight: both browser logins authenticated; SHA-verified Gemini owned model-side UI error; prior ChatGPT editor failure verified; result `NO_GENERATION_TRANSPORT_CERTIFIED_FOR_AUTOMATIC_DISPATCH`. No Send, content API, TTS, PDF change, or publication. Historical short Gemini success does not establish source-sized health; HTTP 503/504 is not proven by this check.
+- Historical review: native bounded batch planner found 808 commits ahead of local tracked main / 41 20-commit batches; merely a plan, not accepted reviews. Live GitHub open PR audit found 439 open PRs (complete pagination), contiguous newest 158 draft PRs, and 10 adjacent branch disagreements in older history. Independent per-PR review and merges remain incomplete; all release/merge flags false. Local main freshness must be checked independently before integration.
+- Outstanding critical path: generation transport not certified for automatic original-source dispatch; second distinct original full figures/slides/narration/Flash-Lite TTS/synchronized MP4 with autonomous science/voice/diagram QA not yet accepted; safe PR-stack reconciliation, production release and owner-authorized student publication incomplete.
+- Next justified bounded work: independent offline source-agnostic integration/release readiness and first bounded PR dependency reviews; improve only reusable transport/editor mechanics when new evidence supports a fix; do not rerun prior canaries or Serway 10.1/10.2/11.1/11.2, reset retry claims, use paid API/TTS without approval, or merge/publish.
+- The current invocation made no changes to production pipeline code; no end-to-end success or provider recovery is claimed. The present checkpoint update is documentation only.
+
+---
+# PR528 — ChatGPT source-free editor failure and provider-route safeguard (7 Nov 2026)
+
+**Baseline:** MicroGen_AI_Web native Windows Selenium, Dell-115 sole authorized device.
+Existing draft PR528 parent `afa2c21f7d39da8d408256b3f8b629067695634b` CI #678 both Windows jobs PASS.
+**One new independent ChatGPT source-free 9223 canary:** prior signed-in session validated and dry run 0 submissions. Claim dir `%LOCALAPPDATA%\MicroGen_AI_Web_Checkpoints\20261107_PR528_CHATGPT_BROWSER_DISTINCT_CANARY_V1` fresh; terminal `PROMPT_NOT_CONFIRMED_NO_SEND`, `send_click_attempted=false`, `model_submissions_this_call=0`. NO model response or generation tested. Fresh OWNED-tab editor-only diagnostic also timed out before an editor could be found; it closed only its own tab and did not send. No repeat of any previous PDF or canary, no paid API/TTS.
+**General code change in existing PR528:** `windows_chatgpt_sourcefree_canary.inspect_existing_no_send` validates the prior exact claim+terminal receipt and absent click-intent, read-only; `windows_provider_route_evidence_preflight` accepts optional `--prior-chatgpt-canary-root` and suppresses ChatGPT as a distinct new-job alternative when an independently validated pre-Send editor failure exists. It never authorizes generation based only on login. 44 focused Windows pytest PASS; syntax + diff PASS; hosted exact-head CI pending commit at drafting.
+**Combined read-only route:** `%LOCALAPPDATA%\MicroGen_AI_Web_Checkpoints\20261107_PR528_BOTH_BROWSER_CANARIES_READONLY_ROUTE.json`. Both browser logins present, Gemini source-sized model UI error SHA-verified, ChatGPT own prompt entry unverified, `NO_GENERATION_TRANSPORT_CERTIFIED_FOR_AUTOMATIC_DISPATCH`, automatic new model generation false. Neither HTTP 503/504 nor ChatGPT model-generation failure proven.
+**Remaining:** Real second distinct original full pipeline and automatic academic/voice/figure/MP4 QA, safe historical PR stack integration. Do not switch to paid Gemini API without explicit approval or re-open §10.1/10.2/11.1/11.2. Windows-only; no local models, HP/Yoga, merges or student publication.
+
+---
+# PR528 — Source-sized synthetic Gemini verification and shared terminal UI-error hardening (6 Nov 2026)
+
+**Latest experiment:** CI-green PR528 previous head `42aab2ff0cf36094c2284d67e8aed56845cf17e8` (#677 BOTH Windows jobs success). Dell-115 sole Windows machine. Harmless 1535-character source-sized test sent exactly ONCE via existing `windows_gemini_differential_probe` extended with separate `source_sized` profile, separate Send claim+response SHA; old short profile untouched. Receipt at `%LOCALAPPDATA%\MicroGen_AI_Web_Checkpoints\20261106_PR528_SOURCE_SIZED_SYNTHETIC_GEMINI_CANARY_V1`: `NO_VERIFIED_RESPONSE`, `SeriesBridgeError`, verified Send, 0 accepted JSON chars, bridge stage `OWNED_RESPONSE_UNVERIFIED_QUARANTINED`; no source PDF or paid API/TTS. SHA-bound owned response quarantine `%LOCALAPPDATA%\Microvid\gemini_quarantine\gemini_20261106T104226Z_4b18ddd25700.meta.json` contains 104-character exact Gemini UI model text (terminal response, not successful test). Read-only reclassification `GEMINI_MODEL_COULD_NOT_FULFILL_REQUEST`, `provider_server_outage_proven=false`, `browser_capture_total_failure_proven=false`, `original_source_retry_authorized=false`. **NEVER resend this synthetic claim or §10.1/10.2/11.1/11.2 source SHAs.**
+
+**Permanent code safeguards:** shared strict `gemini_provider_ui_terminal_error` now recognizes the genuine third exact Gemini owned-model failure phrase; the production figure watcher uses strict owner-bound classification on every *completed* visible response rather than its own substring heuristic. The existing differential source-free canary now supports an independently SHA/claim-bound, one-time browser-only source-sized profile (1200–3000 synthetic characters), never API billing. Existing route preflight distinguishes short vs source-sized positive responses and prioritizes trusted negative source-sized UI error evidence over any prior positive short canary. Live read-only route with verified failing source-sized claim+UI metadata: `CHATGPT_BROWSER_AVAILABLE_FOR_A_DISTINCT_NEW_JOB_ONLY`, both Gemini/ChatGPT logged in, `gemini_browser_auto_selection_suppressed_by_prior_evidence=true`, `automatic_new_model_generation_authorized=false`. This is not proof ChatGPT will successfully generate a lecture.
+
+**Validation:** Dell-115 54 focused pytest PASS (plus earlier source-sized 33 tests), Python compile/diff checks PASS. Full exact-head Windows CI for this subsequent code commit remains required; initial head #677 green. Release remains blocked by second distinct fully generated/AI-reviewed lecture, genuine figure/audio/MP4 QA, and historical stacked PR integration. No automatic source retry, no local models, Ubuntu, HP/Yoga use, paid API/TTS, merge or student publication.
+
+See `docs/WINDOWS_AUTONOMOUS_LECTURE_QA_PR528_20261106.md`.
+
+---
+
+# PR528 — Autonomous AI science/speech/MP4 readiness without human academic signoff (6 Nov 2026)
+
+**6 November 2026 follow-on: source-free Gemini generation check.** Dell-115 successfully completed exactly one new Gemini browser-only canary in `%LOCALAPPDATA%\MicroGen_AI_Web_Checkpoints\20261106_PR528_GEMINI_BROWSER_CANARY_V1`, with owned-tab Selenium verified Send and exact valid generated response. Immutable result `VALID_CANARY_RESPONSE`, analysis `BROWSER_SHORT_CANARY_WORKS_LONG_FORM_NOT_CERTIFIED`. This is positive *short* browser generation health, not proof of a successful source-sized request, API 503/504, or long-form rendering. No textbook PDF, retry, API call, TTS or publication. Source-free verified receipt is integrated into existing read-only provider-route preflight; it now reports historical prior short success separately without enabling automated original generation. Local focused Windows checks: 39 PASS for the follow-on. Parent PR528 CI #676 was green **before** follow-on; new exact-head CI must pass after this update. Do not rerun any original Serway §§10.1, 10.2, 11.1, 11.2. Detailed explanation in `docs/WINDOWS_AUTONOMOUS_LECTURE_QA_PR528_20261106.md`.
+
+---
+
+**Branch:** feature/pr528-autonomous-ai-lecture-acceptance, new isolated Dell-115 Windows worktree %LOCALAPPDATA%\MicroGen_PR528_20261106, stacked on exact CI-green PR527 head e9ca7c4e7066a4de5ccc1f8081e04ef3080d77cb (GitHub Actions #675 BOTH Windows jobs passed). This priority is DISTINCT from Gemini UI error handling and avoids per-source retries.
+
+**Contract mismatch addressed:** Original lecture_release_gate.py has a historic manual human-academic approval path, but the current project contract requires autonomous AI-based scientific and media QA instead. New windows_autonomous_lecture_qa module independently recomputes saved real two-pass original-source AI consensus, SHA-bound narrated element correspondence, independent Gemini ASR / relaxed phonetic screen over existing WAV, mathematical domain lint and decoded synchronized MP4 validation with strict <600s part limits; it never submits a model request, generates TTS, renders video, or publishes. Windows release-readiness board now optionally accepts all five AI/audio/media evidence paths and ties results to the independently verified second-source SHA. It does NOT pretend technical agreement proves narrator identity, all figure meaning, or full academic / student release approval. Existing human legacy route remains optional, not required by this AI evidence path.
+
+**Evidence:** Source-free focused tests and existing Windows release/second-source/media tests passed locally (37 at first targeted invocation; broader and hosted CI remain required after final changes). New files described in docs/WINDOWS_AUTONOMOUS_LECTURE_QA_PR528_20261106.md. Parent PR527 #675 fully green. PR528 exact-head CI pending until branch is pushed. No original PDF resumed or retried, provider or TTS calls, non-Dell devices, local models, Linux or student publication.
+
+**Remaining:** second genuinely completed original with full AI scientific, figure-semantic, voice and video QA; safe reviewed historical PR stack; final production installation and independently approved publication. Do not relax these gates to manufacture success.
+
+---
+
 # PR527 — Reusable Gemini post-submit response recovery, no resend (6 Nov 2026)
 
 **Latest independent priority (6 Nov 2026, afternoon):** Following CI #674 SUCCESS on 07317c3420f651bf5871641456f2602813ff2ff9, a different Serway §11.2 one-shot figures stage failed with an independently submitted page-2 Gemini request and a visible owned-model `Sorry, something went wrong` response. Local crop succeeded; no HTTP 503/504 evidenced. Immutable trial `%LOCALAPPDATA%\MicroGen_AI_Web_Checkpoints\20261106_PR527_SERWAY11_2_DISTINCT_NEW_DRYRUN_V1`; original SHA `c98e7cc9d1e83ad26949026682314a75e9437e20bf8437709b2a5ba776b12a58`; **NEVER replay**. A general fix now extends the existing strict model-UI-error classifier, aborts the figure-mapping wait on an exact error in the MicroGen-owned response, forbids re-send/API fallback, and enhances automatic source-bound stage diagnostics. Dell-115 focused **50 pytest PASS**, syntax/whitespace PASS. These follow-up changes are not yet hosted CI accepted at this checkpoint. No student release, paid API/TTS, non-Dell machines, Ubuntu or local models.

@@ -1,3 +1,5 @@
+> **BINDING CLOSURE-FIRST PROCEDURE (7 NOVEMBER 2026):** Apply [Closure-First Development Contract v4.0](BINDING_CLOSURE_FIRST_DEVELOPMENT_CONTRACT_20261107.md) before any future autonomous development, including invocations of the v3.0 continuation prompt. This supersedes procedural habits of endless fixes/new PRs, but does not relax the underlying scientific, source, TTS, video, authorization or release requirements.
+
 # MicroGen_AI_Web — Standing Autonomous Development Protocol
 
 **Effective: 2026-10-18. Owner-authorized contract amendment.**

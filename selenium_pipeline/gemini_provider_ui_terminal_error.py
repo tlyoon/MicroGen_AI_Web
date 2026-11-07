@@ -12,13 +12,15 @@ import os
 from pathlib import Path
 
 _KNOWN_ERRORS = {
-    # Both variants have been observed as complete Gemini model replies.
+    # All variants have been observed in actual owned model replies.
     # Exact matching, not substring matching, avoids treating user prompts,
     # normal physics discussion, or the browser interface as an outage.
     "I seem to be encountering an error. Can I try something else for you?":
         "OLDER_GEMINI_MODEL_ERROR",
     "Sorry, something went wrong. Please try your request again.":
         "GEMINI_MODEL_REQUEST_ERROR",
+    "I'm having a hard time fulfilling your request. Can I help you with something else instead?":
+        "GEMINI_MODEL_COULD_NOT_FULFILL_REQUEST",
 }
 
 

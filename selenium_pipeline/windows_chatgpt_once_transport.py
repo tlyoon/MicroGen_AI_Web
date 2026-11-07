@@ -13,7 +13,7 @@ from pathlib import Path
 import time
 
 from .windows_chatgpt_sourcefree_canary import (
-    SEND_BUTTON_CSS, prior_owned_draft,
+    SEND_BUTTON_CSS, prior_owned_draft, owned_browser_verification_visible,
 )
 
 CHATGPT_PORT = 9223
@@ -171,6 +171,9 @@ def submit_one_in_owned_tab(
     try:
         editor = WebDriverWait(driver, 18).until(composer)
     except Exception as exc:
+        if owned_browser_verification_visible(driver):
+            raise ChatGPTPreSendBlocked(
+                "CHATGPT_BROWSER_VERIFICATION_REQUIRED_NO_SEND") from exc
         raise ChatGPTPreSendBlocked("COMPOSER_NOT_READY_NO_SEND") from exc
     login_buttons = driver.find_elements(By.CSS_SELECTOR, "button[data-testid='login-button']")
     if any(b.is_displayed() for b in login_buttons):

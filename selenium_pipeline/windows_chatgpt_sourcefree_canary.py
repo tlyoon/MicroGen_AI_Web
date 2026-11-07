@@ -105,6 +105,91 @@ def prior_owned_draft(checkpoint: Path) -> str:
     return previous_prompt
 
 
+def inspect_existing_no_send(*, root: Path) -> dict:
+    """Verify existing immutable pre-click failure without opening a browser.
+
+    A login-ready existing tab is not proof the NEW ChatGPT composer accepts
+    text. Exact claimed no-click receipts can suppress an unsafe new-job route.
+    Never infer model generation or inspect/rewrite a user's browser tabs.
+    """
+    import re
+    root = _local_root(root)
+    claim = root / "chatgpt_canary_claim.json"
+    result = root / "chatgpt_canary_result.json"
+    intent = root / "chatgpt_send_click_intent.json"
+    if any((x.is_symlink() or not x.is_file()
+            or not 0 < x.stat().st_size <= 4096) for x in (claim, result)):
+        raise ValueError("Unsafe or incomplete prior ChatGPT canary receipt")
+    def read(path):
+        record = json.loads(path.read_text(encoding="utf-8"))
+        if type(record) is not dict:
+            raise ValueError("ChatGPT canary receipt must be an object")
+        return record
+    c, r = read(claim), read(result)
+    marker = c.get("expected_response_marker")
+    if (type(marker) is not str or not re.fullmatch(
+            r"MICROGEN_CHATGPT_CANARY_[0-9A-F]{12}_OK", marker)):
+        raise ValueError("Invalid prior ChatGPT canary marker")
+    prompt = _prompt_for_marker(marker)
+    if not (c.get("schema_version") == 1
+            and c.get("provider") == "chatgpt"
+            and c.get("debug_port") == PORT
+            and c.get("one_send_only") is True
+            and c.get("source_files_attached") is False
+            and c.get("prompt_sha256") ==
+                hashlib.sha256(prompt.encode("utf-8")).hexdigest()
+            and r.get("schema_version") == 1
+            and r.get("status") == "CANARY_TERMINAL"
+            and r.get("expected_response_marker") == marker
+            and r.get("prompt_sha256") == c.get("prompt_sha256")
+            and r.get("provider") == "chatgpt"
+            and r.get("debug_port") == PORT
+            and r.get("source_files_attached") is False
+            and r.get("student_publication_authorized") is False):
+        raise ValueError("Unmatched or untrusted ChatGPT canary proof")
+    no_send = (
+        not intent.exists() and not intent.is_symlink()
+        and r.get("outcome") in {
+            "PROMPT_NOT_CONFIRMED_NO_SEND",
+            "CHATGPT_BROWSER_VERIFICATION_REQUIRED_NO_SEND",
+        }
+        and r.get("send_click_attempted") is False
+        and r.get("model_submissions_this_call") == 0
+        and r.get("user_turn_confirmed") is False
+    )
+    return {
+        "status": ("CHATGPT_OWNED_EDITOR_INPUT_NOT_VERIFIED_NO_SEND"
+                   if no_send else "CHATGPT_PRIOR_CANARY_NOT_A_PROVEN_EDITOR_FAILURE"),
+        "provider": "chatgpt",
+        "debug_port": PORT,
+        "source_claim_sha256": hashlib.sha256(claim.read_bytes()).hexdigest(),
+        "source_result_sha256": hashlib.sha256(result.read_bytes()).hexdigest(),
+        "pre_send_editor_failure_independently_verified": bool(no_send),
+        "browser_verification_interstitial_reported": bool(
+            no_send and r.get("outcome") ==
+            "CHATGPT_BROWSER_VERIFICATION_REQUIRED_NO_SEND"),
+        "browser_submission_proven_successful": False,
+        "gemini_outage_proven": False,
+        "new_model_or_tts_calls": False,
+        "old_source_retry_authorized": False,
+        "student_publication_authorized": False,
+    }
+
+
+def owned_browser_verification_visible(driver) -> bool:
+    """Recognize a *visible* ChatGPT browser-verification interstitial.
+
+    A signed-in existing tab cannot certify new-tab navigation. This only
+    classifies the observed page title; it neither solves verification nor
+    authorizes a resend, model fallback, or browser challenge bypass.
+    """
+    try:
+        return (str(driver.current_url).startswith("https://chatgpt.com/")
+                and str(driver.title).strip().casefold() == "just a moment...")
+    except Exception:
+        return False
+
+
 def _current_ui_exact_canary(main_text: str, marker: str) -> bool:
     """Fail-closed semantic fallback for current fresh-chat ChatGPT said UI."""
     if type(main_text) is not str or len(main_text) > 25000:
@@ -155,7 +240,16 @@ def _real_browser_once(prompt: str, expected: str, timeout: int,
                     if el.is_displayed() and el.is_enabled():
                         return el
             return False
-        ed = WebDriverWait(driver, 18).until(composer)
+        try:
+            ed = WebDriverWait(driver, 18).until(composer)
+        except Exception:
+            if owned_browser_verification_visible(driver):
+                observed["outcome"] = "CHATGPT_BROWSER_VERIFICATION_REQUIRED_NO_SEND"
+                # The page has no prompt editor and this attempt has no Send.
+                # Only this newly-created, zero-input tab may be closed.
+                keep_for_reconciliation = False
+                return observed
+            raise
         login_buttons = driver.find_elements(By.CSS_SELECTOR, "button[data-testid='login-button']")
         if any(b.is_displayed() for b in login_buttons):
             observed["outcome"] = "LOGIN_REQUIRED_ON_NEW_TAB_NO_SEND"
