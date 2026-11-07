@@ -1,3 +1,58 @@
+# 7 November 2026 — v4.0 frozen closure charter (Google Drive master prompt)
+
+**Operating source:** owner's Google Drive `auto_cont_dev_prompt_v4.0.md`
+(file `1wYIvmymMSudafl_BWEmj5V1mjWE232tI`) was read and applied to
+**MicroGen_AI_Web** only. It supersedes v3.0 as the general development
+procedure; the repository's
+`docs/BINDING_CLOSURE_FIRST_DEVELOPMENT_CONTRACT_20261107.md` supplies
+the project-specific scientific, cost, device and release boundaries.
+No new model, TTS, source or student publication authorization is inferred.
+
+**Frozen entry identity:** Dell-115, native Windows, isolated clean draft
+`feature/pr528-autonomous-ai-lecture-acceptance`, examined code
+`c578ae9ce32431ee5fd590282bd787ddad1fe4eb`. Both hosted Windows
+CI jobs at this revision SUCCESS. The following charter is fixed *before*
+a new acceptance attempt; changing candidate, tests or thresholds after
+an unsuccessful run is prohibited. A documentation-only revision after
+this entry must independently reverify exact-head CI.
+
+| Gate / necessity | Status (7 Nov) | Required independent acceptance evidence | Owner, prerequisite and stop rule |
+| --- | --- | --- | --- |
+| **G1** original-source-sized generation transport (mandatory operational prerequisite) | **BLOCKED_EXTERNAL**; no unattended route certified | Fresh, **new** claimed job and complete attributable source-sized model output, ownership and exact-one-Send receipt; login/metadata/short canary are NOT enough | Authorized owner/provider must allow ordinary new-tab operation, or new independently verifiable provider capacity/route evidence. Do not bypass ChatGPT verification or replay earlier Gemini failed source-sized canary and claimed PDFs. One new bounded test only if a material change creates a distinct, justified hypothesis and within existing cost policy. Otherwise terminal for this failure signature. |
+| **G2** independent genuine full lecture (mandatory domain + pilot) | **NOT_VERIFIED**, blocked by G1 | Different original PDF, registered SHA and rights, all original figure panels, correct slides/script, actual TTS WAV and voice evidence, source-cited autonomous AI maths/figure/speech QA, active narration-synced highlighted MP4 frames, every encoded part **strictly <600 s**, immutable receipts | Exact source/selection rationale and distinct prior-attempt history must be frozen **before** submission. The 45 scoped inventory candidates are NOT globally verified unused. Do not select an easier replacement after failure; one-Send source/stage policy remains. No mandatory human academic review for internal stage progression; external release separate. |
+| **G3-E** engineering technical baseline (separately reportable track) | **PASS_VERIFIED** when complete release-board review inputs provided | Isolated Windows worker PASS, clean source tree, actual source/recovery receipts, read-only historical stack batch *plan*, and exact-head 2/2 hosted CI; engineering candidate only | Previously verified on c578ae9 using the same `--include-stack-batches` plus `--verify-exact-head-ci-online` flags; omitting optional batch-plan evidence returns engineering_ready false. Neither flag establishes a completed independent PR review nor student release. Do not reopen without changed code/dependencies/evidence. |
+| **G3-R** integrated approved production release (mandatory code/release) | **NOT_VERIFIED** | Actual required PR dependency/technical review and frozen reproducible final Windows package/installation on exact released commit, G1 and G2 actual acceptance, permission for any merge and external release | No mass historical draft merges, feature additions, or publication. Next independent G3 work only when it demonstrably reduces a release-critical dependency, not for more CI/doc/PR churn. |
+
+**Bounded terminal provider evidence, not to be replayed:** Gemini browser source-sized
+synthetic one-shot `20261106_PR528_SOURCE_SIZED_SYNTHETIC_GEMINI_CANARY_V1`
+ended after verified Send with SHA-bound model UI error; not proven HTTP 503/504.
+ChatGPT new owned tab on Dell-115 showed `Just a moment...` security
+verification with **zero Send**; distinct no-Send receipt
+`20261107_PR528_CHATGPT_BROWSER_DISTINCT_CANARY_V1`. Existing authenticated
+tabs are not a certified new-tab transport; never circumvent the challenge.
+No new external model request or source generation was made in this
+v4 charter invocation.
+
+**v4 anti-stall decision:** The preceding contract-renewal invocation and
+this acceptance-status invocation have not supplied a fully accepted new
+lecture or reliable new generation route. Mark **CLOSURE_STALL for G1/G2
+external-path advancement**. This is NOT grounds to invent another test,
+change computers, use a different key to replay, or weaken quality gates.
+Resume G1 only after a materially changed authorized browser verification
+state or independently verified new provider path. Continue a *distinct*
+G3 release-critical dependency only if it has concrete acceptance criteria.
+If none is actionable, stop and report `NOT_COMPLETE_WITH_NAMED_BLOCKERS`.
+
+**Measured outcome of this v4 invocation:** recovered latest evidence and
+froze all acceptance identities, exact evidence requirements, owner/stop
+conditions and prior failed-request limits. **No acceptance gate advanced**;
+the previously reported engineering technical readiness was independently
+reconfirmed with all required optional inputs. Existing original sources
+and old trial receipts preserved. This is a scope/stop-control checkpoint,
+not new software functionality or completed production release.
+
+---
+
 # 7 November 2026 — Binding closure-first contract v4.0 adopted
 
 - **Authority:** Owner directed a revised procedure learned from repeated blocker-fixing rounds. `docs/BINDING_CLOSURE_FIRST_DEVELOPMENT_CONTRACT_20261107.md` now controls *future development procedure* and is linked from existing effective contract and autonomous-development protocol. Existing technical/scientific/TTS/security/source/publication requirements remain.
