@@ -1,3 +1,12 @@
+# 7 November 2026 — Binding closure-first contract v4.0 adopted
+
+- **Authority:** Owner directed a revised procedure learned from repeated blocker-fixing rounds. `docs/BINDING_CLOSURE_FIRST_DEVELOPMENT_CONTRACT_20261107.md` now controls *future development procedure* and is linked from existing effective contract and autonomous-development protocol. Existing technical/scientific/TTS/security/source/publication requirements remain.
+- **New operating gates:** G1 reliable legitimately available model route (currently BLOCKED); G2 genuinely independent complete lecture with AI-only scientific, figure, speech and synchronized MP4 acceptance (BLOCKED by G1); G3 reproducible Windows release with verified release-critical dependencies and exact-head CI (PARTIAL, engineering candidate already verified). No new unrelated features or PRs.
+- **Historical knowledge retained:** immutable no-resend and SHA reuse, no repeated PDF perfection, no mistaken Gemini API-vs-browser diagnosis, no ChatGPT challenge bypass, bounded retries across sessions, no blanket historical PR merge; these rules remain effective under future v3.0 autonomous prompt invocations.
+- **Validation for adoption:** contract/index links inspected and targeted Windows contract regressions to be recorded at commit/push. An updated doc pointer is NOT provider recovery, complete lecture or production release.
+
+---
+
 # 7 Nov 2026 — Universal orphan Send-intent source inventory exclusion
 
 - **Project:** MicroGen_AI_Web / Dell-115 Windows-only Selenium; extend existing PR528; preceding exact code HEAD `272ded40debb11291bcf2b6b68f554107321f7e0`, both Windows CI jobs SUCCESS.
