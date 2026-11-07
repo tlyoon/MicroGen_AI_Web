@@ -5,6 +5,8 @@ The normal seven-stage runner is reused. Dry-run cannot send a model request;
 one optional real *figures-only* browser attempt requires an explicit flag,
 writes an attempt ledger before calling the provider, and cannot be resent.
 TTS, video, publication and scholarly acceptance are outside this stage.
+Before a genuine new figures Send, check sibling trials for the same
+SHA-bound prior source claim, even when a fresh contract was lost.
 """
 from __future__ import annotations
 
@@ -71,6 +73,16 @@ def run_trial(*, source_root: Path, section: str, trial_dir: Path,
             "External versioned Windows trial folder required")
     source, original_folder = _source_paths(source_root, section)
     original_sha = file_sha256(source)
+    if attempt_figures:
+        # The global candidate inventory is advisory; this is the real
+        # pre-Send enforcement seam. Check siblings before creating staged
+        # source files or a fresh immutable trial claim. Existing own
+        # trial receipts remain protected by the one-Send checks below.
+        from .windows_original_source_candidate_inventory import (
+            require_no_previous_sibling_source_claim,
+        )
+        require_no_previous_sibling_source_claim(
+            source_sha256=original_sha, trial_dir=trial_dir)
     staged_root = trial_dir / "source_tree"
     staged = staged_root / section.split(".")[0] / section
     staged_source = staged / "source.pdf"

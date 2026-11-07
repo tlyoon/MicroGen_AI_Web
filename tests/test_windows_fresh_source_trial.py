@@ -155,5 +155,60 @@ class FreshIndependentOriginalTests(unittest.TestCase):
         fake.assert_not_called()
 
 
+
+    def test_sibling_orphan_figures_intent_blocks_real_send_before_staging(self):
+        from selenium_pipeline.original_multisource_recovery_campaign import _new_atomic
+        earlier = self.root / "previous_unfinished_trial"
+        earlier.mkdir()
+        _new_atomic(earlier / "figures_attempt_started.json", {
+            "schema_version": 1, "stage": "figures",
+            "single_provider_attempt_only": True,
+            "source_sha256": self.sha,
+        })
+        fake = Mock(side_effect=AssertionError("no duplicate generation"))
+        with self.assertRaisesRegex(
+                CampaignRecoveryBlocked, "already claimed by another trial"):
+            run_trial(source_root=self.publisher, section="22.1",
+                      trial_dir=self.trial, attempt_figures=True,
+                      subprocess_run=fake)
+        fake.assert_not_called()
+        self.assertFalse((self.trial / "source_tree").exists())
+        self.assertFalse((self.trial / "fresh_trial_contract.json").exists())
+
+    def test_sibling_claim_for_different_source_does_not_block_current(self):
+        from selenium_pipeline.original_multisource_recovery_campaign import _new_atomic
+        earlier = self.root / "previous_different_source"
+        earlier.mkdir()
+        _new_atomic(earlier / "stage_slides_started.json", {
+            "schema_version": 1, "stage": "slides",
+            "single_attempt_no_provider_resend": True,
+            "source_sha256": "a"*64 if self.sha != "a"*64 else "b"*64,
+        })
+        fake = Mock(return_value=subprocess.CompletedProcess([], 1, "", ""))
+        result = run_trial(source_root=self.publisher, section="22.1",
+                           trial_dir=self.trial, attempt_figures=True,
+                           subprocess_run=fake)
+        self.assertEqual(result["status"], "FIGURES_ATTEMPT_FAILED_NO_AUTO_RETRY")
+        fake.assert_called_once()
+
+    def test_malformed_sibling_send_intent_blocks_before_model(self):
+        from selenium_pipeline.original_multisource_recovery_campaign import _new_atomic
+        earlier = self.root / "previous_invalid_trial"
+        earlier.mkdir()
+        _new_atomic(earlier / "figures_attempt_started.json", {
+            "schema_version": 1, "stage": "figures",
+            "single_provider_attempt_only": False,
+            "source_sha256": self.sha,
+        })
+        fake = Mock(side_effect=AssertionError("no model"))
+        with self.assertRaisesRegex(
+                CampaignRecoveryBlocked, "Untrusted prior source claim"):
+            run_trial(source_root=self.publisher, section="22.1",
+                      trial_dir=self.trial, attempt_figures=True,
+                      subprocess_run=fake)
+        self.assertFalse((self.trial / "figures_attempt_started.json").exists())
+        fake.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()
