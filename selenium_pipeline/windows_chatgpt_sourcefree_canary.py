@@ -149,7 +149,10 @@ def inspect_existing_no_send(*, root: Path) -> dict:
         raise ValueError("Unmatched or untrusted ChatGPT canary proof")
     no_send = (
         not intent.exists() and not intent.is_symlink()
-        and r.get("outcome") == "PROMPT_NOT_CONFIRMED_NO_SEND"
+        and r.get("outcome") in {
+            "PROMPT_NOT_CONFIRMED_NO_SEND",
+            "CHATGPT_BROWSER_VERIFICATION_REQUIRED_NO_SEND",
+        }
         and r.get("send_click_attempted") is False
         and r.get("model_submissions_this_call") == 0
         and r.get("user_turn_confirmed") is False
@@ -162,12 +165,29 @@ def inspect_existing_no_send(*, root: Path) -> dict:
         "source_claim_sha256": hashlib.sha256(claim.read_bytes()).hexdigest(),
         "source_result_sha256": hashlib.sha256(result.read_bytes()).hexdigest(),
         "pre_send_editor_failure_independently_verified": bool(no_send),
+        "browser_verification_interstitial_reported": bool(
+            no_send and r.get("outcome") ==
+            "CHATGPT_BROWSER_VERIFICATION_REQUIRED_NO_SEND"),
         "browser_submission_proven_successful": False,
         "gemini_outage_proven": False,
         "new_model_or_tts_calls": False,
         "old_source_retry_authorized": False,
         "student_publication_authorized": False,
     }
+
+
+def owned_browser_verification_visible(driver) -> bool:
+    """Recognize a *visible* ChatGPT browser-verification interstitial.
+
+    A signed-in existing tab cannot certify new-tab navigation. This only
+    classifies the observed page title; it neither solves verification nor
+    authorizes a resend, model fallback, or browser challenge bypass.
+    """
+    try:
+        return (str(driver.current_url).startswith("https://chatgpt.com/")
+                and str(driver.title).strip().casefold() == "just a moment...")
+    except Exception:
+        return False
 
 
 def _current_ui_exact_canary(main_text: str, marker: str) -> bool:
@@ -220,7 +240,16 @@ def _real_browser_once(prompt: str, expected: str, timeout: int,
                     if el.is_displayed() and el.is_enabled():
                         return el
             return False
-        ed = WebDriverWait(driver, 18).until(composer)
+        try:
+            ed = WebDriverWait(driver, 18).until(composer)
+        except Exception:
+            if owned_browser_verification_visible(driver):
+                observed["outcome"] = "CHATGPT_BROWSER_VERIFICATION_REQUIRED_NO_SEND"
+                # The page has no prompt editor and this attempt has no Send.
+                # Only this newly-created, zero-input tab may be closed.
+                keep_for_reconciliation = False
+                return observed
+            raise
         login_buttons = driver.find_elements(By.CSS_SELECTOR, "button[data-testid='login-button']")
         if any(b.is_displayed() for b in login_buttons):
             observed["outcome"] = "LOGIN_REQUIRED_ON_NEW_TAB_NO_SEND"

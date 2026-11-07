@@ -316,5 +316,81 @@ class OneSendChatGPTCanaryTests(unittest.TestCase):
                          "MICROGEN_CHATGPT_CANARY_ABC012_OK")
 
 
+
+    def test_verification_interstitial_classified_without_new_send(self):
+        from selenium_pipeline.windows_chatgpt_sourcefree_canary import (
+            owned_browser_verification_visible,
+        )
+
+        class Page:
+            current_url = "https://chatgpt.com/"
+            title = "Just a moment..."
+
+        self.assertTrue(owned_browser_verification_visible(Page()))
+        page = Page()
+        page.title = "ChatGPT"
+        self.assertFalse(owned_browser_verification_visible(page))
+        page.title = "Just a moment..."
+        page.current_url = "https://another.example/"
+        self.assertFalse(owned_browser_verification_visible(page))
+
+        def blocked(*args):
+            return {"outcome": "CHATGPT_BROWSER_VERIFICATION_REQUIRED_NO_SEND",
+                    "send_click_attempted": False,
+                    "user_turn_confirmed": False,
+                    "assistant_response_seen": False}
+        first = run(root=self.root, live=True,
+                    readiness=self.ready, browser=blocked)
+        self.assertEqual(first["model_submissions_this_call"], 0)
+        self.assertFalse((self.root / "chatgpt_send_click_intent.json").exists())
+        proof = inspect_existing_no_send(root=self.root)
+        self.assertTrue(proof["pre_send_editor_failure_independently_verified"])
+        self.assertTrue(proof["browser_verification_interstitial_reported"])
+        again = run(root=self.root, live=True,
+                    readiness=self.ready,
+                    browser=lambda *a: self.fail("Cannot retry"))
+        self.assertEqual(again["status"], "EXISTING_CLAIM_REUSED_NO_NEW_SEND")
+
+
+
+    def test_owned_challenge_canary_closes_only_zero_input_tab(self):
+        from selenium.common.exceptions import TimeoutException
+        from selenium_pipeline.windows_chatgpt_sourcefree_canary import (
+            _real_browser_once,
+        )
+        class Browser:
+            def __init__(self):
+                self.window_handles = ["user"]
+                self.current_window_handle = "user"
+                self.current_url = "https://chatgpt.com/"
+                self.title = "Just a moment..."
+                self.switch_to = self
+                self.closed = []
+                self.service = self
+            def new_window(self, kind):
+                assert kind == "tab"
+                self.window_handles.append("microgen-owned")
+                self.current_window_handle = "microgen-owned"
+            def window(self, handle):
+                self.current_window_handle = handle
+            def get(self, url):
+                assert url == "https://chatgpt.com/"
+            def close(self):
+                self.closed.append(self.current_window_handle)
+                self.window_handles.remove(self.current_window_handle)
+            def stop(self):
+                pass
+        browser = Browser()
+        with patch("selenium.webdriver.Chrome", return_value=browser), patch(
+                "selenium.webdriver.support.ui.WebDriverWait") as waiter:
+            waiter.return_value.until.side_effect = TimeoutException()
+            value = _real_browser_once("unused prompt", "unused marker", 15)
+        self.assertEqual(value["outcome"],
+                         "CHATGPT_BROWSER_VERIFICATION_REQUIRED_NO_SEND")
+        self.assertFalse(value["send_click_attempted"])
+        self.assertEqual(browser.closed, ["microgen-owned"])
+        self.assertEqual(browser.window_handles, ["user"])
+
+
 if __name__ == "__main__":
     unittest.main()

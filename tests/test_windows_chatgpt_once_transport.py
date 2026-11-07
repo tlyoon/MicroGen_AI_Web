@@ -218,5 +218,37 @@ class ProductionTransportTests(unittest.TestCase):
                          click_intent_path=self.click_file,
                          driver_factory=lambda:self.fail("no browser attach"))
 
+
+    def test_new_owned_tab_verification_page_blocks_without_click(self):
+        from selenium.common.exceptions import TimeoutException
+        driver = FakeDriver()
+        driver.title = "Just a moment..."
+        with patch("selenium.webdriver.support.ui.WebDriverWait") as waiter:
+            waiter.return_value.until.side_effect = TimeoutException()
+            with self.assertRaisesRegex(
+                ChatGPTPreSendBlocked,
+                "CHATGPT_BROWSER_VERIFICATION_REQUIRED_NO_SEND",
+            ):
+                submit_one_in_owned_tab(
+                    driver, PROMPT, wait_cap_s=10,
+                    click_intent_path=self.click_file)
+        self.assertEqual(driver.clicks, 0)
+        self.assertFalse(self.click_file.exists())
+
+    def test_generic_missing_composer_remains_distinct(self):
+        from selenium.common.exceptions import TimeoutException
+        driver = FakeDriver()
+        driver.title = "ChatGPT"
+        with patch("selenium.webdriver.support.ui.WebDriverWait") as waiter:
+            waiter.return_value.until.side_effect = TimeoutException()
+            with self.assertRaisesRegex(
+                ChatGPTPreSendBlocked, "COMPOSER_NOT_READY_NO_SEND",
+            ):
+                submit_one_in_owned_tab(
+                    driver, PROMPT, wait_cap_s=10,
+                    click_intent_path=self.click_file)
+        self.assertFalse(self.click_file.exists())
+
+
 if __name__ == "__main__":
     unittest.main()

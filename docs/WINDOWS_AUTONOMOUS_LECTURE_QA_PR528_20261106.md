@@ -134,3 +134,11 @@ Result: `NO_GENERATION_TRANSPORT_CERTIFIED_FOR_AUTOMATIC_DISPATCH`,
 qualifying the new code as CI-verified. The full second-original lecture
 and reviewed historical PR integration remain incomplete. Do not resume
 fixes to individual Serway PDFs or silently reset any previous claim.
+
+## 7 November 2026 — General ChatGPT browser-verification blocker (no bypass)
+
+A newly owned, unsent Chrome 9223 tab was inspected *once* to explain the known pre-Send editor timeout. Existing logged-in tabs exposed visible editors, but the new tab stayed on a `Just a moment...` verification interstitial with `main=false` and zero composer elements for 12.4 seconds. This is direct evidence of new-tab **browser verification**, not model generation, API failure, or an invalid editor selector in the authenticated existing tabs. The probe used no input or model request and closed only the new tab.
+
+The normal production ChatGPT once-transport and source-free canary now reuse a single strict recognition helper after the existing bounded editor wait. They report `CHATGPT_BROWSER_VERIFICATION_REQUIRED_NO_SEND` rather than a generic missing composer; the immutable read-only canary verifier includes the explicit browser-verification flag, with prior receipts backward-compatible. No Challenge-solving automation, bypass, extra Send, alternate service retry, API/TTS or source regeneration was added. Browser verification must clear through legitimate normal access before any *new* browser generation can be certified.
+
+Native Dell-115 source-free tests: **72 passed** across transport, canary, login/port isolation, provider-route and release readiness. This detects and contains the blocker, but **does not restore new-tab provider availability** or finish a second independent lecture.
