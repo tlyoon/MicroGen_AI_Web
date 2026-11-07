@@ -1,3 +1,15 @@
+# 2026-11-07 PR528 recovery verification (second session)
+
+- Device/branch: Dell-115 only; isolated clean branch `feature/pr528-autonomous-ai-lecture-acceptance`, exact source HEAD `7d6657d30889e4a86ad60b8d956b7adcfb0f316e`. Original older `MicroGen_AI_Web_LatestRun` worktree has two pre-existing dirty files and was NOT changed.
+- Hosted exact-head evidence: `gh pr view 528` reported both Windows checks SUCCESS on that exact SHA; draft OPEN, mergeable but not merge/release approved.
+- Native Dell focused tests: `python -m pytest -q tests/test_windows_provider_route_evidence_preflight.py tests/test_windows_chatgpt_sourcefree_canary.py tests/test_windows_release_readiness_board.py`: **48 PASS**.
+- Live read-only provider preflight: both browser logins authenticated; SHA-verified Gemini owned model-side UI error; prior ChatGPT editor failure verified; result `NO_GENERATION_TRANSPORT_CERTIFIED_FOR_AUTOMATIC_DISPATCH`. No Send, content API, TTS, PDF change, or publication. Historical short Gemini success does not establish source-sized health; HTTP 503/504 is not proven by this check.
+- Historical review: native bounded batch planner found 808 commits ahead of local tracked main / 41 20-commit batches; merely a plan, not accepted reviews. Live GitHub open PR audit found 439 open PRs (complete pagination), contiguous newest 158 draft PRs, and 10 adjacent branch disagreements in older history. Independent per-PR review and merges remain incomplete; all release/merge flags false. Local main freshness must be checked independently before integration.
+- Outstanding critical path: generation transport not certified for automatic original-source dispatch; second distinct original full figures/slides/narration/Flash-Lite TTS/synchronized MP4 with autonomous science/voice/diagram QA not yet accepted; safe PR-stack reconciliation, production release and owner-authorized student publication incomplete.
+- Next justified bounded work: independent offline source-agnostic integration/release readiness and first bounded PR dependency reviews; improve only reusable transport/editor mechanics when new evidence supports a fix; do not rerun prior canaries or Serway 10.1/10.2/11.1/11.2, reset retry claims, use paid API/TTS without approval, or merge/publish.
+- The current invocation made no changes to production pipeline code; no end-to-end success or provider recovery is claimed. The present checkpoint update is documentation only.
+
+---
 # PR528 — ChatGPT source-free editor failure and provider-route safeguard (7 Nov 2026)
 
 **Baseline:** MicroGen_AI_Web native Windows Selenium, Dell-115 sole authorized device.
