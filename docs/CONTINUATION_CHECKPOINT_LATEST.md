@@ -1,3 +1,104 @@
+# 7 November 2026 — G1 materially advanced: new Gemini Selenium original-source slides and narration
+
+**Project:** MicroGen_AI_Web only, Dell-115 native Windows, isolated
+`feature/pr528-autonomous-ai-lecture-acceptance` draft, original entry
+HEAD `db77942d6a768beb266d34157f75d5fef6b72cba`.
+Owner authorized a fresh Selenium provider check; original submitted
+PDFs may not be replayed. No ChatGPT request, paid content API/TTS,
+YouTube publication, protected-main merge or non-Dell machine was used.
+
+**New qualifying G1 evidence (real original source, not merely a canary):**
+
+- A distinct, fresh **source-free** 1,535-character Gemini browser input
+  returned `VALID_CANARY_RESPONSE` under checkpoint
+  `20261107_PR528_OWNER_AUTHORIZED_GEMINI_SOURCE_SIZED_ONE_SHOT_V1`.
+  This is independent of the prior **failed** 6-Nov source-sized canary,
+  which must not be resent.
+- Read-only `windows_original_source_candidate_inventory` on Serway_1_7:
+  46 physical publisher PDFs, 8 earlier trial contracts and 10 Send-intent
+  receipts, 1.1 excluded. Chose 7.1 **before** execution by its minimal
+  source size / absence from scoped SHA claims; independently searched
+  checkpoint JSON for its original SHA and Git section history, with no
+  match. Not a guarantee of all possible historical environments.
+- New isolated original source `G:\My Drive\Serway\Serway_1_7\7\7.1\source.pdf`,
+  SHA256 `7015a479b52964d9385c00cf1f2ad4a16589c780b93335d825bf62b6203928c3`,
+  external immutable trial
+  `%LOCALAPPDATA%\MicroGen_AI_Web_Checkpoints\20261107_PR528_SERWAY7_1_DISTINCT_ORIGINAL_TRIAL_V1`;
+  source-copy hash verified and 7-stage dry-run passed.
+- **Figures:** exit 0, source-bound receipt
+  `FIGURES_STAGE_RETURNED_SUCCESS_NOT_FULL_LECTURE`. The 1-page PDF
+  had no figure crops requiring Gemini; figure stage was local only.
+- **Slides:** one real Selenium Send of source.pdf plus prompt and PNG
+  metadata; Gemini returned accepted `slides.tex` and compiled
+  10-page `slides.pdf`. Immutable
+  `STAGE_COMPLETED_AND_SOURCE_SHA_BOUND`; slides.pdf SHA
+  `dda52f91192a54cf23239cf7c685bc775602620bb92a32ed63fc79a3f5622e62`.
+- **Narration:** one new Selenium Send of that deck, original source and
+  rendered prompt; Gemini returned a 5,669-character capture and validated
+  10-block `script.txt`; immutable
+  `STAGE_COMPLETED_AND_SOURCE_SHA_BOUND`; script SHA
+  `902f40954c2698db7ba7b801382b69897d848936e917ba43c9763b5ee40ed478`.
+- The earlier `NO_GENERATION_TRANSPORT_CERTIFIED_FOR_AUTOMATIC_DISPATCH`
+  preflight applied **before** this new real success. G1 can now be
+  reported `PASS_VERIFIED` for this distinct source-sized **slides and
+  narration** route, not an unlimited uptime or full-lecture certificate.
+
+**G2 issue revealed and generalized once, with no source/PDF replay:**
+
+- Script QA actual process EXIT 0; local script risk `blocking=0`,
+  `warnings=0`; `.microgen_work/math_semantic_report.json` exists and
+  is hash-pinned in the runner state, with `blocking_count=0` under a
+  **limited** math/domain/sign ruleset.
+- The publisher code `selenium_pipeline/output_paths.py` omitted the
+  `math_semantic_report.json` and `math_semantic_repair_prompt.json`
+  artifacts from `script_qa`'s published output list, despite the
+  runner and immutable stage controller requiring them. The trial's
+  `stage_script_qa_result.json` is **immutable**
+  `STAGE_FAILED_OR_OUTPUT_INCOMPLETE_NO_RETRY`; the operator correctly
+  reports `HALTED_PREVIOUS_STAGE_FAILED_NO_RESEND`.
+- **Permanent general fix:** publish both verified math report and repair
+  prompt on future successful/diagnostic script-QA stages, preserving
+  their actual status flags. Two positive/negative publication regression
+  tests added; **38 focused Windows tests PASS** (source-adjacent outputs,
+  Windows stage sequence and source-SHA stage reuse). No model retries
+  and no changed original/staged source. The existing failed terminal
+  receipt is **not** edited, overwritten or falsely promoted.
+- The actual limited math report says
+  `all_mathematics_verified=false`,
+  `independent_source_math_ai_review_approved=false`,
+  `automatic_tts_authorized=false`. Its zero domain-sign hazard count
+  **does not** certify complete mathematical accuracy or permit TTS/media
+  release. No generated WAV/MP4 and no student publication.
+
+**Current closure status:**
+
+- **G1:** source-sized Gemini Selenium generation of **real original slides
+  and narration** PASS_VERIFIED once, with immutable SHA-bound receipts.
+  Future availability remains external and cannot be guaranteed.
+- **G2:** PARTIAL / NOT_VERIFIED: no complete autonomous independent
+  source/figure/math/voice review, no accepted TTS/WAV, synchronized
+  highlighted <600-second MP4, or second independently accepted lecture.
+  Source 7.1 script-QA terminal remains failed, with no authorized retry.
+  Do not solve this by editing the QA flags.
+- **G3:** underlying Windows engineering candidate was verified at
+  entry `db77942` with exact-head 2/2 hosted CI, but latest code change
+  requires new exact-head hosted CI. Historical release-critical PR review
+  remains incomplete; draft PR #528 unmerged.
+- **Next permitted step:** independently reconcile the *existing* physical,
+  hash-verified limited QA artifacts under the no-resend/evidence-reuse
+  policy, and complete genuine autonomous source-math/audio/media QA
+  without overriding `automatic_tts_authorized=false`. Alternatively
+  run a distinct new-source pilot only after the general publisher fix is
+  exact-head CI-green, with a fresh SHA/receipt; never replay Serway 7.1.
+  Stop if the required independent QA cannot be legitimately satisfied.
+
+**No code change other than the narrow general QA publishing fix.** This
+is genuine G1 acceptance advancement and reusable G2 defect correction,
+not full production closure. All new original/model attempt claims are
+one-shot and terminal.
+
+---
+
 # 7 November 2026 — v4.0 frozen closure charter (Google Drive master prompt)
 
 **Operating source:** owner's Google Drive `auto_cont_dev_prompt_v4.0.md`

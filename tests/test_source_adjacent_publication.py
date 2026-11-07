@@ -132,6 +132,56 @@ class SourceAdjacentPublicationTests(unittest.TestCase):
         self.assertFalse((self.source_dir / "selenium.py").exists())
         self.assertEqual(self.source.read_bytes(), b"%PDF-1.7\nsource")
 
+    def test_script_qa_publishes_required_math_receipts_without_promoting_approval(self):
+        import json
+        original = self.source.read_bytes()
+        risk = {"summary": {"blocking": 0}}
+        math_report = {
+            "status": "NO_KNOWN_DOMAIN_SIGN_HAZARDS_IN_LIMITED_RULESET",
+            "all_mathematics_verified": False,
+            "independent_source_math_ai_review_approved": False,
+            "automatic_tts_authorized": False,
+            "student_publication_authorized": False,
+        }
+        (self.work / "script_risk_report.json").write_text(
+            json.dumps(risk), encoding="utf-8")
+        (self.work / "script_risk_report.md").write_text(
+            "Limited risk check", encoding="utf-8")
+        (self.work / "math_semantic_report.json").write_text(
+            json.dumps(math_report), encoding="utf-8")
+        (self.work / "math_semantic_repair_prompt.json").write_text(
+            json.dumps({"blocking_count": 0}), encoding="utf-8")
+        published = publish_stage_outputs(self.work, self.source, "script_qa")
+        required = (
+            "script_risk_report.json", "script_risk_report.md",
+            "math_semantic_report.json", "math_semantic_repair_prompt.json",
+        )
+        for name in required:
+            self.assertIn(self.source_dir / name, published)
+            self.assertEqual(
+                (self.source_dir / name).read_bytes(),
+                (self.work / name).read_bytes(),
+            )
+        saved = json.loads(
+            (self.source_dir / "math_semantic_report.json").read_text(encoding="utf-8"))
+        self.assertFalse(saved["all_mathematics_verified"])
+        self.assertFalse(saved["automatic_tts_authorized"])
+        self.assertFalse(saved["student_publication_authorized"])
+        self.assertEqual(self.source.read_bytes(), original)
+        self.assertFalse((self.source_dir / "selenium.py").exists())
+
+    def test_script_qa_failure_diagnostics_include_limited_math_report(self):
+        import json
+        (self.work / "math_semantic_report.json").write_text(
+            json.dumps({"blocking_count": 1, "automatic_tts_authorized": False}),
+            encoding="utf-8")
+        published = publish_stage_outputs(
+            self.work, self.source, "script_qa", diagnostics_only=True)
+        self.assertIn(self.source_dir / "math_semantic_report.json", published)
+        self.assertFalse(
+            json.loads((self.source_dir / "math_semantic_report.json")
+                       .read_text(encoding="utf-8"))["automatic_tts_authorized"])
+
     def test_wav_video_and_slide_pdfs_publish(self):
         (self.work / "slide1.wav").write_bytes(b"RIFF" + b"x" * 40)
         (self.work / "slide1.tmp.wav").write_bytes(b"bad")
