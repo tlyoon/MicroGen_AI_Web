@@ -1,3 +1,80 @@
+# 7 November 2026 — v4.0 G2 prerequisite: pre-TTS academic review no longer requires WAV
+
+**One critical-path change / no extra PDF repair:** Existing Serway 7.1
+source/slide/script SHA-bound trial preserved. No source PDF rerun, prior stage
+receipt rewrite, new Gemini/ChatGPT model request, paid API/TTS, audio or MP4
+render, public release or merge.
+
+**Reproduced shared root cause (historical issue was only partly integrated):**
+`ai_academic_web_review.build_review_job` called
+`incremental_element_candidate_map.candidate_map`, which called the
+`incremental_lecture_sync_queue.inspect_folder` WAV-backed queue and
+`original_wav_multipart_plan.inspect_original_slide_wav_plan`. On a genuine
+pre-TTS source the entrypoint failed with
+`FigureIdentityReviewRequired: Expected bounded slide-level WAV inventory`
+before academic source verification could start. Older Oct 26 generalized
+math QA/retry corrected *known detected narration findings* only, not an
+independent source-grounded pre-TTS review. PR528's independent two-pass
+source/ASR/media QA was read-only and final-stage, not a pre-TTS repair driver.
+
+**Narrow general fix:** `incremental_lecture_sync_queue.inspect_pre_tts_folder`
+constructs immutable source/PDF/script utterance and visible-target input
+without WAVs, rejecting missing/invalid blocks, PDF page mismatch, changed
+hashes and any partial WAV inventory. The existing candidate mapper accepts
+an explicitly identified source-only review queue but still marks every
+element non-verified and not TTS-ready. The existing
+`ai_academic_web_review.build_review_job` uses the source-only queue when
+zero `slide*.wav` are present and retains the legacy stricter WAV-backed
+queue for already recorded audio. Both modes preserve the old source-quote,
+geometry, two-pass AI response validator and no-fabricated-approval rules.
+
+**Validation:**
+
+- 28 targeted Dell-115 Windows pytest PASS across new pre-TTS queue and
+  established academic review, immutable attempt/retry, legacy WAV-based
+  element mapping and eligibility checks. Python compilation PASS.
+- Actual previously SHA-frozen Serway 7.1 triad
+  `7015a479b52964d9385c00cf1f2ad4a16589c780b93335d825bf62b6203928c3`
+  admits a pre-TTS reviewer job without WAV. New separate original
+  science queue:
+  `%LOCALAPPDATA%\MicroGen_AI_Web_Checkpoints\20261107_PR528_SERWAY7_1_PRETTS_INDEPENDENT_SCIENCE_REVIEW_QUEUE_V1`.
+  **10 slides, 43 original utterances**, source/slide/script identity
+  preserved. Exact source-quote checks apply to any future returned model
+  verdict; no source quote is fabricated.
+- Read-only academic queue status
+  `BOUNDED_AI_REVIEW_QUEUE_CURRENT`, with all independent passes pending.
+  Eligibility preflight is
+  `NO_PENDING_RECEIPT_BUT_SCOPED_CONSENT_NOT_PROVEN`;
+  `review_model_request_sent=false`,
+  `automatic_retry_authorized=false`. No attempt budget consumed.
+- Original Serway 7.1 `stage_script_qa_result.json` remains
+  `STAGE_FAILED_OR_OUTPUT_INCOMPLETE_NO_RETRY`, and original limited
+  `math_semantic_report.json` keeps
+  `independent_source_math_ai_review_approved=false` and
+  `automatic_tts_authorized=false`. No artificial receipt promotion.
+
+**Gates / stop:** G1's real Gemini Selenium slide and narration stage
+remains PASS_VERIFIED for that tested source, not global uptime.
+G2 is **NOT_VERIFIED**; this invocation *removed its proven circular
+pre-TTS review prerequisite* but did not conduct an independent scientific
+review, repair incorrect content, authorize TTS or generate WAV/MP4.
+G3 was green at former SHA `c013fc1`; this code change needs new
+exact-head Windows CI. This is a code-level general fix with a real-source
+preflight, **not** full autonomous detect-repair-continue integration.
+
+**Next eligible action:** after exact-head CI, independently source-review
+the 43 queued claims using explicit appropriate model-job scope and the
+standing one-Send budget. Review findings must route to bounded
+source-grounded repair and re-review only when proven necessary; zero
+known domain-sign findings are not complete mathematics proof.
+The existing separate reviewer CLI currently requires an *explicit*
+source-specific review dispatch and the live eligibility preflight reports
+no new scoped consent; this invocation does not override that condition.
+Never bypass or silently rewrite terminal stage receipts. No automatic
+TTS/video or student publication until independent checks truly pass.
+
+---
+
 # 7 November 2026 — G1 materially advanced: new Gemini Selenium original-source slides and narration
 
 **Project:** MicroGen_AI_Web only, Dell-115 native Windows, isolated

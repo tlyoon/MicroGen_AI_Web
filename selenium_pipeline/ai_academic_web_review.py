@@ -9,6 +9,7 @@ import argparse,json,re
 from pathlib import Path
 from .figure_source_identity import require,_sha
 from .incremental_element_candidate_map import candidate_map
+from .incremental_lecture_sync_queue import inspect_pre_tts_folder
 from .pdf_text_source_span_witness import prove_source_quote_occurrence
 from .series_gemini import decode_storyboard_response,_browser_request
 from .source_locked_academic_review import (review_quote_whitelist,
@@ -22,7 +23,12 @@ def build_review_job(*,folder:Path,slide_numbers:list[int])->dict:
             and len(slide_numbers)<=4 and all(type(s) is int for s in slide_numbers)
             and slide_numbers==sorted(set(slide_numbers)),
             "Small bounded original slide range required")
-    full=candidate_map(folder=folder)
+    # Before TTS, source-grounded AI review must never depend on WAV files.
+    # A partial existing WAV inventory remains on the stricter legacy path.
+    if any(folder.glob("slide*.wav")):
+        full=candidate_map(folder=folder)
+    else:
+        full=candidate_map(folder=folder,queue=inspect_pre_tts_folder(folder))
     require(max(slide_numbers)<=full["slide_count"],"Slide outside genuine source PDF")
     slides=[]
     for i in slide_numbers:
@@ -42,6 +48,7 @@ def build_review_job(*,folder:Path,slide_numbers:list[int])->dict:
             "script_sha256":full["script_sha256"],
             "selected_original_slides":slide_numbers,
             "utterance_count":sum(len(s["utterances"]) for s in slides),
+            "source_only_pre_tts_review":full["source_only_pre_tts_review"],
             "slides":slides,"academic_approval":False,
             "student_publication_authorized":False}
 

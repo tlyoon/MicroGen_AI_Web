@@ -109,6 +109,80 @@ def inspect_folder(folder:Path) -> dict:
     }
 
 
+
+def inspect_pre_tts_folder(folder: Path) -> dict:
+    """Source/slides/script review queue, before ANY audio exists.
+
+    This separate input contract reuses original utterances and PDF geometry
+    but NEVER fabricates WAV lengths, source attestation or TTS authorization.
+    A partially present slide-WAV inventory must use the stricter audio queue.
+    """
+    folder = Path(folder).absolute()
+    require(folder.is_dir() and not folder.is_symlink(),
+            "Original pre-TTS lecture folder required")
+    require(not any(folder.glob("slide*.wav")),
+            "Existing WAV evidence requires the audio-backed source queue")
+    source, slides, script = (folder / n for n in
+                             ("source.pdf", "slides.pdf", "script.txt"))
+    require(all(p.is_file() and not p.is_symlink() and p.stat().st_size > 0
+                for p in (source, slides, script)),
+            "Unmodified source, compiled slides and narration required")
+    first_sha = [_sha(p) for p in (source, slides, script)]
+    spoken = blocks(script.read_text(encoding="utf-8-sig"))
+    require(1 <= len(spoken) <= 200,
+            "Source-only review requires bounded nonempty slide narration")
+    results = []
+    with pymupdf.open(slides) as pdf:
+        require(len(pdf) == len(spoken),
+                "Compiled slide count differs from original script blocks")
+        for (number, narration), page in zip(spoken, pdf):
+            require(type(number) is int and number == len(results) + 1
+                    and type(narration) is str and bool(narration.strip()),
+                    "Source-only pre-TTS narration missing or out of order")
+            units = utterances(narration)
+            require(bool(units) and "".join(units) == narration,
+                    "Original pre-TTS text partition incomplete")
+            classification, images, visible_count = _review_classification(page)
+            results.append({
+                "slide": number,
+                "original_slide_narration_sha256": hashlib.sha256(
+                    narration.encode("utf-8")).hexdigest(),
+                "original_verbatim_utterances": [{
+                    "utterance_id": f"s{number:03d}.utterance.{i:03d}",
+                    "original_text": unit,
+                    "original_text_sha256": hashlib.sha256(
+                        unit.encode("utf-8")).hexdigest(),
+                    "source_to_exact_visible_element_verified": False,
+                    "spoken_text_audio_verified": False,
+                    "highlight_start_end_from_this_wav_verified": False,
+                } for i, unit in enumerate(units, 1)],
+                "visible_pdf_text_blocks": visible_count,
+                "material_figure_image_count": images,
+                "element_mapping_next_action": classification,
+                "source_figure_layout_issue_blocks_unrelated_slides": False,
+                "technical_spoken_highlight_alignment_verified": False,
+                "ready_for_billed_element_tts": False,
+                "student_publication_authorized": False,
+            })
+    require([_sha(p) for p in (source, slides, script)] == first_sha,
+            "Original source/slide/script changed during pre-TTS review assembly")
+    return {
+        "status": "PRE_TTS_SOURCE_ONLY_ELEMENT_QUEUE_REVIEW_ONLY",
+        "source_sha256": first_sha[0],
+        "slides_sha256": first_sha[1],
+        "script_sha256": first_sha[2],
+        "source_folder": str(folder),
+        "slide_count": len(results),
+        "utterance_count": sum(len(x["original_verbatim_utterances"])
+                               for x in results),
+        "slides": results,
+        "audio_inventory_verified": False,
+        "source_only_pre_tts_review": True,
+        "ready_for_paid_element_tts": False,
+        "student_publication_authorized": False,
+    }
+
+
 def inspect_batch(*,root:Path,subchapters:tuple[str,...]) -> dict:
     root=Path(root).absolute()
     require(root.is_dir() and 1<=len(subchapters)<=40

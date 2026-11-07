@@ -15,7 +15,9 @@ def candidate_map(*,folder:Path, queue:dict|None=None)->dict:
     folder=Path(folder).absolute()
     record=queue if queue is not None else inspect_folder(folder)
     slides=folder/"slides.pdf"
-    require(record.get("status")=="INCREMENTAL_NARRATION_ELEMENT_EXECUTION_QUEUE_REVIEW_ONLY"
+    require(record.get("status") in (
+                "INCREMENTAL_NARRATION_ELEMENT_EXECUTION_QUEUE_REVIEW_ONLY",
+                "PRE_TTS_SOURCE_ONLY_ELEMENT_QUEUE_REVIEW_ONLY")
             and record.get("slides_sha256")==_sha(slides)
             and record.get("source_sha256")==_sha(folder/"source.pdf")
             and record.get("script_sha256")==_sha(folder/"script.txt"),
@@ -85,5 +87,6 @@ def candidate_map(*,folder:Path, queue:dict|None=None)->dict:
             "utterance_count":sum(len(x["original_utterance_candidates"]) for x in results),
             "slides":results,
             "ready_for_paid_element_tts":False,
+            "source_only_pre_tts_review": record.get("source_only_pre_tts_review") is True,
             "spoken_element_timing_verified":False,
             "student_publication_authorized":False}
