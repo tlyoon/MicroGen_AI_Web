@@ -8,7 +8,8 @@ from unittest.mock import patch
 import pymupdf
 
 from selenium_pipeline.ai_academic_review_queue import (
-    advance_one_safe_review,prepare_resumable_review,select_next_safe_review)
+    advance_one_safe_review,execute_one_review,
+    prepare_resumable_review,select_next_safe_review)
 from selenium_pipeline.academic_review_checkpoint import (
     prepare,mark_submission_maybe,record_observation)
 from selenium_pipeline.ai_academic_web_review import build_review_job,review_instructions
@@ -181,6 +182,83 @@ class AutomaticSourceBoundReviewQueue(unittest.TestCase):
                                     transport=self.fake_response)
         self.assertFalse(self.sent)
 
+
+    def _three_slide_queue_with_two_unattributed_requests(self):
+        # Unrelated fixture: never uses the real Serway textbook or its
+        # private browser. Both independent browser operations were claimed,
+        # and neither has an attributable completion receipt.
+        deck=self.folder/"slides.pdf"
+        with pymupdf.open(deck) as doc:
+            page=doc.new_page(width=300,height=300)
+            page.insert_text((20,30),"A visible equation")
+            doc.save(self.root/"three_slides.pdf")
+        (self.root/"three_slides.pdf").replace(deck)
+        with (self.folder/"script.txt").open("a",encoding="utf8") as out:
+            out.write("**Slide 3 [1 sec]:\\nA visible equation**\\n")
+        queue=self.root/"three_slide_queue"
+        prepare_resumable_review(folder=self.folder,output_root=queue,
+                                 slide_numbers=[1,2,3])
+        for n in (1,2):
+            receipt=queue/f"slide_{n:03d}_initial_review_attempt_01.json"
+            receipt.write_text(json.dumps({
+                "status":"FAILED_GEMINI_REVIEW_ATTEMPT_QUARANTINED",
+                "slide":n,"mode":"INITIAL_REVIEW","attempt":1,
+                "provider_submission_state":"UNKNOWN_AFTER_POSSIBLE_SUBMISSION",
+                "manual_retry_eligible":False,
+            }),encoding="utf8")
+        return queue
+
+    def test_two_unattributed_browser_sends_pause_new_review_without_send(self):
+        queue=self._three_slide_queue_with_two_unattributed_requests()
+        planned=select_next_safe_review(queue_root=queue,folder=self.folder)
+        self.assertEqual(planned["status"],
+                         "DEFERRED_REPEATED_UNATTRIBUTED_BROWSER_SEND")
+        self.assertEqual(planned["unattributed_prior_slides"],[1,2])
+        self.assertEqual(planned["unattempted_candidate_slide"],3)
+        self.assertFalse(planned["new_model_requests"])
+        self.assertFalse(planned["per_slide_approval_required"])
+        calls=[]
+        def forbidden(*args):
+            calls.append(args)
+            raise AssertionError("No third Send after two ambiguous claims")
+        deferred=advance_one_safe_review(
+            queue_root=queue,folder=self.folder,
+            execute=True,transport=forbidden)
+        self.assertEqual(deferred["status"],planned["status"])
+        with self.assertRaisesRegex(
+                FigureIdentityReviewRequired,
+                "DEFERRED_REPEATED_UNATTRIBUTED_BROWSER_SEND"):
+            execute_one_review(
+                queue_root=queue,folder=self.folder,slide=3,
+                mode="INITIAL_REVIEW",transport=forbidden)
+        self.assertFalse(calls)
+        self.assertFalse(
+            (queue/"slide_003_initial_review_attempt_01_request").exists())
+        self.assertFalse(
+            (queue/"slide_003_initial_review_attempt_01.json").exists())
+
+    def test_existing_owned_saved_response_remains_reconcilable(self):
+        queue=self._three_slide_queue_with_two_unattributed_requests()
+        job=build_review_job(folder=self.folder,slide_numbers=[3])
+        prompt=review_instructions(job,mode="INITIAL_REVIEW")
+        claim=queue/"slide_003_initial_review_attempt_01_request"
+        refs={name:job[key] for name,key in (
+            ("source.pdf","source_sha256"),("slides.pdf","slides_sha256"),
+            ("script.txt","script_sha256"))}
+        prepared=prepare(checkpoint=claim,original_folder=self.folder,
+                         request_text=prompt,source_hashes=refs,
+                         review_mode="INITIAL_REVIEW")
+        # A previously captured raw response is eligible for evidence-only
+        # replay; it is NOT proof of valid scientific or source content.
+        mark_submission_maybe(
+            claim,expected_fingerprint=prepared["request_fingerprint"])
+        record_observation(
+            claim,raw='{"untrusted":"saved response"}',
+            expected_fingerprint=prepared["request_fingerprint"])
+        planned=select_next_safe_review(queue_root=queue,folder=self.folder)
+        self.assertEqual(planned["next_slide"],3)
+        self.assertEqual(planned["action"],"RECONCILE_PRIOR_RESPONSE_NO_SEND")
+        self.assertFalse(planned["new_model_requests"])
 
 if __name__=="__main__":
     unittest.main()

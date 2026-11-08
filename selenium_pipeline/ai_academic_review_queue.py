@@ -72,6 +72,52 @@ def _check_queue(*,queue_root:Path,folder:Path,slide:int,mode:str)->dict:
                 "Initial source review failed or was incomplete")
     return row
 
+def _prior_unattributed_streak(*, queue_root:Path, slide_jobs:list[dict],
+                               before_slide:int) -> list[int]:
+    """Read-only guard against indefinitely shifting an uncertain Send to new slides.
+
+    A complete reply or a known source-invalid result breaks the streak;
+    two distinct immediately preceding original slide review units whose
+    browser request might have been sent but returned no attributable reply
+    make another *fresh* Send unsafe until the transport has independent
+    new evidence.  No previous receipt is edited and no budget is reset.
+    """
+    from .academic_review_checkpoint import _load
+    streak=[]
+    for row in slide_jobs:
+        previous=row["slide"]
+        if previous>=before_slide:
+            break
+        completed=queue_root/_receipt_name(previous,"INITIAL_REVIEW")
+        if completed.exists():
+            require(completed.is_file() and not completed.is_symlink(),
+                    "Source review completion receipt untrusted")
+            streak=[]
+            continue
+        receipt=queue_root/f"slide_{previous:03d}_initial_review_attempt_01.json"
+        claim=queue_root/f"slide_{previous:03d}_initial_review_attempt_01_request"
+        uncertain=False
+        if receipt.exists() or receipt.is_symlink():
+            require(receipt.is_file() and not receipt.is_symlink(),
+                    "Prior source review receipt untrusted")
+            outcome=json.loads(receipt.read_text(encoding="utf8"))
+            uncertain=(outcome.get("status")
+                       =="FAILED_GEMINI_REVIEW_ATTEMPT_QUARANTINED"
+                       and outcome.get("provider_submission_state")
+                       =="UNKNOWN_AFTER_POSSIBLE_SUBMISSION")
+        elif claim.exists() or claim.is_symlink():
+            require(claim.is_dir() and not claim.is_symlink(),
+                    "Prior review claim directory untrusted")
+            uncertain=_load(claim)["status"] in {
+                "SUBMITTED_OR_UNCERTAIN", "NO_RESPONSE_UNRESOLVED",
+                "LEGACY_SENT_NO_RESPONSE"}
+        if uncertain:
+            streak.append(previous)
+        else:
+            streak=[]
+    return streak
+
+
 def execute_one_review(*,queue_root:Path,folder:Path,
                        slide:int,mode:str,
                        attempt:int=1,transport=None)->dict:
@@ -104,6 +150,28 @@ def execute_one_review(*,queue_root:Path,folder:Path,
     # previous browser request, including across process crashes.
     live_checkpoint = queue_root / (
         f"slide_{slide:03d}_{mode.lower()}_attempt_{attempt:02d}_request")
+    prior=_prior_unattributed_streak(
+        queue_root=queue_root,
+        slide_jobs=json.loads((queue_root/"queue.json").read_text(encoding="utf8"))["slide_jobs"],
+        before_slide=slide)
+    if len(prior)>=2:
+        # Keep legitimate *already captured* response reconciliation
+        # available even when the same browser route is not healthy enough
+        # to authorize another new Send.
+        from .academic_review_checkpoint import _load
+        saved_reply=False
+        if live_checkpoint.exists() or live_checkpoint.is_symlink():
+            require(live_checkpoint.is_dir() and not live_checkpoint.is_symlink(),
+                    "Old academic browser claim untrusted")
+            saved_reply=_load(live_checkpoint)["status"] in {
+                "MODEL_REPLY_OBSERVED_UNVALIDATED",
+                "REJECTED_RESPONSE_UNTRUSTED",
+                "SOURCE_VALIDATED_ONE_PASS_UNAPPROVED"}
+        require(saved_reply,
+                "DEFERRED_REPEATED_UNATTRIBUTED_BROWSER_SEND: two prior "
+                "slide requests may have been submitted without an "
+                "attributable response; require new independent transport "
+                "evidence, not another model Send")
     returned_response=False
     def witness_model_return(raw):
         nonlocal returned_response
@@ -262,6 +330,25 @@ def select_next_safe_review(*,queue_root:Path,folder:Path)->dict:
                     else "PREPARED_UNSENT_NO_DUPLICATE")
         else:
             action="FRESH_FIRST_ATTEMPT"
+        if action!="RECONCILE_PRIOR_RESPONSE_NO_SEND":
+            prior=_prior_unattributed_streak(
+                queue_root=queue_root,slide_jobs=plan["slide_jobs"],
+                before_slide=slide)
+            if len(prior)>=2:
+                return {
+                    "status":"DEFERRED_REPEATED_UNATTRIBUTED_BROWSER_SEND",
+                    "next_slide":None,"next_mode":None,
+                    "unattempted_candidate_slide":slide,
+                    "unattributed_prior_slides":prior,
+                    "blocked_other_slides":blocked,
+                    "evidence_type":"TWO_OWNED_SENDS_WITH_NO_ATTRIBUTABLE_REPLY",
+                    "cause":"PROVIDER_OR_DOM_ATTRIBUTION_UNVERIFIED",
+                    "resume_condition":"NEW_INDEPENDENT_TRANSPORT_EVIDENCE_OR_SAVED_REPLY",
+                    "new_model_requests":False,
+                    "per_slide_approval_required":False,
+                    "automatic_retry_authorized":False,
+                    "student_publication_authorized":False,
+                }
         return {
             "status":"ONE_SAFE_ACADEMIC_REVIEW_UNIT_READY",
             "next_slide":slide,"next_mode":mode,"attempt":1,
