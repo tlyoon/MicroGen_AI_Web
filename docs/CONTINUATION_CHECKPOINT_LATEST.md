@@ -12,6 +12,27 @@
 
 ---
 
+# 9 November 2026 — v4.1 G2/G1 closure: repeated unattributable browser Send containment
+
+**Project and standing authority:** `tlyoon/MicroGen_AI_Web` only, **Dell-115 Windows/Selenium**. The user-supplied `auto_cont_dev_prompt_v4.1.md` explicitly excludes the separate HP/Gemini-API `MicroGen_AI`. Read the binding `BINDING_CLOSURE_FIRST_DEVELOPMENT_CONTRACT_20261107.md` first. Routine internal source-bound Gemini/ChatGPT Selenium mathematics review remains standing-authorized without per-slide human approval. New paid APIs/TTS, new source rights, challenge bypass, protected merge, and student publication remain separately controlled.
+
+**Incoming authoritative evidence:** Clean Dell isolated PR #528 `a45c6931a2a8c42cf450cac2fb5c5a13108c6079` was exact-head green on Windows Actions runs `42476560082` and `42476560091` (2/2). The original Serway 7.1 physics source `source.pdf` SHA-256 `7015a479b52964d9385c00cf1f2ad4a16589c780b93335d825bf62b6203928c3` is the existing immutable source for the historic 43 original narrated units; no edits.
+
+**Newest observed live attempt (not in prior top checkpoint):** Serway 7.1 **slide 4 INITIAL_REVIEW attempt 01** has immutable private failure receipt `slide_004_initial_review_attempt_01.json`, last modified **2026-11-09 07:36:34 MYT**, status `FAILED_GEMINI_REVIEW_ATTEMPT_QUARANTINED`, provider submission state `UNKNOWN_AFTER_POSSIBLE_SUBMISSION`, `manual_retry_eligible=false`. Its request journal is `SUBMITTED_OR_UNCERTAIN` with `dispatch_attempted.claim` timestamp 07:35:41. Earlier slide 3 likewise ended `UNKNOWN_AFTER_POSSIBLE_SUBMISSION`; slide 2 returned an unlocatable source quotation and was correctly quarantined, not an outage. **No attributable response or successful scientific review from slides 3 or 4 was observed.** Do not resend these requests or infer a Gemini outage / broken network connection from absent DOM attribution.
+
+**New general root-family correction (G1/G2):** Existing normal `selenium_pipeline/ai_academic_review_queue.py` would skip each unknown Send and select another *fresh* slide indefinitely (slide 5 after slide 3 and 4). Code commit **`2cf7edd26492d412dc9c742808c67095b0641012`** (existing PR #528, no new PR) adds a source-independent, **read-only** two-consecutive-slide unattributed-Send guard. On two immutable `UNKNOWN_AFTER_POSSIBLE_SUBMISSION` receipts or submitted/uncertain request claims with no intervening valid completion or known return, both automatic selection and direct `execute_one_review` refuse another **fresh** browser Send. Previous receipt bytes and retry budgets are unchanged. A previously **saved/owned raw reply** remains eligible for independent no-Send source validation. A new source / independently verified route is not silently assumed to make old unknown Sends safe; new transport evidence and a separately reviewed safe continuation condition are required. This is bounded containment, **not automatic model-response repair or scientific approval**.
+
+**Validation:** 8 queue-focused tests **PASS** (including no third Send, direct CLI bypass denied, saved reply remains reconcilable). Eleven adjacent review, original-source queue, checkpoint, browser-response and ownership test files: **59 PASS**. `compileall` and `git diff --check` PASS. The **real read-only queue** returned `DEFERRED_REPEATED_UNATTRIBUTED_BROWSER_SEND`, `unattributed_prior_slides=[3,4]`, `unattempted_candidate_slide=5`, cause `PROVIDER_OR_DOM_ATTRIBUTION_UNVERIFIED`, `new_model_requests=false`. This invocation issued **zero** new Gemini/ChatGPT Sends, API calls, TTS, MP4, source writes, merges, or publications. Latest commit requires fresh exact-head Windows CI before claiming that specific SHA green.
+
+**Closure gates after this bounded action:**
+- **G1 Partial/Blocked for current academic browser route:** original source-sized slides/narration from the earlier trial exist, but two latest source-grounded review Sends have no attributable JSON. Absent independent browser-owned reply, no further automatic request on that same queue.
+- **G2 Blocked:** still just **1 of 43** narration utterances with verified two-pass source-witnessed AI agreement; slide 2 invalid source citation and slide 3/4 ambiguous. No full mathematical, audio/phonetic, element-synchronized MP4 or final lecture acceptance. No mandatory human mathematics review substituted.
+- **G3 Partial:** draft PR #528, release dependency/build/install review and final exact-head Windows CI still require independent evidence. Publication and protected-main merge not authorized.
+
+**Single next eligible milestone:** verify exact-head Dell Windows CI on the new PR #528 commit and complete an independent source-free release/dependency/build closure task. Only reopen further external source-bound review after independently attributable response/transport evidence or a materially changed, contract-approved route. Do not advance to slide 5 just to consume another uncertain Send. Stop this invocation after checkpoint update; no background promise.
+
+---
+
 # 8 November 2026 — G2-R1 verified-source quotation preflight in normal academic pipeline
 
 **Starting state:** MicroGen_AI_Web, Dell-115 only, clean draft PR #528,
