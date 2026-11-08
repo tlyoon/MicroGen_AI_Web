@@ -29,13 +29,16 @@ class OriginalReviewScope(unittest.TestCase):
             return inspect_original_review_eligibility(
                 folder=self.original, queue_root=self.queue, slide=1)
 
-    def test_new_original_first_review_has_no_scope_authority(self):
+    def test_new_original_first_review_uses_standing_autonomous_scope(self):
         before={p.name:p.read_bytes() for p in self.queue.iterdir()}
         r=self.run_preflight()
         self.assertEqual(r["suggested_next_stage"],"INITIAL_REVIEW")
         self.assertEqual(r["planning_result"],
-                         "NO_PENDING_RECEIPT_BUT_SCOPED_CONSENT_NOT_PROVEN")
-        self.assertFalse(r["new_slide_specific_consent_verified"])
+                         "FRESH_INTERNAL_SELENIUM_QA_READY_UNDER_STANDING_CONTRACT")
+        self.assertTrue(r["standing_autonomous_internal_qa_scope_applies"])
+        self.assertFalse(r["separate_per_slide_owner_approval_required"])
+        self.assertTrue(r["fresh_claimed_internal_selenium_review_ready"])
+        self.assertTrue(r["live_browser_ownership_must_be_verified_at_dispatch"])
         self.assertFalse(r["review_model_request_sent"])
         self.assertFalse(r["automatic_retry_authorized"])
         self.assertFalse(r["student_publication_authorized"])
@@ -47,6 +50,7 @@ class OriginalReviewScope(unittest.TestCase):
         self.assertEqual(r["review_stages"]["INITIAL_REVIEW"]["observed_attempts"],1)
         self.assertEqual(r["planning_result"],
                          "RECONCILE_OLD_PROVIDER_ATTEMPTS_BEFORE_ANY_SEND")
+        self.assertFalse(r["fresh_claimed_internal_selenium_review_ready"])
         self.assertFalse(r["automatic_retry_authorized"])
 
     def test_unexpected_fourth_attempt_is_rejected(self):
@@ -59,6 +63,7 @@ class OriginalReviewScope(unittest.TestCase):
             self.receipt(n,"INITIAL_REVIEW","FAILED_GEMINI_REVIEW_ATTEMPT_QUARANTINED")
         r=self.run_preflight()
         self.assertEqual(r["planning_result"],"EXHAUSTED_NO_MORE_REQUESTS")
+        self.assertFalse(r["fresh_claimed_internal_selenium_review_ready"])
         self.assertIsNone(r["review_stages"]["INITIAL_REVIEW"]["next_possible_attempt_number"])
 
     def test_unknown_legacy_attempt_blocks_instead_of_claiming_unsent(self):
@@ -78,7 +83,8 @@ class OriginalReviewScope(unittest.TestCase):
                         "mode":"INITIAL_REVIEW","review_count":1}))
         r=self.run_preflight()
         self.assertEqual(r["suggested_next_stage"],"INDEPENDENT_CHALLENGE")
-        self.assertFalse(r["new_slide_specific_consent_verified"])
+        self.assertFalse(r["separate_per_slide_owner_approval_required"])
+        self.assertTrue(r["fresh_claimed_internal_selenium_review_ready"])
         self.assertFalse(r["historical_slide1_special_window_reusable"])
 
     def receipt(self,n,mode,status):

@@ -1,3 +1,88 @@
+# 8 November 2026 — v4.1: standing autonomous scientific review unblocked and exercised
+
+**Authority / root cause:** The existing MicroGen_AI_Web owner contract
+already authorized autonomous **internal, no-new-cost browser/Selenium**
+scientific QA without per-slide or manual human academic review.
+`source_review_eligibility_preflight.py` nevertheless hard-coded
+`new_slide_specific_consent_verified=false` and labeled every new
+review `NO_PENDING_RECEIPT_BUT_SCOPED_CONSENT_NOT_PROVEN`. That is a
+read-only planning convention, **not** evidence of an actual owner
+permission denial, but previous assistant sessions incorrectly used it
+to interrupt work and repeatedly ask for approval. This is a
+**contract interpretation/reporting defect**, not Gemini downtime.
+
+**Permanent remedy:** Section 4b added to
+`docs/BINDING_CLOSURE_FIRST_DEVELOPMENT_CONTRACT_20261107.md` expressly
+prohibits repeated approval requests for routine internal source-bound
+Selenium review, autonomous source-grounded fix/recheck and regression
+work. Prior project-scoped authorization is standing across sessions;
+the agent must identify a specific new paid, rights, access,
+irreversible, public action, or ambiguous external Send before asking
+for a new permission decision. The normal read-only eligibility
+planner now states
+`FRESH_INTERNAL_SELENIUM_QA_READY_UNDER_STANDING_CONTRACT`,
+`standing_autonomous_internal_qa_scope_applies=true`, and
+`separate_per_slide_owner_approval_required=false` for truly
+unattempted source-bound review work, including an independent
+challenge after a validated first pass. It maintains
+`review_model_request_sent=false` until a model request actually
+occurs, retains source SHA checks and retry exhaustion stops, and
+never authorizes paid TTS/API, duplicate submissions, bypasses,
+merge, or student publication. Targeted 21 focused tests PASS on
+Dell-115 across preflight, academic recovery and queue execution.
+
+**New ACTUAL domain acceptance evidence (not merely a status rename):**
+Authorized under the owner-reconfirmed standing no-manual-intervention
+scope, the real original Serway 7.1 **slide 1** academic review queue
+issued one new Selenium `INITIAL_REVIEW` request with source.pdf and
+slides.pdf, an immutable pre-Send claim and a complete returned,
+source-verified response: 1 narrated claim, `SUPPORTED`, exact
+physical textbook citation verified. It then issued ONE distinct
+`INDEPENDENT_CHALLENGE` review using a different mode and immutable
+claim; response separately accepted. On Dell-115 the existing
+`ai_academic_review_consensus.reconcile_actual_review_queue`
+returned:
+`original_utterances=43`, `initial_ai_reviewed=1`,
+`challenge_ai_reviewed=1`,
+`agreed_source_witnessed_segments=1`,
+`pending_or_disputed=42`,
+`AI_consensus_is_formal_math_proof=false`,
+`student_publication_authorized=false`.
+The accepted claim is `s001.utterance.001`. The immutable first
+review receipt SHA is
+`c31af65c3539ab97b7080487bafe8c28fd3a87510992a9d63b70e1ef9cab84c5`;
+the challenge receipt SHA is
+`18b94589d1990fbf4910d20ec9ad55b58cd45ce79c073b890b4a2df31320dac5`.
+Review receipts remain private under the existing
+`%LOCALAPPDATA%\MicroGen_AI_Web_Checkpoints\20261107_PR528_SERWAY7_1_PRETTS_INDEPENDENT_SCIENCE_REVIEW_QUEUE_V1`
+queue and are **not** published to GitHub. The original source,
+generated slides, narration, and the earlier terminal script-QA
+trial receipt remain unchanged; no slides/narration redo or repair
+loop. No paid Gemini API, TTS, MP4, model switch, protected merge
+or student publication was performed.
+
+**Gate interpretation:** G1 still PASS_VERIFIED for the tested real
+Selenium generation path; G2 remains NOT_VERIFIED at the **full
+lecture** level but has *new candidate-specific independent science
+evidence* (1 accepted utterance / 42 pending) and the old duplicate
+owner-approval preflight blocker is removed. G3 Windows engineering
+baseline was 3/3 CI PASS on incoming SHA
+`0322f1c780e2602e17deeb8431c4c8b67214d9cf`,
+but the new code/contract revision requires new exact-head hosted
+CI before claiming its final engineering PASS. Release
+merge/publication remains NOT_AUTHORIZED and unattempted.
+
+**Next permitted step:** resume queued independent scientific review
+only for unattempted source-bound claims with finite one-Send
+ownership, then route any genuine mathematical discrepancies to the
+existing bounded shared repair/review mechanism. Do not demand another
+per-slide owner approval. A source/rights failure, paid API/cost change,
+unknown Send or new public release action remains a legitimate stop.
+Do not reset past trials or chase Serway PDF perfection; move G2 toward
+a complete representative acceptance and close G3 dependencies.
+
+---
+
 # 8 November 2026 — G2 normal academic reviewer durable request integration (v4 learning rule)
 
 **Entry verification:** Dell-115 sole authorized Windows worker, draft PR #528

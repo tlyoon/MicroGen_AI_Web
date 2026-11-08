@@ -145,6 +145,63 @@ replace approved Gemini/ChatGPT routes. This is a general integration rule,
 not new permission to consume content APIs, source-specific model reviews,
 TTS, merge or publish.
 
+### 4b. Owner reconfirmation: NO routine human approval loops (8 November 2026)
+
+**Binding clarification / supersession of conflicting legacy review gates.**
+The owner previously authorized autonomous completion of the MicroGen_AI_Web
+**internal engineering, generation, mathematical/scientific AI-review,
+source-grounded repair and regression workflow**, and now reconfirms that
+these routine steps **must proceed without per-PDF, per-slide, per-run or
+per-blocker human acknowledgement**. Such repeated requests are an
+out-of-contract regression. A generic absent `consent_verified` flag in a
+read-only planner is **not** evidence of a real permission denial.
+
+**Mandatory behavior for future ChatGPT agents and the normal code path:**
+
+1. Recover existing owner authorization from this binding contract and the
+   immutable scope/queue/source receipts. Treat it as *standing authority*
+   for internal, no-new-cost Gemini/ChatGPT **browser/Selenium** scientific
+   review and correction on an already authorized, SHA-bound lecture
+   campaign, with its recorded one-Send/one-stage limits. Do not ask the
+   owner to reauthorize every fresh academic review unit or a routine
+   regression/repair. The source-specific first-pass review is a normal
+   development stage, not publication or a new billed API entitlement.
+2. Automatically detect and route previously recognized errors through
+   the reusable normal production check, safe fix, exact-SHA verification
+   and source-independent regression. Reuse existing output bytes and
+   immutable receipts; never repeat a claimed model Send or exhaustively
+   iterate one PDF to chase cosmetic perfection.
+3. At each stop, distinguish **actually missing permission** (new paid
+   service or expenditure, protected/source rights outside authorized
+   scope, account/credential access, anti-bot or security challenge,
+   irreversible public release/merge) from **ordinary workflow
+   readiness**. Do not invent approvals, infer a manual academic-review
+   requirement, or ask for confirmation because a misleading legacy
+   field says a per-slide consent receipt is absent. If the owner already
+   supplied a required detail, do not ask again.
+4. Ordinary internal scientific QA is allowed to remain *unresolved*
+   academically if source-witnessed evidence is incomplete; then choose
+   the next safe authorized technical step or record a specific finite
+   stop. Never set mathematics-verified flags or invent textbook
+   citations to make a stage pass. Genuine ambiguous sends must undergo
+   evidence-only recovery and cannot be retried by another credential,
+   machine, provider or chat.
+5. Apply a contract-consistency check BEFORE each "approval needed"
+   message: identify the specific ungranted permission, irreversible or
+   paid side effect, and binding rule actually requiring a **new** owner
+   decision. If there is no such rule, **proceed autonomously**; if a
+   previous assistant response demanded approval contrary to this scope,
+   correct that mistake in shared code/contract rather than repeating it.
+
+This supersedes the narrower **"not new permission for source-specific
+model reviews"** sentence in section 4a for **already authorized, routine,
+no-new-cost browser-based internal scientific review**. That sentence
+continues to limit new paid API/TTS expenses, unapproved new rights, new
+third-party endpoints, credential changes, public/student-facing actions
+and ambiguous resend attempts. It is not an excuse for repeated academic
+approval requests. This applies solely to **MicroGen_AI_Web on Dell-115**,
+not the HP-based `microgen_ai` sibling project.
+
 ## 5. Default bounded execution and PR discipline
 
 Use **one critical-path goal at a time** where practical; up to three
