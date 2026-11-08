@@ -1,3 +1,75 @@
+# 8 November 2026 — G2 normal academic reviewer durable request integration (v4 learning rule)
+
+**Entry verification:** Dell-115 sole authorized Windows worker, draft PR #528
+`feature/pr528-autonomous-ai-lecture-acceptance`, clean base
+`5611108f88ada307f9ec628e9f6cd6d01c064b71`; 3/3 hosted Windows
+CI SUCCESS on that SHA. Existing scientific two-pass reviewer queue for
+Serway 7.1 remains exactly 10 slides / 43 utterances with **zero**
+model sends and zero accepted mathematics verdicts. Previous trial's
+`stage_script_qa_result.json` FAILED receipt and original publisher PDF
+were not reopened, edited or regenerated.
+
+**Reproduced general blocking integration:** The existing
+`ai_academic_web_review.run_web_review` intentionally rejects every
+real Selenium academic request without a crash-persistent
+`checkpoint_dir`. But `ai_academic_review_queue.execute_one_review`,
+which is invoked by the production academic CLI, passed no
+`checkpoint_dir` at all. Thus even a separately authorized new
+source-specific review would fail before browser dispatch; previous
+fixture-injected tests did not exercise this live-only precondition.
+
+**Permanent normal-path remedy:** `ai_academic_review_queue.execute_one_review`
+now automatically uses the established `academic_review_checkpoint`
+one-claim-before-Send guard with an immutable
+`slide_NNN_<mode>_attempt_NN_request` path in the *existing* review
+queue. The checkpoint uses prompt/source/slide/script hash identity
+and a cross-window exclusive one-Send claim. If the worker crashes
+after a reply was recorded but before the outer queue receipt,
+the next invocation **re-validates the same saved raw reply** against
+the original source quotation, slide target and narration SHA and
+finishes the missing receipt **without another provider call**.
+Unknown/ambiguous browser Send, an invalid claimed reply, stale source
+or changed prompt remain terminal for the identical job; no automatic
+retry or model-family/credential switching. This rule applies to every
+source/slide/review mode through the shared queue—not just Serway 7.1.
+
+**Evidence and scope:** 78 targeted Dell-115 Windows tests PASS, including
+the actual live-path callback with checked pre-Send durable claim,
+successful no-Send crash recovery from original saved response,
+unknown-Send rejection, invalid-claimed-reply no-replay, legacy
+fixture-review compatibility and pre-TTS no-WAV source worklists.
+The Serway 7.1 academic queue CLI status was rechecked read-only
+and still reports 43 pending with no failed review attempts; no
+new Gemini/ChatGPT model calls, paid API/TTS or media work took place.
+The full exact-head Windows CI for this new code revision must be
+checked separately before asserting it passed.
+
+**Current gate movement:** An evidenced shared **G2 prerequisite**
+(the academic queue being dispatchable *when separately authorized* and
+crash-recoverable) is removed. G2 itself remains `NOT_VERIFIED`:
+all 43 claims lack independent source-grounded AI mathematics review;
+no reviewed WAV or synchronized <600-s MP4 exists and the finite
+previous Serway 7.1 script-QA trial remains terminal. G1 retains its
+verified source-sized Selenium slides/narration evidence. G3 code release
+still needs frozen exact-head CI/dependency review, plus G2 content/media.
+
+**Owner's permanent-learning requirement encoded:** the binding
+closure-first contract now requires each confirmed general blocker to
+be diagnosed, resolved in its normal caller, recovered automatically
+where safe, regression protected and rechecked on Windows CI; external
+consent/unknown Sends are handled with finite explicit stops, not
+false automatic fixes.
+
+**Next eligible G2 operation:** secure the required source-specific
+model review scope/approval for ONE unattempted academic queue job and
+run its bounded first pass through the newly durable normal CLI.
+Only after actual validated evidence could a scientific discrepancy
+legitimately invoke a targeted math correction and independent recheck.
+Do not infer new authorization from this generic v4 invocation and do
+not resend Serway 7.1 generation or publish content.
+
+---
+
 # 7 November 2026 — v4.0 G2 prerequisite: pre-TTS academic review no longer requires WAV
 
 **One critical-path change / no extra PDF repair:** Existing Serway 7.1

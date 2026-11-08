@@ -8,7 +8,8 @@ from __future__ import annotations
 import hashlib,json,re
 from pathlib import Path
 from .figure_source_identity import require,_sha
-from .ai_academic_web_review import build_review_job,run_web_review
+from .ai_academic_web_review import (build_review_job,run_web_review,
+    review_instructions,validate_model_review)
 from .series_gemini import decode_storyboard_response
 from .gemini_model import GeminiModelError
 
@@ -96,21 +97,79 @@ def execute_one_review(*,queue_root:Path,folder:Path,
                 "Ambiguous or unaccounted provider attempt requires reconciliation")
     job=build_review_job(folder=folder,slide_numbers=[slide])
     require(job["utterance_count"]==row["utterance_count"],"Narration coverage changed")
+    # The original reviewer requires a pre-send durable claim. The old queue
+    # omitted checkpoint_dir, preventing every live browser review even when
+    # source, queue and permission were otherwise correct. Reuse this
+    # per-attempt window and its recorded response; never resend an ambiguous
+    # previous browser request, including across process crashes.
+    live_checkpoint = queue_root / (
+        f"slide_{slide:03d}_{mode.lower()}_attempt_{attempt:02d}_request")
     returned_response=False
     def witness_model_return(raw):
         nonlocal returned_response
         returned_response=type(raw) is str and bool(raw.strip())
     try:
-        response=run_web_review(folder=folder,job=job,mode=mode,
-                                transport=transport,
-                                response_observer=witness_model_return)
+        response = None
+        if transport is None and live_checkpoint.exists():
+            from .academic_review_checkpoint import (
+                _load, fingerprint, validate_saved)
+            checkpoint_state = _load(live_checkpoint)
+            prompt = review_instructions(job,mode=mode)
+            expected = fingerprint(
+                request_text=prompt,
+                source_hashes={name:job[key] for name,key in
+                    (("source.pdf","source_sha256"),
+                     ("slides.pdf","slides_sha256"),
+                     ("script.txt","script_sha256"))},
+                review_mode=mode)
+            require(checkpoint_state["request_fingerprint"]==expected,
+                    "Old academic review request fingerprint changed; no resend")
+            if checkpoint_state["status"] in {
+                "MODEL_REPLY_OBSERVED_UNVALIDATED",
+                "REJECTED_RESPONSE_UNTRUSTED",
+                "SOURCE_VALIDATED_ONE_PASS_UNAPPROVED",
+            }:
+                # The exact response was saved before the crash. Independently
+                # validate those SAME bytes against current source and slide
+                # geometry, then finish the original queue receipt without
+                # issuing any model request.
+                returned_response = True
+                response = validate_saved(
+                    checkpoint=live_checkpoint,
+                    expected_fingerprint=expected,
+                    validator=lambda raw: validate_model_review(
+                        folder=folder, job=job,
+                        response=decode_storyboard_response(raw),
+                        mode=mode),
+                )
+            elif checkpoint_state["status"] not in {"PREPARED_NOT_SENT"}:
+                raise RuntimeError(
+                    "Academic browser Send may already have occurred; "
+                    "only response reconciliation is allowed, never resend")
+        if response is None:
+            response=run_web_review(
+                folder=folder,job=job,mode=mode,
+                transport=transport,
+                response_observer=witness_model_return,
+                checkpoint_dir=live_checkpoint if transport is None else None)
     except (RuntimeError,ValueError,OSError) as exc:
         # Model-family errors from the built-in browser transport are raised
         # BEFORE upload, typing and click-send. Injected transports are NOT
         # trusted as evidence that a request remained unsent.
+        web_send_claimed = (
+            transport is None and
+            (live_checkpoint/"dispatch_attempted.claim").exists())
         model_failure_before_send=(transport is None and
                                    isinstance(exc,GeminiModelError)
-                                   and not returned_response)
+                                   and not returned_response and
+                                   not web_send_claimed)
+        # A received but invalid browser reply is NOT a free resubmit:
+        # the exact prompt/source identity is consumed by a durable global
+        # one-Send claim. An explicit materially different reviewer scope
+        # requires a separate, independently authorized new job.
+        manual_retry_eligible = (
+            (returned_response or model_failure_before_send)
+            and not web_send_claimed)
         # Preserve only a concise bounded type/error description, never private tab text.
         fail={"status":"FAILED_GEMINI_REVIEW_ATTEMPT_QUARANTINED",
               "slide":slide,"mode":mode,"attempt":attempt,
@@ -121,9 +180,8 @@ def execute_one_review(*,queue_root:Path,folder:Path,
                   "CONFIRMED_PRE_SUBMISSION_MODEL_SELECTION_FAILURE"
                   if model_failure_before_send else
                   "UNKNOWN_AFTER_POSSIBLE_SUBMISSION"),
-              "manual_retry_eligible":(returned_response or model_failure_before_send),
-              "requires_owner_reconciliation":not (
-                  returned_response or model_failure_before_send),
+              "manual_retry_eligible":manual_retry_eligible,
+              "requires_owner_reconciliation":not manual_retry_eligible,
               "academically_approved":False,"student_publication_authorized":False}
         with evidence_file.open("x",encoding="utf8") as f:
             json.dump(fail,f,indent=2);f.write("\n")

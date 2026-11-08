@@ -114,6 +114,37 @@ because a previous prompt says to keep proceeding.
   logic only within the relevant authorization boundary. Browser challenges
   are respected, never bypassed.
 
+### 4a. Binding permanent-learning condition for every closed blocker (owner update, 8 Nov 2026)
+
+A blocker is **not permanently fixed** merely because the current run succeeds,
+a chat operator applies a workaround, or a document/PR notes the remedy.
+For a reproducible **generalizable** failure, the same closure milestone must:
+
+1. Encode the failure signature and source/job/provider side-effect state in
+   the existing **normal production path**, using the established shared
+   recovery component, rather than a per-PDF exception or optional test script.
+2. Apply the known safe remedy **automatically** on future matching inputs
+   when evidence, authorization, limits, and immutable ownership permit it.
+   Reconcile previously observed outputs instead of re-sending a claimed
+   browser/model job; prefer an idempotent repair/reuse action to regeneration.
+3. Add focused positive and adversarial regressions: old failure detected,
+   reused remedy actually unblocks an unrelated future input, and duplicate
+   external Sends, source/hash drift, unsupported QA promotion and budget
+   resets remain rejected. Exercise the actual normal caller, not just the
+   standalone fixer.
+4. Record in the existing checkpoint the source-independent failure family,
+   exact code entrypoint, remedy/limits, reproducible test and CI evidence.
+   If true automatic handling is impossible (security challenge, cost/rights
+   consent, unknown model outcome, disputed science), retain a specific
+   **terminal/awaiting-evidence** stop with the appropriate next legal trigger.
+   Such cases are *handled*, not falsely labeled automatically repaired.
+
+Apply this to the current source review-queue / durable browser claim gap.
+Do not install a self-modifying agent, weaken AI mathematics acceptance, or
+replace approved Gemini/ChatGPT routes. This is a general integration rule,
+not new permission to consume content APIs, source-specific model reviews,
+TTS, merge or publish.
+
 ## 5. Default bounded execution and PR discipline
 
 Use **one critical-path goal at a time** where practical; up to three
