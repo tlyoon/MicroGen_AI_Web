@@ -9,7 +9,9 @@ from pathlib import Path
 from .figure_source_identity import require,_sha
 from .ai_academic_web_review import build_review_job
 from .pdf_text_source_span_witness import prove_source_quote_occurrence
-from .ai_academic_review_queue import execute_one_review,summarize_queue,_check_queue,_receipt_name
+from .ai_academic_review_queue import (
+    execute_one_review,summarize_queue,_check_queue,_receipt_name,
+    advance_one_safe_review)
 
 def import_prior_source_verified_pass(*,queue_root:Path,folder:Path,
                                       slide:int,prior:Path)->dict:
@@ -75,19 +77,35 @@ def main(argv=None):
     a.add_argument("--attempt",type=int,default=1)
     a.add_argument("--import-prior-first-pass",type=Path)
     a.add_argument("--execute-gemini-web",action="store_true")
+    a.add_argument("--auto-next",action="store_true",
+                   help="Select the next source-verified, unattempted review; "
+                        "with --execute-gemini-web perform exactly one unit")
     args=a.parse_args(argv)
     if args.status:
         result=summarize_queue(queue_root=args.queue_root,folder=args.folder)
     elif args.import_prior_first_pass is not None:
+        require(not args.auto_next,"Cannot import review and auto-dispatch together")
         result=import_prior_source_verified_pass(queue_root=args.queue_root,
             folder=args.folder,slide=args.slide,prior=args.import_prior_first_pass)
+    elif args.auto_next:
+        require(args.slide is None and args.attempt==1
+                and args.mode=="INITIAL_REVIEW",
+                "Automatic review selects its own slide/mode and never retries")
+        result=advance_one_safe_review(
+            queue_root=args.queue_root,folder=args.folder,
+            execute=args.execute_gemini_web)
     else:
         require(args.execute_gemini_web,
                 "Explicit Gemini-web invocation required; queue status is read-only")
         result=execute_one_review(queue_root=args.queue_root,folder=args.folder,
             slide=args.slide,mode=args.mode,attempt=args.attempt)
     print(json.dumps(result,indent=2,ensure_ascii=False))
-    return 0 if result["status"]!="FAILED_GEMINI_REVIEW_ATTEMPT_QUARANTINED" else 2
+    if result["status"]=="FAILED_GEMINI_REVIEW_ATTEMPT_QUARANTINED":
+        return 2
+    if (result["status"]=="ONE_AUTONOMOUS_ACADEMIC_REVIEW_ATTEMPT_FINISHED"
+        and result["review"]["status"]=="FAILED_GEMINI_REVIEW_ATTEMPT_QUARANTINED"):
+        return 2
+    return 0
 
 if __name__=="__main__":
     raise SystemExit(main())

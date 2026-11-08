@@ -1,3 +1,111 @@
+# 8 November 2026 — v4 closure: academic QA automatically chooses a safe next unit
+
+**Primary acceptance prerequisite (G2):** The existing academic-review
+component had isolated, crash-safe scientific review and retry protection
+but **no normal-path source-independent automatic selector**: its CLI
+required the operator/agent to repeat `--slide` and `--mode` for every
+source review. This is a concrete connection defect behind the owner's
+repeated perception that historical fixes are learned but not used.
+The main source progression controller also deliberately performs at
+most one source stage and does not supply autonomous academic queue
+selection. The feature freeze admits only this G2-critical integration,
+not a new general-purpose self-modifying agent.
+
+**Generalized correction in existing normal entry point:**
+`ai_academic_review_queue.select_next_safe_review` verifies the original
+SHA-locked source/slides/script queue and scans canonical slide order.
+It reuses fully completed receipts, selects an unattempted
+`INITIAL_REVIEW` or legitimate `INDEPENDENT_CHALLENGE`, and checks the
+existing persisted model-request checkpoint before selecting a claimed
+request. A previously **saved** raw model reply can be recovered
+without another Send. An uncertain Send, exhausted retry, source drift,
+or prior invalid scientific reply is recorded as a blocked unit rather
+than triggering a duplicate Send, approving science, or freezing
+unrelated unattempted slides. The existing
+`ai_academic_review_cli --auto-next` is read-only; adding
+`--execute-gemini-web` executes **at most ONE** selected unit under
+standing internal Selenium authority, never a source-specific repair
+loop. No API/TTS cost or publication approval inferred.
+
+**Newly reproduced historical failure family in real source:**
+The source quotation hallucination/ambiguity family was previously
+observed in Thomas8.4 and guarded in a source-specific locked
+quotation packet. That *specialized* guard is not a universal source
+quotation generator. On current real Serway 7.1, the auto selector
+reused the already completed two-pass slide 1 evidence and chose
+slide 2 initial review automatically. One new Gemini Selenium
+review Send successfully attached source.pdf/slides.pdf and received
+about 4203 response characters; its independent original-PDF
+quotation validator rejected the response with
+`FigureIdentityReviewRequired: Ambiguous or unlocatable exact original textbook quote`.
+The response was saved under the immutable
+`slide_002_initial_review_attempt_01_request` model checkpoint,
+with one failed `slide_002_initial_review_attempt_01.json` receipt,
+`provider_submission_state=RETURNED_RESPONSE_INVALID`,
+`manual_retry_eligible=false`.
+**Do not resend or relabel the failed source review.** This is
+an untrusted scientific citation, **not an observed connectivity
+outage**, nor proof that the mathematical content itself is false.
+
+**Permanent failure-classification fix:** Shared
+`review_retry_plan.plan_manual_review_attempt` and
+`source_review_eligibility_preflight` now classify this known
+returned-but-source-invalid signature as
+`SOURCE_MATH_QUOTE_EVIDENCE_REJECTED_NO_SAME_REQUEST_REPEAT`,
+instead of conflating it with `RECONCILE_OLD_PROVIDER_ATTEMPTS`
+and asking the owner for routine manual intervention. New future
+failures set `requires_new_independent_source_evidence=true`,
+`requires_owner_reconciliation=false` for a known returned
+invalid reply. Truly **unknown** provider Send still needs
+evidence-only reconciliation. Historical receipts and sources
+are immutable; the new classifier reads them as they are.
+
+**Real next-step evidence:** After the slide 2 failure, the same
+normal `--auto-next` read-only CLI selected
+**slide 3, INITIAL_REVIEW, attempt 1** and listed slide 2 as
+`SOURCE_MATH_QUOTE_EVIDENCE_REJECTED_NO_SAME_REQUEST_REPEAT`;
+it performed **zero additional model Sends**. In other words, a
+single bad source-citation reply no longer obstructs unrelated
+pending academic work or causes a same-job resend.
+
+**Regression scope:** 93 targeted local Windows tests passed
+before the final saved-reply no-Send auto-next regression; the
+additional tests validated that previously captured responses can be
+reconciled without another browser request, two-slide queues proceed
+deterministically, a previously ambiguous Send is not repeated, and
+source hashes cannot drift. The final exact-head hosted Windows CI
+must be verified after the coherent commit; past green CI on
+`3bf40598c6b4a16676c0b828eb24e0b90c33d065` is not transferable.
+
+**Current gates:** G1 PASS_VERIFIED for the tested Selenium
+slides/narration real original stage. G2 **NOT_VERIFIED**: 43
+original utterances, **one** dual-source-witnessed AI-agreed
+utterance on slide 1, **one** initial review on slide 2
+rejected for an unlocatable citation, and the remainder not
+independently reviewed. There is no complete autonomous correction
+for an unjustified model quote: the source evidence must be
+re-established on a legitimately **new separately bounded scope**
+before any replacement could be accepted, and the original claimed
+request cannot be replayed. The academic queue can advance other
+unattempted units. Full source/scientific/media QA, WAV, <600-second
+synchronized MP4 and learner release remain missing. G3 release
+review/merge remains incomplete; no merge/publication done.
+
+**Next justified milestone after exact-head CI:** Under existing
+source/one-Send rules, progress the next unattempted independent
+review unit through the new auto selector, and independently
+investigate a *general* preverified-PDF source quote candidate
+input protocol for future review jobs before any new submission.
+Reuse the former Thomas quotation-lock lesson; do not repeat the
+Serway 7.1 slide 2 send, alter its failed evidence, or endlessly
+repair one PDF. When real incorrect mathematical content is proven,
+route it to a bounded affected-content repair and independent
+re-validation, never a blanket magic pass. There is **no** claimed
+global automatic cure for unknown provider outages, missing source
+semantics, or permission-restricted actions.
+
+---
+
 # 8 November 2026 — v4.1: standing autonomous scientific review unblocked and exercised
 
 **Authority / root cause:** The existing MicroGen_AI_Web owner contract

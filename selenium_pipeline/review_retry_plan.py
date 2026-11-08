@@ -35,6 +35,14 @@ def plan_manual_review_attempt(queue_root:Path,*,slide:int,mode:str)->dict:
     elif any(e[1]!="FAILED_GEMINI_REVIEW_ATTEMPT_QUARANTINED" for e in failures):
         status="BLOCKED_UNVERIFIED_ATTEMPT_RECEIPT"
     elif len(failures)==3:status="MAX_THREE_ATTEMPTS_EXHAUSTED"
+    elif (any(e[2]=="RETURNED_RESPONSE_INVALID" and e[3] is False
+              for e in failures)
+          and all(e[2] not in ("UNKNOWN_AFTER_POSSIBLE_SUBMISSION",)
+                  for e in failures)):
+        # A real answer was received but failed exact-source validation.
+        # This is NOT evidence of Gemini disconnection, a reason to resend
+        # the same claimed request, or a demand for manual consent.
+        status="BLOCKED_INVALID_SOURCE_EVIDENCE_NO_SILENT_RETRY"
     elif any(e[2] not in (
             "RETURNED_RESPONSE_INVALID",
             "CONFIRMED_PRE_SUBMISSION_MODEL_SELECTION_FAILURE",

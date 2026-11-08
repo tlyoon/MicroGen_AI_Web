@@ -68,6 +68,9 @@ def inspect_original_review_eligibility(*, folder: Path, queue_root: Path,
         state = "EXISTING_PASS_MUST_NOT_BE_REPEATED"
     elif observed["recorded_status"] == "MAX_THREE_ATTEMPTS_EXHAUSTED":
         state = "EXHAUSTED_NO_MORE_REQUESTS"
+    elif (observed["recorded_status"] ==
+          "BLOCKED_INVALID_SOURCE_EVIDENCE_NO_SILENT_RETRY"):
+        state = "SOURCE_MATH_QUOTE_EVIDENCE_REJECTED_NO_SAME_REQUEST_REPEAT"
     else:
         state = "RECONCILE_OLD_PROVIDER_ATTEMPTS_BEFORE_ANY_SEND"
     if (original_hashes !=

@@ -124,7 +124,9 @@ class RealAcademicQueueCrashSafety(unittest.TestCase):
         self.assertEqual(failed["provider_submission_state"],
                          "RETURNED_RESPONSE_INVALID")
         self.assertFalse(failed["manual_retry_eligible"])
-        self.assertTrue(failed["requires_owner_reconciliation"])
+        self.assertFalse(failed["requires_owner_reconciliation"])
+        self.assertTrue(failed["requires_new_independent_source_evidence"])
+        self.assertTrue(failed["can_advance_other_unattempted_slides"])
         self.assertEqual(browser.call_count, 1)
         self.assertTrue((self.checkpoint/"dispatch_attempted.claim").exists())
         with self.assertRaises(FigureIdentityReviewRequired):

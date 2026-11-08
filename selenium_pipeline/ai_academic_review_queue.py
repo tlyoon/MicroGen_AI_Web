@@ -181,7 +181,10 @@ def execute_one_review(*,queue_root:Path,folder:Path,
                   if model_failure_before_send else
                   "UNKNOWN_AFTER_POSSIBLE_SUBMISSION"),
               "manual_retry_eligible":manual_retry_eligible,
-              "requires_owner_reconciliation":not manual_retry_eligible,
+              "requires_owner_reconciliation":(
+                  not manual_retry_eligible and not returned_response),
+              "requires_new_independent_source_evidence":bool(returned_response),
+              "can_advance_other_unattempted_slides":True,
               "academically_approved":False,"student_publication_authorized":False}
         with evidence_file.open("x",encoding="utf8") as f:
             json.dump(fail,f,indent=2);f.write("\n")
@@ -197,6 +200,112 @@ def execute_one_review(*,queue_root:Path,folder:Path,
     with evidence_file.open("x",encoding="utf8") as f:
         json.dump(done,f,indent=2);f.write("\n")
     return done
+
+
+def select_next_safe_review(*,queue_root:Path,folder:Path)->dict:
+    """Source-independent, read-only choice of ONE next review operation.
+
+    This is selection, not provider authorization or a retry. Completed modes
+    are never replayed; a checkpoint with a possible Send is never re-sent.
+    A source-specific defect cannot trap unrelated, unattempted slide reviews.
+    """
+    from .review_queue_source_audit import inspect_source_bound_queue
+    from .source_review_eligibility_preflight import inspect_original_review_eligibility
+    from .academic_review_checkpoint import _load
+    queue_root, folder = Path(queue_root).absolute(), Path(folder).absolute()
+    inspect_source_bound_queue(queue_root)
+    plan = json.loads((queue_root/"queue.json").read_text(encoding="utf8"))
+    require(plan["original_source_folder"]==str(folder),
+            "Academic queue does not belong to supplied original source")
+    blocked=[]
+    completed=0
+    for row in plan["slide_jobs"]:
+        slide=row["slide"]
+        scope=inspect_original_review_eligibility(
+            folder=folder,queue_root=queue_root,slide=slide)
+        mode=scope["suggested_next_stage"]
+        if scope["planning_result"]=="EXISTING_PASS_MUST_NOT_BE_REPEATED":
+            completed+=1
+            continue
+        if not scope["fresh_claimed_internal_selenium_review_ready"]:
+            blocked.append({"slide":slide,"mode":mode,
+                            "reason":scope["planning_result"]})
+            continue
+        # Reuse the exact old one-Send path; do not pick a different attempt
+        # number or alter the source/prompt to bypass an uncertain Send.
+        claim=queue_root/(
+            f"slide_{slide:03d}_{mode.lower()}_attempt_01_request")
+        if claim.exists() or claim.is_symlink():
+            require(claim.is_dir() and not claim.is_symlink(),
+                    "Academic model claim is linked or corrupted")
+            state=_load(claim)
+            if state["status"] in {
+                "SUBMITTED_OR_UNCERTAIN", "NO_RESPONSE_UNRESOLVED",
+                "LEGACY_SENT_NO_RESPONSE"
+            }:
+                blocked.append({"slide":slide,"mode":mode,
+                                "reason":"AMBIGUOUS_OLD_SEND_NO_RESUBMISSION"})
+                continue
+            if state["status"] not in {
+                "PREPARED_NOT_SENT", "MODEL_REPLY_OBSERVED_UNVALIDATED",
+                "REJECTED_RESPONSE_UNTRUSTED",
+                "SOURCE_VALIDATED_ONE_PASS_UNAPPROVED",
+            }:
+                blocked.append({"slide":slide,"mode":mode,
+                                "reason":"INVALID_PREVIOUS_CHECKPOINT_STATE"})
+                continue
+            # If the prior validation rejected a reply, the same saved bytes
+            # may be reconciled but never sent again. Executor verifies exact
+            # prompt fingerprint and original source hashes.
+            action=("RECONCILE_PRIOR_RESPONSE_NO_SEND"
+                    if state["status"]!="PREPARED_NOT_SENT"
+                    else "PREPARED_UNSENT_NO_DUPLICATE")
+        else:
+            action="FRESH_FIRST_ATTEMPT"
+        return {
+            "status":"ONE_SAFE_ACADEMIC_REVIEW_UNIT_READY",
+            "next_slide":slide,"next_mode":mode,"attempt":1,
+            "action":action,
+            "previously_completed_slides":completed,
+            "blocked_other_slides":blocked,
+            "new_model_requests":False,
+            "per_slide_approval_required":False,
+            "automatic_retry_authorized":False,
+            "student_publication_authorized":False,
+        }
+    return {
+        "status":("ALL_ACADEMIC_REVIEW_PASSES_RECORDED"
+                  if not blocked else "NO_SAFE_REVIEW_UNIT_REMAINING"),
+        "next_slide":None,"next_mode":None,
+        "previously_completed_slides":completed,
+        "blocked_other_slides":blocked,
+        "new_model_requests":False,
+        "automatic_retry_authorized":False,
+        "student_publication_authorized":False,
+    }
+
+
+def advance_one_safe_review(*,queue_root:Path,folder:Path,
+                            execute:bool=False,transport=None)->dict:
+    """At most one standing-authorized browser review; no source loops."""
+    selection=select_next_safe_review(queue_root=queue_root,folder=folder)
+    if not execute or selection["status"]!="ONE_SAFE_ACADEMIC_REVIEW_UNIT_READY":
+        return selection
+    result=execute_one_review(
+        queue_root=queue_root,folder=folder,
+        slide=selection["next_slide"],mode=selection["next_mode"],
+        attempt=1,transport=transport)
+    return {
+        "status":"ONE_AUTONOMOUS_ACADEMIC_REVIEW_ATTEMPT_FINISHED",
+        "selection":selection,"review":result,
+        # The same call may only reconcile a saved response (zero Sends);
+        # never report it as a new provider submission without live proof.
+        "new_provider_sends_this_invocation_upper_bound":1,
+        "new_provider_send_proved_by_this_summary":False,
+        "no_auto_chain":True,
+        "academic_consensus_or_TTS_approved":False,
+        "student_publication_authorized":False,
+    }
 
 def summarize_queue(*,queue_root:Path,folder:Path)->dict:
     plan=json.loads((Path(queue_root)/"queue.json").read_text(encoding="utf8"))
