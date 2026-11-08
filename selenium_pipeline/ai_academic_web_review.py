@@ -11,6 +11,8 @@ from .figure_source_identity import require,_sha
 from .incremental_element_candidate_map import candidate_map
 from .incremental_lecture_sync_queue import inspect_pre_tts_folder
 from .pdf_text_source_span_witness import prove_source_quote_occurrence
+from .source_verified_quote_candidates import (
+    build_verified_source_candidates, verify_witnessed_candidate)
 from .series_gemini import decode_storyboard_response,_browser_request
 from .source_locked_academic_review import (review_quote_whitelist,
     require_quote_locked_model_reply,recover_rendered_json_format_only,
@@ -41,7 +43,7 @@ def build_review_job(*,folder:Path,slide_numbers:list[int])->dict:
                          "spoken_sha256":u["original_text_sha256"],
                          "ranked_candidates":[v["target_id"] for v in u["candidate_visual_targets"]]}
                         for u in s["original_utterance_candidates"]]})
-    return {"status":"SOURCE_BOUND_AI_REVIEW_REQUEST_NOT_DISPATCHED",
+    job={"status":"SOURCE_BOUND_AI_REVIEW_REQUEST_NOT_DISPATCHED",
             "original_folder":str(folder),
             "source_sha256":full["source_sha256"],
             "slides_sha256":full["slides_sha256"],
@@ -51,6 +53,12 @@ def build_review_job(*,folder:Path,slide_numbers:list[int])->dict:
             "source_only_pre_tts_review":full["source_only_pre_tts_review"],
             "slides":slides,"academic_approval":False,
             "student_publication_authorized":False}
+    # A generalized, independently source-verified input whitelist is part
+    # of EVERY new production review job; never rely on Gemini inventing a
+    # physically exact quotation that is checked only after it replies.
+    job["verified_source_quote_candidates_v1"] = build_verified_source_candidates(
+        folder=folder,job=job)
+    return job
 
 def review_instructions(job:dict,*,mode:str,verified_source_evidence:dict|None=None)->str:
     require(mode in ("INITIAL_REVIEW","INDEPENDENT_CHALLENGE"),"Two distinct review passes only")
@@ -76,7 +84,19 @@ def review_instructions(job:dict,*,mode:str,verified_source_evidence:dict|None=N
             job=job,packet=verified_source_evidence),
          "review_rules":"For each utterance, use ONLY its source_verified_target_id as target_id, or null if unsupported; never select another real element from the same slide. Cite ONLY an exact page and verbatim quotation from the matching listed utterance; no created quotations or citation paraphrases. Mark UNRESOLVED when the passages do not establish a claim. For the principal-root and absolute-value final utterance, use UNRESOLVED until independently verified original PDF math glyphs are available. Context-only source text is not proof."}
         if verified_source_evidence is not None else {})
-    return ("Examine the attached ORIGINAL source.pdf AND slides.pdf; no fabricated PDF page or "
+    generic_lock = (
+        "CITE ONLY one exact (source_page, verbatim_source_quote) pair "
+        "from verified_source_quote_candidates_v1 for the matching "
+        "utterance_id. Never manufacture, rewrite, splice, paraphrase or "
+        "transfer a quotation from another utterance. If no candidate "
+        "actually supports the claim, use null citation and UNRESOLVED. "
+        "These physically verified lines are candidate EVIDENCE, not "
+        "mathematical truth or automatic support. Check the full original "
+        "PDF independently and challenge the mathematics. "
+        if verified_source_evidence is None
+        and job.get("verified_source_quote_candidates_v1") else "")
+    return (generic_lock +
+            "Examine the attached ORIGINAL source.pdf AND slides.pdf; no fabricated PDF page or "
             "math claims. Match the exact original narration to a precise visible slide element; "
             "check mathematical truth and source derivation. For diagrams/equations not captured "
             "as text, leave target null and explain needed visual geometry. Do not guess. "
@@ -130,7 +150,12 @@ def validate_model_review(*,folder:Path,job:dict,response:dict,mode:str,
             require(type(selected) is str and selected in target[slide],
                     "Model hallucinated slide target identity")
         cited=False
-        if guess.get("source_page") is not None or guess.get("verbatim_source_quote") is not None:
+        if (verified_source_evidence is None
+            and job.get("verified_source_quote_candidates_v1") is not None):
+            cited=verify_witnessed_candidate(
+                job=job, utterance=original, guess=guess,
+                source_pdf=folder/"source.pdf")
+        elif guess.get("source_page") is not None or guess.get("verbatim_source_quote") is not None:
             prove_source_quote_occurrence(
                 source_pdf=folder/"source.pdf",expected_sha256=job["source_sha256"],
                 page_number=guess.get("source_page"),

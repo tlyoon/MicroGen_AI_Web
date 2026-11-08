@@ -1,3 +1,114 @@
+# 8 November 2026 — G2-R1 verified-source quotation preflight in normal academic pipeline
+
+**Starting state:** MicroGen_AI_Web, Dell-115 only, clean draft PR #528,
+incoming verified SHA `73d72d7c947b86cf28d1d34bf011d267135619fa`
+with 3/3 hosted Windows CI passes. All earlier original generation
+trial failures and Serway slide 2 invalid-citation failure remain
+immutable. This is **not** the similarly named API-based project on HP.
+
+**Critical recurrent failure:** Original Gemini academic reviewer
+historically invented quotations on Thomas 8.4, prompting a special
+five-utterance/slide-4 source whitelist. The normal academic reviewer
+still let Gemini create its own physical textbook quotations and only
+rejected inaccurate ones after dispatch. On the current real Serway
+7.1, slide 2 initial review was indeed quarantined after returning
+unlocatable source text. This is a generalized *review input guard*
+defect; it was not evidence that all source science was wrong.
+
+**New normal-path safeguard:** Added
+`selenium_pipeline/source_verified_quote_candidates.py`.
+`ai_academic_web_review.build_review_job` now prepares an immutable
+SHA-bound **physically verifiable citation candidate packet** for
+every normal source-bound academic job BEFORE model Send. It extracts
+bounded real original PDF word lines, ranks by exact shared topical
+words, uses the existing independent
+`pdf_text_source_span_witness.prove_source_quote_occurrence` plus
+spatial continuity checks, and includes *up to two* exact physical
+quotations, source PDF page, original word bbox and normalized-quote
+hash for each exact narration ID/SHA. An absent relevant passage gives
+zero candidates and requires an unresolved response; it is **never**
+invented or promoted to scientific approval. The normal Gemini prompt
+demands one exact whitelist pair per utterance or null/UNRESOLVED,
+and the normal `validate_model_review` independently rejects
+invented, edited or cross-utterance citations while checking the
+original source SHA again. The historical specialized Thomas8.4
+source-packet exception is retained, not silently overridden.
+A historic two-pass regression with distinct genuine quotes
+(`A visible equation` versus `visible equation`) first exposed a
+real compatibility issue; the final builder also generates
+independently verified short-span alternatives. The full
+legacy two-pass agreement tests pass again.
+
+**Independent engineering evidence:** 104 adjacent Windows regression
+tests PASSED, 2 skipped, on Dell-115. Includes two distinct generated
+physics PDFs, valid citations, physically plausible but *unlisted*
+citations, fabricated citations, zero-candidate UNRESOLVED, immutable
+source drift rejection, legacy two-pass acceptance, exactly-once
+recovery, source binding, and audio/media handoff interface checks.
+The read-only packet for genuine Serway 7.1 slide 4 contained 5
+original narrated units with candidate counts [2,2,0,2,2];
+all included physical bboxes were present; model prompt 8163 chars;
+`all_mathematics_verified=false` and
+`student_publication_authorized=false`. The original source
+SHA is `7015a479b52964d9385c00cf1f2ad4a16589c780b93335d825bf62b6203928c3`.
+The new code revision requires fresh exact-head hosted CI; the
+previous 3/3 CI result is evidence only for the incoming SHA.
+
+**Real workflow attempt / finite stop:** The existing autonomous
+`ai_academic_review_cli --auto-next --execute-gemini-web` selected
+the unattempted Serway slide 3 INITIAL_REVIEW. One new source-bound
+Selenium Gemini Flash request was submitted at 2026-11-08 19:22:38
+Malaysia local time, using the real source PDF, slide PDF and
+new physically verified quotation prompt. Browser login, attachment
+readiness and Send were observed. **Gemini did not return stable
+attributable JSON** before the bounded completion window. The
+transport reported
+`POST_SUBMIT_NO_ATTRIBUTED_RESPONSE_NO_RESEND`; the immutable
+`slide_003_initial_review_attempt_01.json` recorded
+`FAILED_GEMINI_REVIEW_ATTEMPT_QUARANTINED`,
+`provider_submission_state=UNKNOWN_AFTER_POSSIBLE_SUBMISSION`,
+`manual_retry_eligible=false`, with durable
+`slide_003_initial_review_attempt_01_request` at
+`SUBMITTED_OR_UNCERTAIN`. Service-side generation versus DOM
+attribution cause is **unverified**; no second Send or API key
+switch was attempted. This result does not measure the scientific
+effectiveness of the new whitelist: the model did not provide a
+verifiable reply.
+
+**Queue continuation without per-PDF loop:** Read-only auto-next
+correctly selected slide 4 as next unattempted work, while
+quarantining slide 2's invalid citation and slide 3's ambiguous
+Send. No earlier source, slide, narration, receipt or retry
+budget was overwritten. This session made ONE live internal
+source-specific Gemini Selenium call, no paid API/TTS, WAV,
+MP4, merge or publication.
+
+**Current acceptance:** G1 source-grounded slides/narration remains
+PASS_VERIFIED on the original bounded trial; the G2-R1 source-quote
+preflight is implemented with offline cross-source and local
+real-PDF proof, but a complete *live* model output using the new
+protocol is **NOT_VERIFIED**. Exactly one of 43 original narrated
+claims has prior source-witnessed two-pass AI agreement; the
+rest remain pending/disputed including slide 2 and slide 3.
+Full G2 math, figure semantics, audiovisual highlights, TTS and
+<600-s MP4s are NOT_VERIFIED. G3 exact-head CI needs checking
+on the new commit; external release remains unapproved.
+
+**Next eligible closure action:** Verify the final commit's
+Windows CI. Then continue only with a genuinely unattempted
+source-bound academic unit or independently reconcile a newly
+observed old response if safe, **never replay** slide 2 or
+slide 3. Confirm one actual complete model reply cites only
+SHA-bound physical PDF passages or uses UNRESOLVED, then
+independently check mathematics. If the provider again yields
+no attributable output, preserve a finite externally blocked
+status and advance independent source-free integration instead
+of requesting manual approval or creating an infinite PDF
+repair loop. Existing source-math correction and separate
+media/rights gates remain independently required.
+
+---
+
 # 8 November 2026 — v4 closure: academic QA automatically chooses a safe next unit
 
 **Primary acceptance prerequisite (G2):** The existing academic-review
