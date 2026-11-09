@@ -213,9 +213,39 @@ def _browser_request(instruction: str,attachments: list[Path],
                 ) from capture_error
             return response
         except Exception as error:
+            from .gemini_selenium_only_policy import (
+                GeminiSeleniumTemporaryFailure,
+                GeminiSeleniumPreSendBlocked, presend_failure_code)
+            # Do not label a proven pre-click ownership/selector failure as a
+            # possible model submission. A click exception, conversely, is
+            # uncertain and must NEVER be repeated automatically.
+            possible_send = bool(
+                send_boundary_entered and
+                not isinstance(error, GeminiSeleniumPreSendBlocked))
+            if isinstance(error, GeminiSeleniumTemporaryFailure):
+                phase = error.gemini_failure_phase
+                used = error.gemini_prepare_attempts_used
+            elif not possible_send:
+                phase = presend_failure_code(error)
+                used = int(getattr(
+                    client, "_microgen_presend_attempts_used", 0) or 0)
+            else:
+                from .gemini_bridge_failure_triage import (
+                    classify_owned_gemini_failure)
+                phase = classify_owned_gemini_failure(error)["stage"]
+                used = int(getattr(
+                    client, "_microgen_presend_attempts_used", 0) or 0)
+            # Typed fields for the outer immutable canary/job receipt. Do not
+            # persist private text, prompt, arbitrary exception args or tabs.
+            try:
+                error.gemini_send_boundary_entered = possible_send
+                error.gemini_failure_phase = phase
+                error.gemini_prepare_attempts_used = used
+            except (AttributeError, TypeError):
+                pass
             emit_temporary_failure(
-                type(error).__name__,
-                may_have_submitted=send_boundary_entered)
+                f"{phase}; pre-Send preparations used={used or 'unknown'}",
+                may_have_submitted=possible_send)
             raise
         finally:
             if client is not None:

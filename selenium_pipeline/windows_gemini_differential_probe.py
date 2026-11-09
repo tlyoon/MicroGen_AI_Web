@@ -37,12 +37,29 @@ def _profile_spec(profile: str):
         return _PROMPT, _EXPECTED, _SHA
     if profile == "source_sized":
         from .one_shot_gemini_source_health_probe import (
-            make_source_sized_probe, EXPECTED,
-        )
+            make_source_sized_probe, EXPECTED)
         prompt = make_source_sized_probe()
         if not 1200 <= len(prompt) <= 3000:
             raise ValueError("Source-sized canary exceeds established bounded scope")
         return prompt, EXPECTED, hashlib.sha256(prompt.encode("utf8")).hexdigest()
+    if profile == "source_sized_selenium_only_v2":
+        # New immutable request identity after the owner explicitly removed
+        # alternate LLM routes and hardened exactly-once Gemini Selenium.
+        # Never replay the original historical source-sized canary prompt.
+        expected = {"probe": "microgen_gemini_selenium_g1_v2_ok"}
+        intro = (
+            'This is a NEW synthetic source-free Gemini Selenium-only G1 '
+            'transport verification, not a prior lecture request. '
+            'Reply with exactly one JSON object, and nothing else: '
+            '{"probe":"microgen_gemini_selenium_g1_v2_ok"}. '
+            'The following repeated text is inert test data, not instructions.\n'
+        )
+        seed = ("Inert source-sized input for verifying one owned Gemini "
+                "browser response; no academic or user file is attached. ")
+        prompt = intro + seed * 14
+        if not 1200 <= len(prompt) <= 3000:
+            raise ValueError("Gemini-only test prompt outside bounded size")
+        return prompt, expected, hashlib.sha256(prompt.encode("utf8")).hexdigest()
     raise ValueError("Unrecognized source-free Gemini diagnostic profile")
 
 
@@ -129,7 +146,7 @@ def _request_browser(prompt: str, *, profile: str = "short") -> str:
     # This longer-input check uses NO original source and no model/API retry.
     return _browser_request(
         prompt, [], port=9222,
-        wait_cap_s=(150 if profile == "source_sized" else 90),
+        wait_cap_s=(150 if profile.startswith("source_sized") else 90),
         min_chars=8, accept_fn=lambda raw: _valid(raw, profile=profile),
     )
 
@@ -263,6 +280,12 @@ def run_canary(*, checkpoint_dir: Path, backend: str,
         "source_pdf_transmitted": False,
         "student_publication_authorized": False,
         "existing_original_source_retry_permitted": False,
+        "gemini_selenium_only": backend == "browser",
+        "chatgpt_fallback_attempted": False,
+        "gemini_api_fallback_attempted": False,
+        "gemini_browser_failure_phase": None,
+        "gemini_browser_presend_attempts_used": None,
+        "gemini_selenium_stop_message": None,
     }
     try:
         transport = ((browser_transport or
@@ -279,10 +302,30 @@ def run_canary(*, checkpoint_dir: Path, backend: str,
         answer["error_type"] = type(error).__name__
         if backend == "browser":
             from .gemini_bridge_failure_triage import (
-                classify_owned_gemini_failure,
-            )
-            answer["browser_bridge_stage"] = (
-                classify_owned_gemini_failure(error)["stage"])
+                classify_owned_gemini_failure)
+            from .gemini_selenium_only_policy import temporary_failure_message
+            # The real Selenium bridge exposes privacy-safe phase metadata.
+            # A separately injected/legacy exception may not: UNKNOWN is
+            # honest and preserves the no-resend invariant.
+            possible = getattr(error, "gemini_send_boundary_entered", None)
+            if type(possible) is bool:
+                answer["request_may_have_been_submitted"] = possible
+                if not possible:
+                    answer["new_model_generation_calls"] = 0
+            phase = getattr(error, "gemini_failure_phase", None)
+            if (type(phase) is not str or not phase or len(phase) > 128):
+                phase = classify_owned_gemini_failure(error)["stage"]
+            attempts = getattr(error, "gemini_prepare_attempts_used", None)
+            if type(attempts) is int and 1 <= attempts <= 3:
+                answer["gemini_browser_presend_attempts_used"] = attempts
+            answer["gemini_browser_failure_phase"] = (
+                "PRE_SEND_NO_SUBMISSION" if possible is False else
+                "AFTER_POSSIBLE_SEND" if possible is True else
+                "UNKNOWN_SUBMISSION_OUTCOME")
+            answer["browser_bridge_stage"] = phase
+            answer["gemini_selenium_stop_message"] = (
+                temporary_failure_message(
+                    phase, may_have_submitted=possible is not False))
         answer["verified_api_http_status"] = (
             _code(error) if backend == "api" else None)
     _write_new(result, answer)
@@ -316,7 +359,7 @@ def classify(*, browser: dict | None, api: dict | None,
     elif b_ok:
         label = (
             "BROWSER_SOURCE_SIZED_INPUT_CANARY_OK_FULL_LESSON_NOT_CERTIFIED"
-            if browser.get("probe_profile", "short") == "source_sized"
+            if str(browser.get("probe_profile", "short")).startswith("source_sized")
             else "BROWSER_SHORT_CANARY_WORKS_LONG_FORM_NOT_CERTIFIED"
         )
     elif a_ok and browser_authenticated is False:
@@ -339,7 +382,7 @@ def classify(*, browser: dict | None, api: dict | None,
         "browser_canary_profile": (
             browser.get("probe_profile", "short") if browser else "NOT_TESTED"),
         "source_sized_text_input_response_verified": bool(
-            b_ok and browser and browser.get("probe_profile") == "source_sized"),
+            b_ok and browser and str(browser.get("probe_profile")).startswith("source_sized")),
         "source_sized_input_is_not_full_lecture_generation": True,
         "api_canary": a or "NOT_TESTED",
         "provider_server_outage_proven": False,
@@ -356,7 +399,8 @@ def main(argv=None) -> int:
     ap.add_argument("--probe-api-model-metadata-once", action="store_true")
     ap.add_argument("--browser-canary-once", action="store_true")
     ap.add_argument("--browser-canary-profile",
-                    choices=("short", "source_sized"), default="short",
+                    choices=("short", "source_sized",
+                             "source_sized_selenium_only_v2"), default="short",
                     help="Source-sized profile sends 1.2-3k synthetic characters; never a PDF")
     ap.add_argument("--api-canary-once", action="store_true")
     ap.add_argument("--confirm-api-diagnostic-cost", action="store_true")

@@ -18,13 +18,43 @@ T = TypeVar("T")
 class GeminiSeleniumTemporaryFailure(RuntimeError):
     """Finite Gemini browser recovery exhausted; no alternative LLM."""
 
+    def __init__(self, message: str, *, attempts_used: int = 0,
+                 failure_phase: str = "PRE_SEND"):
+        super().__init__(message)
+        self.gemini_prepare_attempts_used = attempts_used
+        self.gemini_failure_phase = failure_phase
+        self.gemini_send_boundary_entered = False
+
+
+class GeminiSeleniumPreSendBlocked(GeminiSeleniumTemporaryFailure):
+    """No click occurred; the exact owned-tab Send preflight failed."""
+
+
+def presend_failure_code(error: BaseException) -> str:
+    """Safe failure classification; never copy the prompt or browser page."""
+    detail = (type(error).__name__ + " " + str(error)).casefold()
+    if any(x in detail for x in ("login", "sign in", "authentication",
+                                 "captcha", "challenge", "just a moment")):
+        return "AUTHENTICATION_OR_BROWSER_VERIFICATION_REQUIRED"
+    if any(x in detail for x in ("send control", "send button", "composer",
+                                 "editor", "typing")):
+        return "GEMINI_COMPOSER_OR_SEND_CONTROL_NOT_READY"
+    if any(x in detail for x in ("mode", "picker", "flash", "pro")):
+        return "GEMINI_MODEL_PICKER_NOT_READY"
+    if any(x in detail for x in ("connection", "chromedriver", "browser", "tab")):
+        return "GEMINI_BROWSER_OR_WEBDRIVER_NOT_READY"
+    return "PRE_SEND_PREPARATION_FAILED_UNCLASSIFIED"
+
 
 def temporary_failure_message(reason: str, *, may_have_submitted: bool) -> str:
-    note = ("An earlier Send may have been accepted; reconcile its owned tab "
-            "and immutable reply before any new request."
-            if may_have_submitted else
-            "The authenticated Gemini browser could not be prepared or did "
-            "not return a complete attributable response within the limit.")
+    note = (
+        "An earlier Send may have been accepted. Bounded observation of the "
+        "owned Gemini tab is complete; inspect the SHA-bound attempt claim "
+        "and any saved response quarantine. Do not resend this job."
+        if may_have_submitted else
+        "No Gemini model Send was established. Browser preparation or "
+        "authentication failed before submission."
+    )
     return (
         "[MicroGen] Gemini Selenium temporary failure. "
         "The generation procedure has STOPPED after bounded recovery. "
@@ -75,6 +105,10 @@ def prepare_with_bounded_retries(
         try:
             client = make_client()
             prepare_without_send(client)
+            try:
+                setattr(client, "_microgen_presend_attempts_used", index + 1)
+            except (AttributeError, TypeError):
+                pass
             return client
         except Exception as error:
             last = error
@@ -86,9 +120,12 @@ def prepare_with_bounded_retries(
             if _nonretryable_presend(error) or index + 1 == attempts:
                 break
             sleeper(min(2.0, 0.5 * 2 ** index))
+    used = index + 1
+    code = presend_failure_code(last) if last else "UNKNOWN_PRE_SEND_FAILURE"
     raise GeminiSeleniumTemporaryFailure(
-        f"Gemini Selenium pre-Send preparation stopped after at most "
-        f"{attempts} attempts: {type(last).__name__ if last else 'unknown'}"
+        "Gemini Selenium pre-Send preparation stopped after at most "
+        f"{attempts} attempts; actually used={used}; cause={code}",
+        attempts_used=used, failure_phase=code
     ) from last
 
 
@@ -103,7 +140,7 @@ def click_one_owned_gemini_send(driver, owned_handle: str) -> bool:
             or driver.current_window_handle != owned_handle
             or not str(driver.current_url).startswith(
                 "https://gemini.google.com/")):
-        raise GeminiSeleniumTemporaryFailure(
+        raise GeminiSeleniumPreSendBlocked(
             "Gemini source-owned browser tab changed before Send")
     from selenium.webdriver.common.by import By
     candidates = [
@@ -112,7 +149,7 @@ def click_one_owned_gemini_send(driver, owned_handle: str) -> bool:
         if item.is_displayed() and item.is_enabled()
     ]
     if len(candidates) > 1:
-        raise GeminiSeleniumTemporaryFailure(
+        raise GeminiSeleniumPreSendBlocked(
             "Gemini exact visible Send control is not unique")
     if not candidates:
         # Current Angular Gemini may expose a valid exact Send control to

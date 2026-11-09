@@ -52,6 +52,35 @@ source-bound rich mapping dispatcher and provider preflight select only
 Gemini Selenium. Historical standalone alternate-provider diagnostic code
 is not permission to dispatch a fallback from the normal pipeline.
 
+### G1 terminal evidence and informative stop — 9 November 2026
+
+Every actual Gemini Selenium G1 attempt must end with a readable, truthful
+terminal result, **even when the Gemini service does not produce a correct
+answer**. A one-shot, source-free, 1,200–3,000-character Gemini browser
+health test has a unique, durable, SHA-bound request identity and may not
+reuse the earlier failed canary. Its safe diagnostic is
+`python -m selenium_pipeline.gemini_g1_single_route_cli
+--canary-root <fresh LOCALAPPDATA checkpoint directory>
+--run-one-new-selenium-probe`. The command is EXPLICIT and does not
+implicitly send on a read-only invocation. Existing claims/results are
+reused, never sent again.
+
+The terminal receipt must distinguish authenticated browser readiness,
+actual pre-Send recovery attempts (up to three), the point before/after a
+*possible* single Send, invalid/short/unattributable model text, source-sized
+exact-JSON success, and a genuine owned-model UI error. A provider model UI
+error is **not proof of an API HTTP error, an outage, or a Selenium login
+failure**. Preserve the model-text quarantine and its SHA; do not reveal
+private prompts/model replies in exception reports. Print a standard
+`Gemini Selenium temporary failure ... STOPPED` explanation on failure
+and return a nonzero process code. Explain that post-Send same-owned-tab
+observation occurred *during the attempt* and that the model tab can be
+closed at shutdown; direct later reconciliation to the immutable claim
+and quarantine, **not a tab falsely promised to remain open**. No ChatGPT
+or Gemini content API fallback may run. A source-free response can validate
+transport at the tested workload, never source science or a complete G2
+lecture.
+
 ## 1. Authority, continuity and non-regression
 
 This is a **procedural supersession** of any earlier instruction that would

@@ -162,7 +162,7 @@ class GeminiSeleniumOnlyPolicyTests(unittest.TestCase):
         self.assertIn("Gemini Selenium temporary failure", text)
         self.assertIn("STOPPED", text)
         self.assertIn("No ChatGPT or Gemini API fallback", text)
-        self.assertIn("reconcile its owned tab", text)
+        self.assertIn("saved response quarantine", text)
 
 
 if __name__ == "__main__":
