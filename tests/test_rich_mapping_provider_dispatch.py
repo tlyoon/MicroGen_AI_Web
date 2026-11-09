@@ -72,15 +72,18 @@ class ProviderReadinessTests(unittest.TestCase):
         self.assertEqual(p["status"],"LOGIN_REQUIRED")
         self.assertEqual(choose_provider([p])["chosen_provider"],None)
 
-    def test_fallback_only_before_submission_and_no_model_auto_retry(self):
+    def test_no_fallback_even_when_chatgpt_is_authenticated(self):
         a={"provider":"gemini","status":"BROWSER_UNAVAILABLE",
            "authenticated_ui_ready":False,"model_submission_performed":False}
         b={"provider":"chatgpt","status":"AUTHENTICATED_COMPOSER_READY",
            "authenticated_ui_ready":True,"model_submission_performed":False}
-        self.assertEqual(choose_provider([a,b])["chosen_provider"],"chatgpt")
+        choice=choose_provider([a,b])
+        self.assertIsNone(choice["chosen_provider"])
+        self.assertEqual(choice["status"],"GEMINI_SELENIUM_TEMPORARY_FAILURE_STOP")
+        self.assertIn("No ChatGPT or Gemini API",choice["reminder"])
         self.assertEqual(choose_provider([a,b],
               model_submission_uncertain=True)["status"],
-              "RECONCILE_EXISTING_PROVIDER_BEFORE_FALLBACK")
+              "RECONCILE_EXISTING_GEMINI_SEND_NO_RETRY")
 
 
 class OneShotOriginalSourceQueueTests(unittest.TestCase):
@@ -184,85 +187,58 @@ class OneShotOriginalSourceQueueTests(unittest.TestCase):
                 "model_submission_performed":False,
             }])
         self.assertEqual(report["status"],
-                         "NO_AUTHENTICATED_PROVIDER_READY_NO_SUBMISSION")
+                         "GEMINI_SELENIUM_TEMPORARY_FAILURE_STOP")
         self.assertEqual(list(self.out.iterdir()),[])
 
-    def test_pre_submission_chatgpt_fallback_is_selected_if_signed_in(self):
-        statuses=[{
-            "provider":"gemini","debug_port":9222,
-            "status":"BROWSER_UNAVAILABLE",
-            "authenticated_ui_ready":False,
-            "model_submission_performed":False,
-        },{
-            "provider":"chatgpt","debug_port":9223,
-            "status":"AUTHENTICATED_COMPOSER_READY",
-            "authenticated_ui_ready":True,
-            "model_submission_performed":False,
-        }]
-        received=[]
-        def fake(provider,prompt,port,wait):
-            received.append((provider,port))
-            return self.reply()
-        done=self._call(fake,providers=statuses)
-        self.assertEqual(received,[("chatgpt",9223)])
-        self.assertEqual(done["provider"],"chatgpt")
+    def test_gemini_unavailable_stops_without_chatgpt_even_when_signed_in(self):
+        statuses=[
+            {"provider":"gemini","debug_port":9222,
+             "status":"BROWSER_UNAVAILABLE",
+             "authenticated_ui_ready":False,"model_submission_performed":False},
+            {"provider":"chatgpt","debug_port":9223,
+             "status":"AUTHENTICATED_COMPOSER_READY",
+             "authenticated_ui_ready":True,"model_submission_performed":False},
+        ]
+        called=[]
+        result=self._call(lambda *a:called.append(a),providers=statuses)
+        self.assertEqual(result["status"],"GEMINI_SELENIUM_TEMPORARY_FAILURE_STOP")
+        self.assertIn("No ChatGPT or Gemini API",result["stop_message"])
+        self.assertEqual(called,[])
+        self.assertEqual(list(self.out.iterdir()),[])
 
-    def test_default_chatgpt_route_uses_bounded_transport_and_click_intent(self):
-        from unittest.mock import ANY
+    def test_chatgpt_only_readiness_never_calls_real_transport(self):
         statuses=[{"provider":"chatgpt","debug_port":9223,
                    "status":"AUTHENTICATED_COMPOSER_READY",
-                   "authenticated_ui_ready":True,
-                   "model_submission_performed":False}]
+                   "authenticated_ui_ready":True,"model_submission_performed":False}]
         with patch(
             "selenium_pipeline.rich_mapping_provider_dispatch._real_transport",
-            return_value=self.reply()) as sender:
+            side_effect=AssertionError("No ChatGPT request allowed")) as sender:
             result=self._call(None,providers=statuses)
-        self.assertEqual(result["status"],"CAPTURED_SOURCE_VERIFIED_REVIEW_ONLY")
-        sender.assert_called_once_with(
-            "chatgpt",ANY,9223,12,
-            click_intent_path=self.out/"slide_001.chatgpt_click_intent.json")
+        self.assertEqual(result["status"],"GEMINI_SELENIUM_TEMPORARY_FAILURE_STOP")
+        sender.assert_not_called()
 
-    def test_real_chatgpt_preclick_block_records_no_send_and_never_replays(self):
-        from selenium_pipeline.windows_chatgpt_once_transport import ChatGPTPreSendBlocked
-        statuses=[{"provider":"chatgpt","debug_port":9223,
-                   "status":"AUTHENTICATED_COMPOSER_READY",
-                   "authenticated_ui_ready":True,
-                   "model_submission_performed":False}]
-        with patch(
-            "selenium_pipeline.rich_mapping_provider_dispatch._real_transport",
-            side_effect=ChatGPTPreSendBlocked("UNOWNED_OR_UNCERTAIN_DRAFT_NO_OVERWRITE")):
-            with self.assertRaises(ChatGPTPreSendBlocked):
-                self._call(None,providers=statuses)
-        claim=json.loads((self.out/"slide_001.one_submission.json").read_text("utf8"))
-        self.assertEqual(claim["status"],
-                         "CHATGPT_PRE_SEND_BLOCKED_NO_MODEL_SUBMISSION")
-        self.assertEqual(claim["model_submissions"],0)
-        self.assertFalse(claim["automatic_retry_authorized"])
-        self.assertFalse((self.out/"slide_001.chatgpt_click_intent.json").exists())
-        with self.assertRaisesRegex(RichMappingError,"already claimed"):
-            self._call(lambda *a:self.fail("duplicate send"),providers=statuses)
+    def test_no_direct_chatgpt_or_api_generation_transport(self):
+        from selenium_pipeline.rich_mapping_provider_dispatch import _real_transport
+        for name,port in (("chatgpt",9223),("api",9222)):
+            with self.subTest(name=name):
+                with self.assertRaisesRegex(RichMappingError,
+                                             "sole supported LLM generation route"):
+                    _real_transport(name,"synthetic prompt",port,12)
 
-    def test_after_click_uncertainty_retains_claim_and_click_intent(self):
-        from selenium_pipeline.windows_chatgpt_once_transport import (
-            ChatGPTUncertainSubmission,write_click_intent)
-        statuses=[{"provider":"chatgpt","debug_port":9223,
-                   "status":"AUTHENTICATED_COMPOSER_READY",
-                   "authenticated_ui_ready":True,
-                   "model_submission_performed":False}]
-        def uncertain(provider,prompt,port,wait_cap_s,*,click_intent_path):
-            write_click_intent(click_intent_path,prompt)
-            raise ChatGPTUncertainSubmission("RESPONSE_CAPTURE_PENDING_RECONCILE_NO_RESEND")
-        with patch(
-            "selenium_pipeline.rich_mapping_provider_dispatch._real_transport",
-            side_effect=uncertain):
-            with self.assertRaises(ChatGPTUncertainSubmission):
-                self._call(None,providers=statuses)
-        claim=json.loads((self.out/"slide_001.one_submission.json").read_text("utf8"))
-        self.assertEqual(claim["status"],
-                         "MAY_HAVE_SUBMITTED_RECONCILE_BEFORE_RESEND")
-        self.assertTrue((self.out/"slide_001.chatgpt_click_intent.json").is_file())
+    def test_postsend_gemini_timeout_stops_without_retry_or_provider_switch(self):
+        attempts=[]
+        def uncertain(provider,prompt,port,wait):
+            attempts.append((provider,port))
+            raise TimeoutError("Gemini owned tab response not attributable")
+        with self.assertRaises(TimeoutError):
+            self._call(uncertain)
+        self.assertEqual(attempts,[("gemini",9222)])
+        claim=json.loads((self.out/"slide_001.one_submission.json").read_text())
+        self.assertEqual(claim["status"],"MAY_HAVE_SUBMITTED_RECONCILE_BEFORE_RESEND")
         with self.assertRaisesRegex(RichMappingError,"already claimed"):
-            self._call(lambda *a:self.fail("duplicate send"),providers=statuses)
+            self._call(uncertain)
+        self.assertEqual(attempts,[("gemini",9222)])
+
 
 if __name__=="__main__":
     unittest.main()

@@ -56,11 +56,11 @@ class WindowsProviderRoutePreflightTests(unittest.TestCase):
         r = self.recommend()
         self.assertEqual(
             r["suggested_new_unsent_job_route"],
-            "GEMINI_API_METADATA_REACHABLE_COST_APPROVAL_REQUIRED")
+            "GEMINI_SELENIUM_TEMPORARY_FAILURE_STOP")
         self.assertTrue(r["prior_source_free_browser_canary_unverified"])
         self.assertTrue(r["owned_gemini_ui_error_sha_verified"])
         self.assertTrue(r["gemini_browser_auto_selection_suppressed_by_prior_evidence"])
-        self.assertTrue(r["api_distinct_new_source_candidate_with_separate_cost_authorization"])
+        self.assertFalse(r["api_distinct_new_source_candidate_with_separate_cost_authorization"])
         self.assertFalse(r["gemini_api_content_generation_proven_healthy"])
         self.assertFalse(r["automatic_browser_to_api_fallback_authorized"])
         self.assertFalse(r["old_uncertain_lecture_retry_authorized"])
@@ -68,13 +68,13 @@ class WindowsProviderRoutePreflightTests(unittest.TestCase):
         self.assertFalse(r["new_model_or_tts_calls"])
         self.assertFalse(r["student_publication_authorized"])
 
-    def test_authenticated_chatgpt_can_be_selected_only_for_distinct_new_job(self):
+    def test_authenticated_chatgpt_is_never_selected_even_for_distinct_new_job(self):
         alt = dict(self.chatgpt, status="AUTHENTICATED_COMPOSER_READY",
                    authenticated_ui_ready=True)
         r = self.recommend(chatgpt_browser=alt)
         self.assertEqual(
             r["suggested_new_unsent_job_route"],
-            "CHATGPT_BROWSER_AVAILABLE_FOR_A_DISTINCT_NEW_JOB_ONLY")
+            "GEMINI_SELENIUM_TEMPORARY_FAILURE_STOP")
         self.assertFalse(r["automatic_browser_to_api_fallback_authorized"])
         self.assertFalse(r["old_uncertain_lecture_retry_authorized"])
 
@@ -98,7 +98,7 @@ class WindowsProviderRoutePreflightTests(unittest.TestCase):
             result["chatgpt_browser_editor_unverified_by_sha_bound_canary"])
         self.assertEqual(
             result["suggested_new_unsent_job_route"],
-            "NO_GENERATION_TRANSPORT_CERTIFIED_FOR_AUTOMATIC_DISPATCH")
+            "GEMINI_SELENIUM_TEMPORARY_FAILURE_STOP")
         self.assertFalse(result["automatic_new_model_generation_authorized"])
         self.assertFalse(result["old_uncertain_lecture_retry_authorized"])
         self.assertFalse(result["paid_api_generation_authorized"])
@@ -114,7 +114,7 @@ class WindowsProviderRoutePreflightTests(unittest.TestCase):
             self.assertFalse(
                 other["chatgpt_browser_editor_unverified_by_sha_bound_canary"])
             self.assertEqual(other["suggested_new_unsent_job_route"],
-                             "CHATGPT_BROWSER_AVAILABLE_FOR_A_DISTINCT_NEW_JOB_ONLY")
+                             "GEMINI_SELENIUM_TEMPORARY_FAILURE_STOP")
 
     def test_guest_chatgpt_composer_never_counted_as_authentication(self):
         guest = dict(self.chatgpt, status="LOGIN_REQUIRED",
@@ -138,18 +138,18 @@ class WindowsProviderRoutePreflightTests(unittest.TestCase):
             chatgpt_browser=self.chatgpt)
         self.assertEqual(
             r["suggested_new_unsent_job_route"],
-            "NO_GENERATION_TRANSPORT_CERTIFIED_FOR_AUTOMATIC_DISPATCH")
+            "GEMINI_SELENIUM_TEMPORARY_FAILURE_STOP")
         self.assertFalse(
             r["api_distinct_new_source_candidate_with_separate_cost_authorization"])
 
-    def test_browser_halt_stops_new_automatic_gemini_browser(self):
+    def test_browser_halt_stops_generation_without_api_fallback(self):
         r = self.recommend(
             browser_canary=None, owned_ui_error=None,
             browser_halt={"new_generation_dispatch_allowed_by_health_policy": False})
         self.assertTrue(r["gemini_browser_auto_selection_suppressed_by_prior_evidence"])
         self.assertEqual(
             r["suggested_new_unsent_job_route"],
-            "GEMINI_API_METADATA_REACHABLE_COST_APPROVAL_REQUIRED")
+            "GEMINI_SELENIUM_TEMPORARY_FAILURE_STOP")
 
     def test_verified_capacity_halt_stops_api_candidate_too(self):
         r = self.recommend(
@@ -157,7 +157,7 @@ class WindowsProviderRoutePreflightTests(unittest.TestCase):
             browser_halt={"new_generation_dispatch_allowed_by_health_policy": False})
         self.assertEqual(
             r["suggested_new_unsent_job_route"],
-            "NO_GENERATION_TRANSPORT_CERTIFIED_FOR_AUTOMATIC_DISPATCH")
+            "GEMINI_SELENIUM_TEMPORARY_FAILURE_STOP")
         self.assertFalse(
             r["api_distinct_new_source_candidate_with_separate_cost_authorization"])
 
@@ -167,7 +167,7 @@ class WindowsProviderRoutePreflightTests(unittest.TestCase):
         self.assertFalse(r["owned_gemini_ui_error_sha_verified"])
         self.assertFalse(r["gemini_browser_auto_selection_suppressed_by_prior_evidence"])
 
-    def test_second_key_metadata_can_qualify_new_route_when_first_key_fails(self):
+    def test_second_api_key_metadata_never_qualifies_fallback_route(self):
         broken_first = dict(self.api, api_model_metadata="API_METADATA_LOOKUP_FAILED")
         verified_pool = {
             "status": "KEY_POOL_METADATA_CHECKED_AT_LEAST_ONE_REACHABLE",
@@ -180,7 +180,7 @@ class WindowsProviderRoutePreflightTests(unittest.TestCase):
             api_key_pool=verified_pool)
         self.assertEqual(
             r["suggested_new_unsent_job_route"],
-            "GEMINI_API_METADATA_REACHABLE_COST_APPROVAL_REQUIRED")
+            "GEMINI_SELENIUM_TEMPORARY_FAILURE_STOP")
         self.assertEqual(r["api_key_pool_metadata_verified_candidate_ordinals"], [2])
         self.assertFalse(r["gemini_api_content_generation_proven_healthy"])
         self.assertFalse(r["automatic_browser_to_api_fallback_authorized"])
@@ -197,7 +197,7 @@ class WindowsProviderRoutePreflightTests(unittest.TestCase):
         self.assertEqual(r["api_key_pool_metadata_verified_candidate_ordinals"], [])
         self.assertEqual(
             r["suggested_new_unsent_job_route"],
-            "NO_GENERATION_TRANSPORT_CERTIFIED_FOR_AUTOMATIC_DISPATCH")
+            "GEMINI_SELENIUM_TEMPORARY_FAILURE_STOP")
 
     def test_verified_short_browser_canary_is_positive_but_not_long_form(self):
         prior = {
@@ -289,8 +289,8 @@ class WindowsProviderRoutePreflightTests(unittest.TestCase):
         ) as halts:
             report = inspect(
                 inspect_browsers=True, check_api_metadata=True)
-        self.assertEqual(browsers.call_count, 2)
-        api.assert_called_once_with(metadata_probe=True)
+        browsers.assert_called_once_with("gemini")
+        api.assert_called_once_with(metadata_probe=False)
         self.assertEqual(halts.call_count, 2)
         self.assertFalse(report["new_model_or_tts_calls"])
         self.assertFalse(report["student_publication_authorized"])

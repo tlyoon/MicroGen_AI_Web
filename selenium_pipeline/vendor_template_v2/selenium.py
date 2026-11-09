@@ -1712,8 +1712,17 @@ class GeminiSeleniumClient:
         return blocked()
 
     def click_send_with_fallbacks(self, retries: int = 3) -> bool:
-        """Submit only when Gemini shows positive evidence of a new user turn."""
+        """Gemini UI submission; production single-provider jobs allow ONE click."""
         assert self.driver is not None
+        if os.getenv("MICROGEN_SINGLE_PROVIDER_SEND") == "1":
+            # The source-claimed production pipeline may NEVER try XPath,
+            # then CDP Enter, then native Enter after a potentially accepted
+            # first click. Preserve old legacy helper only for non-production
+            # compatibility; the real runner sets this policy unconditionally.
+            from selenium_pipeline.gemini_selenium_only_policy import (
+                click_one_owned_gemini_send)
+            return click_one_owned_gemini_send(
+                self.driver,getattr(self,"_automation_tab",None))
         if self._hidden_send_button_preflight():
             log(
                 "[SEND-VERIFY] Gemini editor contains text but every exact "

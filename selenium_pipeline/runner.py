@@ -642,6 +642,12 @@ def execute(s: Settings) -> Path:
     the same authenticated browser simultaneously. OS locks self-release on
     process exit; a crash cannot leave a permanently owned lock.
     """
+    from .communication_policy import resolve_mode, CommunicationMode
+    if resolve_mode() is not CommunicationMode.SELENIUM:
+        from .gemini_selenium_only_policy import emit_temporary_failure
+        emit_temporary_failure("Only Gemini Selenium generation is permitted",
+                               may_have_submitted=False)
+        raise RuntimeError("Gemini Selenium-only policy: API/fallback disabled")
     first, last = STAGES.index(s.from_stage), STAGES.index(s.through_stage)
     uses_gemini = any(_may_use_browser(stage) for stage in STAGES[first:last+1])
     if s.dry_run or not uses_gemini:
@@ -826,16 +832,16 @@ def _execute_unlocked(s: Settings) -> Path:
         # MoviePy 1.0.3's fps wrapper on Dell-115).
         "PYTHONNOUSERSITE": "1",
         "MICROGEN_PACKAGE_ROOT": str(REPO),
-        "MICROGEN_COMMUNICATION_MODE": os.getenv(
-            "MICROGEN_COMMUNICATION_MODE", "selenium").strip().lower(),
-        # Legacy adapter setting is deliberately subordinate to the central
-        # communication mode in the figure mapper.
-        "MICROGEN_FIGURE_MAPPING_BACKEND": os.getenv(
-            "MICROGEN_FIGURE_MAPPING_BACKEND", "api").strip().lower(),
-        # Backward-compatible metadata; the central communication mode
-        # takes precedence, including for narration fallback.
-        "MICROGEN_NARRATION_BACKEND": os.getenv(
-            "MICROGEN_NARRATION_BACKEND", "ui").strip().lower(),
+        # Owner override: browser Gemini only for figures/slides/narration.
+        # TTS is a separate provider contract and is not switched here.
+        "MICROGEN_COMMUNICATION_MODE": "selenium",
+        "MICROGEN_FIGURE_MAPPING_BACKEND": "browser",
+        "MICROGEN_NARRATION_BACKEND": "ui",
+        # Pre-Send browser preparation may retry, but one source-bound
+        # request must never be re-Sent after an uncertain first click.
+        "MICROGEN_SELENIUM_ATTEMPTS": "1",
+        "MICROGEN_SINGLE_PROVIDER_SEND": "1",
+        "SLIDES_MAX_ATTEMPTS": "1",
     })
     if _needs_api_python_for_stages(planned):
         # Both API figure mapping and API narration may run under a Docling
@@ -1100,7 +1106,16 @@ def _execute_unlocked(s: Settings) -> Path:
                 from .figure_audit import enforce_graphics
                 enforce_graphics(source.parent, repair=True)
             print(f"[microgen] {stage} OK; published {len(published)} artifact(s) beside source.pdf")
-        except Exception:
+        except Exception as error:
+            if stage in CHROME_STAGES:
+                # A Selenium generation failure may have occurred after a
+                # provider Send; do not repeat it or try ChatGPT/paid API.
+                # Preserve the original logs and source-bound retry ledger.
+                from .gemini_selenium_only_policy import emit_temporary_failure
+                emit_temporary_failure(
+                    f"{stage} stage stopped ({type(error).__name__}); "
+                    f"inspect immutable stage log for exact cause",
+                    may_have_submitted=True)
             # Save failure diagnostics beside the original PDF without replacing
             # a previously validated deck/audio/video with unverified outputs.
             try:
@@ -1230,8 +1245,8 @@ def main(argv: list[str] | None = None) -> int:
                    help="Separate explicit paid Google Cloud Chirp TTS authorization")
     p.add_argument("--tts-qa-model", default=ACTIVE_LLM_MODEL)
     p.add_argument("--tts-qa-threshold", type=float, default=50.0)
-    p.add_argument("--communication-mode", choices=("selenium", "api", "fallback"),
-                   help="Override MICROGEN_COMMUNICATION_MODE for figure, slide and narration tasks")
+    p.add_argument("--communication-mode", choices=("selenium",),
+                   help="Gemini Selenium is the only supported content-generation route; no LLM fallback")
     p.add_argument("--chrome-port", type=int, default=9222)
     p.add_argument("--alternate-gemini-user", metavar="PROFILE_LABEL",
                    help="Use a separate persistent Chrome profile; sign-in is interactive only if needed")
@@ -1251,8 +1266,15 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--doctor", action="store_true", help="Inspect local dependencies")
     args = p.parse_args(argv)
     load_microvid_env()
-    from .communication_policy import resolve_mode
-    os.environ["MICROGEN_COMMUNICATION_MODE"] = resolve_mode(args.communication_mode).value
+    from .communication_policy import resolve_mode, CommunicationMode
+    mode=resolve_mode(args.communication_mode)
+    if mode is not CommunicationMode.SELENIUM:
+        from .gemini_selenium_only_policy import emit_temporary_failure
+        emit_temporary_failure(
+            "Non-Selenium generation route disabled by owner policy",
+            may_have_submitted=False)
+        return 2
+    os.environ["MICROGEN_COMMUNICATION_MODE"] = "selenium"
     if args.doctor:
         return 0 if doctor() else 2
     if not args.subchapter and not args.chapter:

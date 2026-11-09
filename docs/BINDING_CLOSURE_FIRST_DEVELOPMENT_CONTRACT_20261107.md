@@ -9,6 +9,49 @@ API-based `microgen_ai` project must never inherit this agreement by accident.
 commit `67f49ca68fce7519b1c031752cb21e0ce28f5e41` (both hosted Windows
 CI jobs successful). Subsequent commit IDs are resolved afresh each turn.
 
+## Owner supersession — Gemini Selenium ONLY for LLM generation (9 November 2026)
+
+This explicit later owner directive supersedes **all earlier G1/G2 text
+generation fallback plans** in this repository and in v4.1: Gemini through
+the authenticated Selenium browser is the **only** generation transport
+for figures/captions, slides, narration and internal AI academic review.
+**Do not fall back to ChatGPT Selenium or Gemini content-generation API.**
+Do not probe alternate accounts as potential generation routes. The
+previous separate voice/TTS contract is outside this LLM routing change;
+do not silently alter its authorized costs or effective voice.
+
+The required normal behavior is: authenticate Gemini; verify the selected
+UI model family and new owned chat; apply at most **three bounded pre-Send
+preparation/recovery attempts** (mode, upload, editor, real visible Send);
+make **at most one possibly accepted model Send** per immutable source/prompt
+claim; recover complete attributable model text by bounded observations and
+vendor-scoped Copy from that exact owned Gemini tab; validate the original
+source and do not infer mathematics acceptance merely from a response.
+An uncertain click, visible Gemini model UI error, output without trusted
+attribution, CAPTCHA/login challenge, changed source or exhausted retry
+budget is not permission to resubmit the same job. No alternate provider,
+credential, API key or new PDF loop is permitted to reset a consumed claim.
+
+If these safe bounded steps fail, **STOP the generation stage** and print
+a legible message beginning `[MicroGen] Gemini Selenium temporary failure`,
+saying the procedure has stopped, the original uncertain request is
+preserved, and **no ChatGPT/Gemini API fallback is used**. Retain logs,
+quarantined owned response, SHA-bound claims and other completed stages.
+Only a demonstrably unsent new job, a previously saved owned response, or
+independently changed provider evidence may enable later authorized
+continuation. The rest of code development may continue through a genuinely
+independent G3 milestone, but G1/G2 cannot be marked accepted without
+a complete attributable genuine Gemini browser response.
+
+**Production wiring:** `runner.main` rejects alternate content modes and
+forces Selenium/browser environment for the full lecture pipeline;
+`series_gemini._browser_request` uses reusable bounded pre-Send recovery,
+a single owned-tab Send and no-resend post-Send recovery; vendored Gemini
+production scripts honor `MICROGEN_SINGLE_PROVIDER_SEND=1`; the normal
+source-bound rich mapping dispatcher and provider preflight select only
+Gemini Selenium. Historical standalone alternate-provider diagnostic code
+is not permission to dispatch a fallback from the normal pipeline.
+
 ## 1. Authority, continuity and non-regression
 
 This is a **procedural supersession** of any earlier instruction that would

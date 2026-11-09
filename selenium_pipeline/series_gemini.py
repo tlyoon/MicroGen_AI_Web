@@ -82,34 +82,49 @@ def _browser_request(instruction: str,attachments: list[Path],
         root=request_root,debug_port=port,
         use_persistent_chrome=True,force_kill_chrome_to_free_port=False,
     )
+    from .gemini_selenium_only_policy import (
+        prepare_with_bounded_retries, emit_temporary_failure,
+        click_one_owned_gemini_send)
     with LocalInstanceLock(f"gemini_port_{port}",cache/"browser_locks"):
-        client=vendor.GeminiSeleniumClient(cfg)
+        client=None
+        send_boundary_entered=False
         try:
-            client.start(ensure_gemini_on_launch=True)
-            selected=os.getenv("MICROGEN_GEMINI_UI_MODE","flash").strip().lower()
-            ensure_mode(port,selected)
-            client.open_clean_gemini_chat()
-            # The new conversation may reset the selected UI mode. Re-check
-            # AFTER changing tabs/chat, before sending source attachments.
-            from .gemini_model import browser_model_evidence
-            observed=ensure_mode(port,selected)
-            browser_model_evidence(
-                observed, requested_mode=selected,
-                requested_model_id=os.getenv(
-                    "MICROGEN_LLM_MODEL","gemini-3.8-flash"))
-            if attachments:
-                client.upload_files(attachments)
-            if not client.type_prompt_text(instruction,retries=3):
-                raise SeriesBridgeError("Could not type Gemini storyboard instruction")
-            # A live Dell-115 test showed Quill can need ~3 seconds to
-            # reveal the *ordinary* Send control after a large CDP insert.
-            # Do not override hidden UI or submit if still hidden.
-            from .gemini_response_recovery import await_owned_gemini_send_visible
-            await_owned_gemini_send_visible(
-                client.driver,getattr(client,"_automation_tab",None),
-                wait_s=10,poll_s=0.5)
-            if not client.click_send_with_fallbacks(retries=3):
-                raise SeriesBridgeError("Could not submit Gemini storyboard instruction")
+            def prepare_without_send(owned):
+                owned.start(ensure_gemini_on_launch=True)
+                selected=os.getenv("MICROGEN_GEMINI_UI_MODE","flash").strip().lower()
+                ensure_mode(port,selected)
+                owned.open_clean_gemini_chat()
+                # New chats may reset Gemini's mode: independently recheck.
+                from .gemini_model import browser_model_evidence
+                observed=ensure_mode(port,selected)
+                browser_model_evidence(
+                    observed,requested_mode=selected,
+                    requested_model_id=os.getenv(
+                        "MICROGEN_LLM_MODEL","gemini-3.8-flash"))
+                if attachments:
+                    owned.upload_files(attachments)
+                if not owned.type_prompt_text(instruction,retries=3):
+                    raise SeriesBridgeError("Gemini editor did not accept prompt")
+                from .gemini_response_recovery import await_owned_gemini_send_visible
+                if not await_owned_gemini_send_visible(
+                        owned.driver,getattr(owned,"_automation_tab",None),
+                        wait_s=10,poll_s=0.5):
+                    raise SeriesBridgeError(
+                        "Gemini ordinary Send control not visible before submission")
+            client=prepare_with_bounded_retries(
+                make_client=lambda:vendor.GeminiSeleniumClient(cfg),
+                prepare_without_send=prepare_without_send,
+                dispose=lambda owned:owned.shutdown())
+            # This is the ONE possible model Send; no keyboard/DOM/LLM
+            # fallback clicks. An exception may mean delivery, so never
+            # restart this source claim after crossing this boundary.
+            send_boundary_entered=True
+            clicked=click_one_owned_gemini_send(
+                client.driver,getattr(client,"_automation_tab",None))
+            if not clicked:
+                print("[MicroGen] Gemini Selenium Send click outcome uncertain; "
+                      "observing only the existing owned model tab without "
+                      "another submission.",file=sys.stderr,flush=True)
             # Long Gemini replies may time out or raise before the strict
             # JSON acceptance callback runs. Capture even exception paths.
             capture_error = None
@@ -197,11 +212,17 @@ def _browser_request(instruction: str,attachments: list[Path],
                     "do not automatically resubmit source files."
                 ) from capture_error
             return response
+        except Exception as error:
+            emit_temporary_failure(
+                type(error).__name__,
+                may_have_submitted=send_boundary_entered)
+            raise
         finally:
-            try:
-                client.shutdown()
-            except Exception:
-                pass
+            if client is not None:
+                try:
+                    client.shutdown()
+                except Exception:
+                    pass
 
 
 def request_storyboard_candidate(

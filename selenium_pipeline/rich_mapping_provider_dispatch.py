@@ -1,19 +1,16 @@
-"""One-shot source-grounded rich mapping dispatch with no duplicate model jobs.
+"""Gemini Selenium-only original rich-mapping dispatch with durable one-Send.
 
-Only an existing authenticated Gemini/ChatGPT UI may receive an original
-unresolved-only request. An attempt receipt is durably written BEFORE sending.
-A browser timeout or invalid reply is reconciliation-required, not permission
-to resend through a second provider. New ChatGPT tabs are isolated to the
-preconfigured Chrome debugging profile; user-owned tabs are not rewritten.
-
-No paid API or TTS, no local LLM, no original PDF/author asset modifications,
-no human/scientific/academic/student publication approval is conferred.
+An authenticated Gemini browser is the sole LLM route. The normal Gemini
+transport performs bounded pre-Send preparation and same-owned-tab response
+recovery. Any unknown post-Send outcome is never replayed. No ChatGPT or
+Gemini API fallback, scientific self-approval, or student publication.
 """
 from __future__ import annotations
 
 import argparse
 import json
 import os
+import sys
 import time
 from pathlib import Path
 from typing import Callable
@@ -46,32 +43,16 @@ def _update_claim(path:Path,payload:dict)->None:
     os.replace(pending,path)
 
 
-def _chatgpt_browser_once(prompt:str,*,port:int,wait_cap_s:int,
-                          click_intent_path:Path)->str:
-    """Bounded, single-click ChatGPT transport; never replay an uncertain job."""
-    from .windows_chatgpt_once_transport import chatgpt_once
-    local=Path(os.environ.get("LOCALAPPDATA",str(Path.home()/"AppData"/"Local")))
-    return chatgpt_once(
-        prompt,port=port,wait_cap_s=wait_cap_s,
-        click_intent_path=click_intent_path,
-        checkpoint_root=local/"MicroGen_AI_Web_Checkpoints")
-
-
-def _real_transport(provider:str,prompt:str,port:int,wait_cap_s:int,
-                    *,click_intent_path:Path|None=None)->str:
+def _real_transport(provider:str,prompt:str,port:int,wait_cap_s:int)->str:
     if provider=="gemini":
         from .series_gemini import _browser_request
         from .rich_element_model_alignment import complete_json_response
         return _browser_request(prompt,[],port=port,
             wait_cap_s=wait_cap_s,min_chars=110,
             accept_fn=complete_json_response)
-    if provider=="chatgpt":
-        require(click_intent_path is not None,
-                "Durable send-intent location required before ChatGPT sends")
-        return _chatgpt_browser_once(prompt,
-            port=port,wait_cap_s=wait_cap_s,
-            click_intent_path=click_intent_path)
-    raise RichMappingError("Unsupported provider, no local LLM allowed")
+    raise RichMappingError(
+        "Gemini Selenium is the sole supported LLM generation route. "
+        "ChatGPT and Gemini API fallback are disabled.")
 
 
 def dispatch_one(*,source_folder:Path,checkpoint:Path,fallback_dir:Path,
@@ -106,12 +87,16 @@ def dispatch_one(*,source_folder:Path,checkpoint:Path,fallback_dir:Path,
     require(not claim.exists() and not claim.is_symlink(),
             "Original model job already claimed; reconcile before any retry")
     statuses=(provider_statuses if provider_statuses is not None
-              else [inspect_provider("gemini"),
-                    inspect_provider("chatgpt")])
+              else [inspect_provider("gemini")])
     selected=choose_provider(statuses)
     if selected["chosen_provider"] is None:
-        return {"status":"NO_AUTHENTICATED_PROVIDER_READY_NO_SUBMISSION",
+        from .gemini_selenium_only_policy import temporary_failure_message
+        message=temporary_failure_message(
+            selected["status"],may_have_submitted=False)
+        print(message,file=sys.stderr,flush=True)
+        return {"status":"GEMINI_SELENIUM_TEMPORARY_FAILURE_STOP",
                 "slide":slide,"model_submissions":0,
+                "stop_message":message,
                 "student_publication_authorized":False,
                 "provider_readiness":statuses}
     provider=selected["chosen_provider"]
@@ -145,14 +130,11 @@ def dispatch_one(*,source_folder:Path,checkpoint:Path,fallback_dir:Path,
     raw_out=attempt_root/f"slide_{slide:03d}.raw_model_response.txt"
     result_out=attempt_root/f"slide_{slide:03d}.merged_response.json"
     audit_out=attempt_root/f"slide_{slide:03d}.source_audit.json"
-    click_intent=attempt_root/f"slide_{slide:03d}.chatgpt_click_intent.json"
     try:
         if transport is None:
-            # Real production ChatGPT uses one click and an fsynced send
-            # boundary. Synthetic/fault-injection transports remain injectable.
-            response=_real_transport(
-                provider,prompt,port,wait_cap_s,
-                click_intent_path=click_intent if provider=="chatgpt" else None)
+            # The only real route is Gemini via authenticated Selenium. This
+            # exact claimed original job may be submitted at most once.
+            response=_real_transport(provider,prompt,port,wait_cap_s)
         else:
             response=transport(provider,prompt,port,wait_cap_s)
         require(isinstance(response,str) and bool(response.strip()),
@@ -184,19 +166,13 @@ def dispatch_one(*,source_folder:Path,checkpoint:Path,fallback_dir:Path,
         _update_claim(claim,final)
         return final
     except Exception as error:
-        # Proven pre-click block may be classified without claiming generation.
-        # Do NOT retry this original slide automatically even in that case.
-        if provider=="chatgpt":
-            from .windows_chatgpt_once_transport import ChatGPTPreSendBlocked
-            if isinstance(error,ChatGPTPreSendBlocked) and not click_intent.exists():
-                _update_claim(claim,{**initial,
-                    "status":"CHATGPT_PRE_SEND_BLOCKED_NO_MODEL_SUBMISSION",
-                    "blocked_reason_code":str(error),
-                    "model_submissions":0,
-                    "automatic_retry_authorized":False})
-        # Otherwise retain MAY_HAVE_SUBMITTED and the owned tab for
-        # reconciliation. Never switch to another provider after an
-        # uncertain click or overwrite the historical source request.
+        # The one-Send claim was already durably written. A callback can fail
+        # after a Gemini browser click, so do not reset/reissue it or change
+        # model provider. The Selenium transport prints its own STOP reminder.
+        if transport is not None:
+            from .gemini_selenium_only_policy import emit_temporary_failure
+            emit_temporary_failure(type(error).__name__,
+                                   may_have_submitted=True)
         raise
 
 

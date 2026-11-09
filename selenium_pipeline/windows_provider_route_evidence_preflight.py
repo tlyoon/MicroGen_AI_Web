@@ -136,9 +136,9 @@ def recommend_routes(*, gemini_browser: dict, chatgpt_browser: dict,
         and api_halt.get("new_generation_dispatch_allowed_by_health_policy")
             is True
     )
-    if chatgpt_ready and gemini_not_healthy_enough_to_select and not chatgpt_editor_pre_send_blocked:
-        route = "CHATGPT_BROWSER_AVAILABLE_FOR_A_DISTINCT_NEW_JOB_ONLY"
-    elif gemini_ready and not gemini_not_healthy_enough_to_select:
+    # Owner override: Gemini Selenium is the ONLY generation transport.
+    # ChatGPT and Gemini API metadata are diagnostics, never fallback choices.
+    if gemini_ready and not gemini_not_healthy_enough_to_select:
         route = (
             "GEMINI_BROWSER_PRIOR_SOURCE_SIZED_INPUT_OK_FULL_LESSON_UNTESTED"
             if source_sized_browser_response_observed else
@@ -146,10 +146,8 @@ def recommend_routes(*, gemini_browser: dict, chatgpt_browser: dict,
             if short_browser_response_observed else
             "GEMINI_BROWSER_COMPOSER_READY_GENERATION_NOT_CERTIFIED"
         )
-    elif api_new_source_candidate:
-        route = "GEMINI_API_METADATA_REACHABLE_COST_APPROVAL_REQUIRED"
     else:
-        route = "NO_GENERATION_TRANSPORT_CERTIFIED_FOR_AUTOMATIC_DISPATCH"
+        route = "GEMINI_SELENIUM_TEMPORARY_FAILURE_STOP"
     return {
         "schema_version": 1,
         "status": "SOURCE_FREE_PROVIDER_ROUTE_PREFLIGHT_ONLY",
@@ -172,7 +170,7 @@ def recommend_routes(*, gemini_browser: dict, chatgpt_browser: dict,
         "api_model_metadata_reachable_not_generation_proven":
             bool(api_model_reachable),
         "api_distinct_new_source_candidate_with_separate_cost_authorization":
-            bool(api_new_source_candidate),
+            False,  # No API generation route under Gemini Selenium-only policy.
         "api_key_pool_metadata_verified_candidate_ordinals": list(pool_ordinals),
         "api_key_rotation_metadata_checked_not_content_proven":
             api_key_pool is not None,
@@ -206,13 +204,11 @@ def inspect(*, inspect_browsers: bool = False,
         "status": "NOT_INSPECTED_NO_BROWSER_ATTACH",
     }
     gemini = inspect_provider("gemini") if inspect_browsers else blank("gemini")
-    chatgpt = inspect_provider("chatgpt") if inspect_browsers else blank("chatgpt")
-    api = api_inspect(
-        metadata_probe=check_api_metadata and not inspect_all_api_keys_metadata)
+    # Gemini Selenium ONLY: do not inspect ChatGPT sessions or perform even
+    # read-only Gemini API metadata probes in the normal G1 route checker.
+    chatgpt = blank("chatgpt")
+    api = api_inspect(metadata_probe=False)
     pool = None
-    if inspect_all_api_keys_metadata:
-        from .windows_gemini_api_key_pool_preflight import inspect_key_pool
-        pool = inspect_key_pool(probe_metadata=True)
     canary = None
     if prior_canary_root is not None:
         root = _local_only(Path(prior_canary_root))
