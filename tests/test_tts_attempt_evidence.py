@@ -167,10 +167,13 @@ class ObservedAttemptJournalTests(unittest.TestCase):
                 "MICROGEN_TTS_ENABLE_BATCH_FALLBACK":"1"}), \
              patch("selenium_pipeline.tts._gemini_say",
                    side_effect=RuntimeError("503 synthetic provider outage")) as gemini, \
+             patch("selenium_pipeline.tts._preflight_cloud_voice",
+                   return_value={"catalogue_verified": True}) as voice_check, \
              patch("selenium_pipeline.tts._chirp_say_with_watchdog",
                    return_value=audio) as chirp:
             synthesize_folder(self.folder,"gemini",LITE,"Kore")
             self.assertEqual(gemini.call_count,6)
+            voice_check.assert_called_once_with("en-US-Chirp3-HD-Kore")
             chirp.assert_called_once()
         manifest=json.loads((self.folder/"tts_input_manifest.json").read_text())
         self.assertEqual(manifest["primary"]["provider"],"chirp3")
