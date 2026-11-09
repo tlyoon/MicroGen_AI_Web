@@ -15,8 +15,16 @@ def classify_owned_gemini_failure(error: BaseException) -> dict:
             stage = "OWNED_COMPOSER_INPUT_FAILED"
         elif detail.startswith("Could not submit Gemini storyboard instruction"):
             stage = "OWNED_SEND_NOT_CONFIRMED"
+        elif detail.startswith("Gemini owned tab displayed a model UI error, but"):
+            stage = "OWNED_GEMINI_ERROR_WITHOUT_NEW_USER_TURN_PROOF"
         elif detail.startswith("Gemini browser returned a visible owned-model UI error"):
-            stage = "OWNED_GEMINI_UI_TERMINAL_ERROR_TEXT_NOT_API_PROOF"
+            stage = "OWNED_GEMINI_UI_ERROR_AFTER_VERIFIED_NEW_USER_TURN"
+        elif detail.startswith("Gemini reply text was captured without"):
+            stage = "REPLY_UNTRUSTED_NO_NEW_USER_TURN_PROOF"
+        elif detail.startswith("Gemini response present but NEW user turn"):
+            stage = "RECOVERED_REPLY_UNTRUSTED_NO_NEW_USER_TURN_PROOF"
+        elif detail.startswith("Gemini new user turn was independently registered"):
+            stage = "REGISTERED_SEND_GENERATION_STALLED_ZERO_MODEL_TEXT"
         elif detail.startswith("No stable complete Gemini JSON"):
             stage = "OWNED_RESPONSE_UNVERIFIED_QUARANTINED"
         elif detail.startswith("Gemini JSON capture failed and recovery quarantine"):

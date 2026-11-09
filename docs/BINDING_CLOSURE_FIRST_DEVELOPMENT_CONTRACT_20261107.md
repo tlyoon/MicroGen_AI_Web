@@ -81,6 +81,40 @@ or Gemini content API fallback may run. A source-free response can validate
 transport at the tested workload, never source science or a complete G2
 lecture.
 
+### Gemini G1 registered-Send versus generation failure proof — 9 November 2026
+
+A Selenium `Send.click()` returning normally is **not sufficient proof**
+that a new Gemini request was received. For every G1 Gemini-only
+diagnostic, record a read-only, prompt-free baseline from the exact owned
+tab *before* the one click, then observe its user-turn count, model-response
+count, conversation route and composer-cleared state for a bounded period
+*after* the click. A NEW user turn with cleared composer, a genuinely
+new response with cleared composer, or a new conversation route with
+cleared composer can verify delivery. Do not try another click or Enter
+when the evidence is absent: record an `UNKNOWN_AFTER_POSSIBLE_SEND`
+outcome and quarantine any unverifiable text. Do not falsely promote
+an unrelated or stale model error into a proved new-request reply.
+
+An independently **registered new user turn** that remains visibly
+`generating=true` with **zero model-response characters** after the full
+bounded observation is a distinct terminal failure:
+`REGISTERED_SEND_GENERATION_STALLED_ZERO_MODEL_TEXT`. Classify it as
+a failure in the *Gemini web-app generation or response-delivery layer*,
+**not** a Selenium authentication, prompt entry, single-click, or
+clipboard-text-extraction failure. The evidence does not establish a
+specific Google HTTP 429/503/504, global outage, or the difference
+between upstream model work and web-app/network streaming. Preserve
+the original SHA-bound claim and zero-character response quarantine.
+Stop with the standard Gemini Selenium temporary-failure reminder and
+**no ChatGPT/Gemini content API fallback**. Passive client-side
+monitoring cannot manufacture a missing Gemini answer.
+
+A short, source-free Gemini request is a transport test only; a
+verified short reply can never pass source-sized G1 or G2 science.
+Never retry one ambiguous or confirmed claim merely to refine
+diagnostics. Authoritative persisted receipts are immutable, even
+when newer code improves how a future attempt is classified.
+
 ## 1. Authority, continuity and non-regression
 
 This is a **procedural supersession** of any earlier instruction that would

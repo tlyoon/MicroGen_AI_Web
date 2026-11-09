@@ -184,3 +184,109 @@ def click_one_owned_gemini_send(driver, owned_handle: str) -> bool:
     except Exception:
         return False  # Click may have succeeded: observe the SAME tab only.
     return True
+
+
+# Read-only, prompt-free metadata from the EXACT owned Gemini tab. This
+# restores the legacy new-user-turn evidence while keeping ONE Send maximum.
+_OWNED_SEND_METADATA_JS = """
+const visible=e=>!!(e&&(e.offsetWidth||e.offsetHeight||e.getClientRects().length));
+const users=new Set();
+for(const s of ['user-query','[data-message-author-role="user"]','[class*="user-query"]'])
+  for(const e of document.querySelectorAll(s)) if(visible(e)) users.add(e);
+const models=[...document.querySelectorAll('model-response')].filter(visible);
+const editor=[...document.querySelectorAll(
+  'div.ql-editor[contenteditable="true"],[contenteditable="true"][role="textbox"],textarea'
+)].find(visible);
+const txt=editor?String(editor.value||editor.innerText||editor.textContent||''):'';
+return {users:users.size,models:models.length,editor_length:txt.trim().length,
+        route:location.pathname,origin:location.origin};
+"""
+
+
+def owned_gemini_send_baseline(driver, owned_handle: str) -> dict:
+    """Strict read-only baseline before the single possible model Send."""
+    if not owned_handle or driver.current_window_handle != owned_handle:
+        raise GeminiSeleniumPreSendBlocked(
+            "Gemini source-owned browser tab changed before Send")
+    if not str(driver.current_url).startswith("https://gemini.google.com/"):
+        raise GeminiSeleniumPreSendBlocked(
+            "Gemini owned tab is not on its authenticated model origin")
+    try:
+        result = driver.execute_script(_OWNED_SEND_METADATA_JS)
+    except Exception as error:
+        raise GeminiSeleniumPreSendBlocked(
+            "Gemini owned-tab send baseline could not be read") from error
+    if (not isinstance(result, dict)
+            or result.get("origin") != "https://gemini.google.com"
+            or any(type(result.get(k)) is not int or result[k] < 0
+                   for k in ("users", "models", "editor_length"))
+            or not isinstance(result.get("route"), str)
+            or result["editor_length"] == 0):
+        raise GeminiSeleniumPreSendBlocked(
+            "Gemini owned-tab send baseline missing or editor empty")
+    return {
+        "users": result["users"],
+        "models": result["models"],
+        "editor_length": result["editor_length"],
+        "route": result["route"],
+    }
+
+
+def observe_gemini_send_registration(
+    driver, owned_handle: str, baseline: dict, *,
+    wait_s: float = 8.0, poll_s: float = 0.25,
+    clock=None, sleep=None,
+) -> dict:
+    """Confirm newly registered Gemini user turn after ONE possible click.
+
+    No submit, Enter, force click, clipboard read, new tab or browser switch.
+    If not confirmed, preserve the ambiguous Send and observe response only.
+    """
+    if (not isinstance(baseline, dict)
+            or any(type(baseline.get(x)) is not int
+                   for x in ("users", "models", "editor_length"))
+            or not isinstance(baseline.get("route"), str)
+            or not (0.5 <= wait_s <= 15)
+            or not (0 < poll_s <= 2)):
+        raise ValueError("Trusted no-resend Gemini observation required")
+    clock = clock or time.monotonic
+    sleep = sleep or time.sleep
+    end = clock() + wait_s
+    observed = 0
+    while True:
+        try:
+            if (driver.current_window_handle != owned_handle
+                    or not str(driver.current_url).startswith(
+                        "https://gemini.google.com/")):
+                return {"status": "OWNED_GEMINI_TAB_CHANGED",
+                        "registered": False}
+            data = driver.execute_script(_OWNED_SEND_METADATA_JS)
+            if (isinstance(data, dict)
+                    and data.get("origin") == "https://gemini.google.com"
+                    and all(type(data.get(k)) is int and data[k] >= 0
+                            for k in ("users", "models", "editor_length"))
+                    and isinstance(data.get("route"), str)):
+                observed += 1
+                cleared = data["editor_length"] <= max(
+                    8, int(baseline["editor_length"] * 0.15))
+                if cleared:
+                    if data["users"] > baseline["users"]:
+                        return {"status": "NEW_USER_TURN_AND_COMPOSER_CLEARED",
+                                "registered": True}
+                    if data["models"] > baseline["models"]:
+                        return {"status": "NEW_MODEL_RESPONSE_AND_COMPOSER_CLEARED",
+                                "registered": True}
+                    if (baseline["route"] in ("/app", "/app/")
+                            and data["route"] != baseline["route"]
+                            and data["route"].startswith("/app/")):
+                        return {"status": "NEW_CONVERSATION_ROUTE_AND_COMPOSER_CLEARED",
+                                "registered": True}
+        except Exception:
+            pass
+        remaining = end - clock()
+        if remaining <= 0:
+            return {"status": (
+                "NO_POSITIVE_NEW_USER_TURN_AFTER_CLICK"
+                if observed else "OWNED_GEMINI_TAB_OBSERVATION_UNAVAILABLE"),
+                "registered": False}
+        sleep(min(poll_s, remaining))

@@ -12,6 +12,10 @@ from pathlib import Path
 import sys
 
 PROFILE = "source_sized_selenium_only_v2"
+SHORT_PROFILE = "short_g1_selenium_only_v3"
+LONG_PROFILE = "source_sized_g1_selenium_only_v3"
+REGISTRATION_PROFILE = "short_g1_registered_turn_v4"
+APPROVED_PROFILES = (PROFILE, SHORT_PROFILE, LONG_PROFILE, REGISTRATION_PROFILE)
 
 
 def summarize(result: dict) -> dict:
@@ -22,9 +26,17 @@ def summarize(result: dict) -> dict:
         "PRIOR_CANARY_RECEIPT_REUSED",
         "PRIOR_CANARY_MAY_HAVE_SUBMITTED_NO_RESEND")
     if outcome == "VALID_CANARY_RESPONSE" and (
-            result.get("probe_profile") == PROFILE):
-        status = "G1_SOURCE_FREE_GEMINI_SELENIUM_SIZED_RESPONSE_VERIFIED"
+            result.get("probe_profile") in APPROVED_PROFILES):
+        short = result.get("probe_profile") in (SHORT_PROFILE, REGISTRATION_PROFILE)
+        status = (
+            "G1_SHORT_GEMINI_RESPONSE_VERIFIED_LONG_FORM_UNTESTED"
+            if short else
+            "G1_SOURCE_FREE_GEMINI_SELENIUM_SIZED_RESPONSE_VERIFIED")
         reason = (
+            "The fresh short Gemini Selenium prompt returned the exact "
+            "authenticated model JSON; this does NOT certify source-sized "
+            "generation or an accepted academic lecture."
+            if short else
             "One distinct source-sized synthetic Gemini Selenium response "
             "matched the strict owned-browser JSON receipt. This does NOT "
             "verify original PDF science or a full lecture.")
@@ -57,7 +69,8 @@ def summarize(result: dict) -> dict:
         "schema_version": 1,
         "g1_status": status,
         "gemini_selenium_only": True,
-        "source_sized_synthetic_test": True,
+        "source_sized_synthetic_test":
+            str(result.get("probe_profile","")).startswith("source_sized"),
         "outcome": outcome,
         "exact_model_answer_verified": outcome == "VALID_CANARY_RESPONSE",
         "academic_original_lecture_accepted": False,
@@ -67,6 +80,14 @@ def summarize(result: dict) -> dict:
             result.get("gemini_browser_failure_phase"),
         "gemini_browser_presend_attempts_used":
             result.get("gemini_browser_presend_attempts_used"),
+        "gemini_send_registration_status":
+            result.get("gemini_send_registration_status"),
+        "gemini_new_user_turn_verified":
+            result.get("gemini_new_user_turn_verified"),
+        "gemini_visible_model_chars_at_stop":
+            result.get("gemini_visible_model_chars_at_stop"),
+        "gemini_generation_active_at_stop":
+            result.get("gemini_generation_active_at_stop"),
         "browser_bridge_stage": result.get("browser_bridge_stage"),
         "prior_claim_reused_without_resend": previous,
         "model_or_browser_error_is_api_outage_proof": False,
@@ -82,13 +103,16 @@ def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--canary-root", type=Path, required=True)
     p.add_argument("--run-one-new-selenium-probe", action="store_true")
+    p.add_argument("--probe-profile", choices=APPROVED_PROFILES,
+                   default=PROFILE,
+                   help="Explicit bounded diagnostic profile; new SHA claim required")
     a = p.parse_args(argv)
     if not a.run_one_new_selenium_probe:
         p.error("Explicit --run-one-new-selenium-probe required; no implicit Send")
     from .windows_gemini_differential_probe import run_canary
     try:
         result = run_canary(checkpoint_dir=a.canary_root,
-                            backend="browser", profile=PROFILE)
+                            backend="browser", profile=a.probe_profile)
         report = summarize(result)
     except Exception as error:
         # Bad receipts or inaccessible browser must never lead to a second

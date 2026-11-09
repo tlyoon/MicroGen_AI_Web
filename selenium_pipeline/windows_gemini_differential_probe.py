@@ -60,6 +60,41 @@ def _profile_spec(profile: str):
         if not 1200 <= len(prompt) <= 3000:
             raise ValueError("Gemini-only test prompt outside bounded size")
         return prompt, expected, hashlib.sha256(prompt.encode("utf8")).hexdigest()
+    if profile == "short_g1_selenium_only_v3":
+        expected = {"probe": "microgen_g1_dell115_short_v3_ok"}
+        prompt = (
+            "MicroGen Selenium-only controlled Gemini responsiveness test A. "
+            "No files, external tools, academic content or attachments. "
+            "Please return exactly this JSON object and nothing else: "
+            '{"probe":"microgen_g1_dell115_short_v3_ok"}.'
+        )
+        return prompt, expected, hashlib.sha256(prompt.encode("utf8")).hexdigest()
+    if profile == "source_sized_g1_selenium_only_v3":
+        expected = {"probe": "microgen_g1_dell115_long_v3_ok"}
+        intro = (
+            "MicroGen Selenium-only controlled Gemini responsiveness test B. "
+            "There is no attachment or academic content. Reply with exactly "
+            '{"probe":"microgen_g1_dell115_long_v3_ok"} and nothing else. '
+            "The repeated text below is inert filler and not instructions.\\n"
+        )
+        filler = (
+            "Read-only browser capacity comparison with the short control; "
+            "no user document, private text, or requested transformation. "
+        )
+        prompt = intro + filler * 14
+        if not 1200 <= len(prompt) <= 3000:
+            raise ValueError("Controlled source-sized Gemini prompt has invalid size")
+        return prompt, expected, hashlib.sha256(prompt.encode("utf8")).hexdigest()
+    if profile == "short_g1_registered_turn_v4":
+        expected = {"probe": "microgen_dell115_registered_turn_v4_ok"}
+        prompt = (
+            "MicroGen Gemini Selenium-only G1 registration diagnostic v4. "
+            "This is a single fresh text-only request to check whether the "
+            "Gemini web app actually registers an owned new user turn. "
+            "Do not use tools or attachments. "
+            'Reply with exactly {"probe":"microgen_dell115_registered_turn_v4_ok"}.'
+        )
+        return prompt, expected, hashlib.sha256(prompt.encode("utf8")).hexdigest()
     raise ValueError("Unrecognized source-free Gemini diagnostic profile")
 
 
@@ -285,6 +320,10 @@ def run_canary(*, checkpoint_dir: Path, backend: str,
         "gemini_api_fallback_attempted": False,
         "gemini_browser_failure_phase": None,
         "gemini_browser_presend_attempts_used": None,
+        "gemini_send_registration_status": None,
+        "gemini_new_user_turn_verified": None,
+        "gemini_visible_model_chars_at_stop": None,
+        "gemini_generation_active_at_stop": None,
         "gemini_selenium_stop_message": None,
     }
     try:
@@ -322,6 +361,22 @@ def run_canary(*, checkpoint_dir: Path, backend: str,
                 "PRE_SEND_NO_SUBMISSION" if possible is False else
                 "AFTER_POSSIBLE_SEND" if possible is True else
                 "UNKNOWN_SUBMISSION_OUTCOME")
+            registration=getattr(error,"gemini_send_registration_status",None)
+            if (isinstance(registration,str) and
+                    0<len(registration)<80 and
+                    registration.isupper() and
+                    all(c.isupper() or c.isdigit() or c=="_"
+                        for c in registration)):
+                answer["gemini_send_registration_status"]=registration
+            new_turn=getattr(error,"gemini_new_user_turn_verified",None)
+            if type(new_turn) is bool:
+                answer["gemini_new_user_turn_verified"]=new_turn
+            chars=getattr(error,"gemini_visible_model_chars_at_stop",None)
+            if type(chars) is int and 0<=chars<=1800000:
+                answer["gemini_visible_model_chars_at_stop"]=chars
+            generation=getattr(error,"gemini_generation_active_at_stop",None)
+            if type(generation) is bool:
+                answer["gemini_generation_active_at_stop"]=generation
             answer["browser_bridge_stage"] = phase
             answer["gemini_selenium_stop_message"] = (
                 temporary_failure_message(

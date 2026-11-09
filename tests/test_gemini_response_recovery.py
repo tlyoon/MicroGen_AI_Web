@@ -212,6 +212,11 @@ class GeminiQuarantineTests(unittest.TestCase):
              patch("selenium_pipeline.gemini_model.ensure_mode", return_value="Open mode picker, currently Gemini Flash"), \
              patch("selenium_pipeline.gemini_response_recovery.await_owned_gemini_send_visible", return_value=True), \
              patch("selenium_pipeline.gemini_selenium_only_policy.click_one_owned_gemini_send", return_value=True), \
+             patch("selenium_pipeline.gemini_selenium_only_policy.owned_gemini_send_baseline",
+                   return_value={"users":0,"models":0,"editor_length":100,"route":"/app"}), \
+             patch("selenium_pipeline.gemini_selenium_only_policy.observe_gemini_send_registration",
+                   return_value={"status":"NEW_USER_TURN_AND_COMPOSER_CLEARED",
+                                 "registered":True}), \
              patch.dict("os.environ",{"LOCALAPPDATA":str(self.dir)}):
             recovered=series_gemini._browser_request(
                 "A synthetic prompt",[self.dir/"source.pdf"],

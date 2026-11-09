@@ -78,6 +78,11 @@ class GeminiShortVerifiedCopy(unittest.TestCase):
                       return_value=True),
                 patch("selenium_pipeline.gemini_selenium_only_policy.click_one_owned_gemini_send",
                       side_effect=lambda *args:send()),
+                patch("selenium_pipeline.gemini_selenium_only_policy.owned_gemini_send_baseline",
+                      return_value={"users":0,"models":0,"editor_length":90,"route":"/app"}),
+                patch("selenium_pipeline.gemini_selenium_only_policy.observe_gemini_send_registration",
+                      return_value={"status":"NEW_USER_TURN_AND_COMPOSER_CLEARED",
+                                    "registered":True}),
                 patch.dict("os.environ",{"LOCALAPPDATA":str(Path(d))}),
             ):
                 response=series_gemini._browser_request(

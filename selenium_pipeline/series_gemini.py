@@ -84,10 +84,12 @@ def _browser_request(instruction: str,attachments: list[Path],
     )
     from .gemini_selenium_only_policy import (
         prepare_with_bounded_retries, emit_temporary_failure,
-        click_one_owned_gemini_send)
+        click_one_owned_gemini_send, owned_gemini_send_baseline,
+        observe_gemini_send_registration)
     with LocalInstanceLock(f"gemini_port_{port}",cache/"browser_locks"):
         client=None
         send_boundary_entered=False
+        registration={"status":"NOT_SENT","registered":False}
         try:
             def prepare_without_send(owned):
                 owned.start(ensure_gemini_on_launch=True)
@@ -115,16 +117,25 @@ def _browser_request(instruction: str,attachments: list[Path],
                 make_client=lambda:vendor.GeminiSeleniumClient(cfg),
                 prepare_without_send=prepare_without_send,
                 dispose=lambda owned:owned.shutdown())
-            # This is the ONE possible model Send; no keyboard/DOM/LLM
-            # fallback clicks. An exception may mean delivery, so never
-            # restart this source claim after crossing this boundary.
+            # Save a prompt-free baseline BEFORE the single model Send.
+            # After the click observe the same tab for a NEW user turn or
+            # new conversation route. Legacy code performed this check, but
+            # do NOT restore its unsafe second-click/Enter fallbacks.
+            owned_handle=getattr(client,"_automation_tab",None)
+            baseline=owned_gemini_send_baseline(client.driver,owned_handle)
             send_boundary_entered=True
             clicked=click_one_owned_gemini_send(
-                client.driver,getattr(client,"_automation_tab",None))
-            if not clicked:
-                print("[MicroGen] Gemini Selenium Send click outcome uncertain; "
-                      "observing only the existing owned model tab without "
-                      "another submission.",file=sys.stderr,flush=True)
+                client.driver,owned_handle)
+            registration=observe_gemini_send_registration(
+                client.driver,owned_handle,baseline,wait_s=8,poll_s=0.25)
+            print("[MicroGen] Gemini Selenium one-Send registration: "
+                  +registration["status"]+" (clicked="+str(clicked)+").",
+                  file=sys.stderr,flush=True)
+            if not registration["registered"]:
+                print("[MicroGen] Gemini Selenium submission NOT positively "
+                      "registered. Observe only this same owned response; "
+                      "never click, press Enter or switch provider.",
+                      file=sys.stderr,flush=True)
             # Long Gemini replies may time out or raise before the strict
             # JSON acceptance callback runs. Capture even exception paths.
             capture_error = None
@@ -177,6 +188,11 @@ def _browser_request(instruction: str,attachments: list[Path],
                         wait_s=(45 if snapshot.get("generating") else 12),
                         poll_s=2)
                     if recovered is not None:
+                        if not registration["registered"]:
+                            raise SeriesBridgeError(
+                                "Gemini response present but NEW user turn "
+                                "not registered after a possible Send; "
+                                "do not attribute this reply or resend.")
                         return recovered
                 from .gemini_provider_ui_terminal_error import (
                     classify_visible_reply,
@@ -185,9 +201,15 @@ def _browser_request(instruction: str,attachments: list[Path],
                     text=snapshot.get("text", ""),
                     capture_status=snapshot.get("capture_status", ""),
                     generating=bool(snapshot.get("generating")))
+                generation_stalled = bool(
+                    registration["registered"]
+                    and snapshot.get("generating")
+                    and not str(snapshot.get("text", "")).strip())
                 reason = (
                     "owned_gemini_ui_error_text" if
                     ui_error["known_gemini_ui_error_text_observed"] else
+                    "verified_new_turn_generation_active_no_model_text" if
+                    generation_stalled else
                     "strict_json_capture_exception" if capture_error is not None
                     else "strict_json_capture_timeout"
                 )
@@ -199,11 +221,30 @@ def _browser_request(instruction: str,attachments: list[Path],
                         "could not be written; inspect the owned browser tab"
                     ) from exc
                 if ui_error["known_gemini_ui_error_text_observed"]:
+                    if not registration["registered"]:
+                        raise SeriesBridgeError(
+                            "Gemini owned tab displayed a model UI error, but "
+                            "the NEW user turn was not independently registered "
+                            "after the one click. Quarantined; service versus "
+                            "automation attribution remains inconclusive. "
+                            "Never resubmit this claim."
+                        ) from capture_error
                     raise SeriesBridgeError(
                         "Gemini browser returned a visible owned-model UI error "
-                        "without the requested JSON answer; captured and "
-                        "quarantined. This is not proof of an API outage; "
-                        "do not automatically resubmit."
+                        "AFTER a verified new user turn, without the requested "
+                        "JSON answer; captured and quarantined. The browser "
+                        "submission succeeded, but provider-app/model response "
+                        "failed. This is not proof of an API outage."
+                    ) from capture_error
+                if generation_stalled:
+                    raise SeriesBridgeError(
+                        "Gemini new user turn was independently registered "
+                        "and its composer cleared, but after bounded observation "
+                        "the owned Gemini UI remained generating with ZERO model "
+                        "response characters. The failure is in post-submission "
+                        "generation/response delivery, not Selenium Send or "
+                        "Copy extraction; exact Google backend versus network "
+                        "cause is unproven. Evidence quarantined, never resend."
                     ) from capture_error
                 raise SeriesBridgeError(
                     "No stable complete Gemini JSON; untrusted response "
@@ -211,6 +252,17 @@ def _browser_request(instruction: str,attachments: list[Path],
                     "Use offline recover-candidate after verifying content; "
                     "do not automatically resubmit source files."
                 ) from capture_error
+            if not registration["registered"]:
+                from .gemini_response_recovery import (
+                    latest_owned_response,quarantine_snapshot)
+                unproven=latest_owned_response(
+                    client.driver,getattr(client,"_automation_tab",None))
+                quarantine_snapshot(unproven,
+                    reason="unverified_new_gemini_turn_after_one_send")
+                raise SeriesBridgeError(
+                    "Gemini reply text was captured without a positively "
+                    "registered NEW user turn on the owned tab; preserved "
+                    "as untrusted. Do not repeat the Send.")
             return response
         except Exception as error:
             from .gemini_selenium_only_policy import (
@@ -241,6 +293,15 @@ def _browser_request(instruction: str,attachments: list[Path],
                 error.gemini_send_boundary_entered = possible_send
                 error.gemini_failure_phase = phase
                 error.gemini_prepare_attempts_used = used
+                error.gemini_send_registration_status = registration["status"]
+                error.gemini_new_user_turn_verified = registration["registered"]
+                # Never put raw model text into terminal diagnostics.
+                if "snapshot" in locals() and isinstance(snapshot,dict):
+                    error.gemini_visible_model_chars_at_stop = (
+                        len(snapshot.get("text",""))
+                        if isinstance(snapshot.get("text"),str) else None)
+                    error.gemini_generation_active_at_stop = bool(
+                        snapshot.get("generating",False))
             except (AttributeError, TypeError):
                 pass
             emit_temporary_failure(

@@ -37,6 +37,32 @@ class G1SingleRouteTests(unittest.TestCase):
         self.assertNotIn("source.pdf",prompt)
         self.assertIn("Selenium-only",prompt)
 
+    def test_g1_v3_size_controls_have_distinct_claim_identity(self):
+        from selenium_pipeline.gemini_g1_single_route_cli import (
+            SHORT_PROFILE, LONG_PROFILE, REGISTRATION_PROFILE)
+        short, expected_short, sha_short = _profile_spec(SHORT_PROFILE)
+        long, expected_long, sha_long = _profile_spec(LONG_PROFILE)
+        old, old_expected, old_sha = _profile_spec(PROFILE)
+        reg, expected_reg, sha_reg = _profile_spec(REGISTRATION_PROFILE)
+        self.assertLess(len(reg), 400)
+        self.assertLess(len(short), 400)
+        self.assertGreaterEqual(len(long), 1200)
+        self.assertLessEqual(len(long), 3000)
+        self.assertEqual(len({sha_short, sha_long, old_sha, sha_reg}), 4)
+        self.assertEqual(summarize({
+            "outcome":"VALID_CANARY_RESPONSE",
+            "probe_profile":REGISTRATION_PROFILE})["g1_status"],
+            "G1_SHORT_GEMINI_RESPONSE_VERIFIED_LONG_FORM_UNTESTED")
+        self.assertEqual(len({str(expected_short), str(expected_long),
+                              str(old_expected)}), 3)
+        self.assertEqual(
+            summarize({"outcome":"VALID_CANARY_RESPONSE",
+                       "probe_profile":SHORT_PROFILE})["g1_status"],
+            "G1_SHORT_GEMINI_RESPONSE_VERIFIED_LONG_FORM_UNTESTED")
+        self.assertFalse(summarize(
+            {"outcome":"VALID_CANARY_RESPONSE","probe_profile":SHORT_PROFILE}
+        )["academic_original_lecture_accepted"])
+
     @patch("selenium_pipeline.windows_gemini_differential_probe.sys.platform","win32")
     def test_verified_source_sized_gemini_response_is_not_academic_acceptance(self):
         _,expected,_=_profile_spec(PROFILE)
@@ -108,6 +134,36 @@ class G1SingleRouteTests(unittest.TestCase):
         self.assertFalse(report["old_uncertain_job_auto_retry_allowed"])
         self.assertEqual(report["exit_code"],2)
         mock.assert_called_once()
+
+    @patch("selenium_pipeline.windows_gemini_differential_probe.sys.platform","win32")
+    def test_registered_blank_generating_reply_is_not_classed_as_selenium_send_error(self):
+        from selenium_pipeline.series_bridge import SeriesBridgeError
+        def fail(_):
+            error=SeriesBridgeError(
+                "Gemini new user turn was independently registered but "
+                "generation stayed active with ZERO text")
+            error.gemini_send_boundary_entered=True
+            error.gemini_failure_phase="REGISTERED_SEND_GENERATION_STALLED_ZERO_MODEL_TEXT"
+            error.gemini_prepare_attempts_used=1
+            error.gemini_send_registration_status="NEW_USER_TURN_AND_COMPOSER_CLEARED"
+            error.gemini_new_user_turn_verified=True
+            error.gemini_visible_model_chars_at_stop=0
+            error.gemini_generation_active_at_stop=True
+            raise error
+        result=run_canary(checkpoint_dir=self.folder,backend="browser",
+            browser_transport=fail,profile=PROFILE,
+            browser_ready=lambda:{"authenticated_ui_ready":True})
+        self.assertEqual(result["browser_bridge_stage"],
+                         "REGISTERED_SEND_GENERATION_STALLED_ZERO_MODEL_TEXT")
+        self.assertTrue(result["gemini_new_user_turn_verified"])
+        self.assertEqual(result["gemini_visible_model_chars_at_stop"],0)
+        self.assertTrue(result["gemini_generation_active_at_stop"])
+        self.assertIsNone(result["verified_api_http_status"])
+        report=summarize(result)
+        self.assertEqual(report["exit_code"],2)
+        self.assertEqual(report["gemini_visible_model_chars_at_stop"],0)
+        self.assertTrue(report["gemini_generation_active_at_stop"])
+        self.assertFalse(report["model_or_browser_error_is_api_outage_proof"])
 
     @patch("selenium_pipeline.windows_gemini_differential_probe.sys.platform","win32")
     def test_unattributed_legacy_error_is_not_labeled_pre_send(self):

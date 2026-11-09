@@ -153,6 +153,65 @@ class GeminiSeleniumOnlyPolicyTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "Selenium-only"):
                 runner.execute(object())
 
+    def test_new_user_turn_registration_requires_composer_clear(self):
+        from selenium_pipeline.gemini_selenium_only_policy import (
+            owned_gemini_send_baseline, observe_gemini_send_registration)
+        import itertools
+        class Owned:
+            current_window_handle = "gemini-owned"
+            current_url = "https://gemini.google.com/app"
+            def __init__(self):
+                self.reads = iter([
+                    {"users":0,"models":0,"editor_length":85,
+                     "route":"/app","origin":"https://gemini.google.com"},
+                    {"users":0,"models":0,"editor_length":85,
+                     "route":"/app","origin":"https://gemini.google.com"},
+                    {"users":1,"models":0,"editor_length":0,
+                     "route":"/app/unique","origin":"https://gemini.google.com"},
+                ])
+            def execute_script(self, _script):
+                return next(self.reads)
+        d=Owned()
+        before=owned_gemini_send_baseline(d,"gemini-owned")
+        ticks=iter([0.0,0.2,0.4,0.6])
+        status=observe_gemini_send_registration(
+            d,"gemini-owned",before,wait_s=0.5,poll_s=0.1,
+            clock=lambda:next(ticks),sleep=lambda _:None)
+        self.assertTrue(status["registered"])
+        self.assertEqual(status["status"],
+                         "NEW_USER_TURN_AND_COMPOSER_CLEARED")
+
+    def test_no_new_turn_stays_unattributed_without_another_click(self):
+        from selenium_pipeline.gemini_selenium_only_policy import (
+            observe_gemini_send_registration)
+        class Owned:
+            current_window_handle = "gemini-owned"
+            current_url = "https://gemini.google.com/app"
+            def execute_script(self, _):
+                return {"users":0,"models":0,"editor_length":0,
+                        "route":"/app","origin":"https://gemini.google.com"}
+        ticks=iter([0.0,0.2,0.4,0.6,0.8,1.0])
+        status=observe_gemini_send_registration(
+            Owned(),"gemini-owned",
+            {"users":0,"models":0,"editor_length":90,"route":"/app"},
+            wait_s=0.5,poll_s=0.1,clock=lambda:next(ticks),
+            sleep=lambda _:None)
+        self.assertFalse(status["registered"])
+        self.assertEqual(status["status"],
+                         "NO_POSITIVE_NEW_USER_TURN_AFTER_CLICK")
+
+    def test_missing_pre_send_baseline_blocks_before_click(self):
+        from selenium_pipeline.gemini_selenium_only_policy import (
+            owned_gemini_send_baseline, GeminiSeleniumPreSendBlocked)
+        class Owned:
+            current_window_handle = "gemini-owned"
+            current_url = "https://gemini.google.com/app"
+            def execute_script(self, _):
+                return {"users":0,"models":0,"editor_length":0,
+                        "route":"/app","origin":"https://gemini.google.com"}
+        with self.assertRaises(GeminiSeleniumPreSendBlocked):
+            owned_gemini_send_baseline(Owned(),"gemini-owned")
+
     def test_stop_message_is_printed_in_stdout_free_form_and_no_provider_change(self):
         stderr = io.StringIO()
         with redirect_stderr(stderr):
