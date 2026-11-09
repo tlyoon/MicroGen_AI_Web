@@ -135,6 +135,20 @@ class G1SingleRouteTests(unittest.TestCase):
         self.assertFalse((self.folder/"browser_probe_started.json").exists())
         mock.assert_not_called()
 
+    def test_reused_historic_stop_message_gets_current_true_guidance(self):
+        receipt={
+            "status":"PRIOR_CANARY_RECEIPT_REUSED",
+            "outcome":"NO_VERIFIED_RESPONSE",
+            "request_may_have_been_submitted":True,
+            "browser_bridge_stage":
+                "OWNED_GEMINI_UI_TERMINAL_ERROR_TEXT_NOT_API_PROOF",
+            "gemini_selenium_stop_message":
+                "OLD: reconcile its owned tab later (already closed)"}
+        report=summarize(receipt)
+        self.assertTrue(report["prior_claim_reused_without_resend"])
+        self.assertIn("saved response quarantine",report["reason"])
+        self.assertNotIn("reconcile its owned tab",report["reason"])
+
     def test_unresolved_claim_never_retries(self):
         report=summarize({"status":"PRIOR_CANARY_MAY_HAVE_SUBMITTED_NO_RESEND",
                           "outcome":"UNRESOLVED_CLAIM"})

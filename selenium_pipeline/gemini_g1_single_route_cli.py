@@ -44,14 +44,14 @@ def summarize(result: dict) -> dict:
     else:
         status = "G1_BLOCKED_GEMINI_SELENIUM_TEMPORARY_FAILURE"
         safe = result.get("browser_bridge_stage")
-        reason = result.get("gemini_selenium_stop_message")
-        if not isinstance(reason, str) or not reason.startswith(
-                "[MicroGen] Gemini Selenium temporary failure."):
-            reason = temporary_failure_message(
-                safe if isinstance(safe, str) and len(safe) < 130
-                else "no verified complete model response",
-                may_have_submitted=(
-                    result.get("request_may_have_been_submitted") is not False))
+        # Always render guidance from the current verified policy. A saved
+        # SHA-bound receipt is immutable and may contain superseded wording
+        # (e.g., advice to revisit an owned tab closed at shutdown).
+        reason = temporary_failure_message(
+            safe if isinstance(safe, str) and len(safe) < 130
+            else "no verified complete model response",
+            may_have_submitted=(
+                result.get("request_may_have_been_submitted") is not False))
         exit_code = 2
     return {
         "schema_version": 1,
