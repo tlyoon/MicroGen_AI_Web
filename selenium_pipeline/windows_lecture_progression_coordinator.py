@@ -32,7 +32,11 @@ def _report(*, status: str, source_sha256: str, section: str,
         "source_sha256": source_sha256,
         "section": section,
         "next_stage": next_stage,
-        "model_requests_per_operator_invocation_limit": 1,
+        # The coordinator dispatches ONE bounded source stage, not one
+        # individual Gemini Send. A figure stage may process multiple pages;
+        # each owned browser request retains its own no-duplicate-Send guard.
+        "source_stage_attempts_per_operator_invocation_limit": 1,
+        "individual_model_send_count_must_be_verified_from_stage_log": True,
         "new_model_or_tts_calls": False,
         "automatic_retry_or_fallback": False,
         "reviewed_tts_or_video_generated": False,

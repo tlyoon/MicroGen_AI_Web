@@ -230,6 +230,21 @@ class CrossTaskGeminiHaltTests(unittest.TestCase):
             "[INFO] No Gemini response received pre-submit\n", encoding="utf8")
         return root
 
+    def test_real_vendor_timing_send_marker_drives_health_classification(self):
+        trial = self.receipt("14", "figures", False, send=False)
+        (trial / "figures_stage_stdout.raw.log").write_text(
+            "[2026-11-10 13:33:14] [INFO] [TIMING] "
+            "attempt 1 verified send: 0.052s | registered=True\n",
+            encoding="utf8")
+        event = record_stage(trial_dir=trial, stage="figures",
+                             folder=self.health, now=1000)
+        self.assertEqual(event["outcome"], "SENT_BUT_NOT_ACCEPTED")
+        recorded = list((self.health / "events").glob("*.json"))
+        self.assertEqual(len(recorded), 1)
+        import json
+        self.assertTrue(json.loads(recorded[0].read_text(
+            encoding="utf8"))["owned_browser_send_registered"])
+
     def test_two_distinct_failed_browser_sends_pause_new_tasks(self):
         a = self.receipt("01", "figures", False)
         b = self.receipt("02", "slides", False)

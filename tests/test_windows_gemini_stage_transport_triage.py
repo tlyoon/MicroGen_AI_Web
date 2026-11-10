@@ -316,5 +316,57 @@ class GeminiStageTransportTriageTests(unittest.TestCase):
         self.assertFalse(r["original_submission_resend_authorized"])
 
 
+    def test_current_vendor_registered_send_timing_is_shared_across_stages(self):
+        # Real Dell-115 G2 figures 7.2 emitted this exact line structure.
+        for stage in ("figures", "slides", "narration"):
+            with self.subTest(stage=stage):
+                prefix = self.begun(stage)
+                status = ("FIGURES_STAGE_RETURNED_SUCCESS_NOT_FULL_LECTURE"
+                          if stage == "figures" else
+                          "STAGE_COMPLETED_AND_SOURCE_SHA_BOUND")
+                self.finish(prefix, status, stage=stage)
+                line = ("[2026-11-10 13:33:14] [INFO] [TIMING] "
+                        "attempt 1 verified send: 0.052s | registered=True\n")
+                self.log(line * 3, stage=stage)
+                report = diagnose(trial_dir=self.trial, stage=stage)
+                self.assertTrue(report["owned_browser_send_registered"])
+                self.assertEqual(report["registered_browser_send_count_in_stage_log"], 3)
+                self.assertTrue(report["stage_accepted_receipt_present"])
+                self.assertFalse(report["original_submission_resend_authorized"])
+
+    def test_false_or_embedded_timing_marker_does_not_claim_model_send(self):
+        prefix = self.begun()
+        self.finish(prefix, "FIGURES_ATTEMPT_FAILED_NO_AUTO_RETRY")
+        self.log(
+            "[2026-11-10 13:33:14] [INFO] [TIMING] "
+            "attempt 1 verified send: 0.052s | registered=False\n"
+            "[2026-11-10 13:33:14] [INFO] prompt snapshot: "
+            "[TIMING] attempt 1 verified send: 0.052s | registered=True\n")
+        result = diagnose(trial_dir=self.trial, stage="figures")
+        self.assertFalse(result["owned_browser_send_registered"])
+        self.assertEqual(result["registered_browser_send_count_in_stage_log"], 0)
+
+    def test_prior_accepted_triage_is_sha_bound_reconciled_without_overwrite(self):
+        import re
+        prefix = self.begun()
+        self.finish(prefix, "FIGURES_STAGE_RETURNED_SUCCESS_NOT_FULL_LECTURE")
+        line = ("[2026-11-10 13:33:14] [INFO] [TIMING] "
+                "attempt 1 verified send: 0.052s | registered=True\n")
+        self.log(line * 3)
+        # Simulate prior detector that missed the real vendor line, but did
+        # preserve the exact SHA-bound result/log receipt.
+        with patch("selenium_pipeline.windows_gemini_stage_transport_triage._SEND_PROOF",
+                   re.compile(r"NONMATCHING_OLD_VENDOR_MARKER")):
+            old = persist_terminal_triage(trial_dir=self.trial, stage="figures")
+        self.assertFalse(old["owned_browser_send_registered"])
+        proof = self.trial / "figures_transport_triage.json"
+        original_bytes = proof.read_bytes()
+        renewed = persist_terminal_triage(trial_dir=self.trial, stage="figures")
+        self.assertEqual(renewed["status"], "PRIOR_SHA_BOUND_TRIAGE_REUSED_NO_SEND")
+        self.assertTrue(renewed["new_readonly_owned_browser_send_registered"])
+        self.assertEqual(renewed["new_readonly_registered_browser_send_count"], 3)
+        self.assertEqual(proof.read_bytes(), original_bytes)
+        self.assertFalse(renewed["original_submission_resend_authorized"])
+
 if __name__ == "__main__":
     unittest.main()

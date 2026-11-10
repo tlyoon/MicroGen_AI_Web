@@ -139,7 +139,12 @@ def diagnose(*, trial_dir: Path, stage: str = "figures") -> dict:
     session = bool(_ATTACH.search(raw)) if backend == "selenium" else False
     local_extract = (bool(_LOCAL_EXTRACTION.search(raw)) or
                      crop["local_crop_phase"] == "LOCAL_FIGURE_CROP_COMPLETED")
-    send = bool(_SEND_PROOF.search(raw)) if backend == "selenium" else False
+    # The canonical shared proof recognises both older Send markers and the
+    # current vendor [TIMING] ... registered=True evidence. Count distinct
+    # anchored markers only; never inspect arbitrary prompt or model text.
+    registered_send_count = (len(_SEND_PROOF.findall(raw))
+                             if backend == "selenium" else 0)
+    send = registered_send_count > 0
     response_unverified = (
         "[GEMINI-RESPONSE] POST_SUBMIT_NO_ATTRIBUTED_RESPONSE_NO_RESEND"
         in raw)
@@ -182,6 +187,7 @@ def diagnose(*, trial_dir: Path, stage: str = "figures") -> dict:
         **crop,
         "browser_debug_session_seen_in_log": session,
         "owned_browser_send_registered": send,
+        "registered_browser_send_count_in_stage_log": registered_send_count,
         "post_submit_model_reply_attribution_unverified": response_unverified,
         "owned_visible_ui_terminal_error_verified": (send and owned_ui_terminal),
         "owned_stage_supervisor_timeout_recorded": supervisor_timeout,
@@ -251,6 +257,7 @@ def persist_terminal_triage(*, trial_dir: Path, stage: str) -> dict:
                 "local_crop_heartbeat_present", "local_crop_log_sha256",
                 "post_submit_model_reply_attribution_unverified",
                 "owned_visible_ui_terminal_error_verified",
+                "registered_browser_send_count_in_stage_log",
             }
             only_new_fields = set(report) - set(prior)
             compatible_status = (
@@ -266,14 +273,34 @@ def persist_terminal_triage(*, trial_dir: Path, stage: str) -> dict:
                 and prior.get("model_requests_during_diagnosis") == 0
                 and prior.get("automatic_terminal_diagnosis") is True
                 and prior.get("student_publication_authorized") is False)
+            # A previously immutable SUCCESS receipt may have been saved
+            # before the current vendor's positive registered=True marker was
+            # understood. Never rewrite its false historical observation;
+            # expose a strictly same-hash, read-only upward reconciliation.
+            send_upgrade = (
+                prior.get("stage_accepted_receipt_present") is True
+                and report.get("stage_accepted_receipt_present") is True
+                and prior.get("owned_browser_send_registered") is False
+                and report["owned_browser_send_registered"] is True
+                and report["registered_browser_send_count_in_stage_log"] > 0
+                and prior.get("terminal_result_sha256") == result_hash
+                and prior.get("terminal_log_sha256") == log_hash)
             compatible = (
                 old_claim_safe and compatible_status
                 and only_new_fields.issubset(new_fields)
                 and set(prior).issubset(report)
-                and all(prior[k] == report[k] for k in prior if k != "status"))
+                and all(prior[k] == report[k] or
+                        (k == "owned_browser_send_registered" and send_upgrade) or
+                        (k == "registered_browser_send_count_in_stage_log"
+                         and send_upgrade and prior[k] == 0)
+                        for k in prior if k != "status"))
             if compatible:
+                update = ({"new_readonly_owned_browser_send_registered": True,
+                           "new_readonly_registered_browser_send_count":
+                               report["registered_browser_send_count_in_stage_log"]}
+                          if send_upgrade else {})
                 return {**prior, "status": "PRIOR_SHA_BOUND_TRIAGE_REUSED_NO_SEND",
-                        "new_readonly_classification": report["status"]}
+                        "new_readonly_classification": report["status"], **update}
             raise ValueError("Historical stage diagnosis or evidence changed")
         return {**prior, "status": "PRIOR_SHA_BOUND_TRIAGE_REUSED_NO_SEND"}
     _new_atomic(diagnostic_file, report)
