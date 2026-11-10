@@ -127,7 +127,36 @@ def execute_one_review(*,queue_root:Path,folder:Path,
     success=queue_root/_receipt_name(slide,mode)
     require(not success.exists(),"Do not resubmit an already verified source review")
     evidence_file=queue_root/f"slide_{slide:03d}_{mode.lower()}_attempt_{attempt:02d}.json"
-    require(not evidence_file.exists(),"Observed attempt receipt must never be overwritten")
+    live_checkpoint=queue_root/(
+        f"slide_{slide:03d}_{mode.lower()}_attempt_{attempt:02d}_request")
+    if transport is not None and (live_checkpoint/"dispatch_attempted.claim").exists():
+        require(False,"Previously claimed Gemini review cannot use an injected "
+                      "transport; only verify same saved reply without Send")
+    saved_reply_candidate=False
+    if transport is None and (live_checkpoint.exists() or live_checkpoint.is_symlink()):
+        from .academic_review_checkpoint import _load
+        require(live_checkpoint.is_dir() and not live_checkpoint.is_symlink(),
+                "Previous model request window untrusted")
+        saved_state=_load(live_checkpoint)
+        saved_path=live_checkpoint/"model_response_untrusted.txt"
+        saved_reply_candidate=(
+            (saved_state["status"] in {
+                "MODEL_REPLY_OBSERVED_UNVALIDATED",
+                "REJECTED_RESPONSE_UNTRUSTED",
+                "SOURCE_VALIDATED_ONE_PASS_UNAPPROVED",
+            } or (saved_state["status"] in {
+                "SUBMITTED_OR_UNCERTAIN","NO_RESPONSE_UNRESOLVED"}
+                and (live_checkpoint/"model_response_identity.json").is_file()
+                and not (live_checkpoint/"model_response_identity.json").is_symlink()))
+            and saved_path.is_file() and not saved_path.is_symlink())
+    reconciliation_only=evidence_file.exists() and saved_reply_candidate
+    if reconciliation_only:
+        # The old failure is permanent evidence. Write a separate immutable
+        # reconciliation result and NEVER replay the consumed browser claim.
+        evidence_file=queue_root/(
+            f"slide_{slide:03d}_{mode.lower()}_reconciled_after_attempt_{attempt:02d}.json")
+    require(not evidence_file.exists() and not evidence_file.is_symlink(),
+            "Observed attempt/reconciliation receipt must never be overwritten")
     # Fail immediately after previous failures unless caller explicitly elects next attempt.
     for i in range(1,attempt):
         previous=queue_root/f"slide_{slide:03d}_{mode.lower()}_attempt_{i:02d}.json"
@@ -148,8 +177,6 @@ def execute_one_review(*,queue_root:Path,folder:Path,
     # source, queue and permission were otherwise correct. Reuse this
     # per-attempt window and its recorded response; never resend an ambiguous
     # previous browser request, including across process crashes.
-    live_checkpoint = queue_root / (
-        f"slide_{slide:03d}_{mode.lower()}_attempt_{attempt:02d}_request")
     prior=_prior_unattributed_streak(
         queue_root=queue_root,
         slide_jobs=json.loads((queue_root/"queue.json").read_text(encoding="utf8"))["slide_jobs"],
@@ -183,7 +210,7 @@ def execute_one_review(*,queue_root:Path,folder:Path,
         response = None
         if transport is None and live_checkpoint.exists():
             from .academic_review_checkpoint import (
-                _load, fingerprint, validate_saved)
+                _load, fingerprint, validate_saved, recover_claimed_observation)
             checkpoint_state = _load(live_checkpoint)
             prompt = review_instructions(job,mode=mode)
             expected = fingerprint(
@@ -195,6 +222,11 @@ def execute_one_review(*,queue_root:Path,folder:Path,
                 review_mode=mode)
             require(checkpoint_state["request_fingerprint"]==expected,
                     "Old academic review request fingerprint changed; no resend")
+            if (checkpoint_state["status"] in {
+                    "SUBMITTED_OR_UNCERTAIN","NO_RESPONSE_UNRESOLVED"}
+                and (live_checkpoint/"model_response_identity.json").is_file()):
+                checkpoint_state=recover_claimed_observation(
+                    checkpoint=live_checkpoint,expected_fingerprint=expected)
             if checkpoint_state["status"] in {
                 "MODEL_REPLY_OBSERVED_UNVALIDATED",
                 "REJECTED_RESPONSE_UNTRUSTED",
@@ -242,20 +274,25 @@ def execute_one_review(*,queue_root:Path,folder:Path,
             (returned_response or model_failure_before_send)
             and not web_send_claimed)
         # Preserve only a concise bounded type/error description, never private tab text.
-        fail={"status":"FAILED_GEMINI_REVIEW_ATTEMPT_QUARANTINED",
+        fail={"status":("FAILED_SAVED_RESPONSE_RECONCILIATION_NO_SEND"
+                        if saved_reply_candidate else
+                        "FAILED_GEMINI_REVIEW_ATTEMPT_QUARANTINED"),
               "slide":slide,"mode":mode,"attempt":attempt,
               "error_type":type(exc).__name__,"reason":str(exc)[:450],
-              "requires_explicit_next_attempt":True,
+              "requires_explicit_next_attempt":not saved_reply_candidate,
               "provider_submission_state":(
+                  "PRIOR_SAVED_RESPONSE_ONLY" if saved_reply_candidate else
                   "RETURNED_RESPONSE_INVALID" if returned_response else
                   "CONFIRMED_PRE_SUBMISSION_MODEL_SELECTION_FAILURE"
                   if model_failure_before_send else
                   "UNKNOWN_AFTER_POSSIBLE_SUBMISSION"),
-              "manual_retry_eligible":manual_retry_eligible,
+              "manual_retry_eligible":False if saved_reply_candidate else manual_retry_eligible,
               "requires_owner_reconciliation":(
-                  not manual_retry_eligible and not returned_response),
+                  not saved_reply_candidate and not manual_retry_eligible
+                  and not returned_response),
               "requires_new_independent_source_evidence":bool(returned_response),
-              "can_advance_other_unattempted_slides":True,
+              "can_advance_other_unattempted_slides":not saved_reply_candidate,
+              "new_provider_requests":False if saved_reply_candidate else None,
               "academically_approved":False,"student_publication_authorized":False}
         with evidence_file.open("x",encoding="utf8") as f:
             json.dump(fail,f,indent=2);f.write("\n")
@@ -298,6 +335,62 @@ def select_next_safe_review(*,queue_root:Path,folder:Path)->dict:
         if scope["planning_result"]=="EXISTING_PASS_MUST_NOT_BE_REPEATED":
             completed+=1
             continue
+        # A previous failed attempt does not invalidate bytes already saved
+        # by the SAME claimed review request. Reconcile the immutable saved
+        # response before considering another browser Send; never erase its
+        # historical failure receipt or reset its provider claim.
+        saved_claim=queue_root/(
+            f"slide_{slide:03d}_{mode.lower()}_attempt_01_request")
+        if saved_claim.exists() or saved_claim.is_symlink():
+            require(saved_claim.is_dir() and not saved_claim.is_symlink(),
+                    "Previous academic review request window untrusted")
+            prior_state=_load(saved_claim)
+            saved_path=saved_claim/"model_response_untrusted.txt"
+            reconciled=queue_root/(
+                f"slide_{slide:03d}_{mode.lower()}_reconciled_after_attempt_01.json")
+            if reconciled.exists() or reconciled.is_symlink():
+                require(reconciled.is_file() and not reconciled.is_symlink(),
+                        "Saved-response reconciliation record untrusted")
+                reconcile_result=json.loads(reconciled.read_text(encoding="utf8"))
+                # A failed saved-reply reconciliation cannot be bypassed by
+                # shifting to the next slide in a later invocation.
+                require(reconcile_result.get("status") in {
+                    "FAILED_SAVED_RESPONSE_RECONCILIATION_NO_SEND",
+                    "GEMINI_SOURCE_REVIEW_ONE_SLIDE_COMPLETED"},
+                    "Unexpected prior saved-response reconciliation")
+                if reconcile_result["status"]=="FAILED_SAVED_RESPONSE_RECONCILIATION_NO_SEND":
+                    return {
+                        "status":"DEFERRED_SAVED_REPLY_RECONCILIATION_FAILED",
+                        "next_slide":None,"next_mode":None,
+                        "failed_reconciliation_slide":slide,
+                        "resume_condition":"NEW_INDEPENDENT_SOURCE_EVIDENCE",
+                        "new_model_requests":False,
+                        "automatic_retry_authorized":False,
+                        "student_publication_authorized":False,
+                    }
+                blocked.append({"slide":slide,"mode":mode,
+                                "reason":"PRIOR_SAVED_REPLY_RECONCILIATION_ALREADY_ATTEMPTED"})
+                continue
+            if (prior_state["status"] in {
+                "MODEL_REPLY_OBSERVED_UNVALIDATED",
+                "REJECTED_RESPONSE_UNTRUSTED",
+                "SOURCE_VALIDATED_ONE_PASS_UNAPPROVED",
+            } or (prior_state["status"] in {
+                "SUBMITTED_OR_UNCERTAIN","NO_RESPONSE_UNRESOLVED"}
+                and (saved_claim/"model_response_identity.json").is_file()
+                and not (saved_claim/"model_response_identity.json").is_symlink())
+            ) and saved_path.is_file() and not saved_path.is_symlink():
+                return {
+                    "status":"ONE_SAFE_ACADEMIC_REVIEW_UNIT_READY",
+                    "next_slide":slide,"next_mode":mode,"attempt":1,
+                    "action":"RECONCILE_PRIOR_RESPONSE_NO_SEND",
+                    "previously_completed_slides":completed,
+                    "blocked_other_slides":blocked,
+                    "new_model_requests":False,
+                    "per_slide_approval_required":False,
+                    "automatic_retry_authorized":False,
+                    "student_publication_authorized":False,
+                }
         if not scope["fresh_claimed_internal_selenium_review_ready"]:
             blocked.append({"slide":slide,"mode":mode,
                             "reason":scope["planning_result"]})

@@ -132,6 +132,7 @@ def main(argv=None):
     # just because the caller did not opt into --auto-batch.
     if (args.auto_next and args.execute_gemini_web and
         result["status"] in {"DEFERRED_REPEATED_UNATTRIBUTED_BROWSER_SEND",
+                             "DEFERRED_SAVED_REPLY_RECONCILIATION_FAILED",
                              "NO_SAFE_REVIEW_UNIT_REMAINING"}):
         return 2
     return 0

@@ -15,6 +15,7 @@ from pathlib import Path
 
 STATE_NAME="request_state.json"
 CLAIM_NAME="dispatch_attempted.claim"
+RESPONSE_EVIDENCE_NAME="model_response_identity.json"
 VALID_STATES={"PREPARED_NOT_SENT","SUBMITTED_OR_UNCERTAIN",
               "NO_RESPONSE_UNRESOLVED","MODEL_REPLY_OBSERVED_UNVALIDATED",
               "SOURCE_VALIDATED_ONE_PASS_UNAPPROVED","REJECTED_RESPONSE_UNTRUSTED",
@@ -190,6 +191,24 @@ def record_observation(checkpoint:Path,*,raw:str,
     data=raw.encode("utf8")
     with (root/"model_response_untrusted.txt").open("xb") as f:
         f.write(data);f.flush();os.fsync(f.fileno())
+    if raw.strip():
+        # Durable identity goes to disk BEFORE advancing request_state. If
+        # Windows terminates the process in this gap, the normal queue can
+        # reconstruct the exact saved reply WITHOUT another Gemini Send.
+        # This never constitutes academic approval or browser re-attribution.
+        _write_new(root/RESPONSE_EVIDENCE_NAME,{
+            "schema_version":1,
+            "kind":"SAVED_POST_CLAIM_MODEL_REPLY_V1",
+            "request_fingerprint":expected_fingerprint,
+            "source_sha256":state["source_sha256"],
+            "slides_sha256":state["slides_sha256"],
+            "script_sha256":state["script_sha256"],
+            "prompt_sha256":state["prompt_sha256"],
+            "review_mode":state["review_mode"],
+            "response_sha256":_sha(data),
+            "response_length_chars":len(raw),
+            "approved":False,"new_model_requests":False,
+        })
     state.update(status=("MODEL_REPLY_OBSERVED_UNVALIDATED" if raw.strip()
                          else "NO_RESPONSE_UNRESOLVED"),
                  response_sha256=_sha(data),
@@ -197,6 +216,53 @@ def record_observation(checkpoint:Path,*,raw:str,
                  can_auto_retry=False)
     _update(root/STATE_NAME,state)
     return state
+
+def recover_claimed_observation(*,checkpoint:Path,
+                                expected_fingerprint:str)->dict:
+    """Recover only the SAME already-durable, SHA-bound model text, no Send.
+
+    The identity receipt is written by record_observation after a claimed
+    request and before its final state transition. A missing receipt or text
+    is not evidence of a model answer and cannot be synthesized/retried.
+    """
+    root=Path(checkpoint).absolute()
+    state=_load(root)
+    _require(state["request_fingerprint"]==expected_fingerprint
+             and state["status"] in {"SUBMITTED_OR_UNCERTAIN",
+                                      "NO_RESPONSE_UNRESOLVED"}
+             and (root/CLAIM_NAME).is_file()
+             and not (root/CLAIM_NAME).is_symlink(),
+             "No eligible claimed model reply to reconcile")
+    identity_path=root/RESPONSE_EVIDENCE_NAME
+    raw_path=root/"model_response_untrusted.txt"
+    _require(identity_path.is_file() and not identity_path.is_symlink()
+             and raw_path.is_file() and not raw_path.is_symlink()
+             and raw_path.stat().st_size<=MAX_RAW*4,
+             "No original checkpoint-owned model response bytes")
+    evidence=json.loads(identity_path.read_text(encoding="utf8"))
+    _require(type(evidence) is dict
+             and evidence.get("schema_version")==1
+             and evidence.get("kind")=="SAVED_POST_CLAIM_MODEL_REPLY_V1"
+             and evidence.get("request_fingerprint")==expected_fingerprint
+             and evidence.get("approved") is False
+             and evidence.get("new_model_requests") is False
+             and all(evidence.get(key)==state.get(key) for key in (
+                 "source_sha256","slides_sha256","script_sha256",
+                 "prompt_sha256","review_mode")),
+             "Saved model response provenance does not match claim")
+    raw=raw_path.read_text(encoding="utf8")
+    data=raw.encode("utf8")
+    _require(bool(raw.strip()) and len(raw)<=MAX_RAW
+             and evidence.get("response_sha256")==_sha(data)
+             and type(evidence.get("response_length_chars")) is int
+             and evidence["response_length_chars"]==len(raw),
+             "Saved model response changed or incomplete")
+    state.update(status="MODEL_REPLY_OBSERVED_UNVALIDATED",
+                 response_sha256=_sha(data),
+                 response_length_chars=len(raw),can_auto_retry=False)
+    _update(root/STATE_NAME,state)
+    return state
+
 
 def validate_saved(*,checkpoint:Path,expected_fingerprint:str,validator)->dict:
     root=Path(checkpoint).absolute()
@@ -241,6 +307,15 @@ def submit_once(*,checkpoint:Path,original_folder:Path,
                   review_mode=review_mode,
                   revised_text_hashes=revised_text_hashes)
     digest=state["request_fingerprint"]
+    if (state["status"] in {"SUBMITTED_OR_UNCERTAIN",
+                            "NO_RESPONSE_UNRESOLVED"}
+        and (Path(checkpoint)/RESPONSE_EVIDENCE_NAME).is_file()):
+        # A process may have crashed after persisting the exact reply but
+        # before recording the final state. Re-enter as a NO-SEND validation.
+        recover_claimed_observation(checkpoint=checkpoint,
+                                    expected_fingerprint=digest)
+        return validate_saved(checkpoint=checkpoint,
+                              expected_fingerprint=digest,validator=validator)
     mark_submission_maybe(checkpoint,expected_fingerprint=digest)
     try:
         raw=transport(request_text,

@@ -106,6 +106,124 @@ class AutomaticSourceBoundReviewQueue(unittest.TestCase):
         self.assertFalse(report["academic_consensus_or_TTS_approved"])
         self.assertFalse(report["student_publication_authorized"])
 
+    def _seed_crashed_claimed_reply_with_old_failure(self):
+        job=build_review_job(folder=self.folder,slide_numbers=[1])
+        prompt=review_instructions(job,mode="INITIAL_REVIEW")
+        checkpoint=self.queue/"slide_001_initial_review_attempt_01_request"
+        hashes={name:job[key] for name,key in (
+            ("source.pdf","source_sha256"),("slides.pdf","slides_sha256"),
+            ("script.txt","script_sha256"))}
+        pre=prepare(checkpoint=checkpoint,original_folder=self.folder,
+                    request_text=prompt,source_hashes=hashes,
+                    review_mode="INITIAL_REVIEW")
+        mark_submission_maybe(
+            checkpoint,expected_fingerprint=pre["request_fingerprint"])
+        raw=self.fake_response(prompt,[])
+        record_observation(checkpoint,raw=raw,
+                           expected_fingerprint=pre["request_fingerprint"])
+        failure=self.queue/"slide_001_initial_review_attempt_01.json"
+        failure.write_text(json.dumps({
+            "status":"FAILED_GEMINI_REVIEW_ATTEMPT_QUARANTINED",
+            "slide":1,"mode":"INITIAL_REVIEW","attempt":1,
+            "provider_submission_state":"UNKNOWN_AFTER_POSSIBLE_SUBMISSION",
+            "manual_retry_eligible":False}),encoding="utf8")
+        return checkpoint,failure,raw
+
+    def test_normal_queue_recovers_saved_owned_reply_after_prior_failure_without_send(self):
+        checkpoint,failed,raw=self._seed_crashed_claimed_reply_with_old_failure()
+        previous_failure=failed.read_bytes()
+        previous_source=self.source_before.copy()
+        selected=select_next_safe_review(queue_root=self.queue,folder=self.folder)
+        self.assertEqual(selected["action"],"RECONCILE_PRIOR_RESPONSE_NO_SEND")
+        self.assertEqual(selected["next_slide"],1)
+        from selenium_pipeline import ai_academic_review_queue as module
+        with patch.object(module,"run_web_review",
+                          side_effect=AssertionError("must never send again")):
+            out=advance_one_safe_review(
+                queue_root=self.queue,folder=self.folder,execute=True)
+        self.assertEqual(out["review"]["status"],
+                         "GEMINI_SOURCE_REVIEW_ONE_SLIDE_COMPLETED")
+        self.assertEqual(out["selection"]["action"],
+                         "RECONCILE_PRIOR_RESPONSE_NO_SEND")
+        self.assertEqual(self.sent,[1])  # Only fake generation before saving.
+        self.assertEqual(failed.read_bytes(),previous_failure)
+        self.assertEqual(
+            (checkpoint/"model_response_untrusted.txt").read_text(),raw)
+        self.assertTrue((self.queue/"slide_001_initial_review.json").is_file())
+        self.assertTrue((self.queue/
+            "slide_001_initial_review_reconciled_after_attempt_01.json").is_file())
+        self.assertEqual(previous_source,self.source_before)
+        self.assertEqual(self.source_before,{
+            p.name:p.read_bytes() for p in self.folder.iterdir() if p.is_file()})
+        next_plan=select_next_safe_review(queue_root=self.queue,folder=self.folder)
+        self.assertEqual(next_plan["next_mode"],"INDEPENDENT_CHALLENGE")
+
+    def test_existing_claim_never_reenters_through_injected_transport(self):
+        checkpoint,failed,raw=self._seed_crashed_claimed_reply_with_old_failure()
+        before=failed.read_bytes()
+        requests=[]
+        with self.assertRaises(FigureIdentityReviewRequired):
+            execute_one_review(queue_root=self.queue,folder=self.folder,
+                               slide=1,mode="INITIAL_REVIEW",attempt=1,
+                               transport=lambda *_:requests.append(1))
+        self.assertEqual(requests,[])
+        self.assertEqual(failed.read_bytes(),before)
+        self.assertEqual(
+            (checkpoint/"model_response_untrusted.txt").read_text(),raw)
+
+    def test_normal_queue_recovers_post_capture_checkpoint_crash_no_send(self):
+        checkpoint,failed,raw=self._seed_crashed_claimed_reply_with_old_failure()
+        before=failed.read_bytes()
+        state_path=checkpoint/"request_state.json"
+        state=json.loads(state_path.read_text())
+        state["status"]="SUBMITTED_OR_UNCERTAIN"
+        state.pop("response_sha256",None)
+        state.pop("response_length_chars",None)
+        state_path.write_text(json.dumps(state),encoding="utf8")
+        selected=select_next_safe_review(queue_root=self.queue,folder=self.folder)
+        self.assertEqual(selected["action"],"RECONCILE_PRIOR_RESPONSE_NO_SEND")
+        from selenium_pipeline import ai_academic_review_queue as module
+        with patch.object(module,"run_web_review",
+                          side_effect=AssertionError("must not resend")):
+            report=advance_one_safe_review(
+                queue_root=self.queue,folder=self.folder,execute=True)
+        self.assertEqual(report["review"]["status"],
+                         "GEMINI_SOURCE_REVIEW_ONE_SLIDE_COMPLETED")
+        self.assertEqual(failed.read_bytes(),before)
+        self.assertEqual(self.sent,[1])
+        self.assertEqual(
+            json.loads(state_path.read_text())["status"],
+            "SOURCE_VALIDATED_ONE_PASS_UNAPPROVED")
+        self.assertTrue((self.queue/"slide_001_initial_review.json").is_file())
+        self.assertEqual((checkpoint/"model_response_untrusted.txt").read_text(),raw)
+
+    def test_saved_reply_tamper_stops_auto_reconcile_without_new_send(self):
+        checkpoint,failed,raw=self._seed_crashed_claimed_reply_with_old_failure()
+        old_failure=failed.read_bytes()
+        (checkpoint/"model_response_untrusted.txt").write_text(
+            raw+"TAMPERED",encoding="utf8")
+        selected=select_next_safe_review(queue_root=self.queue,folder=self.folder)
+        self.assertEqual(selected["action"],"RECONCILE_PRIOR_RESPONSE_NO_SEND")
+        from selenium_pipeline import ai_academic_review_queue as module
+        with patch.object(module,"run_web_review",
+                          side_effect=AssertionError("must never send again")):
+            out=advance_bounded_safe_reviews(
+                queue_root=self.queue,folder=self.folder,
+                max_units=3,execute=True)
+        self.assertEqual(out["status"],"BOUNDED_REVIEW_STOPPED_AFTER_UNACCEPTED_UNIT")
+        self.assertEqual(out["stop_evidence"]["review"]["status"],
+                         "FAILED_SAVED_RESPONSE_RECONCILIATION_NO_SEND")
+        self.assertFalse(out["stop_evidence"]["review"]["new_provider_requests"])
+        self.assertEqual(self.sent,[1])
+        self.assertFalse((self.queue/"slide_001_initial_review.json").exists())
+        self.assertEqual(failed.read_bytes(),old_failure)
+        self.assertTrue((self.queue/
+            "slide_001_initial_review_reconciled_after_attempt_01.json").is_file())
+        next_plan=select_next_safe_review(queue_root=self.queue,folder=self.folder)
+        self.assertEqual(next_plan["status"],
+                         "DEFERRED_SAVED_REPLY_RECONCILIATION_FAILED")
+        self.assertFalse(next_plan["new_model_requests"])
+
     def test_bounded_batch_autonomously_advances_three_source_verified_units(self):
         report=advance_bounded_safe_reviews(
             queue_root=self.queue,folder=self.folder,max_units=3,

@@ -85,6 +85,55 @@ class OnceOnlyAcademicReview(unittest.TestCase):
             submit_once(**self.kw,transport=transport,validator=self.validate)
         self.assertEqual(calls,[1])
 
+    def _simulate_crash_after_saved_identity_before_state_update(self):
+        prepare(**self.kw)
+        mark_submission_maybe(self.window,expected_fingerprint=self.fp)
+        record_observation(self.window,raw='{"rows":[1]}',
+                           expected_fingerprint=self.fp)
+        state_path=self.window/"request_state.json"
+        state=json.loads(state_path.read_text())
+        state["status"]="SUBMITTED_OR_UNCERTAIN"
+        state.pop("response_sha256",None)
+        state.pop("response_length_chars",None)
+        state_path.write_text(json.dumps(state),encoding="utf8")
+        self.assertTrue((self.window/"model_response_identity.json").is_file())
+
+    def test_crashed_post_response_state_recovers_on_normal_submit_without_send(self):
+        self._simulate_crash_after_saved_identity_before_state_update()
+        calls=[]
+        def must_not_send(*_):
+            calls.append(1)
+            raise AssertionError("claimed review must not be resubmitted")
+        result=submit_once(**self.kw,transport=must_not_send,
+                           validator=self.validate)
+        self.assertEqual(result,self.accepted)
+        self.assertEqual(calls,[])
+        state=json.loads((self.window/"request_state.json").read_text())
+        self.assertEqual(state["status"],"SOURCE_VALIDATED_ONE_PASS_UNAPPROVED")
+        self.assertEqual(state["response_sha256"],
+                         hashlib.sha256(b'{"rows":[1]}').hexdigest())
+        self.assertTrue((self.window/"dispatch_attempted.claim").is_file())
+        with self.assertRaises(ReviewCheckpointError):
+            submit_once(**self.kw,transport=must_not_send,
+                        validator=self.validate)
+        self.assertEqual(calls,[])
+
+    def test_crashed_response_identity_tamper_blocks_recovery_and_send(self):
+        self._simulate_crash_after_saved_identity_before_state_update()
+        path=self.window/"model_response_identity.json"
+        identity=json.loads(path.read_text())
+        identity["response_sha256"]="0"*64
+        path.write_text(json.dumps(identity),encoding="utf8")
+        calls=[]
+        with self.assertRaises(ReviewCheckpointError):
+            submit_once(**self.kw,
+                        transport=lambda *_:calls.append(1),
+                        validator=self.validate)
+        self.assertEqual(calls,[])
+        state=json.loads((self.window/"request_state.json").read_text())
+        self.assertEqual(state["status"],"SUBMITTED_OR_UNCERTAIN")
+        self.assertFalse(state["academic_approval"])
+
     def test_owned_subclass_still_obeys_original_raw_size_limit(self):
         from selenium_pipeline.series_gemini import OwnedGeminiResponse
         from selenium_pipeline.academic_review_checkpoint import MAX_RAW
