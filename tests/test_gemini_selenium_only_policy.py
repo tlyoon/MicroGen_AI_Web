@@ -141,6 +141,66 @@ class GeminiSeleniumOnlyPolicyTests(unittest.TestCase):
             self.assertTrue(client.click_send_with_fallbacks(retries=3))
         self.assertEqual(button.calls, 1)
 
+    def test_vendored_shared_send_emits_actual_registration_proof(self):
+        from contextlib import redirect_stdout
+        from unittest.mock import patch
+        from selenium_pipeline.series_gemini import _vendor_module
+        import os
+
+        vendor = _vendor_module()
+        cases = (
+            ("NEW_USER_TURN_AND_COMPOSER_CLEARED", "new-user-turn"),
+            ("NEW_MODEL_RESPONSE_AND_COMPOSER_CLEARED", "new-model-response"),
+            ("NEW_CONVERSATION_ROUTE_AND_COMPOSER_CLEARED", "new-conversation-route"),
+        )
+        for status, marker in cases:
+            with self.subTest(status=status):
+                button = MockButton()
+                driver = MockDriver([button])
+                client = vendor.GeminiSeleniumClient.__new__(
+                    vendor.GeminiSeleniumClient)
+                client.driver = driver
+                client._automation_tab = "gemini-owned"
+                output = io.StringIO()
+                with (patch.dict(os.environ, {"MICROGEN_SINGLE_PROVIDER_SEND": "1"}),
+                      patch("selenium_pipeline.gemini_selenium_only_policy.owned_gemini_send_baseline",
+                            return_value={"users": 0, "models": 0, "editor_length": 70, "route": "/app"}) as baseline,
+                      patch("selenium_pipeline.gemini_selenium_only_policy.observe_gemini_send_registration",
+                            return_value={"status": status, "registered": True}) as observer,
+                      redirect_stdout(output)):
+                    self.assertTrue(client.click_send_with_fallbacks(retries=3))
+                self.assertEqual(button.calls, 1)
+                baseline.assert_called_once_with(driver, "gemini-owned")
+                self.assertEqual(observer.call_count, 1)
+                self.assertIn(
+                    "Gemini submission registered via " + marker +
+                    "+composer-cleared.", output.getvalue())
+
+    def test_vendored_missing_registration_never_fakes_proof_or_resends(self):
+        from contextlib import redirect_stdout
+        from unittest.mock import patch
+        from selenium_pipeline.series_gemini import _vendor_module
+        import os
+        button = MockButton()
+        driver = MockDriver([button])
+        vendor = _vendor_module()
+        client = vendor.GeminiSeleniumClient.__new__(vendor.GeminiSeleniumClient)
+        client.driver = driver
+        client._automation_tab = "gemini-owned"
+        output = io.StringIO()
+        with (patch.dict(os.environ, {"MICROGEN_SINGLE_PROVIDER_SEND": "1"}),
+              patch("selenium_pipeline.gemini_selenium_only_policy.owned_gemini_send_baseline",
+                    return_value={"users": 0, "models": 0, "editor_length": 70, "route": "/app"}),
+              patch("selenium_pipeline.gemini_selenium_only_policy.observe_gemini_send_registration",
+                    return_value={"status": "NO_POSITIVE_NEW_USER_TURN_AFTER_CLICK",
+                                  "registered": False}) as observer,
+              redirect_stdout(output)):
+            self.assertTrue(client.click_send_with_fallbacks(retries=3))
+        self.assertEqual(button.calls, 1)
+        observer.assert_called_once()
+        self.assertNotIn("Gemini submission registered via ", output.getvalue())
+        self.assertIn("possible Send remains uncertain", output.getvalue())
+
     def test_runner_refuses_explicit_non_selenium_generation_modes(self):
         from selenium_pipeline import runner
         import os

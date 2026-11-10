@@ -316,6 +316,24 @@ class GeminiStageTransportTriageTests(unittest.TestCase):
         self.assertFalse(r["original_submission_resend_authorized"])
 
 
+    def test_shared_vendor_registration_proofs_are_detected_across_stages(self):
+        from selenium_pipeline.windows_gemini_provider_halt import _SEND_PROOF
+        for stage in ("figures", "slides", "narration"):
+            for kind in ("new-user-turn", "new-model-response",
+                         "new-conversation-route"):
+                line = ("[2026-11-10 20:44:01] [INFO] "
+                        "Gemini submission registered via " + kind +
+                        "+composer-cleared.\n")
+                with self.subTest(stage=stage, kind=kind):
+                    self.assertIsNotNone(_SEND_PROOF.search(line))
+        for fake in (
+            "[2026-11-10 20:44:01] [INFO] [SEND-VERIFY] click returned True.\n",
+            "[2026-11-10 20:44:01] [WARN] no confirmed Gemini submission.\n",
+            "[2026-11-10 20:44:01] [INFO] prompt: Gemini submission registered "
+            "via new-user-turn+composer-cleared.\n",
+        ):
+            self.assertIsNone(_SEND_PROOF.search(fake))
+
     def test_current_vendor_registered_send_timing_is_shared_across_stages(self):
         # Real Dell-115 G2 figures 7.2 emitted this exact line structure.
         for stage in ("figures", "slides", "narration"):

@@ -1720,9 +1720,44 @@ class GeminiSeleniumClient:
             # first click. Preserve old legacy helper only for non-production
             # compatibility; the real runner sets this policy unconditionally.
             from selenium_pipeline.gemini_selenium_only_policy import (
-                click_one_owned_gemini_send)
-            return click_one_owned_gemini_send(
-                self.driver,getattr(self,"_automation_tab",None))
+                click_one_owned_gemini_send,
+                owned_gemini_send_baseline,
+                observe_gemini_send_registration,
+            )
+            owned = getattr(self, "_automation_tab", None)
+            # Shared evidence path for figures, slides and narration. A Send
+            # click is NOT proof of registration. Capture a prompt-free
+            # baseline, click at most once, then inspect only the owned tab.
+            # Never resubmit even if the click's exception is ambiguous.
+            baseline = None
+            try:
+                baseline = owned_gemini_send_baseline(self.driver, owned)
+            except Exception:
+                log("[SEND-VERIFY] owned-tab baseline unavailable; "
+                    "registration unverified; never resend this claim.", "WARN")
+            clicked = click_one_owned_gemini_send(self.driver, owned)
+            observed = {"registered": False, "status": "NO_BASELINE"}
+            if baseline is not None:
+                try:
+                    observed = observe_gemini_send_registration(
+                        self.driver, owned, baseline)
+                except Exception:
+                    observed = {"registered": False,
+                                "status": "OBSERVATION_UNAVAILABLE"}
+            if observed.get("registered") is True:
+                mapping = {
+                    "NEW_USER_TURN_AND_COMPOSER_CLEARED": "new-user-turn",
+                    "NEW_MODEL_RESPONSE_AND_COMPOSER_CLEARED": "new-model-response",
+                    "NEW_CONVERSATION_ROUTE_AND_COMPOSER_CLEARED": "new-conversation-route",
+                }
+                kind = mapping.get(observed.get("status"))
+                if kind:
+                    log(f"Gemini submission registered via {kind}"
+                        "+composer-cleared.", "INFO")
+            else:
+                log("[SEND-VERIFY] no independently verified new Gemini "
+                    "turn; possible Send remains uncertain. NO resend.", "WARN")
+            return bool(clicked or observed.get("registered") is True)
         if self._hidden_send_button_preflight():
             log(
                 "[SEND-VERIFY] Gemini editor contains text but every exact "
