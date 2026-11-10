@@ -14,12 +14,23 @@ from pathlib import Path
 import secrets
 
 MAX_CAPTURE_CHARS = 1_800_000
+# Zenbook v2's answer was found in the same tab after the 115 s diagnostic
+# stopped (exact answer-arrival time unknown). This finite read-only grace
+# gives the normal caller a chance to recover without a second Send.
+MAX_LATE_OWNED_OBSERVATION_SECONDS = 180
 
 _LATEST_MODEL_ONLY = """
 const visible = e => !!(e && (e.offsetWidth || e.offsetHeight || e.getClientRects().length));
 const response = [...document.querySelectorAll('model-response')].filter(visible);
 const element = response.length ? response[response.length - 1] : null;
-const text = element ? (element.innerText || element.textContent || '') : '';
+// Gemini's outer model-response may prepend a decorative 'Gemini said'
+// header. Prefer the latest MODEL-OWNED visible answer subtree. Never read
+// the global .markdown selector (it could belong to the user prompt).
+const answer = element ? [
+  ...element.querySelectorAll('message-content .markdown, .model-response-text .markdown, .markdown')
+].filter(visible) : [];
+const target = answer.length ? answer[answer.length - 1] : element;
+const text = target ? (target.innerText || target.textContent || '') : '';
 const generating = [...document.querySelectorAll('button')].some(
     b => visible(b) && /stop/i.test((b.getAttribute('aria-label') || ''))
 );
@@ -27,7 +38,8 @@ return {text: String(text).slice(0, 1800000), generating: generating};
 """
 
 
-def latest_owned_response(driver, owned_handle: str | None) -> dict:
+def latest_owned_response(driver, owned_handle: str | None, *,
+                          expected_url: str | None = None) -> dict:
     """Get latest model reply only, provided the browser owns this tab.
 
     If the owned handle is unknown, navigation changed, or DOM inspection fails,
@@ -39,7 +51,12 @@ def latest_owned_response(driver, owned_handle: str | None) -> dict:
     try:
         if driver.current_window_handle != owned_handle:
             return empty
-        if not str(driver.current_url).startswith("https://gemini.google.com/"):
+        url = str(driver.current_url)
+        if not url.startswith("https://gemini.google.com/"):
+            return empty
+        # A longer late-recovery window must never accept an answer from a
+        # different conversation opened in the same Chrome tab.
+        if expected_url is not None and url.split("?", 1)[0].split("#", 1)[0] != expected_url:
             return empty
         result = driver.execute_script(_LATEST_MODEL_ONLY)
         if not isinstance(result, dict):
@@ -58,7 +75,7 @@ def latest_owned_response(driver, owned_handle: str | None) -> dict:
 
 def response_snapshot_with_scoped_copy(
     driver, owned_handle: str | None, *, copy_response=None,
-    accept_fn=None,
+    accept_fn=None, expected_url: str | None = None,
 ) -> dict:
     """Prefer the longer vendor-verified response over a short DOM placeholder.
 
@@ -66,17 +83,31 @@ def response_snapshot_with_scoped_copy(
     validates response attribution. Never use a general clipboard paste
     or scan arbitrary page text.
     """
-    snapshot = latest_owned_response(driver, owned_handle)
+    snapshot = latest_owned_response(driver, owned_handle,
+                                     expected_url=expected_url)
     if not owned_handle:
         return snapshot
     try:
         # Refuse Copy if user navigated away or our owned tab changed.
         if driver.current_window_handle != owned_handle:
             return snapshot
-        if not str(driver.current_url).startswith("https://gemini.google.com/"):
+        url = str(driver.current_url)
+        if not url.startswith("https://gemini.google.com/"):
+            return snapshot
+        if expected_url is not None and url.split("?", 1)[0].split("#", 1)[0] != expected_url:
             return snapshot
     except Exception:
         return snapshot
+    if snapshot.get("capture_status") == "unavailable":
+        return snapshot
+    # When the answer subtree is already schema-valid, a longer toolbar
+    # copy that includes UI chrome (e.g. 'Gemini said') must not replace it.
+    try:
+        if (callable(accept_fn) and snapshot["text"].strip()
+                and accept_fn(snapshot["text"])):
+            return snapshot
+    except (ValueError, TypeError):
+        pass
     if len(snapshot["text"].strip()) >= 120 or not callable(copy_response):
         return snapshot
     try:
@@ -118,7 +149,7 @@ def poll_existing_owned_response(
     """
     import time
     if (not callable(read_snapshot) or not callable(accept_fn)
-            or not isinstance(wait_s, (int, float)) or not 1 <= wait_s <= 90
+            or not isinstance(wait_s, (int, float)) or not 1 <= wait_s <= MAX_LATE_OWNED_OBSERVATION_SECONDS
             or not isinstance(poll_s, (int, float)) or not 0 < poll_s <= 10):
         raise ValueError("Bounded owned-response observation required")
     clock = clock or time.monotonic

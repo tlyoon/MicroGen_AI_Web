@@ -148,11 +148,29 @@ def _browser_request(instruction: str,attachments: list[Path],
                 )
             except (TimeoutError, RuntimeError) as exc:
                 capture_error = exc
-            if not response:
+            # Vendor Copy can include an outer UI header or an unfinished
+            # placeholder even when nonempty. Only validated model-owned
+            # JSON may bypass the shared late-response reconciliation.
+            try:
+                vendor_valid = bool(response and (accept_fn or _looks_complete)(response))
+            except (ValueError, TypeError):
+                vendor_valid = False
+            if not vendor_valid:
                 from .gemini_response_recovery import (
                     latest_owned_response, response_snapshot_with_scoped_copy,
                     quarantine_snapshot, poll_existing_owned_response,
                 )
+                # Anchor an independently verified conversation route when
+                # available. A late reply from another chat in this same tab
+                # must not be attributed to the submitted request.
+                expected_url = None
+                try:
+                    observed_url = str(client.driver.current_url)
+                    if (registration["registered"] and observed_url.startswith(
+                            "https://gemini.google.com/app/")):
+                        expected_url = observed_url.split("?", 1)[0].split("#", 1)[0]
+                except Exception:
+                    pass
                 # This vendor helper verifies the Copy button belongs
                 # to the latest MODEL response, not a user prompt.
                 # Never use unrestricted clipboard or another Chrome tab.
@@ -163,6 +181,7 @@ def _browser_request(instruction: str,attachments: list[Path],
                     client.driver, getattr(client, "_automation_tab", None),
                     copy_response=verified_copy,
                     accept_fn=(accept_fn or _looks_complete),
+                    expected_url=expected_url,
                 )
                 # The strict capture may fail while the same Gemini tab is
                 # STILL generating. Observe only that owned tab for a bounded
@@ -171,22 +190,35 @@ def _browser_request(instruction: str,attachments: list[Path],
                 if snapshot.get("capture_status") != "unavailable":
                     owned = getattr(client, "_automation_tab", None)
                     def observe_owned_reply():
-                        current = latest_owned_response(client.driver, owned)
+                        current = latest_owned_response(
+                            client.driver, owned, expected_url=expected_url)
                         if (not current.get("generating") and
                                 current.get("capture_status") != "unavailable"):
                             return response_snapshot_with_scoped_copy(
                                 client.driver, owned, copy_response=verified_copy,
-                                accept_fn=(accept_fn or _looks_complete))
+                                accept_fn=(accept_fn or _looks_complete),
+                                expected_url=expected_url)
                         return current
                     # Real original 8.4 diagnostic preserved the short
                     # non-generating "Gemini said" placeholder after 149 s.
                     # Give this owned tab a *short* no-resend observation
                     # window even when no Stop button is visible. Continuing
                     # generation retains the longer existing 45 s grace.
+                    from .gemini_response_recovery import (
+                        MAX_LATE_OWNED_OBSERVATION_SECONDS,
+                    )
+                    # A verified new user turn may finish considerably after
+                    # the old 45-second grace. Read ONLY this owned tab for a
+                    # finite late-response window, without any second Send.
+                    # Unverified submissions retain their old short window.
+                    grace = (
+                        MAX_LATE_OWNED_OBSERVATION_SECONDS
+                        if registration["registered"] and snapshot.get("generating")
+                        else 45 if snapshot.get("generating") else 12
+                    )
                     recovered, snapshot = poll_existing_owned_response(
                         observe_owned_reply, accept_fn=(accept_fn or _looks_complete),
-                        wait_s=(45 if snapshot.get("generating") else 12),
-                        poll_s=2)
+                        wait_s=grace, poll_s=2)
                     if recovered is not None:
                         if not registration["registered"]:
                             raise SeriesBridgeError(

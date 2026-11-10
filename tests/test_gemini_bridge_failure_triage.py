@@ -17,6 +17,7 @@ class GeminiBridgeStageTriage(unittest.TestCase):
             "Could not submit Gemini storyboard instruction": "OWNED_SEND_NOT_CONFIRMED",
             "No stable complete Gemini JSON; untrusted response quarantined at PRIVATE": "OWNED_RESPONSE_UNVERIFIED_QUARANTINED",
             "Gemini new user turn was independently registered but it stalled": "REGISTERED_SEND_GENERATION_STALLED_ZERO_MODEL_TEXT",
+            "Gemini browser returned a visible owned-model UI error AFTER a verified new user turn": "OWNED_GEMINI_UI_ERROR_AFTER_VERIFIED_NEW_USER_TURN",
             "Gemini JSON capture failed and recovery quarantine could not be written": "OWNED_CAPTURE_EVIDENCE_WRITE_FAILED",
             "Vendored Gemini Selenium client unavailable": "LOCAL_BROWSER_CLIENT_UNAVAILABLE",
             "Bad chrome session PRIVATE": "BRIDGE_STAGE_UNDETERMINED",

@@ -18,7 +18,10 @@ def classify_owned_gemini_failure(error: BaseException) -> dict:
         elif detail.startswith("Gemini owned tab displayed a model UI error, but"):
             stage = "OWNED_GEMINI_ERROR_WITHOUT_NEW_USER_TURN_PROOF"
         elif detail.startswith("Gemini browser returned a visible owned-model UI error"):
-            stage = "OWNED_GEMINI_UI_ERROR_AFTER_VERIFIED_NEW_USER_TURN"
+            stage = (
+                "OWNED_GEMINI_UI_ERROR_AFTER_VERIFIED_NEW_USER_TURN"
+                if "AFTER a verified new user turn" in detail else
+                "OWNED_GEMINI_UI_TERMINAL_ERROR_TEXT_NOT_API_PROOF")
         elif detail.startswith("Gemini reply text was captured without"):
             stage = "REPLY_UNTRUSTED_NO_NEW_USER_TURN_PROOF"
         elif detail.startswith("Gemini response present but NEW user turn"):
