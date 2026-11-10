@@ -112,6 +112,78 @@ class GeminiStageTransportTriageTests(unittest.TestCase):
         self.assertFalse(report["automatic_resubmission_authorized"])
         self.assertEqual(report["model_requests_during_diagnosis"], 0)
 
+    def duplicate_geometry_log(self):
+        return (
+            "[2026-11-11 00:02:35] [INFO] Gemini submission registered via "
+            "new-user-turn+composer-cleared.\n"
+            "[2026-11-11 00:02:47] [INFO] [PARSE] page_2.png: "
+            "parsed 3 mapping line(s); expected 3; explicit_error=False.\n"
+            "[2026-11-11 00:02:47] [ERR] [FIGURE REVIEW] "
+            "Unsafe multipart mapping for page_2.png: private path\n"
+            "[2026-11-11 00:02:47] [ERR] [ERROR] Failed to process page 2: "
+            "Figure composite review required: "
+            "ambiguous_duplicate_target_no_layout_provenance\n"
+            "[microgen-supervisor] OWNED_STAGE_EXIT_CODE=1 NO_AUTOMATIC_RESUBMISSION\n"
+        )
+
+    def test_duplicate_target_geometry_is_not_a_gemini_transport_failure(self):
+        p = self.begun()
+        self.finish(p, "FIGURES_ATTEMPT_FAILED_NO_AUTO_RETRY")
+        self.log(self.duplicate_geometry_log())
+        before = sorted(self.trial.iterdir())
+        report = diagnose(trial_dir=self.trial)
+        self.assertEqual(
+            report["status"],
+            "SOURCE_FIGURE_DUPLICATE_TARGET_GEOMETRY_REQUIRED_NO_RESEND")
+        self.assertTrue(report["owned_browser_send_registered"])
+        self.assertTrue(report["figure_composite_local_gate_observed"])
+        self.assertEqual(report["source_figure_geometry_blocker"],
+                         "DUPLICATE_TARGET_WITHOUT_SOURCE_LAYOUT")
+        self.assertEqual(
+            report["safe_recovery_route"],
+            "INDEPENDENT_SOURCE_SPACE_GEOMETRY_EVIDENCE_NO_MODEL_RESEND")
+        self.assertFalse(report["provider_outage_proven"])
+        self.assertFalse(report["original_submission_resend_authorized"])
+        self.assertFalse(report["student_publication_authorized"])
+        self.assertNotIn("private path", str(report))
+        self.assertEqual(before, sorted(self.trial.iterdir()))
+
+    def test_generic_model_mention_does_not_invent_owned_geometry_failure(self):
+        p = self.begun()
+        self.finish(p, "FIGURES_ATTEMPT_FAILED_NO_AUTO_RETRY")
+        self.log("[2026-11-11 00:02:35] [INFO] Gemini submission registered "
+                 "via new-user-turn+composer-cleared.\n"
+                 "model text: Figure composite review required: "
+                 "ambiguous_duplicate_target_no_layout_provenance\n")
+        report = diagnose(trial_dir=self.trial)
+        self.assertEqual(report["status"],
+                         "REGISTERED_BROWSER_SEND_BUT_NO_ACCEPTED_STAGE")
+        self.assertFalse(report["figure_composite_local_gate_observed"])
+
+    def test_existing_source_sha_bound_generic_triage_is_reused_not_overwritten(self):
+        p = self.begun()
+        self.finish(p, "FIGURES_ATTEMPT_FAILED_NO_AUTO_RETRY")
+        self.log(self.duplicate_geometry_log())
+        source = self.trial / "figures_transport_triage.json"
+        current = persist_terminal_triage(
+            trial_dir=self.trial, stage="figures")
+        self.assertTrue(current["figure_composite_local_gate_observed"])
+        historic = json.loads(source.read_text(encoding="utf8"))
+        historic["status"] = "REGISTERED_BROWSER_SEND_BUT_NO_ACCEPTED_STAGE"
+        historic.pop("figure_composite_local_gate_observed")
+        historic.pop("source_figure_geometry_blocker")
+        historic.pop("safe_recovery_route")
+        source.write_text(_encode(historic), encoding="utf8")
+        old_bytes = source.read_bytes()
+        again = persist_terminal_triage(
+            trial_dir=self.trial, stage="figures")
+        self.assertEqual(again["status"], "PRIOR_SHA_BOUND_TRIAGE_REUSED_NO_SEND")
+        self.assertEqual(
+            again["new_readonly_classification"],
+            "SOURCE_FIGURE_DUPLICATE_TARGET_GEOMETRY_REQUIRED_NO_RESEND")
+        self.assertEqual(source.read_bytes(), old_bytes)
+        self.assertFalse(again["automatic_resubmission_authorized"])
+
     def nested_crop_log(self):
         staged = self.trial / "source_tree" / "10" / "10.1" / "source.pdf"
         staged.parent.mkdir(parents=True, exist_ok=True)

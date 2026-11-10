@@ -29,6 +29,14 @@ MAX_LOG_BYTES = 4_000_000
 _CROP_HEARTBEAT = re.compile(
     r"(?m)^\[microgen-phase\] (LOCAL_FIGURE_[A-Z_]+)"
     r"(?: (?:page|pages)=\d+)?\s*$")
+# This marker is emitted by the owned local figure_composites gate, not by
+# the model text. Do not classify generic model phrases or an ordinary stage
+# failure as source geometry; the original Send remains permanently claimed.
+_OWNED_FIGURE_COMPOSITE_REVIEW = re.compile(
+    r"(?m)^\[\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\] "
+    r"\[ERR\] \[FIGURE REVIEW\] Unsafe multipart mapping for page_\d+\.png:"
+)
+_DUPLICATE_TARGET_REASON = "ambiguous_duplicate_target_no_layout_provenance"
 
 
 def _local_crop_evidence(trial: Path, contract: dict) -> dict:
@@ -155,6 +163,11 @@ def diagnose(*, trial_dir: Path, stage: str = "figures") -> dict:
         "[microgen-supervisor] OWNED_STAGE_TIMEOUT" in raw)
     supervisor_completed = (
         "[microgen-supervisor] OWNED_STAGE_EXIT_CODE=" in raw)
+    composite_gate = (
+        stage == "figures" and
+        bool(_OWNED_FIGURE_COMPOSITE_REVIEW.search(raw)))
+    duplicate_target_geometry = (
+        composite_gate and _DUPLICATE_TARGET_REASON in raw)
     state = result.get("status") if result is not None else None
     if state in ACCEPTED:
         label = "TECHNICAL_STAGE_RECEIPT_SUCCESS_NOT_FULL_LECTURE"
@@ -162,6 +175,10 @@ def diagnose(*, trial_dir: Path, stage: str = "figures") -> dict:
         label = "REGISTERED_BROWSER_SEND_OWNED_UI_ERROR_NO_RESEND"
     elif send and response_unverified:
         label = "REGISTERED_BROWSER_SEND_NO_ATTRIBUTED_REPLY_NO_RESEND"
+    elif send and composite_gate:
+        label = ("SOURCE_FIGURE_DUPLICATE_TARGET_GEOMETRY_REQUIRED_NO_RESEND"
+                 if duplicate_target_geometry else
+                 "SOURCE_FIGURE_COMPOSITE_PROVENANCE_REQUIRED_NO_RESEND")
     elif send:
         label = "REGISTERED_BROWSER_SEND_BUT_NO_ACCEPTED_STAGE"
     elif result is None:
@@ -190,6 +207,15 @@ def diagnose(*, trial_dir: Path, stage: str = "figures") -> dict:
         "registered_browser_send_count_in_stage_log": registered_send_count,
         "post_submit_model_reply_attribution_unverified": response_unverified,
         "owned_visible_ui_terminal_error_verified": (send and owned_ui_terminal),
+        "figure_composite_local_gate_observed": composite_gate,
+        "source_figure_geometry_blocker": (
+            "DUPLICATE_TARGET_WITHOUT_SOURCE_LAYOUT"
+            if duplicate_target_geometry else
+            "UNSAFE_COMPOSITE_WITHOUT_SOURCE_PROVENANCE"
+            if composite_gate else "NOT_OBSERVED"),
+        "safe_recovery_route": (
+            "INDEPENDENT_SOURCE_SPACE_GEOMETRY_EVIDENCE_NO_MODEL_RESEND"
+            if composite_gate else "NORMAL_STAGE_GATE_REMAINS_IN_FORCE"),
         "owned_stage_supervisor_timeout_recorded": supervisor_timeout,
         "owned_stage_supervisor_exit_recorded": supervisor_completed,
         "unbuffered_child_output_evidence_present": (
@@ -258,6 +284,9 @@ def persist_terminal_triage(*, trial_dir: Path, stage: str) -> dict:
                 "post_submit_model_reply_attribution_unverified",
                 "owned_visible_ui_terminal_error_verified",
                 "registered_browser_send_count_in_stage_log",
+                "figure_composite_local_gate_observed",
+                "source_figure_geometry_blocker",
+                "safe_recovery_route",
             }
             only_new_fields = set(report) - set(prior)
             compatible_status = (
@@ -267,7 +296,11 @@ def persist_terminal_triage(*, trial_dir: Path, stage: str) -> dict:
                     "LOCAL_PDF_FIGURE_CROP_PROGRESSED_SEND_UNVERIFIED") or
                 (prior.get("status") == "REGISTERED_BROWSER_SEND_BUT_NO_ACCEPTED_STAGE"
                  and report["status"] ==
-                    "REGISTERED_BROWSER_SEND_NO_ATTRIBUTED_REPLY_NO_RESEND"))
+                    "REGISTERED_BROWSER_SEND_NO_ATTRIBUTED_REPLY_NO_RESEND") or
+                (prior.get("status") == "REGISTERED_BROWSER_SEND_BUT_NO_ACCEPTED_STAGE"
+                 and report["status"] in {
+                    "SOURCE_FIGURE_DUPLICATE_TARGET_GEOMETRY_REQUIRED_NO_RESEND",
+                    "SOURCE_FIGURE_COMPOSITE_PROVENANCE_REQUIRED_NO_RESEND"}))
             old_claim_safe = (
                 prior.get("automatic_resubmission_authorized") is False
                 and prior.get("model_requests_during_diagnosis") == 0
