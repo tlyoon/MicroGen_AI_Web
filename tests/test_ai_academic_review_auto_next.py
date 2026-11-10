@@ -8,7 +8,7 @@ from unittest.mock import patch
 import pymupdf
 
 from selenium_pipeline.ai_academic_review_queue import (
-    advance_one_safe_review,execute_one_review,
+    advance_one_safe_review,advance_bounded_safe_reviews,execute_one_review,
     prepare_resumable_review,select_next_safe_review)
 from selenium_pipeline.academic_review_checkpoint import (
     prepare,mark_submission_maybe,record_observation)
@@ -83,6 +83,104 @@ class AutomaticSourceBoundReviewQueue(unittest.TestCase):
         self.assertEqual(self.source_before,
                          {p.name:p.read_bytes() for p in self.folder.iterdir()
                           if p.is_file()})
+
+    def test_bounded_batch_autonomously_advances_three_source_verified_units(self):
+        report=advance_bounded_safe_reviews(
+            queue_root=self.queue,folder=self.folder,max_units=3,
+            execute=True,transport=self.fake_response)
+        self.assertEqual(report["status"],"BOUNDED_REVIEW_LIMIT_REACHED")
+        self.assertEqual([(x["slide"],x["mode"]) for x in report["completed"]],
+                         [(1,"INITIAL_REVIEW"),(1,"INDEPENDENT_CHALLENGE"),
+                          (2,"INITIAL_REVIEW")])
+        self.assertEqual(self.sent,[1,1,2])
+        self.assertEqual(report["next_selection"]["next_slide"],2)
+        self.assertEqual(report["next_selection"]["next_mode"],"INDEPENDENT_CHALLENGE")
+        self.assertFalse(report["student_publication_authorized"])
+        self.assertFalse(report["academic_consensus_or_TTS_approved"])
+        # Re-entry resumes from the checkpoint, not by repeating model Sends.
+        second=advance_bounded_safe_reviews(
+            queue_root=self.queue,folder=self.folder,max_units=3,
+            execute=True,transport=self.fake_response)
+        self.assertEqual([(x["slide"],x["mode"]) for x in second["completed"]],
+                         [(2,"INDEPENDENT_CHALLENGE")])
+        self.assertEqual(second["status"],"BOUNDED_REVIEW_STOPPED_NOT_READY")
+        self.assertEqual(self.sent,[1,1,2,2])
+        self.assertEqual(self.source_before,
+                         {p.name:p.read_bytes()
+                          for p in self.folder.iterdir() if p.is_file()})
+
+    def test_batch_failure_quarantines_unit_without_trying_other_slide(self):
+        called=[]
+        def fail(*args):
+            called.append("one")
+            raise RuntimeError("Possible submission: no response attributed")
+        report=advance_bounded_safe_reviews(
+            queue_root=self.queue,folder=self.folder,max_units=3,
+            execute=True,transport=fail)
+        self.assertEqual(report["status"],
+                         "BOUNDED_REVIEW_STOPPED_AFTER_UNACCEPTED_UNIT")
+        self.assertEqual(called,["one"])
+        self.assertEqual(report["completed"],[])
+        self.assertTrue(report["no_auto_retry"])
+        self.assertFalse((self.queue/"slide_002_initial_review_attempt_01.json").exists())
+        self.assertFalse(report["student_publication_authorized"])
+
+    def test_normal_cli_routes_auto_batch_to_shared_bounded_gateway(self):
+        import io
+        from contextlib import redirect_stdout
+        from selenium_pipeline import ai_academic_review_cli
+        with patch.object(ai_academic_review_cli,
+                          "advance_bounded_safe_reviews",
+                          return_value={"status":"BOUNDED_REVIEW_LIMIT_REACHED",
+                                        "completed":[],"no_auto_retry":True}) as called:
+            output=io.StringIO()
+            with redirect_stdout(output):
+                rc=ai_academic_review_cli.main([
+                    "--folder",str(self.folder),
+                    "--queue-root",str(self.queue),
+                    "--auto-next","--auto-batch","3",
+                    "--execute-gemini-web"])
+        self.assertEqual(rc,0)
+        called.assert_called_once_with(
+            queue_root=self.queue,folder=self.folder,
+            max_units=3,execute=True)
+        self.assertIn("BOUNDED_REVIEW_LIMIT_REACHED",output.getvalue())
+        self.assertEqual(self.sent,[])
+
+    def test_batch_never_send_when_readonly_or_outside_budget(self):
+        report=advance_bounded_safe_reviews(
+            queue_root=self.queue,folder=self.folder,max_units=3,
+            execute=False,transport=self.fake_response)
+        self.assertEqual(report["status"],"READONLY_BOUNDED_REVIEW_PLAN")
+        self.assertEqual(self.sent,[])
+        for count in (0,4,-1,True):
+            with self.subTest(count=count),self.assertRaises(ValueError):
+                advance_bounded_safe_reviews(
+                    queue_root=self.queue,folder=self.folder,max_units=count,
+                    execute=True,transport=self.fake_response)
+        self.assertEqual(self.sent,[])
+
+    def test_batch_respects_ambiguous_old_slide_and_selects_fresh_slide(self):
+        job=build_review_job(folder=self.folder,slide_numbers=[1])
+        prompt=review_instructions(job,mode="INITIAL_REVIEW")
+        checkpoint=self.queue/"slide_001_initial_review_attempt_01_request"
+        hashes={name:job[key] for name,key in (
+            ("source.pdf","source_sha256"),("slides.pdf","slides_sha256"),
+            ("script.txt","script_sha256"))}
+        prepared=prepare(checkpoint=checkpoint,original_folder=self.folder,
+                         request_text=prompt,source_hashes=hashes,
+                         review_mode="INITIAL_REVIEW")
+        mark_submission_maybe(
+            checkpoint,expected_fingerprint=prepared["request_fingerprint"])
+        result=advance_bounded_safe_reviews(
+            queue_root=self.queue,folder=self.folder,max_units=2,
+            execute=True,transport=self.fake_response)
+        self.assertEqual(result["status"],"BOUNDED_REVIEW_LIMIT_REACHED")
+        self.assertEqual(self.sent,[2,2])
+        self.assertEqual([(x["slide"],x["mode"]) for x in result["completed"]],
+                         [(2,"INITIAL_REVIEW"),(2,"INDEPENDENT_CHALLENGE")])
+        self.assertTrue((checkpoint/"dispatch_attempted.claim").exists())
+        self.assertFalse((self.queue/"slide_001_initial_review.json").exists())
 
     def test_prior_ambiguous_send_is_skipped_never_resubmitted(self):
         job=build_review_job(folder=self.folder,slide_numbers=[1])

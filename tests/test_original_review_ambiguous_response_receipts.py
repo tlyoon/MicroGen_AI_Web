@@ -13,6 +13,33 @@ from test_ai_academic_review_queue import ReviewQueue
 
 
 class OriginalReviewAmbiguousSubmission(unittest.TestCase):
+    def test_owned_browser_string_subclass_counts_as_returned_response(self):
+        # Normal Selenium transport returns an evidence-bearing str subclass.
+        # A malformed actual reply must be classified as RETURNED, not absent.
+        from selenium_pipeline.series_gemini import OwnedGeminiResponse
+        with tempfile.TemporaryDirectory() as d:
+            source,queue=ReviewQueue().setup(d)
+            sent=[]
+            def invalid_response(*args):
+                sent.append(1)
+                return OwnedGeminiResponse(
+                    '{"response":"not valid source-grounded academic review"}',
+                    registration_status="NEW_USER_TURN_AND_COMPOSER_CLEARED",
+                    new_turn_verified=True)
+            report=execute_one_review(
+                queue_root=queue,folder=source,slide=1,
+                mode="INITIAL_REVIEW",transport=invalid_response)
+            self.assertEqual(sent,[1])
+            self.assertEqual(report["status"],
+                             "FAILED_GEMINI_REVIEW_ATTEMPT_QUARANTINED")
+            self.assertEqual(report["provider_submission_state"],
+                             "RETURNED_RESPONSE_INVALID")
+            # This injected unit-test transport has no real durable browser
+            # Send claim; explicit retry eligibility is historical behavior.
+            # The batch driver never acts on that flag automatically.
+            self.assertTrue(report["manual_retry_eligible"])
+            self.assertFalse((queue/"slide_001_initial_review.json").exists())
+
     def test_after_send_transport_uncertainty_blocks_next_attempt(self):
         with tempfile.TemporaryDirectory() as d:
             source,queue=ReviewQueue().setup(d)

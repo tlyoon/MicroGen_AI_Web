@@ -11,7 +11,7 @@ from .ai_academic_web_review import build_review_job
 from .pdf_text_source_span_witness import prove_source_quote_occurrence
 from .ai_academic_review_queue import (
     execute_one_review,summarize_queue,_check_queue,_receipt_name,
-    advance_one_safe_review)
+    advance_one_safe_review,advance_bounded_safe_reviews)
 
 def import_prior_source_verified_pass(*,queue_root:Path,folder:Path,
                                       slide:int,prior:Path)->dict:
@@ -80,8 +80,15 @@ def main(argv=None):
     a.add_argument("--auto-next",action="store_true",
                    help="Select the next source-verified, unattempted review; "
                         "with --execute-gemini-web perform exactly one unit")
+    a.add_argument("--auto-batch",type=int,
+                   help="With --auto-next, safely advance at most 1-3 separately "
+                        "verified units, stopping after the first non-pass")
     args=a.parse_args(argv)
+    require(args.auto_batch is None or args.auto_next,
+            "--auto-batch requires --auto-next: no bypass of the queue selector")
     if args.status:
+        require(args.auto_batch is None,
+                "--status never dispatches review units")
         result=summarize_queue(queue_root=args.queue_root,folder=args.folder)
     elif args.import_prior_first_pass is not None:
         require(not args.auto_next,"Cannot import review and auto-dispatch together")
@@ -91,9 +98,14 @@ def main(argv=None):
         require(args.slide is None and args.attempt==1
                 and args.mode=="INITIAL_REVIEW",
                 "Automatic review selects its own slide/mode and never retries")
-        result=advance_one_safe_review(
-            queue_root=args.queue_root,folder=args.folder,
-            execute=args.execute_gemini_web)
+        if args.auto_batch is None:
+            result=advance_one_safe_review(
+                queue_root=args.queue_root,folder=args.folder,
+                execute=args.execute_gemini_web)
+        else:
+            result=advance_bounded_safe_reviews(
+                queue_root=args.queue_root,folder=args.folder,
+                max_units=args.auto_batch,execute=args.execute_gemini_web)
     else:
         require(args.execute_gemini_web,
                 "Explicit Gemini-web invocation required; queue status is read-only")

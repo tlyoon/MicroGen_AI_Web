@@ -175,7 +175,10 @@ def execute_one_review(*,queue_root:Path,folder:Path,
     returned_response=False
     def witness_model_return(raw):
         nonlocal returned_response
-        returned_response=type(raw) is str and bool(raw.strip())
+        # Selenium returns an evidence-bearing str subclass for verified
+        # owned Send replies. Exact-type matching falsely treated a returned
+        # but invalid answer as no response. Keep the no-resend claim intact.
+        returned_response=isinstance(raw,str) and bool(raw.strip())
     try:
         response = None
         if transport is None and live_checkpoint.exists():
@@ -393,6 +396,62 @@ def advance_one_safe_review(*,queue_root:Path,folder:Path,
         "academic_consensus_or_TTS_approved":False,
         "student_publication_authorized":False,
     }
+
+def advance_bounded_safe_reviews(*,queue_root:Path,folder:Path,
+                                 max_units:int=3,execute:bool=False,
+                                 transport=None)->dict:
+    """Advance independently eligible review units without per-slide prompts.
+
+    Re-enter the existing select/claim/validate gateway after EACH verified
+    immutable acceptance. Never bypass its anti-stall gate, make a second Send
+    for an uncertain claim, or interpret review as TTS/release authorization.
+    One user invocation permits at most three units; no background scheduler.
+    """
+    require(type(max_units) is int and 1 <= max_units <= 3,
+            "Autonomous academic review batch is bounded to 1-3 units")
+    queue_root,folder=Path(queue_root).absolute(),Path(folder).absolute()
+    if not execute:
+        selection=select_next_safe_review(queue_root=queue_root,folder=folder)
+        return {"status":"READONLY_BOUNDED_REVIEW_PLAN",
+                "max_units":max_units,"next_selection":selection,
+                "new_provider_requests":False,"student_publication_authorized":False}
+    completed=[]
+    for _ in range(max_units):
+        # advance_one_safe_review itself independently revalidates the source,
+        # queue, model-claim state and anti-stall budget before every action.
+        outcome=advance_one_safe_review(
+            queue_root=queue_root,folder=folder,execute=True,
+            transport=transport)
+        if outcome.get("status")!="ONE_AUTONOMOUS_ACADEMIC_REVIEW_ATTEMPT_FINISHED":
+            return {"status":"BOUNDED_REVIEW_STOPPED_NOT_READY",
+                    "completed":completed,"stop_evidence":outcome,
+                    "no_auto_retry":True,"student_publication_authorized":False}
+        selected=outcome["selection"]
+        receipt=outcome["review"]
+        if receipt.get("status")!="GEMINI_SOURCE_REVIEW_ONE_SLIDE_COMPLETED":
+            # No more units even if an unrelated slide is technically fresh:
+            # investigate the first unknown provider failure, not a send loop.
+            return {"status":"BOUNDED_REVIEW_STOPPED_AFTER_UNACCEPTED_UNIT",
+                    "completed":completed,"stop_evidence":outcome,
+                    "no_auto_retry":True,"student_publication_authorized":False}
+        slide,mode=selected["next_slide"],selected["next_mode"]
+        accepted=queue_root/_receipt_name(slide,mode)
+        require(accepted.is_file() and not accepted.is_symlink()
+                and _sha(accepted)==receipt.get("receipt_sha256"),
+                "Accepted review claim/receipt changed; stop before next Send")
+        # Direct source hash/queue checks, not a bare success label. The same
+        # verification happens again on the next selector's normal path.
+        _check_queue(queue_root=queue_root,folder=folder,
+                     slide=slide,mode=mode)
+        completed.append({"slide":slide,"mode":mode,
+                          "receipt_sha256":receipt["receipt_sha256"]})
+    next_safe=select_next_safe_review(queue_root=queue_root,folder=folder)
+    return {"status":"BOUNDED_REVIEW_LIMIT_REACHED",
+            "completed":completed,"next_selection":next_safe,
+            "max_units":max_units,"no_auto_retry":True,
+            "academic_consensus_or_TTS_approved":False,
+            "student_publication_authorized":False}
+
 
 def summarize_queue(*,queue_root:Path,folder:Path)->dict:
     plan=json.loads((Path(queue_root)/"queue.json").read_text(encoding="utf8"))
