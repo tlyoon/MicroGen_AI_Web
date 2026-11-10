@@ -187,22 +187,28 @@ def poll_existing_owned_response(
 
 
 _SEND_METADATA_ONLY_JS = """
-const editor=document.querySelector('[role="textbox"][contenteditable="true"]');
-const buttons=[...document.querySelectorAll('button[aria-label="Send message"]')];
-let visible=0;
-for(const button of buttons){
-  let e=button, hidden=false;
-  while(e && e.nodeType===1){
-    const style=getComputedStyle(e);
-    if(style.display==='none'||style.visibility==='hidden'||
-       Number(style.opacity)<=0.01){hidden=true;break;}
-    e=e.parentElement;
+// Gemini uses a Quill editor without an obligatory role=textbox.
+// Use the same owned-editor selectors as the production Send baseline,
+// returning only Boolean/count metadata (never prompt content).
+const visible=e=>{
+  if(!e||(e.offsetWidth===0&&e.offsetHeight===0&&!e.getClientRects().length))return false;
+  for(let n=e;n&&n.nodeType===1;n=n.parentElement){
+    const s=getComputedStyle(n);
+    if(s.display==='none'||s.visibility==='hidden'||Number(s.opacity)<=0.01)return false;
   }
-  if(!hidden)visible++;
-}
+  return true;
+};
+const editors=[...document.querySelectorAll(
+  'div.ql-editor[contenteditable="true"],[contenteditable="true"][role="textbox"],textarea'
+)].filter(visible);
+const editor=editors.find(e=>Boolean(
+  String(e.value||e.innerText||e.textContent||'').trim()));
+const buttons=[...document.querySelectorAll('button[aria-label="Send message"]')];
+const eligible=buttons.filter(b=>visible(b)&&!b.disabled&&
+  b.getAttribute('aria-disabled')!=='true');
 return {doc_visible:document.visibilityState==='visible',
-        composer_present:Boolean((editor?.innerText||'').trim()),
-        send_count:buttons.length,visible_send_count:visible};
+        composer_present:Boolean(editor),
+        send_count:buttons.length,visible_send_count:eligible.length};
 """
 
 def await_owned_gemini_send_visible(driver, owned_handle: str | None, *,
@@ -227,12 +233,14 @@ def await_owned_gemini_send_visible(driver, owned_handle: str | None, *,
             state=driver.execute_script(_SEND_METADATA_ONLY_JS)
             if not isinstance(state,dict) or not state.get("doc_visible"):
                 return False
-            if (state.get("composer_present") is True and
-                type(state.get("visible_send_count")) is int and
-                state["visible_send_count"]>0):
+            count=state.get("visible_send_count")
+            if type(count) is int and count>1:
+                return False  # Multiple eligible Send controls are unsafe.
+            if state.get("composer_present") is True and count==1:
                 return True
-            if not state.get("composer_present") or not state.get("send_count"):
-                return False
+            # Quill and the Send button render asynchronously. Missing editor
+            # or button is a transient *pre-Send* state until the finite
+            # deadline. No action/click occurs during this observation.
         except Exception:
             return False
         remaining=deadline-clock()
