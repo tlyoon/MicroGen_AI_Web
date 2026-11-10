@@ -214,6 +214,59 @@ def parse_mapping_lines(text: str) -> List[Tuple[str, str, str]]:
     return triples
 
 
+def reconcile_surplus_duplicate_mappings(
+    parsed: List[Tuple[str, str, str]], fig_files: List[Path]
+) -> tuple[List[Tuple[str, str, str]], bool]:
+    """Drop demonstrably redundant Gemini mapping rows, without another Send.
+
+    This narrow repair is for a completed SAME-page response with surplus
+    repeated caption+destination rows. Each retained first occurrence must
+    independently identify its corresponding local crop (exact basename or
+    basename plus a short hex upload suffix), in the declared crop order.
+    Conflicts, genuine repeated captions, extra figures and missing crops
+    remain unresolved, never assigned by truncating arbitrary model output.
+    The regular source/composite/non-overwrite checks still run afterwards.
+    """
+    n = len(fig_files)
+    if n < 2 or len(parsed) <= n or len(parsed) > 2 * n:
+        return parsed, False
+    all_local = {p.name.casefold() for p in fig_files}
+    unique: List[Tuple[str, str, str]] = []
+    distinct = {}
+    for crop, label, target in parsed:
+        label_key = " ".join(label.split()).casefold()
+        target_key = target.strip().casefold()
+        if not label_key or not target_key.endswith(".png"):
+            return parsed, False
+        # A duplicate caption with a different target, or vice versa,
+        # is a scientifically ambiguous image assignment, not duplication.
+        key = (label_key, target_key)
+        if key in distinct:
+            first = distinct[key]
+            if crop.casefold() in all_local and crop.casefold() != first.casefold():
+                return parsed, False
+            continue
+        distinct[key] = crop
+        unique.append((crop, label, target))
+    if len(unique) != n:
+        return parsed, False
+    if len({" ".join(label.split()).casefold() for _, label, _ in unique}) != n:
+        return parsed, False
+    if len({target.casefold() for _, _, target in unique}) != n:
+        return parsed, False
+    for (returned, label, target), actual in zip(unique, fig_files):
+        # These narrow anchors accept an uploaded 'fig_4_75e426.png' but not
+        # an ungrounded or reordered crop identity.
+        if not re.fullmatch(
+            re.escape(actual.stem) + r"(?:_[0-9a-f]{6,12})?\.png",
+            returned, flags=re.IGNORECASE
+        ):
+            return parsed, False
+        if " ".join(label.split()).casefold() != Path(target).stem.casefold():
+            return parsed, False
+    return unique, True
+
+
 # -------- Merge helpers --------
 try:
     from PIL import Image
@@ -1595,6 +1648,7 @@ def map_and_rename_single_step(
                              max(1, int(os.getenv("GEMINI_OUTPUT_ATTEMPTS", "3"))))
         parsed: List[Tuple[str, str, str]] = []
         txt = ""
+        original_surplus_response = None
 
         for response_attempt in range(1, response_attempts + 1):
             t_step = _ts_now()
@@ -1612,6 +1666,19 @@ def map_and_rename_single_step(
 
             parsed = parse_mapping_lines(txt or "")
             explicit_error = _looks_like_gemini_failure_text(txt)
+            if not explicit_error and len(parsed) > len(fig_files):
+                # Use only a complete model reply with exactly parseable
+                # mapping lines: no JSON repair, prompt replay or hidden rows.
+                lines = [line for line in txt.splitlines() if line.strip()]
+                if len(lines) == len(parsed):
+                    deduped, proven_duplicate = reconcile_surplus_duplicate_mappings(
+                        parsed, fig_files)
+                    if proven_duplicate:
+                        original_surplus_response = txt
+                        parsed = deduped
+                        log(f"[RECONCILE] {page_png.name}: "
+                            "exact duplicate caption+target row removed using "
+                            "the existing owned response, no additional Send")
             exact_count = len(parsed) == len(fig_files)
             log(
                 f"[PARSE] {page_png.name}: parsed {len(parsed)} mapping line(s); "
@@ -1651,6 +1718,39 @@ def map_and_rename_single_step(
         raise RuntimeError(
             f"Unverified figure mapping for {page_png.name}; retained {mapping_txt.name}"
         )
+
+    if backend != "api" and original_surplus_response is not None:
+        # Preserve the original anomalous model reply as separate evidence;
+        # the regular mapping checkpoint continues to use normalized rows.
+        untrusted = page_png.with_name(page_png.stem + "_surplus_mapping_untrusted.txt")
+        with untrusted.open("x", encoding="utf-8") as f:
+            f.write(original_surplus_response.rstrip() + "\n")
+            f.flush()
+            os.fsync(f.fileno())
+        # Separate source-locked provenance, never a scientific approval.
+        import hashlib
+        witness = {
+            "schema_version": 1,
+            "status": "STRUCTURAL_DUPLICATE_MAPPING_RECONCILED_NOT_ACADEMIC_QA",
+            "original_model_response_sha256": hashlib.sha256(
+                untrusted.read_bytes()).hexdigest(),
+            "page_image_sha256": hashlib.sha256(page_png.read_bytes()).hexdigest(),
+            "local_crop_sha256": {
+                source.name: hashlib.sha256(source.read_bytes()).hexdigest()
+                for source in fig_files
+            },
+            "original_parsed_lines": len(parse_mapping_lines(original_surplus_response)),
+            "structurally_resolved_lines": len(parsed),
+            "new_provider_requests_for_reconciliation": False,
+            "independent_figure_caption_semantics_verified": False,
+            "student_publication_authorized": False,
+        }
+        receipt = page_png.with_name(page_png.stem + "_surplus_mapping_evidence.json")
+        with receipt.open("x", encoding="utf-8") as f:
+            json.dump(witness, f, ensure_ascii=False, sort_keys=True, indent=2)
+            f.write("\n")
+            f.flush()
+            os.fsync(f.fileno())
 
     # Keep only as many mappings as local crops available
     usable_count = min(len(parsed), len(fig_files))
