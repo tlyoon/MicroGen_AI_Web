@@ -117,6 +117,16 @@ def main(argv=None):
     if (result["status"]=="ONE_AUTONOMOUS_ACADEMIC_REVIEW_ATTEMPT_FINISHED"
         and result["review"]["status"]=="FAILED_GEMINI_REVIEW_ATTEMPT_QUARANTINED"):
         return 2
+    # A bounded batch that stopped on an unaccepted or quarantined unit is
+    # NOT an operating success. Propagate that result to parent supervisors,
+    # instead of exit 0 (observed in the real Serway 7.2 slide-2 failure).
+    if result["status"]=="BOUNDED_REVIEW_STOPPED_AFTER_UNACCEPTED_UNIT":
+        return 2
+    if (args.execute_gemini_web and
+        result["status"]=="BOUNDED_REVIEW_STOPPED_NOT_READY" and
+        result.get("stop_evidence",{}).get("status")!=
+            "ALL_ACADEMIC_REVIEW_PASSES_RECORDED"):
+        return 2
     return 0
 
 if __name__=="__main__":

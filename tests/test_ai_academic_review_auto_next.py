@@ -84,6 +84,28 @@ class AutomaticSourceBoundReviewQueue(unittest.TestCase):
                          {p.name:p.read_bytes() for p in self.folder.iterdir()
                           if p.is_file()})
 
+    def test_normal_owned_gemini_response_survives_checkpoint_and_queue(self):
+        # Model-owned successful replies carry Send evidence as a str subclass.
+        # This previously failed AFTER a real verified Gemini Send because the
+        # checkpoint required type(raw) is str, losing the valid response bytes.
+        from selenium_pipeline.series_gemini import OwnedGeminiResponse
+        def browser_owned(prompt,files):
+            raw=self.fake_response(prompt,files)
+            return OwnedGeminiResponse(
+                raw,registration_status="NEW_USER_TURN_AND_COMPOSER_CLEARED",
+                new_turn_verified=True)
+        report=advance_bounded_safe_reviews(
+            queue_root=self.queue,folder=self.folder,
+            max_units=2,execute=True,transport=browser_owned)
+        self.assertEqual(report["status"],"BOUNDED_REVIEW_LIMIT_REACHED")
+        self.assertEqual([(r["slide"],r["mode"]) for r in report["completed"]],
+                         [(1,"INITIAL_REVIEW"),(1,"INDEPENDENT_CHALLENGE")])
+        self.assertEqual(self.sent,[1,1])
+        self.assertTrue((self.queue/"slide_001_initial_review.json").is_file())
+        self.assertTrue((self.queue/"slide_001_independent_challenge.json").is_file())
+        self.assertFalse(report["academic_consensus_or_TTS_approved"])
+        self.assertFalse(report["student_publication_authorized"])
+
     def test_bounded_batch_autonomously_advances_three_source_verified_units(self):
         report=advance_bounded_safe_reviews(
             queue_root=self.queue,folder=self.folder,max_units=3,
@@ -124,6 +146,37 @@ class AutomaticSourceBoundReviewQueue(unittest.TestCase):
         self.assertTrue(report["no_auto_retry"])
         self.assertFalse((self.queue/"slide_002_initial_review_attempt_01.json").exists())
         self.assertFalse(report["student_publication_authorized"])
+
+    def test_normal_cli_failed_batch_returns_failure_to_parent_supervisor(self):
+        import io
+        from contextlib import redirect_stdout
+        from selenium_pipeline import ai_academic_review_cli
+        cases=(
+            ({"status":"BOUNDED_REVIEW_STOPPED_AFTER_UNACCEPTED_UNIT",
+              "completed":[],"stop_evidence":{"review":{
+                  "status":"FAILED_GEMINI_REVIEW_ATTEMPT_QUARANTINED"}}},2),
+            ({"status":"BOUNDED_REVIEW_STOPPED_NOT_READY",
+              "completed":[],"stop_evidence":{
+                  "status":"DEFERRED_REPEATED_UNATTRIBUTED_BROWSER_SEND"}},2),
+            ({"status":"BOUNDED_REVIEW_STOPPED_NOT_READY",
+              "completed":[],"stop_evidence":{
+                  "status":"ALL_ACADEMIC_REVIEW_PASSES_RECORDED"}},0),
+            ({"status":"BOUNDED_REVIEW_LIMIT_REACHED",
+              "completed":[{"slide":1,"mode":"INITIAL_REVIEW"}]},0),
+        )
+        for report,expected_exit in cases:
+            with self.subTest(outcome=report["status"],exit=expected_exit):
+                with patch.object(ai_academic_review_cli,
+                                  "advance_bounded_safe_reviews",
+                                  return_value=report):
+                    with redirect_stdout(io.StringIO()):
+                        rc=ai_academic_review_cli.main([
+                            "--folder",str(self.folder),
+                            "--queue-root",str(self.queue),
+                            "--auto-next","--auto-batch","2",
+                            "--execute-gemini-web"])
+                self.assertEqual(rc,expected_exit)
+        self.assertEqual(self.sent,[])
 
     def test_normal_cli_routes_auto_batch_to_shared_bounded_gateway(self):
         import io
