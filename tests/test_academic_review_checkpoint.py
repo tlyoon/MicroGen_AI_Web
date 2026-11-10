@@ -61,6 +61,45 @@ class OnceOnlyAcademicReview(unittest.TestCase):
             submit_once(**self.kw,transport=transport,validator=self.validate)
         self.assertEqual(len(calls),1)
 
+    def test_normal_owned_gemini_str_subclass_is_saved_once_and_source_checked(self):
+        from selenium_pipeline.series_gemini import OwnedGeminiResponse
+        calls=[]
+        def transport(prompt,files):
+            calls.append(1)
+            return OwnedGeminiResponse(
+                '{"rows":[1]}',
+                registration_status="NEW_USER_TURN_AND_COMPOSER_CLEARED",
+                new_turn_verified=True)
+        result=submit_once(**self.kw,transport=transport,validator=self.validate)
+        self.assertEqual(result,self.accepted)
+        self.assertEqual(calls,[1])
+        saved=self.window/"model_response_untrusted.txt"
+        self.assertEqual(saved.read_text(encoding="utf8"),'{"rows":[1]}')
+        state=json.loads((self.window/"request_state.json").read_text())
+        self.assertEqual(state["status"],"SOURCE_VALIDATED_ONE_PASS_UNAPPROVED")
+        self.assertEqual(state["response_length_chars"],len('{"rows":[1]}'))
+        self.assertTrue((self.window/"dispatch_attempted.claim").is_file())
+        # Attributes containing browser provenance cannot leak into raw data.
+        self.assertNotIn("NEW_USER_TURN",saved.read_text())
+        with self.assertRaises(ReviewCheckpointError):
+            submit_once(**self.kw,transport=transport,validator=self.validate)
+        self.assertEqual(calls,[1])
+
+    def test_owned_subclass_still_obeys_original_raw_size_limit(self):
+        from selenium_pipeline.series_gemini import OwnedGeminiResponse
+        from selenium_pipeline.academic_review_checkpoint import MAX_RAW
+        prepare(**self.kw)
+        mark_submission_maybe(self.window,expected_fingerprint=self.fp)
+        oversized=OwnedGeminiResponse(
+            "x"*(MAX_RAW+1),registration_status="NEW_USER_TURN_AND_COMPOSER_CLEARED",
+            new_turn_verified=True)
+        with self.assertRaises(ReviewCheckpointError):
+            record_observation(self.window,raw=oversized,
+                               expected_fingerprint=self.fp)
+        self.assertFalse((self.window/"model_response_untrusted.txt").exists())
+        self.assertEqual(json.loads((self.window/"request_state.json").read_text())["status"],
+                         "SUBMITTED_OR_UNCERTAIN")
+
     def test_duplicate_window_in_same_local_appdata_root_is_blocked(self):
         prepare(**self.kw)
         mark_submission_maybe(self.window,expected_fingerprint=self.fp)

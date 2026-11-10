@@ -181,8 +181,12 @@ def record_observation(checkpoint:Path,*,raw:str,
              and state["status"] in {"SUBMITTED_OR_UNCERTAIN",
                                     "NO_RESPONSE_UNRESOLVED"},
              "No previously-claimed matching browser request")
-    _require(type(raw) is str and len(raw)<=MAX_RAW,
+    # The normal Selenium transport returns OwnedGeminiResponse, an evidence-
+    # bearing str subclass. Accept its text without storing browser metadata;
+    # preserve the full size, source-fingerprint and one-Send safeguards.
+    _require(isinstance(raw,str) and len(raw)<=MAX_RAW,
              "Oversized or missing owned response")
+    raw=str(raw)
     data=raw.encode("utf8")
     with (root/"model_response_untrusted.txt").open("xb") as f:
         f.write(data);f.flush();os.fsync(f.fileno())

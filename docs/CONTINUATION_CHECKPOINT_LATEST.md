@@ -1,3 +1,15 @@
+# 10 November 2026 - Reusable owned-response checkpoint compatibility hardening
+
+**Recovered authority and checkpoint:** Dell-115 only, MicroGen_AI_Web draft PR #528, source-locked Serway 7.2 G2 academic review pending. At entry, branch 79640e80459078496dfaa1e5e3643d91ce7da7bd and all three hosted Windows checks passed. The separate old G:\\My Drive\\Projects\\MicroGen_AI_Web checkout is behind and has unrelated uncommitted changes: do not edit it. The actual PR #528 isolated worktree contained a small, already uncommitted shared-path bug fix and tests; they were inspected rather than overwritten.
+
+**General fix in normal production gateway:** selenium_pipeline/academic_review_checkpoint.record_observation now accepts the evidence-bearing OwnedGeminiResponse str subclass returned by regular Selenium, canonicalizes it to a plain str for source-locked immutable storage, and retains original length limit, request-state, dispatch-claim, and no-resend protections. This closes the remaining exact-type rejection at the shared checkpoint boundary; the normal academic review queue had already been hardened similarly. No provider change, extra Send, new PDF processing or bypass is involved.
+
+**Direct evidence:** Dell-115 pytest passed 34 focused tests spanning academic review checkpoint, queue, auto-next, CLI and claim recovery; compileall ran, git diff --check produced no error. Newly added tests verify successful exactly-once source validation and immutable raw-text storage for OwnedGeminiResponse, duplicate prevention, and oversized response rejection before raw file creation. These are offline integration/regression checks, not a live provider recurrence proof. Exact new-head Windows hosted CI remains required before live new review.
+
+**Gate:** G1 source-sized Gemini Selenium PASS_VERIFIED (historical), G2 source-grounded review incomplete, G3 incomplete/unreleased. The historical Serway 7.2 slide-1 request has SUBMITTED_OR_UNCERTAIN claim and MUST NOT be resent. Only after exact-head CI verifies this change may the original read-only queue/preflight select a genuinely new, independently eligible review unit; at most one real fresh review attempt should be made for post-fix transport assessment. If the provider again fails or Send is ambiguous, persist evidence and STOP rather than moving to further slides to evade a known failure. No paid API, alternate Gemini account, ChatGPT fallback, TTS or publication.
+
+---
+
 # 10 November 2026 - Bounded autonomous academic review advancement in normal CLI
 
 **Standing owner requirement:** All recurrent/general blocker remedies must be integrated into the normal shared runtime, automatically selected by verified failure preconditions, and protected by regression and cross-entrypoint tests; a one-off diagnostic or checkpoint narrative is not a permanent fix. Progression must proceed between independently accepted eligible units without routine per-slide or per-milestone approval, retaining finite limits, source identity, conservative no-resend, rights/cost and release controls. Do not promise unbounded background execution. See v5.0 and binding section 4b.
