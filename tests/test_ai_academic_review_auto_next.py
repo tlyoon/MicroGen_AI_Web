@@ -147,6 +147,37 @@ class AutomaticSourceBoundReviewQueue(unittest.TestCase):
         self.assertFalse((self.queue/"slide_002_initial_review_attempt_01.json").exists())
         self.assertFalse(report["student_publication_authorized"])
 
+    def test_legacy_single_unit_cli_reports_blocked_execution_to_supervisor(self):
+        import io
+        from contextlib import redirect_stdout
+        from selenium_pipeline import ai_academic_review_cli
+        for status in ("DEFERRED_REPEATED_UNATTRIBUTED_BROWSER_SEND",
+                       "NO_SAFE_REVIEW_UNIT_REMAINING"):
+            with self.subTest(status=status):
+                fake={"status":status,"next_slide":None,
+                      "student_publication_authorized":False}
+                with patch.object(ai_academic_review_cli,
+                                  "advance_one_safe_review",
+                                  return_value=fake) as called:
+                    with redirect_stdout(io.StringIO()):
+                        run=ai_academic_review_cli.main([
+                            "--folder",str(self.folder),
+                            "--queue-root",str(self.queue),
+                            "--auto-next","--execute-gemini-web"])
+                    self.assertEqual(run,2)
+                    called.assert_called_once_with(
+                        queue_root=self.queue,folder=self.folder,execute=True)
+                with patch.object(ai_academic_review_cli,
+                                  "advance_one_safe_review",
+                                  return_value=fake):
+                    with redirect_stdout(io.StringIO()):
+                        plan=ai_academic_review_cli.main([
+                            "--folder",str(self.folder),
+                            "--queue-root",str(self.queue),
+                            "--auto-next"])
+                    self.assertEqual(plan,0)
+        self.assertEqual(self.sent,[])
+
     def test_normal_cli_failed_batch_returns_failure_to_parent_supervisor(self):
         import io
         from contextlib import redirect_stdout

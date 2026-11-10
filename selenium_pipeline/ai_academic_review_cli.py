@@ -127,6 +127,13 @@ def main(argv=None):
         result.get("stop_evidence",{}).get("status")!=
             "ALL_ACADEMIC_REVIEW_PASSES_RECORDED"):
         return 2
+    # The legacy single-unit --auto-next path uses the same selector and
+    # anti-stall gate. Never report a blocked executed queue as successful
+    # just because the caller did not opt into --auto-batch.
+    if (args.auto_next and args.execute_gemini_web and
+        result["status"] in {"DEFERRED_REPEATED_UNATTRIBUTED_BROWSER_SEND",
+                             "NO_SAFE_REVIEW_UNIT_REMAINING"}):
+        return 2
     return 0
 
 if __name__=="__main__":
