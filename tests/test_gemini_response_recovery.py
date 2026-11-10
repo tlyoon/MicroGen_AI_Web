@@ -236,6 +236,10 @@ class GeminiQuarantineTests(unittest.TestCase):
                 port=9222,wait_cap_s=90,
             )
         self.assertEqual(recovered,full)
+        self.assertTrue(recovered.gemini_new_user_turn_verified)
+        self.assertTrue(recovered.gemini_late_response_reconciled)
+        self.assertEqual(recovered.gemini_send_registration_status,
+                         "NEW_USER_TURN_AND_COMPOSER_CLEARED")
         self.assertEqual(order[-1],"shutdown")
         self.assertGreaterEqual(order.count("copy"),2)
         snapshots=list((self.dir/"Microvid"/"gemini_quarantine").glob("*.raw.txt"))
@@ -303,8 +307,10 @@ class GeminiLateResponseGeneralizationTests(unittest.TestCase):
         def one_send(*args, **kw):
             calls["send"] += 1
             return True
-        def late_observer(read_snapshot, *, accept_fn, wait_s, poll_s):
+        def late_observer(read_snapshot, *, accept_fn, wait_s, poll_s,
+                          verified_new_turn=False):
             calls["late_grace"] = wait_s
+            self.assertTrue(verified_new_turn)
             # Historical failure: the same owned model DOM first had zero
             # characters, then became complete without another Send.
             driver.response = result_json
@@ -312,6 +318,7 @@ class GeminiLateResponseGeneralizationTests(unittest.TestCase):
             return poll_existing_owned_response(
                 read_snapshot, accept_fn=accept_fn,
                 wait_s=wait_s, poll_s=poll_s,
+                verified_new_turn=verified_new_turn,
                 clock=lambda: 0, sleep=lambda _: None,
             )
         with (tempfile.TemporaryDirectory() as temp,

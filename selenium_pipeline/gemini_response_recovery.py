@@ -138,7 +138,7 @@ def response_snapshot_with_scoped_copy(
 
 def poll_existing_owned_response(
     read_snapshot, *, accept_fn, wait_s=45, poll_s=3,
-    clock=None, sleep=None,
+    verified_new_turn: bool = False, clock=None, sleep=None,
 ) -> tuple[str | None, dict]:
     """Observe ONLY the already submitted owned-tab response after strict capture fails.
 
@@ -148,8 +148,14 @@ def poll_existing_owned_response(
     source-validation. A changed/unowned tab fails closed.
     """
     import time
+    # Historical 90-second upper bound remains binding for ordinary callers.
+    # Only the production caller's independently verified NEW user turn may
+    # use the longer finite read-only grace. No implicit budget expansion.
+    max_wait = (MAX_LATE_OWNED_OBSERVATION_SECONDS
+                if verified_new_turn is True else 90)
     if (not callable(read_snapshot) or not callable(accept_fn)
-            or not isinstance(wait_s, (int, float)) or not 1 <= wait_s <= MAX_LATE_OWNED_OBSERVATION_SECONDS
+            or type(verified_new_turn) is not bool
+            or not isinstance(wait_s, (int, float)) or not 1 <= wait_s <= max_wait
             or not isinstance(poll_s, (int, float)) or not 0 < poll_s <= 10):
         raise ValueError("Bounded owned-response observation required")
     clock = clock or time.monotonic

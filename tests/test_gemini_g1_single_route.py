@@ -84,6 +84,25 @@ class G1SingleRouteTests(unittest.TestCase):
         self.assertTrue(summarize(reused)["prior_claim_reused_without_resend"])
         mock.assert_called_once()
 
+    @patch("selenium_pipeline.windows_gemini_differential_probe.sys.platform", "win32")
+    def test_success_receipt_persists_independent_owned_send_registration(self):
+        from selenium_pipeline.series_gemini import OwnedGeminiResponse
+        _, expected, _ = _profile_spec(PROFILE)
+        text = OwnedGeminiResponse(
+            json.dumps(expected),
+            registration_status="NEW_USER_TURN_AND_COMPOSER_CLEARED",
+            new_turn_verified=True, late_reconciled=True)
+        result = run_canary(
+            checkpoint_dir=self.folder, backend="browser",
+            browser_transport=lambda _: text, profile=PROFILE,
+            browser_ready=lambda: {"authenticated_ui_ready": True})
+        self.assertEqual(result["outcome"], "VALID_CANARY_RESPONSE")
+        self.assertTrue(result["gemini_new_user_turn_verified"])
+        self.assertTrue(result["gemini_late_response_reconciled"])
+        self.assertEqual(result["gemini_send_registration_status"],
+                         "NEW_USER_TURN_AND_COMPOSER_CLEARED")
+        self.assertEqual(_read(self.folder / "browser_probe_result.json"), result)
+
     @patch("selenium_pipeline.windows_gemini_differential_probe.sys.platform","win32")
     def test_pre_send_exhaustion_records_zero_model_calls_and_clear_stop(self):
         def fail(_):

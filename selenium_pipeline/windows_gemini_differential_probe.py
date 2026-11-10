@@ -109,7 +109,7 @@ def _code(error: Exception) -> int | None:
 
 
 def _valid(raw: str, profile: str = "short") -> bool:
-    if type(raw) is not str or len(raw) > 5000:
+    if not isinstance(raw, str) or len(raw) > 5000:
         return False
     try:
         _, expected, _ = _profile_spec(profile)
@@ -322,6 +322,7 @@ def run_canary(*, checkpoint_dir: Path, backend: str,
         "gemini_browser_presend_attempts_used": None,
         "gemini_send_registration_status": None,
         "gemini_new_user_turn_verified": None,
+        "gemini_late_response_reconciled": None,
         "gemini_visible_model_chars_at_stop": None,
         "gemini_generation_active_at_stop": None,
         "gemini_selenium_stop_message": None,
@@ -335,6 +336,21 @@ def run_canary(*, checkpoint_dir: Path, backend: str,
             min(len(raw), 5000) if isinstance(raw, str) else 0)
         answer["outcome"] = ("VALID_CANARY_RESPONSE" if _valid(raw, profile=profile)
                              else "RESPONSE_RETURNED_BUT_NONCONFORMING")
+        if backend == "browser":
+            # Successful replies MUST carry the same trusted, prompt-free
+            # registration evidence as failure receipts. Plain injected test
+            # strings retain null/unknown, never invented positive proof.
+            status = getattr(raw, "gemini_send_registration_status", None)
+            verified = getattr(raw, "gemini_new_user_turn_verified", None)
+            late = getattr(raw, "gemini_late_response_reconciled", None)
+            if (type(status) is str and 0 < len(status) < 80
+                    and status.isupper() and
+                    all(c.isupper() or c.isdigit() or c == "_" for c in status)):
+                answer["gemini_send_registration_status"] = status
+            if type(verified) is bool:
+                answer["gemini_new_user_turn_verified"] = verified
+            if type(late) is bool:
+                answer["gemini_late_response_reconciled"] = late
     except Exception as error:
         # Never persist API key, exception .args, original prompt or raw
         # model text. Generic error type and structured HTTP status only.

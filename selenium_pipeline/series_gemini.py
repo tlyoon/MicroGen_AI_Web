@@ -53,6 +53,23 @@ def _looks_complete(raw: str) -> bool:
         return False
 
 
+class OwnedGeminiResponse(str):
+    """Text result with privacy-safe, verified Selenium Send evidence.
+
+    Existing JSON/storyboard callers still receive a string. G1 receipts can
+    independently persist registration proof on successful requests, not
+    merely on exceptions. Never attach prompts or provider credentials.
+    """
+
+    def __new__(cls, text: str, *, registration_status: str,
+                new_turn_verified: bool, late_reconciled: bool = False):
+        value = str.__new__(cls, text)
+        value.gemini_send_registration_status = registration_status
+        value.gemini_new_user_turn_verified = new_turn_verified
+        value.gemini_late_response_reconciled = late_reconciled
+        return value
+
+
 def _vendor_module():
     path=Path(__file__).resolve().parent/"vendor_template_v2"/"selenium.py"
     spec=importlib.util.spec_from_file_location("_microgen_series_gemini",path)
@@ -218,14 +235,17 @@ def _browser_request(instruction: str,attachments: list[Path],
                     )
                     recovered, snapshot = poll_existing_owned_response(
                         observe_owned_reply, accept_fn=(accept_fn or _looks_complete),
-                        wait_s=grace, poll_s=2)
+                        wait_s=grace, poll_s=2,
+                        verified_new_turn=bool(registration["registered"]))
                     if recovered is not None:
                         if not registration["registered"]:
                             raise SeriesBridgeError(
                                 "Gemini response present but NEW user turn "
                                 "not registered after a possible Send; "
                                 "do not attribute this reply or resend.")
-                        return recovered
+                        return OwnedGeminiResponse(
+                            recovered, registration_status=registration["status"],
+                            new_turn_verified=True, late_reconciled=True)
                 from .gemini_provider_ui_terminal_error import (
                     classify_visible_reply,
                 )
@@ -295,7 +315,9 @@ def _browser_request(instruction: str,attachments: list[Path],
                     "Gemini reply text was captured without a positively "
                     "registered NEW user turn on the owned tab; preserved "
                     "as untrusted. Do not repeat the Send.")
-            return response
+            return OwnedGeminiResponse(
+                response, registration_status=registration["status"],
+                new_turn_verified=True, late_reconciled=False)
         except Exception as error:
             from .gemini_selenium_only_policy import (
                 GeminiSeleniumTemporaryFailure,
