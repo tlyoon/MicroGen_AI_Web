@@ -113,7 +113,7 @@ class UncaptionedSourceRecoveryTests(unittest.TestCase):
     def test_numbered_figure_on_original_page_blocks_generic_guess(self):
         for caption in ("Figure 6.15 Unrelated scientific diagram",
                         "See Figure 6.15 in the text",
-                        "Fig. 6.15 A visual proof"):
+                        "Fig. 6.15 A visual proof", "Fig 6.15 another figure"):
             with self.subTest(caption=caption):
                 self.extra_caption=caption
                 self.make_pdf();self.make_manifest()

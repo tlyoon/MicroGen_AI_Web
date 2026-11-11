@@ -24,7 +24,7 @@ class UncaptionedSourceNotProven(ValueError):
     pass
 
 
-_FIGURE_REF = re.compile(r"(?i)\b(?:figure|fig\.)\s*\d+(?:[.\-]\d+)?")
+_FIGURE_REF = re.compile(r"(?i)\b(?:figure|fig\.?)\s*\d+(?:[.\-]\d+)?")
 _CROP_NAME = re.compile(r"^fig_[1-9][0-9]*\.png$")
 _PAGE_NAME = re.compile(r"^page_([1-9][0-9]*)\.png$")
 
