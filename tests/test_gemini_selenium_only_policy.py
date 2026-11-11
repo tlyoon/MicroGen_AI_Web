@@ -40,6 +40,16 @@ class MockButton:
             raise RuntimeError("click may have submitted")
 
 
+class MockModePicker:
+    """Actual read-only owned-tab model control, distinct from Send."""
+    def is_displayed(self):
+        return True
+
+    def get_attribute(self, name):
+        return ("Open mode picker, currently Flash"
+                if name == "aria-label" else None)
+
+
 class MockDriver:
     current_window_handle = "gemini-owned"
     current_url = "https://gemini.google.com/app"
@@ -47,9 +57,12 @@ class MockDriver:
     def __init__(self, buttons):
         self.buttons = buttons
         self.selectors = []
+        self.mode_pickers = [MockModePicker()]
 
     def find_elements(self, by, selector):
         self.selectors.append((by, selector))
+        if selector == 'button[aria-label^="Open mode picker"]':
+            return self.mode_pickers
         return self.buttons
 
 
