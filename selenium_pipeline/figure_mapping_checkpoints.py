@@ -84,6 +84,25 @@ def _candidate(root: Path,page: int,*,copy_to_root: bool) -> dict:
     if [t[0] for t in triples]!=[p.name for p in crops]:
         raise ValueError("Mapping order does not match original numbered crops")
 
+    # Geometry provenance is optional for historical checkpoints, but a
+    # newly declared source manifest becomes mandatory, hash-bound replay
+    # evidence. Never silently discard it or accept a changed copy.
+    crop_geometry=folder/f"page_{page}_crop_geometry.json"
+    source_geometry=page_png.parent/f"page_{page}_crop_geometry.json"
+    geometry_observed=(crop_geometry.exists() or source_geometry.exists()
+                       or crop_geometry.is_symlink() or source_geometry.is_symlink())
+    geometry_sha=None
+    if geometry_observed:
+        if (not _regular(crop_geometry) or not _regular(source_geometry)
+                or _sha(crop_geometry)!=_sha(source_geometry)):
+            raise ValueError("Source geometry manifest is missing, changed or untrusted")
+        from .figure_crop_source_provenance import (
+            inspect_source_locked_composite_candidates)
+        inspect_source_locked_composite_candidates(
+            manifest=crop_geometry, source_pdf=source,
+            page_png=page_png, crops_dir=folder, mappings=triples)
+        geometry_sha=_sha(crop_geometry)
+
     mapped=[]
     for name,label,target in triples:
         source_crop=folder/name
@@ -101,7 +120,7 @@ def _candidate(root: Path,page: int,*,copy_to_root: bool) -> dict:
             "crop":name,"caption":label,"target":target,
             "sha256":digest,
         })
-    return {
+    result={
         "schema_version":CHECKPOINT_VERSION,
         "status":"validated_source_mapping_not_visual_approval",
         "page":page,"source_pdf_sha256":_sha(source),
@@ -111,6 +130,9 @@ def _candidate(root: Path,page: int,*,copy_to_root: bool) -> dict:
         "copy_to_root":bool(copy_to_root),
         "mapped":mapped,
     }
+    if geometry_sha is not None:
+        result["source_geometry_manifest_sha256"]=geometry_sha
+    return result
 
 
 def _path(root:Path,page:int)->Path:

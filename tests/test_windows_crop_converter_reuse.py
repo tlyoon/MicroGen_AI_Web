@@ -17,12 +17,13 @@ SCRIPT = (Path(__file__).resolve().parents[1] / "selenium_pipeline"
 
 class FakePageImage:
     def save(self, path, fmt):
-        Path(path).write_bytes(b"synthetic PNG image")
+        Path(path).write_bytes(b"synthetic PNG image" * 200)
 
 
 class FakePdfReader:
     def __init__(self, path):
-        self.pages = ["one", "two"]
+        self.pages = [SimpleNamespace(mediabox=SimpleNamespace(
+            width=100, height=200)) for _ in range(2)]
 
 
 class FakePdfWriter:
@@ -34,8 +35,11 @@ class FakePdfWriter:
 
 
 class FakeDocument:
+    def __init__(self, items=()):
+        self.items = tuple(items)
+
     def iterate_items(self):
-        return iter(())
+        return iter((item, None) for item in self.items)
 
 
 class CropFigureConverterReuseTests(unittest.TestCase):
@@ -68,7 +72,7 @@ class CropFigureConverterReuseTests(unittest.TestCase):
             def convert(self, path):
                 counter["conversions"] += 1
                 self.assert_path = Path(path)
-                return SimpleNamespace(document=FakeDocument())
+                return SimpleNamespace(document=FakeDocument([FakePicture()]))
 
         def fake_rasterize(path, dpi):
             counter["rasterizations"] += 1
@@ -76,7 +80,11 @@ class CropFigureConverterReuseTests(unittest.TestCase):
             return [FakePageImage(), FakePageImage()]
 
         class FakePicture:
-            pass
+            prov = [SimpleNamespace(page_no=1, bbox=SimpleNamespace(
+                l=10, r=90, t=75, b=20, coord_origin="BOTTOMLEFT"))]
+
+            def get_image(self, _doc):
+                return FakePageImage()
 
         names = {
             "Path": Path, "os": os, "ikB": 2.55,
@@ -87,6 +95,14 @@ class CropFigureConverterReuseTests(unittest.TestCase):
             "InputFormat": SimpleNamespace(PDF="pdf"),
             "PdfFormatOption": lambda **kwargs: kwargs,
             "DocumentConverter": FakeConverter,
+            # The AST runner starts after imports; inject the real production
+            # no-Send source-geometry recorder instead of skipping it.
+            "save_page_crop_geometry": __import__(
+                "selenium_pipeline.figure_crop_source_provenance",
+                fromlist=["save_page_crop_geometry"]).save_page_crop_geometry,
+            "build_crop_geometry_candidate": __import__(
+                "selenium_pipeline.figure_crop_source_provenance",
+                fromlist=["build_crop_geometry_candidate"]).build_crop_geometry_candidate,
         }
         with tempfile.TemporaryDirectory() as tmp:
             previous = os.getcwd()
@@ -100,6 +116,17 @@ class CropFigureConverterReuseTests(unittest.TestCase):
                     self.assertTrue(
                         (Path("crops") / f"page_{page}" /
                          f"page_{page}.png").is_file())
+                for page in (1, 2):
+                    manifest = (Path("crops") / f"page_{page}" /
+                                f"page_{page}_crop_geometry.json")
+                    self.assertTrue(manifest.is_file())
+                    import json
+                    report = json.loads(manifest.read_text())
+                    self.assertEqual(report["crop_count"], 1)
+                    self.assertTrue(report["all_crops_have_declared_bbox"])
+                    self.assertEqual(report["crops"][0]["crop_file"], "fig_1.png")
+                    self.assertFalse(report["figure_composite_layout_certified"])
+                    self.assertFalse(report["student_publication_authorized"])
                 text = output.getvalue()
                 self.assertIn("LOCAL_FIGURE_DOCLING_READY", text)
                 self.assertIn("LOCAL_FIGURE_CROP_PAGE_START page=1", text)

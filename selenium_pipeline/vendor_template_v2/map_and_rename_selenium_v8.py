@@ -1775,6 +1775,22 @@ def map_and_rename_single_step(
         FigureCompositeReviewRequired, validate_and_prepare_mappings,
         require_non_destructive_destination,
     )
+    from selenium_pipeline.figure_crop_source_provenance import (
+        inspect_source_locked_composite_candidates,
+    )
+    # The source crop worker records bounded Docling candidate geometry.
+    # Verify every original crop SHA before using even a candidate rectangle;
+    # a missing legacy manifest is unknown, never assumed to be geometry.
+    geometry_candidate = None
+    geometry_manifest = crops_dir / (page_png.stem + "_crop_geometry.json")
+    if geometry_manifest.exists() or geometry_manifest.is_symlink():
+        source_pdf = CFG.root / "source.pdf"
+        if not source_pdf.is_file():
+            source_pdf = CFG.root / "problems.pdf"
+        geometry_candidate = inspect_source_locked_composite_candidates(
+            manifest=geometry_manifest, source_pdf=source_pdf,
+            page_png=page_png, crops_dir=crops_dir, mappings=resolved_triples,
+        )
     try:
         resolved_triples = validate_and_prepare_mappings(resolved_triples)
         # Preflight *all* original crops and destinations before first copy.
@@ -1792,6 +1808,12 @@ def map_and_rename_single_step(
                 for p in fig_files if p.is_file()
             ],
             "issues": exc.issues,
+            # Strictly diagnostic. Even non-overlapping source rectangles do
+            # not prove panel membership, caption semantics, or authorize
+            # automatic concatenation/publication.
+            "source_declared_crop_geometry": geometry_candidate,
+            "figure_composite_semantics_verified": False,
+            "automatic_merge_authorized": False,
         }
         source_pdf = CFG.root / "source.pdf"
         if source_pdf.is_file():

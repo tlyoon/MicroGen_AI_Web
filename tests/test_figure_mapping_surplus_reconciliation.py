@@ -214,6 +214,70 @@ class ActualNormalFigureWorkerReconciliation(unittest.TestCase):
         self.assertFalse(evidence["independent_figure_caption_semantics_verified"])
         self.assertFalse(evidence["student_publication_authorized"])
 
+    def write_source_geometry_manifest(self):
+        from types import SimpleNamespace
+        from selenium_pipeline.figure_crop_source_provenance import (
+            build_crop_geometry_candidate, save_page_crop_geometry)
+        source = self.root / "source.pdf"
+        source.write_bytes(b"isolated original source pdf fixture")
+        crops = []
+        for crop_name, bbox in (
+                ("fig_2.png", (10, 95, 90, 130)),
+                ("fig_4.png", (120, 195, 90, 130))):
+            l, r, t, b = bbox
+            picture = SimpleNamespace(prov=[SimpleNamespace(
+                page_no=1, bbox=SimpleNamespace(
+                    l=l, r=r, t=t, b=b, coord_origin="TOPLEFT"))])
+            crops.append(build_crop_geometry_candidate(
+                picture=picture, original_pdf=source, page_png=self.page,
+                crop_png=self.crops / crop_name, page_number=1,
+                page_width_pt=210, page_height_pt=200))
+        save_page_crop_geometry(
+            target=self.crops / "page_1_crop_geometry.json",
+            source_pdf=source, page_png=self.page,
+            records=crops, page_number=1)
+
+    def test_real_worker_preserves_hash_bound_disjoint_layout_on_duplicate_target(self):
+        import json
+        self.write_source_geometry_manifest()
+        reply = (
+            'fig_2.png : "Figure 7.7" : Figure 7.7.png\n'
+            'fig_4.png : "Figure 7.7" : Figure 7.7.png')
+        requests = []
+        work, client = self.worker(reply, requests)
+        from selenium_pipeline.figure_composites import FigureCompositeReviewRequired
+        with self.assertRaises(FigureCompositeReviewRequired):
+            work(client, self.page, self.crops, wait_cap=60,
+                 backend_override="selenium", single_attempt=True)
+        self.assertEqual(requests, ["one_old_response"])
+        report = json.loads((self.root / "page_1_composite_review.json").read_text())
+        geometry = report["source_declared_crop_geometry"]
+        self.assertEqual(geometry["status"],
+                         "HASH_BOUND_DOCLING_GEOMETRY_CANDIDATES_NOT_SEMANTIC_PROOF")
+        self.assertTrue(geometry["original_crop_hashes_verified"])
+        self.assertEqual(len(geometry["duplicate_target_candidates"]), 1)
+        self.assertTrue(geometry["duplicate_target_candidates"][0][
+            "docling_declared_boxes_nonoverlapping"])
+        self.assertFalse(geometry["same_author_figure_verified"])
+        self.assertFalse(geometry["automatic_stitch_or_publication_authorized"])
+        self.assertFalse(report["automatic_merge_authorized"])
+        self.assertFalse((self.crops / "Figure 7.7.png").exists())
+
+    def test_real_worker_rejects_stale_source_crop_geometry_before_copy(self):
+        self.write_source_geometry_manifest()
+        (self.crops / "fig_4.png").write_bytes(b"tampered pixels")
+        reply = (
+            'fig_2.png : "Figure 7.5" : Figure 7.5.png\n'
+            'fig_4.png : "Figure 7.6" : Figure 7.6.png')
+        requests = []
+        work, client = self.worker(reply, requests)
+        with self.assertRaisesRegex(ValueError, "Crop identity"):
+            work(client, self.page, self.crops, wait_cap=60,
+                 backend_override="selenium", single_attempt=True)
+        self.assertEqual(requests, ["one_old_response"])
+        self.assertFalse((self.crops / "Figure 7.5.png").exists())
+        self.assertFalse((self.crops / "Figure 7.6.png").exists())
+
     def test_conflicting_surplus_reply_stops_without_publishing_any_mapping(self):
         calls = []
         response = (RESPONSE.replace(
