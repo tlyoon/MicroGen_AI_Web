@@ -68,7 +68,8 @@ else:
 DEFAULT_LLM_MODEL = "gemini-3.8-flash"
 PRODUCTION_LLM_MODEL = DEFAULT_LLM_MODEL  # Production also defaults to Flash.
 ACTIVE_LLM_MODEL = os.getenv("MICROGEN_LLM_MODEL", DEFAULT_LLM_MODEL).strip()
-DEFAULT_CAPTION_MODEL = ACTIVE_LLM_MODEL
+from .gemini_stage_policy import FIGURE_MODEL_ID
+DEFAULT_CAPTION_MODEL = FIGURE_MODEL_ID  # Vision caption locator, no Thinking menu.
 CAPTION_BENCHMARK_MODEL = DEFAULT_LLM_MODEL
 DEFAULT_SLIDE_MODEL = ACTIVE_LLM_MODEL
 DEFAULT_NARRATION_MODEL = ACTIVE_LLM_MODEL
@@ -699,9 +700,15 @@ def _execute_unlocked(s: Settings) -> Path:
     print(f"[microgen] code root: {REPO} | job: {s.subchapter}")
     print(f"[microgen] input: {source} | work: {folder}")
     print(f"[microgen] model phase: {MODEL_PHASE}")
-    print(f"[microgen] browser UI model: {DEFAULT_BROWSER_UI_MODE}")
+    from .gemini_stage_policy import stage_ui_contract
     from .gemini_thinking import configured_thinking_level
-    print(f"[microgen] browser thinking level: {configured_thinking_level()}")
+    first_model_stage = next((stage for stage in planned if stage in CHROME_STAGES), None)
+    initial_policy = (stage_ui_contract(first_model_stage,
+                      nonfigure_mode=DEFAULT_BROWSER_UI_MODE,
+                      nonfigure_model=ACTIVE_LLM_MODEL)
+                      if first_model_stage else None)
+    print(f"[microgen] browser UI model: {initial_policy['ui_mode'] if initial_policy else DEFAULT_BROWSER_UI_MODE}")
+    print(f"[microgen] browser thinking level: {initial_policy['thinking_level'] if initial_policy else configured_thinking_level()}")
     print(f"[microgen] caption model: {DEFAULT_CAPTION_MODEL} (benchmark alternative: {CAPTION_BENCHMARK_MODEL})")
     print(f"[microgen] slide model: {DEFAULT_SLIDE_MODEL}")
     print(f"[microgen] narration model: {DEFAULT_NARRATION_MODEL}")
@@ -824,7 +831,7 @@ def _execute_unlocked(s: Settings) -> Path:
     state["source_sha256"] = signature
     state["requested_models"] = {
         "phase": MODEL_PHASE,
-        "browser_ui": DEFAULT_BROWSER_UI_MODE,
+        "browser_ui": initial_policy["ui_mode"] if initial_policy else DEFAULT_BROWSER_UI_MODE,
         "caption": DEFAULT_CAPTION_MODEL,
         "caption_benchmark": CAPTION_BENCHMARK_MODEL,
         "slides": DEFAULT_SLIDE_MODEL,
@@ -968,6 +975,21 @@ def _execute_unlocked(s: Settings) -> Path:
         save_pipeline_state(stamp, state)
         log_file = folder / f"microgen_{stage}.log"
         try:
+            # The figure caption page-to-crop mapping is a light vision task:
+            # exact Flash-Lite, NO thinking-level selector. Lecture slides and
+            # narration stay on Flash/Medium (or explicit benchmark Pro).
+            stage_policy = (
+                stage_ui_contract(stage,
+                                  nonfigure_mode=DEFAULT_BROWSER_UI_MODE,
+                                  nonfigure_model=ACTIVE_LLM_MODEL)
+                if stage in CHROME_STAGES else None)
+            if stage_policy:
+                env["MICROGEN_ACTIVE_GENERATION_STAGE"] = stage
+                env["MICROGEN_GEMINI_UI_MODE"] = stage_policy["ui_mode"]
+                env["MICROGEN_LLM_MODEL"] = stage_policy["requested_model_id"]
+                state["requested_models"][stage + "_ui_contract"] = stage_policy
+                print(f"[microgen] {stage} selected UI family: {stage_policy['ui_mode']}; "
+                      f"thinking: {stage_policy['thinking_level']}")
             if _needs_browser(stage):
                 if not browser_initialized:
                     from .launch_gemini import launch, ALT_PORT
@@ -979,10 +1001,10 @@ def _execute_unlocked(s: Settings) -> Path:
                     env["GEMINI_DEBUG_PORT"]=str(actual_port)
                     browser_initialized=True
                 from .gemini_model import ensure_mode, browser_model_evidence
-                stage_label=ensure_mode(s.chrome_port,DEFAULT_BROWSER_UI_MODE)
+                stage_label=ensure_mode(s.chrome_port,stage_policy["ui_mode"])
                 observed_browser_evidence=browser_model_evidence(
-                    stage_label,requested_mode=DEFAULT_BROWSER_UI_MODE,
-                    requested_model_id=ACTIVE_LLM_MODEL)
+                    stage_label,requested_mode=stage_policy["ui_mode"],
+                    requested_model_id=stage_policy["requested_model_id"])
                 state["requested_models"]["ui_family_evidence"]=observed_browser_evidence
                 save_pipeline_state(stamp,state)
                 print(f"[microgen] {stage} Gemini UI family confirmed: {stage_label}; "

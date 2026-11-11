@@ -1,3 +1,39 @@
+# 11 November 2026 - Owner figure-caption Flash-Lite model / no Thinking mandate
+
+**What was proven by a genuine source:** Serway 7.8 figures on Dell-115,
+immutable SHA `f41ee09c32133b6c6ef7f7fc9830f0d2758c0e14e8259255d71b2c53ee72a5c6`,
+successfully mapped source figure 7.20 on page 1 with Gemini Flash/Medium,
+but page 3 encountered `ElementNotInteractableException` while reopening
+the Thinking submenu *before* another Send. Two original registered Sends
+belong to earlier page work; stage terminal receipt is
+`FIGURES_ATTEMPT_FAILED_NO_AUTO_RETRY`. Do not resubmit this source.
+
+**New binding supersession:** Figure page/crop caption identification
+automatically selects the lighter `flash-lite` browser model, identifies the
+exact selected family and **never invokes the Thinking-level selector**.
+Slides and narration continue to use Flash with Medium thinking (or a
+separately authorized benchmark setting). This is centrally encoded in
+`selenium_pipeline/gemini_stage_policy.py`, passed to the actual copied
+vendor figure worker by the normal `runner`, and checked before one Send
+by both vendor/direct Selenium entrypoints. `gemini_model.py` handles exact
+`Flash-Lite` without confusing it with full Flash. Original-stage triage
+accepts figure evidence only with `browser UI model: flash-lite`, explicit
+`thinking level: not_required` and a pre-Send marker; no fake Medium
+evidence or release bypass. See binding closure-first and adaptive UI
+contracts and `tests/test_figure_caption_flash_lite_policy.py`.
+
+**Real source-free preflight:** Dell-115 authenticated fresh owned Gemini tab
+successfully selected `Open mode picker, currently Flash-Lite Medium`,
+uploaded two synthetic pictures, entered a long synthetic prompt, and
+rechecked exact Flash-Lite in that same tab. No Thinking submenu interaction,
+Gemini Send, model output, API, original source, TTS or publication.
+The visible picker still contains a Medium label; this new contract does
+**not** assert that Google's internal thinking is disabled. It avoids
+needing or verifying the separate Thinking menu for this simple caption task.
+Genuine new-source G2 figures/media acceptance and G3 remain unverified.
+
+---
+
 # 11 November 2026 - Real G2 long-prompt Selenium picker failure: atomic selector recovery
 
 **Device/PR:** Dell-115 Windows-only, `MicroGen_AI_Web` draft PR #528, isolated worktree `%LOCALAPPDATA%\\MicroGen_PR528_20261106`. Pre-attempt head `2ce0224` passed all THREE exact-head hosted Windows CI jobs; clean tree. Distinct **Serway 7.7** original source SHA-256 `b76058276d551f4feec5cac4034b35d5f5d1bd22a9ddfacaf13f0079921d68c8`, isolated original trial `%LOCALAPPDATA%\\MicroGen_AI_Web_Checkpoints\\20261111_PR528_G2_SERWAY7_7_DISTINCT_SOURCE_V1`. Native one-shot figures stage ran, extracted three source pages and one crop each, opened an owned verified Gemini Flash/Medium fresh chat and uploaded page+figure. It halted *before* Selenium Send at `PRE_SEND_MODE_PICKER_NOT_UNIQUE_OR_MISSING`; SHA-locked original result `FIGURES_ATTEMPT_FAILED_NO_AUTO_RETRY`, **zero REGISTERED model Sends**, original claim/log/triage remain untouched, no old stage repeat. G2/G3 still NOT VERIFIED.

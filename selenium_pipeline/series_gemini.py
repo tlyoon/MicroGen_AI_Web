@@ -115,12 +115,14 @@ def _browser_request(instruction: str,attachments: list[Path],
                 owned.open_clean_gemini_chat()
                 # New chats can reset both model and Thinking level.
                 # Both are checked again in THIS owned tab before any Send.
-                from .gemini_thinking import (
-                    configured_thinking_level,
-                    select_owned_gemini_thinking_level)
-                select_owned_gemini_thinking_level(
-                    owned.driver, getattr(owned, "_automation_tab", None),
-                    level=configured_thinking_level(), timeout=20)
+                from .gemini_stage_policy import browser_stage_needs_thinking
+                if browser_stage_needs_thinking(mode=selected):
+                    from .gemini_thinking import (
+                        configured_thinking_level,
+                        select_owned_gemini_thinking_level)
+                    select_owned_gemini_thinking_level(
+                        owned.driver, getattr(owned, "_automation_tab", None),
+                        level=configured_thinking_level(), timeout=20)
                 # New chats may reset Gemini's mode: independently recheck.
                 from .gemini_model import browser_model_evidence
                 observed=ensure_mode(port,selected)
@@ -158,12 +160,17 @@ def _browser_request(instruction: str,attachments: list[Path],
                 client.driver,owned_handle,mode=configured_ui_mode(),wait_seconds=4)
             print("[MicroGen] PRE_SEND_OWNED_FAMILY_VERIFIED "
                   +selected_family,file=sys.stderr,flush=True)
-            from .gemini_thinking import (
-                assert_owned_gemini_thinking_level, configured_thinking_level)
-            selected_thinking=assert_owned_gemini_thinking_level(
-                client.driver, owned_handle, level=configured_thinking_level())
-            print("[MicroGen] PRE_SEND_OWNED_THINKING_VERIFIED "
-                  +selected_thinking,file=sys.stderr,flush=True)
+            from .gemini_stage_policy import browser_stage_needs_thinking
+            if browser_stage_needs_thinking(mode=configured_ui_mode()):
+                from .gemini_thinking import (
+                    assert_owned_gemini_thinking_level, configured_thinking_level)
+                selected_thinking=assert_owned_gemini_thinking_level(
+                    client.driver, owned_handle, level=configured_thinking_level())
+                print("[MicroGen] PRE_SEND_OWNED_THINKING_VERIFIED "
+                      +selected_thinking,file=sys.stderr,flush=True)
+            else:
+                print("[MicroGen] PRE_SEND_FIGURES_FLASH_LITE_NO_THINKING",
+                      file=sys.stderr,flush=True)
             # Reading the nested Thinking menu must preserve the Flash
             # contract; verify model identity a second time before the click.
             assert_owned_gemini_mode(

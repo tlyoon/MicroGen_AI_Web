@@ -1316,13 +1316,15 @@ class GeminiSeleniumClient:
         assert self.driver is not None
         phase = os.getenv("MICROGEN_MODEL_PHASE", "development").strip().lower()
 
-        # Flash remains the default in every phase.
-        # Pro requires an explicit override.
+        # The normal runner scopes Flash-Lite to figure caption mapping only.
+        # Lecture stages retain Flash with verified Thinking level.
         target_mode = (
             os.getenv("MICROGEN_GEMINI_UI_MODE", "flash").strip().lower()
             or "flash"
         )
-        if target_mode not in {"flash", "pro"}:
+        from selenium_pipeline.gemini_stage_policy import browser_stage_needs_thinking
+        requires_thinking = browser_stage_needs_thinking(mode=target_mode)
+        if target_mode not in {"flash-lite", "flash", "pro"}:
             raise RuntimeError(f"Unsupported MICROGEN_GEMINI_UI_MODE={target_mode!r}")
         # Every mapping page gets a browser tab owned by this MicroGen instance.
         # Reusing an arbitrary authenticated user tab left stale image chips,
@@ -1457,14 +1459,19 @@ class GeminiSeleniumClient:
             self.driver, self._automation_tab, mode=target_mode, timeout=20)
         # The selected thinking effort belongs to the same owned tab.
         # Gemini may reset this when New chat is clicked, just like its model.
-        from selenium_pipeline.gemini_thinking import (
-            configured_thinking_level, select_owned_gemini_thinking_level)
-        target_thinking = configured_thinking_level()
-        verified_thinking = select_owned_gemini_thinking_level(
-            self.driver, self._automation_tab,
-            level=target_thinking, timeout=20)
         log(f"[GEMINI-MODE] OWNED_FAMILY_VERIFIED_AFTER_NEW_CHAT {selected_mode}")
-        log(f"[GEMINI-THINKING] OWNED_LEVEL_VERIFIED_AFTER_NEW_CHAT {verified_thinking}")
+        if requires_thinking:
+            from selenium_pipeline.gemini_thinking import (
+                configured_thinking_level, select_owned_gemini_thinking_level)
+            target_thinking = configured_thinking_level()
+            verified_thinking = select_owned_gemini_thinking_level(
+                self.driver, self._automation_tab,
+                level=target_thinking, timeout=20)
+            log(f"[GEMINI-THINKING] OWNED_LEVEL_VERIFIED_AFTER_NEW_CHAT {verified_thinking}")
+        else:
+            # Flash-Lite's caption task needs no Thinking submenu, avoiding
+            # the non-interactable Medium expander seen in Serway 7.8.
+            log("[GEMINI-THINKING] FIGURES_FLASH_LITE_NOT_REQUIRED")
         log("Opened Gemini")
 
     @staticmethod
@@ -1683,12 +1690,18 @@ class GeminiSeleniumClient:
                 mode=(os.getenv("MICROGEN_GEMINI_UI_MODE", "flash").strip().lower()
                       or "flash"), wait_seconds=4)
             log(f"[GEMINI-MODE] PRE_SEND_OWNED_FAMILY_VERIFIED {selected_mode}")
-            from selenium_pipeline.gemini_thinking import (
-                configured_thinking_level, assert_owned_gemini_thinking_level)
-            verified_thinking = assert_owned_gemini_thinking_level(
-                self.driver, owned, level=configured_thinking_level())
-            log(f"[GEMINI-THINKING] PRE_SEND_OWNED_LEVEL_VERIFIED {verified_thinking}")
-            # Opening the Thinking selector must not have changed the model.
+            from selenium_pipeline.gemini_stage_policy import browser_stage_needs_thinking
+            if browser_stage_needs_thinking(
+                    mode=(os.getenv("MICROGEN_GEMINI_UI_MODE", "flash").strip().lower()
+                          or "flash")):
+                from selenium_pipeline.gemini_thinking import (
+                    configured_thinking_level, assert_owned_gemini_thinking_level)
+                verified_thinking = assert_owned_gemini_thinking_level(
+                    self.driver, owned, level=configured_thinking_level())
+                log(f"[GEMINI-THINKING] PRE_SEND_OWNED_LEVEL_VERIFIED {verified_thinking}")
+            else:
+                log("[GEMINI-THINKING] PRE_SEND_FIGURES_FLASH_LITE_NOT_REQUIRED")
+            # Reverify the model in the same owned tab just before the one Send.
             selected_mode = assert_owned_gemini_mode(
                 self.driver, owned,
                 mode=(os.getenv("MICROGEN_GEMINI_UI_MODE", "flash").strip().lower()

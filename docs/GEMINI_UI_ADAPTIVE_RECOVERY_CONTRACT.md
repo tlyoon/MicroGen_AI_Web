@@ -18,31 +18,37 @@ the semantic meaning is still observable.
    `select_owned_gemini_mode`, and `assert_owned_gemini_mode` from both parent
    preflight and copied vendor workers. Recognize semantic
    `aria-label`/`data-test-id` candidates, support radio/option/menuitem roles
-   and descriptions such as `All-around help / 3.8 Flash`. Accept
-   `Gemini Flash`, `Flash Medium` and changed version numbers as Flash, but
-   **never** Flash-Lite, Pro, Argon, Carbon or any mixed-family selection.
-3. **Thinking:** For normal lectures the default is
-   `MICROGEN_GEMINI_THINKING_LEVEL=medium`; explicitly supported overrides
-   are `low`, `medium`, `high`. The dedicated
-   `gemini_thinking.select_owned_gemini_thinking_level` finds the unique
-   **Thinking level / reasoning effort** submenu, selects only the exact
-   requested radio, reopens it and positively verifies the checked state.
-   Options such as `Medium / Balanced depth` are identified by their level,
-   not their potentially changing descriptive subtitle.
-4. **New chat reset:** Verify Flash and the requested thinking level
-   **after** opening New chat, not merely before. The real vendor worker and
-   the shared direct browser path apply these checks in normal execution.
-5. **Pre-Send:** Verify the model, then the thinking level, then the model
-   again immediately before the **one** owned click; no prompt retyping or
-   fallback provider attempts. Any missing/ambiguous/wrong state raises a
-   pre-Send error. A completed Send may **never** be replayed merely because
-   response content is blank or slow.
-6. **Evidence:** The runner records the explicitly requested thinking level.
-   The vendor emits an owned, timestamped
-   `[GEMINI-THINKING] PRE_SEND_OWNED_LEVEL_VERIFIED medium` marker.
-   The source-bound G2 coordinator reads only the preserved source-stage log.
-   A new stage that declares Medium but does not prove Medium before a
-   registered Send is **not accepted**; no old stage receipt is overwritten.
+   and descriptions such as `All-around help / 3.8 Flash` or
+   `Quick answers / 3.5 Flash-Lite`. **Stage-specific identity:** exact
+   Flash-Lite is mandatory for figure-caption mapping; exact Flash is the
+   normal slides/narration family. Never misclassify Flash-Lite as Flash,
+   accept mixed/ambiguous labels or silently switch between their tasks.
+3. **Thinking by stage:** **figures have no Thinking-level requirement**.
+   The normal figure-caption stage must select **Flash-Lite** and must not
+   open or verify the Thinking submenu. For **slides and narration**, retain
+   the default `MICROGEN_GEMINI_THINKING_LEVEL=medium`, with explicit
+   supported overrides `low`, `medium`, `high`. Only these latter
+   stages use `gemini_thinking.select_owned_gemini_thinking_level`
+   to verify the checked radio. Any attempt to skip the thinking gate
+   outside the genuine figure stage must fail closed.
+4. **New chat reset:** Verify the **stage-appropriate exact UI family**
+   after New chat, not merely before. For slides/narration also reselect
+   and verify their requested Thinking level. For figures the thinking
+   menu must remain untouched in both vendor and direct browser paths.
+5. **Pre-Send:** Always verify exact owned **stage-specific model**, then
+   for slides/narration verify Thinking and recheck the model. For figures
+   explicitly record `PRE_SEND_FIGURES_FLASH_LITE_NOT_REQUIRED` in place
+   of the unnecessary Thinking control and reverify Flash-Lite. No prompt
+   retyping or fallback provider attempts; missing, ambiguous or wrong
+   model identity raises a pre-Send error. A possibly accepted Send is never
+   replayed merely because response content is blank or slow.
+6. **Evidence:** The runner records `browser UI model: flash-lite` and
+   `browser thinking level: not_required` for the figure stage, and the
+   vendor records `[GEMINI-THINKING] PRE_SEND_FIGURES_FLASH_LITE_NOT_REQUIRED`.
+   The source-bound coordinator checks an exact Flash-Lite family and this
+   marker when an original figures Send was registered. Slides/narration
+   still require timestamped pre-Send Medium or other configured level proof.
+   No old SHA-locked receipt is overwritten or reinterpreted as a new Send.
 7. **Rights:** No change to original publisher PDFs, claims, source hashes,
    scientific/media QA, AI model authorization, audio/MP4 constraints or
    release rules. Incompatible UI must **fail closed** before Send.

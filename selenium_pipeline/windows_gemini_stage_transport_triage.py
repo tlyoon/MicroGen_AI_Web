@@ -52,7 +52,7 @@ _PRE_SEND_OWNED_PICKER_TRACEBACK = re.compile(
 # together with this runner's explicitly requested mode. Never infer a UI
 # selection from arbitrary Gemini response text or a parent-tab preflight.
 _EXPECTED_UI_MODE = re.compile(
-    r"(?m)^\[microgen\] browser UI model: (flash|pro)\s*$")
+    r"(?m)^\[microgen\] browser UI model: (flash-lite|flash|pro)\s*$")
 _VENDOR_OWNED_MODE = re.compile(
     r"(?m)^\[\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\] \[INFO\] "
     r"Selected Gemini tab via mode picker: "
@@ -63,6 +63,11 @@ _VERIFIED_OWNED_PRE_SEND = re.compile(
     r"(Open mode picker, currently [^\r\n]+)\s*$")
 _EXPECTED_THINKING = re.compile(
     r"(?m)^\[microgen\] browser thinking level: (low|medium|high)\s*$")
+_FIGURE_THINKING_NOT_REQUIRED = re.compile(
+    r"(?m)^\[microgen\] browser thinking level: not_required\s*$")
+_FIGURE_NO_THINKING_PROOF = re.compile(
+    r"(?m)^\[\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\] \[INFO\] "
+    r"\[GEMINI-THINKING\] PRE_SEND_FIGURES_FLASH_LITE_NOT_REQUIRED\s*$")
 _VERIFIED_THINKING = re.compile(
     r"(?m)^\[\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\] \[INFO\] "
     r"\[GEMINI-THINKING\] PRE_SEND_OWNED_LEVEL_VERIFIED "
@@ -90,10 +95,16 @@ def audit_original_stage_model_family(raw: str, *, registered_send: bool) -> dic
     # informational only; do not rewrite old receipts to pretend they were
     # generated with Medium. New attempts have a runner-owned expectation,
     # and a missing/mismatched pre-Send proof invalidates acceptance.
+    figure_lite = bool(
+        mode == "flash-lite" and _FIGURE_THINKING_NOT_REQUIRED.search(raw))
+    figure_lite_pre_send = bool(_FIGURE_NO_THINKING_PROOF.search(raw))
     thinking_contract_breach = bool(
-        registered_send and expected_thinking and
-        (not verified_thinking or any(
-            observed != expected_thinking for observed in verified_thinking)))
+        registered_send and (
+            (expected_thinking and
+             (not verified_thinking or any(
+                 observed != expected_thinking for observed in verified_thinking)))
+            or (figure_lite and not figure_lite_pre_send)
+            or (mode == "flash-lite" and not figure_lite)))
     return {
         "expected_ui_family_from_owned_stage_log": mode or "UNVERIFIED",
         "owned_worker_picker_observation_count": len(selected),
@@ -105,13 +116,14 @@ def audit_original_stage_model_family(raw: str, *, registered_send: bool) -> dic
             if wrong else "NO_MODEL_FAMILY_MISMATCH_PROVEN"),
         "provider_generation_caused_by_model_mismatch_proven": False,
         "expected_thinking_level_from_owned_stage_log":
-            expected_thinking or "UNVERIFIED_HISTORICAL",
+            expected_thinking or ("not_required" if figure_lite else "UNVERIFIED_HISTORICAL"),
         "owned_worker_thinking_pre_send_proof_count": len(verified_thinking),
         "owned_worker_thinking_contract_breach_observed":
             thinking_contract_breach,
         "owned_worker_requested_thinking_verified_before_send": bool(
-            registered_send and expected_thinking and verified_thinking
-            and not thinking_contract_breach),
+            registered_send and not thinking_contract_breach
+            and ((expected_thinking and verified_thinking) or
+                 (figure_lite and figure_lite_pre_send))),
         "thinking_contract_recovery_route": (
             "ADAPT_OWNED_TAB_THINKING_MENU_ON_DISTINCT_SOURCE_NO_RESEND"
             if thinking_contract_breach else

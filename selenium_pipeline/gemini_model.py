@@ -18,6 +18,10 @@ MODEL_SPECS = {
         "menu_prefix": "3.1 Pro",
         "label_token": "pro",
     },
+    "flash-lite": {
+        "menu_prefix": "Flash-Lite",
+        "label_token": "flash-lite",
+    },
 }
 
 
@@ -27,7 +31,7 @@ def configured_ui_mode() -> str:
     if explicit:
         if explicit not in MODEL_SPECS:
             raise GeminiModelError(
-                "MICROGEN_GEMINI_UI_MODE must be 'flash' or 'pro'."
+                "MICROGEN_GEMINI_UI_MODE must be 'flash-lite', 'flash' or 'pro'."
             )
         return explicit
 
@@ -53,8 +57,8 @@ def _matches_mode(label: str, mode: str) -> bool:
     tokens = re.findall(
         r"(?<!\w)(?:flash[\s-]*lite|flash|pro|argon|carbon)(?!\w)",
         selected, flags=re.I)
-    target = "flash" if mode == "flash" else "pro"
-    return len(tokens) == 1 and tokens[0].casefold() == target
+    target = mode
+    return (len(tokens) == 1 and tokens[0].casefold().replace(' ', '-') == target)
 
 
 def _eligible_mode_menu_text(text: str, mode: str) -> bool:
@@ -78,13 +82,14 @@ def _eligible_mode_menu_text(text: str, mode: str) -> bool:
         flattened, flags=re.I)
     if len(tokens) != 1:
         return False
-    if mode == "flash" and tokens[0].casefold() != "flash":
-        return False
-    if mode == "pro" and tokens[0].casefold() != "pro":
+    if tokens[0].casefold().replace(" ", "-") != mode:
         return False
     if mode == "flash":
         pattern = (r"(?:gemini\s+)?(?:\d+(?:\.\d+)?\s+)?"
                    r"flash(?:\s+(?:high|fast))?")
+    elif mode == "flash-lite":
+        pattern = (r"(?:gemini\s+)?(?:\d+(?:\.\d+)?\s+)?"
+                   r"flash[ -]lite")
     else:
         pattern = r"(?:gemini\s+)?(?:\d+(?:\.\d+)?\s+)?pro"
     return any(re.fullmatch(pattern, line, flags=re.I) is not None
@@ -318,7 +323,9 @@ def browser_model_evidence(label: str, *, requested_mode: str,
     named=requested_model_id.strip().casefold()
     if (requested_mode not in MODEL_SPECS
             or not re.search(r"\b"+requested_mode+r"\b", named)
-            or (requested_mode == "flash" and re.search(r"\blite\b", named))):
+            or (requested_mode == "flash" and re.search(r"\blite\b", named))
+            or (requested_mode == "flash-lite"
+                and not re.search(r"\bflash[ -]lite\b", named))):
         raise GeminiModelError("Requested API model ID contradicts selected UI family")
     if not _matches_mode(label, requested_mode):
         raise GeminiModelError("Current Gemini UI family does not match requested mode")
@@ -372,7 +379,7 @@ def ensure_mode(port: int = 9222, mode: str | None = None, timeout: float = 15) 
             if picker is None:
                 time.sleep(0.25)
 
-        if picker is None and gemini_tab_seen and target_mode == "flash":
+        if picker is None and gemini_tab_seen and target_mode in ("flash", "flash-lite"):
             # October 2026 regression: a retained old Gemini draft can leave a
             # page showing an editor but *no* mode picker. Opening a fresh tab
             # restored authenticated Flash without touching that draft.

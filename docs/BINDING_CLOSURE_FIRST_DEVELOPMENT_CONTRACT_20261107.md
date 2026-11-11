@@ -9,6 +9,39 @@ API-based `microgen_ai` project must never inherit this agreement by accident.
 commit `67f49ca68fce7519b1c031752cb21e0ce28f5e41` (both hosted Windows
 CI jobs successful). Subsequent commit IDs are resolved afresh each turn.
 
+## Owner supersession — Figure caption mapping is Flash-Lite / no Thinking (11 November 2026)
+
+This later explicit owner instruction **permanently supersedes** any earlier
+one-model-for-all-stages or mandatory Medium-thinking-for-every-stage rule,
+including the Flash/Medium default for figure crops in prior G2 attempts.
+
+- **FIGURES** (`crop_figs` + page/crop-to-caption identification and mapping):
+  use the available authenticated **Gemini Flash-Lite** visual-text UI
+  family (current menu advertised as `3.5 Flash-Lite`). It does **not**
+  require the Thinking-level submenu. Never open, choose, or verify
+  `Medium` just to map figure captions. Perform the existing exact
+  source/crop SHA, page-to-caption, target-uniqueness and source-space
+  geometry gates regardless of model; the lighter model cannot certify
+  ambiguous diagrams or mathematics.
+- **SLIDES and NARRATION:** retain Flash with separately verified
+  `Thinking level = Medium` by default; explicit benchmark/override rules
+  remain limited to these lecture-content stages. Skipping their Thinking
+  requirement is prohibited.
+- **IMPLEMENTATION:** `selenium_pipeline.gemini_stage_policy` is the
+  canonical stage->model policy and `gemini_model` matches Flash-Lite
+  **exactly**, never as Flash. The normal runner sets a fresh stage-specific
+  child-worker environment before every generation stage, and both the
+  copied vendor and direct Gemini Selenium entrypoints enforce the same
+  identity check **before a single Send**. Figure workers log
+  `[GEMINI-THINKING] PRE_SEND_FIGURES_FLASH_LITE_NOT_REQUIRED`;
+  source-bound triage checks that marker instead of a fictitious Medium
+  proof. A Flash-Lite model cannot skip thinking in slides/narration.
+- **RELEASE/EVIDENCE:** the stage model choice is a task-specific
+  simplification, NOT a relaxed mapping/academic/release gate, an API
+  fallback or permission to resend any existing source. Preserve original
+  Serway 7.8 registered Sends and the failed figures claim exactly. Only
+  a distinct unclaimed source can provide a new live G2 acceptance.
+
 ## Owner supersession — Gemini Selenium ONLY for LLM generation (9 November 2026)
 
 This explicit later owner directive supersedes **all earlier G1/G2 text
