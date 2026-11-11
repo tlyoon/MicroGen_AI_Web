@@ -131,10 +131,22 @@ class CropFigureConverterReuseTests(unittest.TestCase):
                 self.assertIn("LOCAL_FIGURE_DOCLING_READY", text)
                 self.assertIn("LOCAL_FIGURE_CROP_PAGE_START page=1", text)
                 self.assertIn("LOCAL_FIGURE_CROP_PAGE_DONE page=2", text)
+                self.assertEqual(counter, {
+                    "constructors": 1, "conversions": 2, "rasterizations": 1})
+                # Emulate a safely repeated local *pre-Send* crop preparation.
+                # The old provenance is reused byte-for-byte, not overwritten
+                # or mislabeled as a new Gemini submission.
+                manifest_paths = [
+                    Path("crops") / f"page_{page}" /
+                    f"page_{page}_crop_geometry.json" for page in (1, 2)]
+                first = [p.read_bytes() for p in manifest_paths]
+                with redirect_stdout(io.StringIO()):
+                    exec(compile(body, str(SCRIPT), "exec"), names)
+                self.assertEqual([p.read_bytes() for p in manifest_paths], first)
             finally:
                 os.chdir(previous)
         self.assertEqual(counter,
-                         {"constructors": 1, "conversions": 2, "rasterizations": 1})
+                         {"constructors": 2, "conversions": 4, "rasterizations": 2})
 
 
 if __name__ == "__main__":

@@ -85,10 +85,20 @@ class SourceLockedCropGeometryTests(unittest.TestCase):
         self.assertFalse(report["student_publication_authorized"])
         self.assertEqual(json.loads(self.manifest.read_text()), report)
         previous = self.manifest.read_bytes()
-        with self.assertRaisesRegex(ValueError, "already exists"):
+        # A safe pre-Send restart with identical bytes reuses this file and
+        # does not change its durable receipt or permit a second Gemini Send.
+        self.assertEqual(
             save_page_crop_geometry(
                 target=self.manifest, source_pdf=self.source,
-                page_png=self.page_png, records=[entry], page_number=2)
+                page_png=self.page_png, records=[entry], page_number=2),
+            report)
+        self.assertEqual(self.manifest.read_bytes(), previous)
+        altered = copy.deepcopy(entry)
+        altered["bbox_source_pdf_top_left_pt"] = [1, 2, 40, 50]
+        with self.assertRaisesRegex(ValueError, "differs"):
+            save_page_crop_geometry(
+                target=self.manifest, source_pdf=self.source,
+                page_png=self.page_png, records=[altered], page_number=2)
         self.assertEqual(self.manifest.read_bytes(), previous)
 
     def test_missing_provenance_preserved_as_unknown_not_auto_filled(self):

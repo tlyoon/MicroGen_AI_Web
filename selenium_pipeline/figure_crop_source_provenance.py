@@ -101,8 +101,9 @@ def save_page_crop_geometry(*, target: Path, source_pdf: Path, page_png: Path,
                             records: list[dict], page_number: int) -> dict:
     """New-file-only SHA-bound manifest; never clobber previous attempt."""
     dest = Path(target)
-    if not dest.parent.is_dir() or dest.exists() or dest.is_symlink():
-        raise ValueError("Crop geometry manifest already exists or destination invalid")
+    if (not dest.parent.is_dir() or dest.parent.is_symlink()
+            or dest.is_symlink()):
+        raise ValueError("Crop geometry manifest path untrusted")
     if type(page_number) is not int or page_number < 1:
         raise ValueError("Invalid original page")
     original_sha, page_sha = _sha(Path(source_pdf)), _sha(Path(page_png))
@@ -149,9 +150,16 @@ def save_page_crop_geometry(*, target: Path, source_pdf: Path, page_png: Path,
         "figure_composite_layout_certified": False,
         "student_publication_authorized": False,
     }
-    with dest.open("x", encoding="utf8") as f:
-        json.dump(report, f, ensure_ascii=False, sort_keys=True, indent=2)
-        f.write("\n")
+    encoded = (json.dumps(report, ensure_ascii=False, sort_keys=True,
+                          indent=2) + "\n").encode("utf8")
+    if dest.exists():
+        # Idempotent local pre-Send resume only: never overwrite an
+        # immutable page-geometry witness, and never authorize Gemini retry.
+        if dest.is_file() and dest.read_bytes() == encoded:
+            return report
+        raise ValueError("Existing source geometry differs; no overwrite")
+    with dest.open("xb") as f:
+        f.write(encoded)
         f.flush()
         os.fsync(f.fileno())
     return report
