@@ -33,6 +33,26 @@ VENDOR = ROOT / "vendor_template_v2"
 REPO = ROOT.parent
 DEFAULT_TTS = "gemini-3.8-flash-lite-tts"
 
+
+def source_locked_worker_pythonpath(env: dict[str, str],
+                                    repo: Path = REPO) -> str:
+    """Place THIS checked-out package first for every isolated vendor worker.
+
+    The Windows Docling Python executes copied scripts from .microgen_work,
+    so its sys.path[0] is the isolated job folder and it cannot otherwise
+    import selenium_pipeline.figure_crop_source_provenance. This is a
+    pre-Send local worker setup remedy, NOT a browser/Gemini retry.
+    """
+    root = Path(repo).resolve(strict=True)
+    if not (root / "selenium_pipeline" / "__init__.py").is_file():
+        raise RuntimeError("Worker package root is missing or invalid")
+    existing = [p for p in env.get("PYTHONPATH", "").split(os.pathsep)
+                if p.strip()]
+    canonical = os.path.normcase(os.path.normpath(str(root)))
+    tail = [part for part in existing
+            if os.path.normcase(os.path.normpath(part)) != canonical]
+    return os.pathsep.join([str(root), *tail])
+
 # Default model policy: every text-generation stage uses Gemini 3.8 Flash.
 # Pro remains available only through an explicit override, primarily for
 # controlled A/B benchmarks. Changing MICROGEN_MODEL_PHASE alone never changes
@@ -832,6 +852,9 @@ def _execute_unlocked(s: Settings) -> Path:
         # MoviePy 1.0.3's fps wrapper on Dell-115).
         "PYTHONNOUSERSITE": "1",
         "MICROGEN_PACKAGE_ROOT": str(REPO),
+        # Isolated Docling/LaTeX workers need the exact checked-out package
+        # root before the first local crop or any possible Gemini Send.
+        "PYTHONPATH": source_locked_worker_pythonpath(env, REPO),
         # Owner override: browser Gemini only for figures/slides/narration.
         # TTS is a separate provider contract and is not switched here.
         "MICROGEN_COMMUNICATION_MODE": "selenium",

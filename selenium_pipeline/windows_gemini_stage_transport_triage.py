@@ -37,6 +37,11 @@ _OWNED_FIGURE_COMPOSITE_REVIEW = re.compile(
     r"\[ERR\] \[FIGURE REVIEW\] Unsafe multipart mapping for page_\d+\.png:"
 )
 _DUPLICATE_TARGET_REASON = "ambiguous_duplicate_target_no_layout_provenance"
+# Exact Python-local traceback, not a substring of model prose. The local
+# worker failed during import before it could crop or click Gemini Send.
+_ISOLATED_PACKAGE_IMPORT_FAILURE = re.compile(
+    r"(?m)^ModuleNotFoundError: No module named 'selenium_pipeline'$"
+)
 
 
 def _local_crop_evidence(trial: Path, contract: dict) -> dict:
@@ -168,6 +173,9 @@ def diagnose(*, trial_dir: Path, stage: str = "figures") -> dict:
         bool(_OWNED_FIGURE_COMPOSITE_REVIEW.search(raw)))
     duplicate_target_geometry = (
         composite_gate and _DUPLICATE_TARGET_REASON in raw)
+    local_worker_import_failure = (
+        stage == "figures" and not send
+        and bool(_ISOLATED_PACKAGE_IMPORT_FAILURE.search(raw)))
     state = result.get("status") if result is not None else None
     if state in ACCEPTED:
         label = "TECHNICAL_STAGE_RECEIPT_SUCCESS_NOT_FULL_LECTURE"
@@ -181,6 +189,8 @@ def diagnose(*, trial_dir: Path, stage: str = "figures") -> dict:
                  "SOURCE_FIGURE_COMPOSITE_PROVENANCE_REQUIRED_NO_RESEND")
     elif send:
         label = "REGISTERED_BROWSER_SEND_BUT_NO_ACCEPTED_STAGE"
+    elif local_worker_import_failure:
+        label = "ISOLATED_WINDOWS_WORKER_IMPORT_FAILED_BEFORE_MODEL_SEND"
     elif result is None:
         label = "PRE_SEND_INTENT_WITH_NO_FINAL_RESULT_REVIEW_REQUIRED"
     elif local_extract and session:
@@ -208,6 +218,10 @@ def diagnose(*, trial_dir: Path, stage: str = "figures") -> dict:
         "post_submit_model_reply_attribution_unverified": response_unverified,
         "owned_visible_ui_terminal_error_verified": (send and owned_ui_terminal),
         "figure_composite_local_gate_observed": composite_gate,
+        "local_worker_package_import_failed": local_worker_import_failure,
+        "local_worker_import_remedy": (
+            "INCLUDE_CHECKED_OUT_REPO_IN_ISOLATED_WORKER_PYTHONPATH"
+            if local_worker_import_failure else "NOT_APPLICABLE"),
         "source_figure_geometry_blocker": (
             "DUPLICATE_TARGET_WITHOUT_SOURCE_LAYOUT"
             if duplicate_target_geometry else
@@ -287,6 +301,8 @@ def persist_terminal_triage(*, trial_dir: Path, stage: str) -> dict:
                 "figure_composite_local_gate_observed",
                 "source_figure_geometry_blocker",
                 "safe_recovery_route",
+                "local_worker_package_import_failed",
+                "local_worker_import_remedy",
             }
             only_new_fields = set(report) - set(prior)
             compatible_status = (
@@ -300,7 +316,10 @@ def persist_terminal_triage(*, trial_dir: Path, stage: str) -> dict:
                 (prior.get("status") == "REGISTERED_BROWSER_SEND_BUT_NO_ACCEPTED_STAGE"
                  and report["status"] in {
                     "SOURCE_FIGURE_DUPLICATE_TARGET_GEOMETRY_REQUIRED_NO_RESEND",
-                    "SOURCE_FIGURE_COMPOSITE_PROVENANCE_REQUIRED_NO_RESEND"}))
+                    "SOURCE_FIGURE_COMPOSITE_PROVENANCE_REQUIRED_NO_RESEND"}) or
+                (prior.get("status") == "BROWSER_SESSION_SEEN_SEND_UNVERIFIED"
+                 and report["status"] ==
+                    "ISOLATED_WINDOWS_WORKER_IMPORT_FAILED_BEFORE_MODEL_SEND"))
             old_claim_safe = (
                 prior.get("automatic_resubmission_authorized") is False
                 and prior.get("model_requests_during_diagnosis") == 0

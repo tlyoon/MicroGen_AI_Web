@@ -184,6 +184,64 @@ class GeminiStageTransportTriageTests(unittest.TestCase):
         self.assertEqual(source.read_bytes(), old_bytes)
         self.assertFalse(again["automatic_resubmission_authorized"])
 
+    def _isolated_worker_import_failure_log(self):
+        return (
+            "[gemini] reusing active debug session on port 9222\n"
+            "Traceback (most recent call last):\n"
+            "  File 'isolated_job/crop_figs_v3.py', line 25, in <module>\n"
+            "    from selenium_pipeline.figure_crop_source_provenance import X\n"
+            "ModuleNotFoundError: No module named 'selenium_pipeline'\n"
+            "[microgen-supervisor] OWNED_STAGE_EXIT_CODE=1 NO_AUTOMATIC_RESUBMISSION\n")
+
+    def test_isolated_worker_package_import_failure_not_gemini_outage(self):
+        prefix = self.begun()
+        self.finish(prefix, "FIGURES_ATTEMPT_FAILED_NO_AUTO_RETRY")
+        self.log(self._isolated_worker_import_failure_log())
+        report = diagnose(trial_dir=self.trial)
+        self.assertEqual(
+            report["status"],
+            "ISOLATED_WINDOWS_WORKER_IMPORT_FAILED_BEFORE_MODEL_SEND")
+        self.assertTrue(report["local_worker_package_import_failed"])
+        self.assertEqual(
+            report["local_worker_import_remedy"],
+            "INCLUDE_CHECKED_OUT_REPO_IN_ISOLATED_WORKER_PYTHONPATH")
+        self.assertFalse(report["owned_browser_send_registered"])
+        self.assertFalse(report["provider_outage_proven"])
+        self.assertFalse(report["original_submission_resend_authorized"])
+        self.assertFalse(report["student_publication_authorized"])
+
+    def test_old_sha_bound_triage_reused_with_readonly_import_classification(self):
+        prefix = self.begun()
+        self.finish(prefix, "FIGURES_ATTEMPT_FAILED_NO_AUTO_RETRY")
+        self.log(self._isolated_worker_import_failure_log())
+        original = persist_terminal_triage(trial_dir=self.trial, stage="figures")
+        self.assertEqual(
+            original["status"],
+            "ISOLATED_WINDOWS_WORKER_IMPORT_FAILED_BEFORE_MODEL_SEND")
+        receipt = self.trial / "figures_transport_triage.json"
+        prior = json.loads(receipt.read_text(encoding="utf8"))
+        prior["status"] = "BROWSER_SESSION_SEEN_SEND_UNVERIFIED"
+        prior.pop("local_worker_package_import_failed")
+        prior.pop("local_worker_import_remedy")
+        receipt.write_text(_encode(prior), encoding="utf8")
+        before = receipt.read_bytes()
+        second = persist_terminal_triage(trial_dir=self.trial, stage="figures")
+        self.assertEqual(second["status"], "PRIOR_SHA_BOUND_TRIAGE_REUSED_NO_SEND")
+        self.assertEqual(second["new_readonly_classification"],
+                         "ISOLATED_WINDOWS_WORKER_IMPORT_FAILED_BEFORE_MODEL_SEND")
+        self.assertEqual(receipt.read_bytes(), before)
+        self.assertFalse(second["automatic_resubmission_authorized"])
+
+    def test_generic_model_text_cannot_spoof_local_import_failure(self):
+        prefix = self.begun()
+        self.finish(prefix, "FIGURES_ATTEMPT_FAILED_NO_AUTO_RETRY")
+        self.log("[gemini] reusing active debug session on port 9222\n"
+                 "model reply: ModuleNotFoundError: No module named "
+                 "'selenium_pipeline'\n")
+        report = diagnose(trial_dir=self.trial)
+        self.assertEqual(report["status"], "BROWSER_SESSION_SEEN_SEND_UNVERIFIED")
+        self.assertFalse(report["local_worker_package_import_failed"])
+
     def nested_crop_log(self):
         staged = self.trial / "source_tree" / "10" / "10.1" / "source.pdf"
         staged.parent.mkdir(parents=True, exist_ok=True)
