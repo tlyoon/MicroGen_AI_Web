@@ -1,3 +1,11 @@
+# 11 November 2026 - Adaptive picker CI fixture: real fresh-tab state retained
+
+**Exact-head GitHub Windows CI after commit b3ff2ca:** Full offline and historical regression suites stopped at the same pre-existing October fresh-tab recovery mock `tests/test_gemini_mode_recovery.py`. The fake `Picker` had no WebElement ID or dedicated test-id, and `Browser.find_elements` returned the same picker for *every* unrelated CSS selector. The new single semantic picker resolver correctly requires real element identity and uniquely attributable model controls, so that old mock was no longer representative of authenticated Gemini. Corrected **only the source-free test fixture** to expose a stable unique ID, owned model-label/test-id attributes, and a picker only for appropriate selectors. Preserved the test's original acceptance: a new authenticated tab recovers Flash without modifying the old draft, and failure closes only the disposable tab. No production fallback weakening or model Send replay.
+
+**Validation:** Exact affected historical, Medium/adaptive, source-stage G2 matrix PASS 79/79; original synthetic 149 focused test suite passed at the preceding head. Hosted Windows CI must run again against this new fixture version. Original Serway 7.6 receipt, all registered Send claims, SHA lineage and G2/G3 release guard remain untouched.
+
+---
+
 # 11 November 2026 - General Gemini UI resilience and Medium thinking: baked into G2 normal pipeline
 
 **User request and scope:** Do not repeat per-PC/per-PDF Gemini Selenium compatibility fixes. Geminis's role, aria-label, selected-mode wording, menu order, model versions and thinking-level descriptions may change independently. The normal Dell-115 source-to-lecture workflow must automatically adapt **before a model Send**, but cannot safely guess when Gemini stops exposing verifiable identity/selection evidence. Single provider Selenium UI only; no paid API, local model, new manual academic approval or automatic Send replay.

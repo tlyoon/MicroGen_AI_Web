@@ -7,11 +7,18 @@ from selenium_pipeline.gemini_model import ensure_flash, GeminiModelError
 
 
 class Picker:
+    id = "owned-fresh-tab-mode-picker"
+    text = "Flash High"
+
     def is_displayed(self):
         return True
 
     def get_attribute(self, name):
-        return "Open mode picker, currently Flash High"
+        if name == "aria-label":
+            return "Open mode picker, currently Flash High"
+        if name == "data-test-id":
+            return "bard-mode-menu-button"
+        return None
 
 
 class Browser:
@@ -50,8 +57,14 @@ class Browser:
     def get(self, url):
         self.urls[self.active] = url
 
-    def find_elements(self, _by, _selector):
-        if self.active.startswith("fresh_") and self.recover:
+    def find_elements(self, _by, selector):
+        if (self.active.startswith("fresh_") and self.recover
+                and selector in (
+                    'button[aria-label^="Open mode picker"]',
+                    '[data-test-id="bard-mode-menu-button"]',
+                    'button[aria-haspopup="menu"]')):
+            # The same model picker appears under several semantic locators.
+            # Do not return it for unrelated Send/menu option selectors.
             return [Picker()]
         return []
 
