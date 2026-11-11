@@ -127,6 +127,21 @@ class LiveMenuShapeOwnedBrowser(FakeOwnedBrowser):
 
 
 class G2OwnedFlashModelTests(unittest.TestCase):
+    def setUp(self):
+        # These older tests isolate Flash-family and one-Send behavior.
+        # Thinking radio behavior is independently tested in the UI
+        # capability suite with actual stateful menu mocks.
+        self.thinking = patch(
+            "selenium_pipeline.gemini_thinking.select_owned_gemini_thinking_level",
+            return_value="medium")
+        self.thinking.start()
+        self.addCleanup(self.thinking.stop)
+        self.thinking_verify = patch(
+            "selenium_pipeline.gemini_thinking.assert_owned_gemini_thinking_level",
+            return_value="medium")
+        self.thinking_verify.start()
+        self.addCleanup(self.thinking_verify.stop)
+
     def test_canonical_flash_classifier_never_accepts_flash_lite_or_pro(self):
         for label in (
             "Open mode picker, currently Flash-Lite",

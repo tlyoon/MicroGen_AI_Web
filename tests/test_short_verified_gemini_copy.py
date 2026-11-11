@@ -79,6 +79,10 @@ class GeminiShortVerifiedCopy(unittest.TestCase):
                 # a separate independent exact Flash picker before Send.
                 patch("selenium_pipeline.gemini_model.assert_owned_gemini_mode",
                       return_value="Open mode picker, currently Flash"),
+                patch("selenium_pipeline.gemini_thinking.select_owned_gemini_thinking_level",
+                      return_value="medium"),
+                patch("selenium_pipeline.gemini_thinking.assert_owned_gemini_thinking_level",
+                      return_value="medium"),
                 patch("selenium_pipeline.gemini_response_recovery.await_owned_gemini_send_visible",
                       return_value=True),
                 patch("selenium_pipeline.gemini_selenium_only_policy.click_one_owned_gemini_send",

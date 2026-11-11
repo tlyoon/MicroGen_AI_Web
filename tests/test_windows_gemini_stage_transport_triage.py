@@ -189,6 +189,53 @@ class GeminiStageTransportTriageTests(unittest.TestCase):
             "new_readonly_owned_worker_wrong_ui_family_observed"])
         self.assertEqual(path.read_bytes(),prior)
 
+    def test_new_medium_thinking_stage_requires_pre_send_ui_proof(self):
+        prefix = self.begun("slides")
+        self.finish(prefix, "STAGE_COMPLETED_AND_SOURCE_SHA_BOUND",
+                    stage="slides")
+        original = (
+            "[microgen] browser UI model: flash\n"
+            "[microgen] browser thinking level: medium\n"
+            "[2026-11-11 13:41:01] [INFO] Selected Gemini tab via mode "
+            "picker: Open mode picker, currently Flash Medium "
+            "(phase=development)\n"
+            "[2026-11-11 13:41:02] [INFO] Gemini submission registered via "
+            "new-user-turn+composer-cleared.\n"
+        )
+        self.log(original, stage="slides")
+        missing = diagnose(trial_dir=self.trial, stage="slides")
+        self.assertEqual(missing[
+            "expected_thinking_level_from_owned_stage_log"],"medium")
+        self.assertTrue(missing[
+            "owned_worker_thinking_contract_breach_observed"])
+        self.assertFalse(missing[
+            "owned_worker_requested_thinking_verified_before_send"])
+        self.assertFalse(missing["original_submission_resend_authorized"])
+        self.log(original + (
+            "[2026-11-11 13:41:02] [INFO] [GEMINI-THINKING] "
+            "PRE_SEND_OWNED_LEVEL_VERIFIED medium\n"), stage="slides")
+        valid = diagnose(trial_dir=self.trial, stage="slides")
+        self.assertFalse(valid["owned_worker_thinking_contract_breach_observed"])
+        self.assertTrue(valid[
+            "owned_worker_requested_thinking_verified_before_send"])
+        self.assertEqual(valid["owned_worker_thinking_pre_send_proof_count"],1)
+
+    def test_wrong_thinking_level_after_send_is_not_relabelled_success(self):
+        prefix=self.begun("figures")
+        self.finish(prefix,"FIGURES_STAGE_RETURNED_SUCCESS_NOT_FULL_LECTURE")
+        self.log(
+            "[microgen] browser UI model: flash\n"
+            "[microgen] browser thinking level: medium\n"
+            "[2026-11-11 13:41:01] [INFO] [GEMINI-THINKING] "
+            "PRE_SEND_OWNED_LEVEL_VERIFIED high\n"
+            "[2026-11-11 13:41:02] [INFO] Gemini submission registered via "
+            "new-user-turn+composer-cleared.\n")
+        verdict=diagnose(trial_dir=self.trial,stage="figures")
+        self.assertTrue(verdict[
+            "owned_worker_thinking_contract_breach_observed"])
+        self.assertFalse(verdict["provider_outage_proven"])
+        self.assertFalse(verdict["original_submission_resend_authorized"])
+
     def test_owned_terminal_gemini_ui_error_does_not_prove_api_outage(self):
         prefix = self.begun("figures")
         self.finish(prefix, "FIGURES_ATTEMPT_FAILED_NO_AUTO_RETRY")

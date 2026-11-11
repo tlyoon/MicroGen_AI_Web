@@ -42,6 +42,8 @@ class MockButton:
 
 class MockModePicker:
     """Actual read-only owned-tab model control, distinct from Send."""
+    id = "mock-owned-model-picker"
+
     def is_displayed(self):
         return True
 
@@ -63,10 +65,22 @@ class MockDriver:
         self.selectors.append((by, selector))
         if selector == 'button[aria-label^="Open mode picker"]':
             return self.mode_pickers
-        return self.buttons
+        # A real browser does not return Send buttons for unrelated
+        # model-picker fallback CSS queries.
+        return self.buttons if "Send message" in selector else []
 
 
 class GeminiSeleniumOnlyPolicyTests(unittest.TestCase):
+    def setUp(self):
+        # Historic one-click tests use a reduced Send-only fake driver.
+        # The independent thinking-level tests exercise the real menus.
+        from unittest.mock import patch
+        guard = patch(
+            "selenium_pipeline.gemini_thinking.assert_owned_gemini_thinking_level",
+            return_value="medium")
+        guard.start()
+        self.addCleanup(guard.stop)
+
     def test_two_proven_presend_failures_then_success_without_send(self):
         created, sleeps = [], []
         def create():

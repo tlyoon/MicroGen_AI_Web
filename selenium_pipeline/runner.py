@@ -700,6 +700,8 @@ def _execute_unlocked(s: Settings) -> Path:
     print(f"[microgen] input: {source} | work: {folder}")
     print(f"[microgen] model phase: {MODEL_PHASE}")
     print(f"[microgen] browser UI model: {DEFAULT_BROWSER_UI_MODE}")
+    from .gemini_thinking import configured_thinking_level
+    print(f"[microgen] browser thinking level: {configured_thinking_level()}")
     print(f"[microgen] caption model: {DEFAULT_CAPTION_MODEL} (benchmark alternative: {CAPTION_BENCHMARK_MODEL})")
     print(f"[microgen] slide model: {DEFAULT_SLIDE_MODEL}")
     print(f"[microgen] narration model: {DEFAULT_NARRATION_MODEL}")

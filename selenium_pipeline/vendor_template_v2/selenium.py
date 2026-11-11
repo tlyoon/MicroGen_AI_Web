@@ -1340,6 +1340,7 @@ class GeminiSeleniumClient:
         selected = False
         selected_mode = ""
         picker = None
+        from selenium_pipeline.gemini_model import _owned_picker
         # A persistent Chrome tab can take >12 seconds to hydrate on slower
         # Windows hosts (notably Dell-115), despite an authenticated session.
         # Wait for the actual picker in our *owned* tab; never borrow an
@@ -1354,13 +1355,9 @@ class GeminiSeleniumClient:
                     self.driver.switch_to.window(handle)
                     if not self.driver.current_url.startswith("https://gemini.google.com/"):
                         continue
-                    pickers = self.driver.find_elements(By.CSS_SELECTOR, 'button[aria-label^="Open mode picker"]')
-                    for candidate in pickers:
-                        if candidate.is_displayed():
-                            picker = candidate
-                            selected = True
-                            selected_mode = candidate.get_attribute("aria-label") or ""
-                            break
+                    picker = _owned_picker(self.driver, handle)
+                    selected = True
+                    selected_mode = picker.get_attribute("aria-label") or ""
                     if selected:
                         break
                 except Exception:
@@ -1458,7 +1455,16 @@ class GeminiSeleniumClient:
         # Re-select strictly here BEFORE uploads or any registered Send.
         selected_mode = select_owned_gemini_mode(
             self.driver, self._automation_tab, mode=target_mode, timeout=20)
+        # The selected thinking effort belongs to the same owned tab.
+        # Gemini may reset this when New chat is clicked, just like its model.
+        from selenium_pipeline.gemini_thinking import (
+            configured_thinking_level, select_owned_gemini_thinking_level)
+        target_thinking = configured_thinking_level()
+        verified_thinking = select_owned_gemini_thinking_level(
+            self.driver, self._automation_tab,
+            level=target_thinking, timeout=20)
         log(f"[GEMINI-MODE] OWNED_FAMILY_VERIFIED_AFTER_NEW_CHAT {selected_mode}")
+        log(f"[GEMINI-THINKING] OWNED_LEVEL_VERIFIED_AFTER_NEW_CHAT {verified_thinking}")
         log("Opened Gemini")
 
     @staticmethod
@@ -1677,6 +1683,17 @@ class GeminiSeleniumClient:
                 mode=(os.getenv("MICROGEN_GEMINI_UI_MODE", "flash").strip().lower()
                       or "flash"))
             log(f"[GEMINI-MODE] PRE_SEND_OWNED_FAMILY_VERIFIED {selected_mode}")
+            from selenium_pipeline.gemini_thinking import (
+                configured_thinking_level, assert_owned_gemini_thinking_level)
+            verified_thinking = assert_owned_gemini_thinking_level(
+                self.driver, owned, level=configured_thinking_level())
+            log(f"[GEMINI-THINKING] PRE_SEND_OWNED_LEVEL_VERIFIED {verified_thinking}")
+            # Opening the Thinking selector must not have changed the model.
+            selected_mode = assert_owned_gemini_mode(
+                self.driver, owned,
+                mode=(os.getenv("MICROGEN_GEMINI_UI_MODE", "flash").strip().lower()
+                      or "flash"))
+            log(f"[GEMINI-MODE] POST_THINKING_OWNED_FAMILY_REVERIFIED {selected_mode}")
             # Shared evidence path for figures, slides and narration. A Send
             # click is NOT proof of registration. Capture a prompt-free
             # baseline, click at most once, then inspect only the owned tab.

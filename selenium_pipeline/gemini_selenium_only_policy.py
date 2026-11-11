@@ -39,7 +39,8 @@ def presend_failure_code(error: BaseException) -> str:
     if any(x in detail for x in ("send control", "send button", "composer",
                                  "editor", "typing")):
         return "GEMINI_COMPOSER_OR_SEND_CONTROL_NOT_READY"
-    if any(x in detail for x in ("mode", "picker", "flash", "pro")):
+    if any(x in detail for x in ("mode", "picker", "flash", "pro",
+                                 "thinking", "level")):
         return "GEMINI_MODEL_PICKER_NOT_READY"
     if any(x in detail for x in ("connection", "chromedriver", "browser", "tab")):
         return "GEMINI_BROWSER_OR_WEBDRIVER_NOT_READY"

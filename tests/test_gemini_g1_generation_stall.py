@@ -17,6 +17,18 @@ from test_gemini_response_recovery import FakeDriver
 
 
 class GeminiG1GenerationStallTests(unittest.TestCase):
+    def setUp(self):
+        # Generation-stall tests model transport only; thinking-level
+        # selection has separate stateful regression coverage.
+        for name in (
+            "select_owned_gemini_thinking_level",
+            "assert_owned_gemini_thinking_level",
+        ):
+            fake = patch("selenium_pipeline.gemini_thinking." + name,
+                         return_value="medium")
+            fake.start()
+            self.addCleanup(fake.stop)
+
     def test_direct_owned_g1_send_refuses_flash_lite_before_any_click(self):
         from selenium_pipeline.gemini_model import GeminiModelError
         with tempfile.TemporaryDirectory() as folder:

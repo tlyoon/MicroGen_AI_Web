@@ -113,6 +113,14 @@ def _browser_request(instruction: str,attachments: list[Path],
                 selected=os.getenv("MICROGEN_GEMINI_UI_MODE","flash").strip().lower()
                 ensure_mode(port,selected)
                 owned.open_clean_gemini_chat()
+                # New chats can reset both model and Thinking level.
+                # Both are checked again in THIS owned tab before any Send.
+                from .gemini_thinking import (
+                    configured_thinking_level,
+                    select_owned_gemini_thinking_level)
+                select_owned_gemini_thinking_level(
+                    owned.driver, getattr(owned, "_automation_tab", None),
+                    level=configured_thinking_level(), timeout=20)
                 # New chats may reset Gemini's mode: independently recheck.
                 from .gemini_model import browser_model_evidence
                 observed=ensure_mode(port,selected)
@@ -150,6 +158,16 @@ def _browser_request(instruction: str,attachments: list[Path],
                 client.driver,owned_handle,mode=configured_ui_mode())
             print("[MicroGen] PRE_SEND_OWNED_FAMILY_VERIFIED "
                   +selected_family,file=sys.stderr,flush=True)
+            from .gemini_thinking import (
+                assert_owned_gemini_thinking_level, configured_thinking_level)
+            selected_thinking=assert_owned_gemini_thinking_level(
+                client.driver, owned_handle, level=configured_thinking_level())
+            print("[MicroGen] PRE_SEND_OWNED_THINKING_VERIFIED "
+                  +selected_thinking,file=sys.stderr,flush=True)
+            # Reading the nested Thinking menu must preserve the Flash
+            # contract; verify model identity a second time before the click.
+            assert_owned_gemini_mode(
+                client.driver, owned_handle, mode=configured_ui_mode())
             baseline=owned_gemini_send_baseline(client.driver,owned_handle)
             send_boundary_entered=True
             clicked=click_one_owned_gemini_send(

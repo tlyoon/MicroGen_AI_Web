@@ -48,11 +48,13 @@ def _matches_mode(label: str, mode: str) -> bool:
     if not actual:
         return False
     selected = actual.group(1).casefold()
-    if mode == "flash":
-        return (bool(re.search(r"\bflash\b", selected))
-                and not re.search(r"\b(?:lite|pro)\b", selected))
-    return (bool(re.search(r"\bpro\b", selected))
-            and not re.search(r"\b(?:flash|lite)\b", selected))
+    # A changed label or model version is harmless. Choosing Flash-Lite,
+    # Pro, Argon or Carbon under a Flash claim is NOT harmless.
+    tokens = re.findall(
+        r"(?<!\w)(?:flash[\s-]*lite|flash|pro|argon|carbon)(?!\w)",
+        selected, flags=re.I)
+    target = "flash" if mode == "flash" else "pro"
+    return len(tokens) == 1 and tokens[0].casefold() == target
 
 
 def _eligible_mode_menu_text(text: str, mode: str) -> bool:
@@ -68,12 +70,86 @@ def _eligible_mode_menu_text(text: str, mode: str) -> bool:
              if line.strip()]
     if not 1 <= len(lines) <= 4:
         return False
+    flattened = " ".join(lines)
+    # A wrapper that lists multiple modes must never masquerade as one
+    # selectable option, even if it happens to include the requested mode.
+    tokens = re.findall(
+        r"(?<!\w)(?:flash[\s-]*lite|flash|pro|argon|carbon)(?!\w)",
+        flattened, flags=re.I)
+    if len(tokens) != 1:
+        return False
+    if mode == "flash" and tokens[0].casefold() != "flash":
+        return False
+    if mode == "pro" and tokens[0].casefold() != "pro":
+        return False
     if mode == "flash":
-        pattern = r"(?:\d+(?:\.\d+)?\s+)?flash(?:\s+(?:high|fast))?"
+        pattern = (r"(?:gemini\s+)?(?:\d+(?:\.\d+)?\s+)?"
+                   r"flash(?:\s+(?:high|fast))?")
     else:
-        pattern = r"(?:\d+(?:\.\d+)?\s+)?pro"
+        pattern = r"(?:gemini\s+)?(?:\d+(?:\.\d+)?\s+)?pro"
     return any(re.fullmatch(pattern, line, flags=re.I) is not None
                for line in lines)
+
+
+def _owned_picker(driver, owned_handle: str | None):
+    """Behavior-based picker lookup with bounded, independently validated fallbacks.
+
+    Markup roles, order, and mode descriptions can change. Discover a
+    *unique* visible model control by semantic name or mode-control test id;
+    never fall back to an arbitrary button or tab.
+    """
+    from selenium.webdriver.common.by import By
+    if (not owned_handle or driver.current_window_handle != owned_handle
+            or not str(driver.current_url).startswith(
+                "https://gemini.google.com/")):
+        raise GeminiModelError("PRE_SEND_OWNED_GEMINI_TAB_CHANGED")
+    selectors = (
+        'button[aria-label^="Open mode picker"]',
+        '[data-test-id="bard-mode-menu-button"]',
+        '[aria-label*="model"]',
+        '[aria-label*="mode"]',
+        'button[aria-haspopup="menu"]',
+        '[role="button"][aria-haspopup="menu"]',
+    )
+    unique = {}
+    for selector in selectors:
+        for candidate in driver.find_elements(By.CSS_SELECTOR, selector):
+            if not candidate.is_displayed():
+                continue
+            label = candidate.get_attribute("aria-label") or ""
+            test = candidate.get_attribute("data-test-id") or ""
+            hint = (label + " " + test).casefold()
+            if not (("mode" in hint or "model" in hint)
+                    and ("picker" in hint or "select" in hint
+                         or "choose" in hint or "switch" in hint
+                         or "change" in hint or "menu" in hint
+                         or "current" in hint or "bard-mode" in hint)):
+                continue
+            unique[candidate.id] = candidate
+    if len(unique) != 1:
+        raise GeminiModelError(
+            "PRE_SEND_MODE_PICKER_NOT_UNIQUE_OR_MISSING")
+    return next(iter(unique.values()))
+
+
+def _observed_picker_label(picker) -> str:
+    label = picker.get_attribute("aria-label") or ""
+    if re.search(r"\bcurrently\b", label, flags=re.I):
+        return label
+    alternate = re.search(
+        r"(?:current|selected)\s+model\s*[:\-]\s*(.+)$", label, flags=re.I)
+    if alternate:
+        return "Open mode picker, currently " + alternate.group(1)
+    # If Gemini removes aria-label but keeps its dedicated model button,
+    # use that button's *own* visible model name, never another element.
+    test = str(picker.get_attribute("data-test-id") or "").casefold()
+    text = (picker.text or "").strip()
+    if ("mode" in test and "menu" in test and
+            re.fullmatch(r"(?:gemini\s+)?(?:\d+(?:\.\d+)?\s+)?"
+                         r"(?:flash(?:\s+(?:high|fast))?|pro|flash[ -]lite)",
+                         text, flags=re.I)):
+        return "Open mode picker, currently " + text
+    raise GeminiModelError("PRE_SEND_SELECTED_MODEL_FAMILY_UNOBSERVABLE")
 
 
 def assert_owned_gemini_mode(driver, owned_handle: str | None,
@@ -90,14 +166,8 @@ def assert_owned_gemini_mode(driver, owned_handle: str | None,
             or driver.current_window_handle != owned_handle
             or not str(driver.current_url).startswith("https://gemini.google.com/")):
         raise GeminiModelError("PRE_SEND_OWNED_GEMINI_TAB_OR_MODEL_UNVERIFIED")
-    pickers = [
-        item for item in driver.find_elements(
-            By.CSS_SELECTOR, 'button[aria-label^="Open mode picker"]'
-        ) if item.is_displayed()
-    ]
-    if len(pickers) != 1:
-        raise GeminiModelError("PRE_SEND_MODE_PICKER_NOT_UNIQUE_OR_MISSING")
-    selected = pickers[0].get_attribute("aria-label") or ""
+    selected = _observed_picker_label(
+        _owned_picker(driver, owned_handle))
     if not _matches_mode(selected, mode):
         raise GeminiModelError(
             "PRE_SEND_GEMINI_MODEL_FAMILY_MISMATCH_NO_SEND: " + selected)
@@ -117,22 +187,8 @@ def select_owned_gemini_mode(driver, owned_handle: str | None, *,
             or not isinstance(timeout, (int, float)) or not 1 <= timeout <= 30):
         raise GeminiModelError("Invalid owned-tab model selection parameters")
 
-    def owned_picker():
-        if (driver.current_window_handle != owned_handle
-                or not str(driver.current_url).startswith(
-                    "https://gemini.google.com/")):
-            raise GeminiModelError("PRE_SEND_OWNED_GEMINI_TAB_CHANGED")
-        found = [
-            item for item in driver.find_elements(
-                By.CSS_SELECTOR, 'button[aria-label^="Open mode picker"]'
-            ) if item.is_displayed()
-        ]
-        if len(found) != 1:
-            raise GeminiModelError("PRE_SEND_MODE_PICKER_NOT_UNIQUE_OR_MISSING")
-        return found[0]
-
-    picker = owned_picker()
-    current = picker.get_attribute("aria-label") or ""
+    picker = _owned_picker(driver, owned_handle)
+    current = _observed_picker_label(picker)
     if _matches_mode(current, mode):
         return assert_owned_gemini_mode(driver, owned_handle, mode)
     try:
@@ -148,8 +204,11 @@ def select_owned_gemini_mode(driver, owned_handle: str | None, *,
         unique = {}
         for selector in ('[role="menuitemradio"]',
                          'gem-menu-item[role="menuitemradio"]',
-                         '[role="menuitem"]',
-                         'gem-menu-item[role="menuitem"]'):
+                         '[role="radio"]', '[role="option"]',
+                         '[role="menuitemcheckbox"]', '[role="menuitem"]',
+                         'gem-menu-item[role="menuitem"]',
+                         '[data-test-id^="bard-mode-option"]',
+                         'gem-menu-item[aria-checked]'):
             for item in driver.find_elements(By.CSS_SELECTOR, selector):
                 if item.is_displayed() and _eligible_mode_menu_text(
                         item.text or "", mode):
@@ -236,15 +295,11 @@ def ensure_mode(port: int = 9222, mode: str | None = None, timeout: float = 15) 
                     if not driver.current_url.startswith("https://gemini.google.com/"):
                         continue
                     gemini_tab_seen = True
-                    found = driver.find_elements(
-                        By.CSS_SELECTOR, 'button[aria-label^="Open mode picker"]'
-                    )
-                    for item in found:
-                        if item.is_displayed():
-                            picker = item
-                            break
-                    if picker is not None:
+                    try:
+                        picker = _owned_picker(driver, handle)
                         break
+                    except GeminiModelError:
+                        continue
                 except Exception:
                     continue
             if picker is None:
@@ -263,12 +318,11 @@ def ensure_mode(port: int = 9222, mode: str | None = None, timeout: float = 15) 
                 driver.get("https://gemini.google.com/app")
                 retry_until = time.monotonic() + min(max(timeout, 1), 12)
                 while time.monotonic() < retry_until:
-                    for item in driver.find_elements(
-                        By.CSS_SELECTOR, 'button[aria-label^="Open mode picker"]'
-                    ):
-                        if item.is_displayed():
-                            picker = item
-                            break
+                    try:
+                        picker = _owned_picker(
+                            driver, driver.current_window_handle)
+                    except GeminiModelError:
+                        picker = None
                     if picker is not None:
                         break
                     time.sleep(0.25)

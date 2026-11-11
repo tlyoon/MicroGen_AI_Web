@@ -55,6 +55,12 @@ _VERIFIED_OWNED_PRE_SEND = re.compile(
     r"(?m)^\[\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\] \[INFO\] "
     r"\[GEMINI-MODE\] PRE_SEND_OWNED_FAMILY_VERIFIED "
     r"(Open mode picker, currently [^\r\n]+)\s*$")
+_EXPECTED_THINKING = re.compile(
+    r"(?m)^\[microgen\] browser thinking level: (low|medium|high)\s*$")
+_VERIFIED_THINKING = re.compile(
+    r"(?m)^\[\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\] \[INFO\] "
+    r"\[GEMINI-THINKING\] PRE_SEND_OWNED_LEVEL_VERIFIED "
+    r"(low|medium|high)\s*$")
 
 
 def audit_original_stage_model_family(raw: str, *, registered_send: bool) -> dict:
@@ -70,6 +76,18 @@ def audit_original_stage_model_family(raw: str, *, registered_send: bool) -> dic
     valid_pre_send = bool(
         registered_send and mode and verified
         and all(_matches_mode(label, mode) for label in verified))
+    expected_thinking_match = _EXPECTED_THINKING.search(raw)
+    expected_thinking = (expected_thinking_match.group(1)
+                         if expected_thinking_match else None)
+    verified_thinking = _VERIFIED_THINKING.findall(raw)
+    # Historical stages lacking an explicit expected thinking level are
+    # informational only; do not rewrite old receipts to pretend they were
+    # generated with Medium. New attempts have a runner-owned expectation,
+    # and a missing/mismatched pre-Send proof invalidates acceptance.
+    thinking_contract_breach = bool(
+        registered_send and expected_thinking and
+        (not verified_thinking or any(
+            observed != expected_thinking for observed in verified_thinking)))
     return {
         "expected_ui_family_from_owned_stage_log": mode or "UNVERIFIED",
         "owned_worker_picker_observation_count": len(selected),
@@ -80,6 +98,18 @@ def audit_original_stage_model_family(raw: str, *, registered_send: bool) -> dic
             "CORRECT_OWNED_TAB_MODEL_SELECTION_AND_USE_DISTINCT_SOURCE_NO_RESEND"
             if wrong else "NO_MODEL_FAMILY_MISMATCH_PROVEN"),
         "provider_generation_caused_by_model_mismatch_proven": False,
+        "expected_thinking_level_from_owned_stage_log":
+            expected_thinking or "UNVERIFIED_HISTORICAL",
+        "owned_worker_thinking_pre_send_proof_count": len(verified_thinking),
+        "owned_worker_thinking_contract_breach_observed":
+            thinking_contract_breach,
+        "owned_worker_requested_thinking_verified_before_send": bool(
+            registered_send and expected_thinking and verified_thinking
+            and not thinking_contract_breach),
+        "thinking_contract_recovery_route": (
+            "ADAPT_OWNED_TAB_THINKING_MENU_ON_DISTINCT_SOURCE_NO_RESEND"
+            if thinking_contract_breach else
+            "NO_THINKING_LEVEL_BREACH_PROVEN"),
     }
 
 
@@ -351,6 +381,11 @@ def persist_terminal_triage(*, trial_dir: Path, stage: str) -> dict:
                 "owned_worker_requested_family_verified_immediately_before_send",
                 "model_family_recovery_route",
                 "provider_generation_caused_by_model_mismatch_proven",
+                "expected_thinking_level_from_owned_stage_log",
+                "owned_worker_thinking_pre_send_proof_count",
+                "owned_worker_thinking_contract_breach_observed",
+                "owned_worker_requested_thinking_verified_before_send",
+                "thinking_contract_recovery_route",
             }
             only_new_fields = set(report) - set(prior)
             compatible_status = (
@@ -405,6 +440,10 @@ def persist_terminal_triage(*, trial_dir: Path, stage: str) -> dict:
                             report["owned_worker_wrong_ui_family_observed"],
                         "new_readonly_model_family_recovery_route":
                             report["model_family_recovery_route"],
+                        "new_readonly_owned_worker_thinking_contract_breach_observed":
+                            report["owned_worker_thinking_contract_breach_observed"],
+                        "new_readonly_thinking_contract_recovery_route":
+                            report["thinking_contract_recovery_route"],
                         **update}
             raise ValueError("Historical stage diagnosis or evidence changed")
         return {**prior, "status": "PRIOR_SHA_BOUND_TRIAGE_REUSED_NO_SEND"}

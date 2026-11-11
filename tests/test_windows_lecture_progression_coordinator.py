@@ -185,6 +185,39 @@ class WindowsSourceProgressionTests(unittest.TestCase):
         with self.assertRaises(CampaignRecoveryBlocked):
             self.plan()
 
+    def test_medium_contract_must_be_proven_for_new_original_figures(self):
+        self.figures_ready()
+        (self.trial/"figures_stage_stdout.raw.log").write_text(
+            "[microgen] browser UI model: flash\n"
+            "[microgen] browser thinking level: medium\n"
+            "[2026-11-11 13:45:00] [INFO] Selected Gemini tab via mode "
+            "picker: Open mode picker, currently Flash Medium "
+            "(phase=development)\n"
+            "[2026-11-11 13:45:02] [INFO] Gemini submission registered via "
+            "new-user-turn+composer-cleared.\n", encoding="utf8")
+        verdict=self.plan()
+        self.assertEqual(verdict["status"],
+                         "HALTED_FIGURES_THINKING_LEVEL_UNVERIFIED_NO_RESEND")
+        self.assertFalse(verdict["original_figures_resubmission_authorized"])
+        self.assertFalse((self.trial/"stage_slides_started.json").exists())
+
+    def test_medium_contract_must_be_proven_for_accepted_slides(self):
+        self.figures_ready()
+        self.stage_pass("slides")
+        (self.trial/"stage_slides_stdout.raw.log").write_text(
+            "[microgen] browser UI model: flash\n"
+            "[microgen] browser thinking level: medium\n"
+            "[2026-11-11 13:45:00] [INFO] Selected Gemini tab via mode "
+            "picker: Open mode picker, currently Flash Medium "
+            "(phase=development)\n"
+            "[2026-11-11 13:45:02] [INFO] Gemini submission registered via "
+            "new-user-turn+composer-cleared.\n", encoding="utf8")
+        verdict=self.plan()
+        self.assertEqual(verdict["status"],
+                         "HALTED_ACCEPTED_STAGE_THINKING_LEVEL_UNVERIFIED_NO_RESEND")
+        self.assertEqual(verdict["halted_stage"],"slides")
+        self.assertFalse((self.trial/"stage_narration_started.json").exists())
+
     def test_historical_figures_claim_without_result_quarantined(self):
         self.figures_ready(success=None)
         state = self.plan()

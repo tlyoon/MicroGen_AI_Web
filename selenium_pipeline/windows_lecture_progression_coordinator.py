@@ -45,7 +45,7 @@ def _report(*, status: str, source_sha256: str, section: str,
     }
 
 
-def _source_locked_wrong_owned_model_family(trial_dir: Path, stage: str) -> bool:
+def _source_locked_ui_contract_breach(trial_dir: Path, stage: str) -> str | None:
     """Audit immutable stage log before accepting a previously claimed result.
 
     Existing source claims remain untouched; a real source success with
@@ -77,7 +77,11 @@ def _source_locked_wrong_owned_model_family(trial_dir: Path, stage: str) -> bool
             "Previously SHA-bound model/response evidence has changed")
     from .windows_gemini_stage_transport_triage import diagnose
     verdict = diagnose(trial_dir=trial_dir, stage=stage)
-    return verdict.get("owned_worker_wrong_ui_family_observed") is True
+    if verdict.get("owned_worker_wrong_ui_family_observed") is True:
+        return "MODEL_FAMILY"
+    if verdict.get("owned_worker_thinking_contract_breach_observed") is True:
+        return "THINKING_LEVEL"
+    return None
 
 
 def inspect_progress(*, source_root: Path, section: str, trial_dir: Path,
@@ -153,13 +157,20 @@ def inspect_progress(*, source_root: Path, section: str, trial_dir: Path,
                     status="HALTED_PREVIOUS_FIGURES_FAILED_NO_RESEND",
                     source_sha256=sha, section=section,
                     prior_status=data.get("status"))
-            if (communication_mode == "selenium"
-                    and _source_locked_wrong_owned_model_family(
-                        trial_dir, "figures")):
+            ui_breach = (
+                _source_locked_ui_contract_breach(trial_dir, "figures")
+                if communication_mode == "selenium" else None)
+            if ui_breach:
                 return _report(
-                    status="HALTED_FIGURES_WRONG_UI_MODEL_FAMILY_NO_RESEND",
+                    status=(
+                        "HALTED_FIGURES_WRONG_UI_MODEL_FAMILY_NO_RESEND"
+                        if ui_breach == "MODEL_FAMILY" else
+                        "HALTED_FIGURES_THINKING_LEVEL_UNVERIFIED_NO_RESEND"),
                     source_sha256=sha, section=section,
-                    model_contract_breach="FLASH_REQUEST_ROUTED_TO_FLASH_LITE",
+                    model_contract_breach=(
+                        "FLASH_REQUEST_ROUTED_TO_FLASH_LITE"
+                        if ui_breach == "MODEL_FAMILY" else
+                        "CONFIGURED_THINKING_LEVEL_MISSING_OR_MISMATCHED"),
                     academic_or_release_approval=False,
                     original_figures_resubmission_authorized=False)
             lecture = expected.parent
@@ -216,11 +227,16 @@ def inspect_progress(*, source_root: Path, section: str, trial_dir: Path,
                         source_sha256=sha, section=section,
                         halted_stage=stage,
                         prior_status=receipt.get("status"))
-                if (communication_mode == "selenium" and stage in ("slides","narration")
-                        and _source_locked_wrong_owned_model_family(
-                            trial_dir, stage)):
+                ui_breach = (
+                    _source_locked_ui_contract_breach(trial_dir, stage)
+                    if communication_mode == "selenium"
+                    and stage in ("slides", "narration") else None)
+                if ui_breach:
                     return _report(
-                        status="HALTED_ACCEPTED_STAGE_WRONG_UI_MODEL_FAMILY_NO_RESEND",
+                        status=(
+                            "HALTED_ACCEPTED_STAGE_WRONG_UI_MODEL_FAMILY_NO_RESEND"
+                            if ui_breach == "MODEL_FAMILY" else
+                            "HALTED_ACCEPTED_STAGE_THINKING_LEVEL_UNVERIFIED_NO_RESEND"),
                         source_sha256=sha, section=section, halted_stage=stage,
                         academic_or_release_approval=False,
                         original_stage_resubmission_authorized=False)
