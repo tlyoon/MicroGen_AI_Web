@@ -139,6 +139,17 @@ def _browser_request(instruction: str,attachments: list[Path],
             # new conversation route. Legacy code performed this check, but
             # do NOT restore its unsafe second-click/Enter fallbacks.
             owned_handle=getattr(client,"_automation_tab",None)
+            # This shared G1/storyboard path calls the one-click helper
+            # directly (not the vendor click_send_with_fallbacks). Apply the
+            # same strict, READ-ONLY owned-tab model-family gate immediately
+            # before the Send boundary; never let a parent tab's Flash label
+            # mask Flash-Lite selected in the actually submitted chat.
+            from .gemini_model import (
+                assert_owned_gemini_mode, configured_ui_mode)
+            selected_family=assert_owned_gemini_mode(
+                client.driver,owned_handle,mode=configured_ui_mode())
+            print("[MicroGen] PRE_SEND_OWNED_FAMILY_VERIFIED "
+                  +selected_family,file=sys.stderr,flush=True)
             baseline=owned_gemini_send_baseline(client.driver,owned_handle)
             send_boundary_entered=True
             clicked=click_one_owned_gemini_send(

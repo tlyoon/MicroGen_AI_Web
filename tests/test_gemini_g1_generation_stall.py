@@ -17,6 +17,44 @@ from test_gemini_response_recovery import FakeDriver
 
 
 class GeminiG1GenerationStallTests(unittest.TestCase):
+    def test_direct_owned_g1_send_refuses_flash_lite_before_any_click(self):
+        from selenium_pipeline.gemini_model import GeminiModelError
+        with tempfile.TemporaryDirectory() as folder:
+            driver=FakeDriver(response="",generating=False)
+            clicks=[]
+            closed=[]
+            client=SimpleNamespace(
+                driver=driver,_automation_tab="owned_tab",
+                start=lambda **kw:None,open_clean_gemini_chat=lambda:None,
+                upload_files=lambda files:None,
+                type_prompt_text=lambda *a,**kw:True,
+                shutdown=lambda:closed.append("closed"))
+            vendor=SimpleNamespace(
+                Config=lambda **kw:SimpleNamespace(**kw),
+                GeminiSeleniumClient=lambda cfg:client)
+            with (patch.object(series_gemini,"_vendor_module",return_value=vendor),
+                  patch("selenium_pipeline.three_pc_worker.LocalInstanceLock",
+                        side_effect=lambda *a,**kw:nullcontext()),
+                  patch("selenium_pipeline.gemini_model.ensure_mode",
+                        return_value="Open mode picker, currently Flash"),
+                  patch("selenium_pipeline.gemini_model.assert_owned_gemini_mode",
+                        side_effect=GeminiModelError(
+                            "PRE_SEND_GEMINI_MODEL_FAMILY_MISMATCH_NO_SEND: Flash-Lite")),
+                  patch("selenium_pipeline.gemini_response_recovery.await_owned_gemini_send_visible",
+                        return_value=True),
+                  patch("selenium_pipeline.gemini_selenium_only_policy.click_one_owned_gemini_send",
+                        side_effect=lambda *a,**kw:clicks.append("UNSAFE_SEND")),
+                  patch.dict("os.environ",{"LOCALAPPDATA":folder})):
+                with self.assertRaises(GeminiModelError) as caught:
+                    series_gemini._browser_request(
+                        "source-free synthetic request",[],port=9222,
+                        wait_cap_s=20,min_chars=8)
+            self.assertEqual(clicks,[])
+            self.assertEqual(closed,["closed"])
+            self.assertFalse(caught.exception.gemini_send_boundary_entered)
+            self.assertEqual(caught.exception.gemini_failure_phase,
+                             "GEMINI_MODEL_PICKER_NOT_READY")
+
     def test_registered_send_zero_text_stalled_generation_is_exactly_classified(self):
         with tempfile.TemporaryDirectory() as d:
             driver=FakeDriver(response="",generating=True)
@@ -46,6 +84,8 @@ class GeminiG1GenerationStallTests(unittest.TestCase):
                         side_effect=lambda *a,**kw:nullcontext()),
                   patch("selenium_pipeline.gemini_model.ensure_mode",
                         return_value="Open mode picker, currently Gemini Flash"),
+                  patch("selenium_pipeline.gemini_model.assert_owned_gemini_mode",
+                        return_value="Open mode picker, currently Flash"),
                   patch("selenium_pipeline.gemini_response_recovery.await_owned_gemini_send_visible",
                         return_value=True),
                   patch("selenium_pipeline.gemini_selenium_only_policy.owned_gemini_send_baseline",

@@ -223,6 +223,7 @@ class GeminiQuarantineTests(unittest.TestCase):
              patch("selenium_pipeline.three_pc_worker.LocalInstanceLock",
                    side_effect=lambda *a, **kw: nullcontext()), \
              patch("selenium_pipeline.gemini_model.ensure_mode", return_value="Open mode picker, currently Gemini Flash"), \
+             patch("selenium_pipeline.gemini_model.assert_owned_gemini_mode", return_value="Open mode picker, currently Flash"), \
              patch("selenium_pipeline.gemini_response_recovery.await_owned_gemini_send_visible", return_value=True), \
              patch("selenium_pipeline.gemini_selenium_only_policy.click_one_owned_gemini_send", return_value=True), \
              patch("selenium_pipeline.gemini_selenium_only_policy.owned_gemini_send_baseline",
@@ -326,6 +327,8 @@ class GeminiLateResponseGeneralizationTests(unittest.TestCase):
             patch("selenium_pipeline.three_pc_worker.LocalInstanceLock",
                   side_effect=lambda *args, **kw: nullcontext()),
             patch("selenium_pipeline.gemini_model.ensure_mode",
+                  return_value="Open mode picker, currently Flash"),
+            patch("selenium_pipeline.gemini_model.assert_owned_gemini_mode",
                   return_value="Open mode picker, currently Flash"),
             patch("selenium_pipeline.gemini_response_recovery.await_owned_gemini_send_visible",
                   return_value=True),
