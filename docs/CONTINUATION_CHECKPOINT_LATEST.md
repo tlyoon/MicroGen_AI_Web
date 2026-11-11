@@ -1,3 +1,51 @@
+# 12 November 2026 - Auto-recover Gemini caption refusal for truly uncaptioned PDF graphic
+
+**Actual original failure / no same-source replay:** Dell-115 source-locked
+Serway 6.4 SHA `64b748468e6bdb12ddb127f1d8bea90a7f3f63d270fbb5378ba1d3ddeeb955fd`
+processed six original pages. Figure 6.12 (page 2), 6.13 (page 4)
+and 6.14 (page 5) independently passed and were checkpointed.
+Page 6 original owned Flash-Lite Send returned exactly
+`MAPPING_REVIEW_REQUIRED` after a 90s parseable-line timeout; stage
+remains `FIGURES_ATTEMPT_FAILED_NO_AUTO_RETRY`. No inference that Gemini
+service was down, or that the crop had a missing printed Figure 6.15.
+
+**Identified source family:** Original PDF page 6 is a Summary with an
+uncaptioned compact diagram. Read-only source validation found **687**
+selectable PDF words, only **6** intersecting the exact Docling crop
+rect (top-left PDF points `[485.77542,478.89688,571.19025,557.77301]`),
+no numbered Figure on this page, correct page/image/crop manifest SHA
+`c2e523278415330d7fe94fb34ff2b838905807ced7f308d47dc4efb9573c8954`.
+A read-only Dell-115 original fixture returned
+`UNCAPTIONED_SOURCE_CROP_VERIFIED_NOT_SEMANTIC_QA`, generic
+`Unlabeled source graphic page_6 fig_1.png`, **0 new model Sends**,
+and no source-file mutation. Existing failed receipts remain untouched.
+
+**Reusable production remedy:** New
+`selenium_pipeline.figure_uncaptioned_source_recovery` and normal
+`vendor_template_v2.map_and_rename_selenium_v8` catch only the exact
+owned refusal; independently SHA-verify a single original crop, page,
+PDF and geometry, require dense original selectable text but no numbered
+Figure on that page, reject a prose/math-heavy or multiple-crop case.
+They produce an explicitly unnumbered generic source identity and
+new-file-only refusal/word-geometry evidence; do not invent graphic
+content or physics meaning. `wait_for_mapping_response_ready` now
+recognizes a stable completed owned refusal promptly rather than
+waiting the full 90 seconds; no new Send is allowed for it.
+`figure_mapping_checkpoints` redoes the PDF proof and checks exact
+CRLF/LF refusal bytes on every resume; `runner.valid('figures')`
+fails closed when that checkpoint/witness is missing or tampered.
+The actual normal worker, actual checkpoint and refusal-watcher
+functions are covered by positive/adversarial source-free tests.
+
+**Evidence level:** original 6.4 source-only proof positive,
+focused 60 tests PASS; commit, exact-head hosted Windows CI and a
+DIFFERENT unclaimed real-source stage still needed for full closure.
+Do not reinterpret old Serway 6.4 original failed stage as accepted,
+resend page 6, certify source pixel diagram meaning, skip scientific
+acoustic or media gates or publish. G2/G3 remain unverified.
+
+---
+
 # 11 November 2026 - Source-only figure-panel caption reconciliation in normal worker
 
 **Trigger:** Serway 7.9 distinct original source SHA

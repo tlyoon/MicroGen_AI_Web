@@ -641,6 +641,20 @@ def wait_for_mapping_response_ready(client, baseline_text: str = "", timeout: fl
         else:
             stall_started = None
 
+        if (cur == "MAPPING_REVIEW_REQUIRED" and not generating
+                and model_count > 0 and cur != baseline_text):
+            # A stable owned model REFUSAL is a completed answer, not a
+            # reason to wait 90s or send again. Its source-only recovery
+            # requires independent original PDF evidence downstream.
+            if cur == last:
+                stable += 1
+            else:
+                last, stable = cur, 0
+            if stable >= 2:
+                log("[GEMINI-RESPONSE] MAPPING_REVIEW_REQUIRED "
+                    "stable completed owned response; original source-only "
+                    "uncaptioned check next, no second Send")
+                return cur
         if cur:
             parsed = parse_mapping_lines(cur)
             if parsed:
@@ -1685,7 +1699,10 @@ def map_and_rename_single_step(
                 f"expected {len(fig_files)}; explicit_error={explicit_error}."
             )
 
-            if exact_count and not explicit_error:
+            if (exact_count and not explicit_error) or txt == "MAPPING_REVIEW_REQUIRED":
+                # The exact review marker can be reconciled ONLY from the
+                # original source's uncaptained-crop evidence, after Send.
+                # Do not consume another model request to guess a caption.
                 break
 
             if response_attempt < response_attempts:
@@ -1708,6 +1725,29 @@ def map_and_rename_single_step(
 
     mapping_txt = page_png.with_name(page_png.stem + "_mapping.txt")
 
+    uncaptioned_witness = None
+    original_uncaptioned_response = None
+    if (txt == "MAPPING_REVIEW_REQUIRED" and not parsed and len(fig_files) == 1):
+        # A source graphic can genuinely have NO printed Figure caption.
+        # A model's refusal never licenses invention: the sole safe
+        # resolution is to prove original PDF text density, absence of
+        # ANY numbered figure reference on this page, and the exact
+        # one-crop SHA/geometry identity. Otherwise retain this rejection.
+        from selenium_pipeline.figure_uncaptioned_source_recovery import (
+            recover_source_uncaptioned_crop, UncaptionedSourceNotProven)
+        source_pdf = CFG.root / "source.pdf"
+        geometry = crops_dir / (page_png.stem + "_crop_geometry.json")
+        try:
+            parsed, uncaptioned_witness = recover_source_uncaptioned_crop(
+                response=txt, source_pdf=source_pdf, page_png=page_png,
+                crops_dir=crops_dir, geometry_manifest=geometry)
+            original_uncaptioned_response = txt
+            log(f"[UNCAPTIONED SOURCE] {page_png.name}: exact original PDF "
+                "proves one unnumbered source graphic; no model retry or "
+                "invented printed caption")
+        except UncaptionedSourceNotProven as exc:
+            log(f"[UNCAPTIONED SOURCE] {page_png.name}: source evidence "
+                f"insufficient ({exc}); fail closed, no provider retry", "WARN")
     if len(parsed) != len(fig_files) or _looks_like_gemini_failure_text(txt):
         mapping_txt.write_text((txt or "").strip() + "\n", encoding="utf-8")
         log(
@@ -1816,6 +1856,30 @@ def map_and_rename_single_step(
         # Preflight *all* original crops and destinations before first copy.
         for crop_name, _label, target in resolved_triples:
             require_non_destructive_destination(crops_dir / crop_name, crops_dir / target)
+        if uncaptioned_witness is not None:
+            # Preserve the actual model refusal and source-only resolution
+            # side by side, without rewriting any claimed prior stage.
+            # This is structural extraction completeness, NOT scientific QA.
+            refusal_path = page_png.with_name(
+                page_png.stem + "_uncaptioned_model_reply.raw.txt")
+            with refusal_path.open("x", encoding="utf-8") as f:
+                f.write(original_uncaptioned_response + "\n")
+                f.flush()
+                os.fsync(f.fileno())
+            # The evidence hash commits to the exact raw file including LF.
+            import hashlib
+            uncaptioned_witness["saved_model_reply_sha256"] = hashlib.sha256(
+                refusal_path.read_bytes()).hexdigest()
+            proof_path = page_png.with_name(
+                page_png.stem + "_uncaptioned_source_evidence.json")
+            with proof_path.open("x", encoding="utf-8") as f:
+                json.dump(uncaptioned_witness, f, sort_keys=True,
+                          indent=2, ensure_ascii=False)
+                f.write("\n")
+                f.flush()
+                os.fsync(f.fileno())
+            log(f"[UNCAPTIONED SOURCE] Source-only refusal and SHA-bound "
+                f"generic identity preserved in {proof_path.name}")
         if panel_source_witness is not None:
             # New-file-only, fsync'd provenance BEFORE any mapped figure copy.
             # It records the original model response and independent source

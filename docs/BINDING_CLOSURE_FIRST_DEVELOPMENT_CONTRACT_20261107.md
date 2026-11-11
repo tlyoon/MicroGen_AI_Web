@@ -9,6 +9,47 @@ API-based `microgen_ai` project must never inherit this agreement by accident.
 commit `67f49ca68fce7519b1c031752cb21e0ce28f5e41` (both hosted Windows
 CI jobs successful). Subsequent commit IDs are resolved afresh each turn.
 
+## Owner figure-stage closure: genuine uncaptioned PDF crop — 12 November 2026
+
+**Permanent default in the normal figure worker.** A small original-PDF
+graphic can legitimately be unnumbered and have NO caption. A Gemini
+response of exactly `MAPPING_REVIEW_REQUIRED` is therefore neither a
+license to invent a numbered Figure caption nor necessarily a permanent
+figures-stage failure.
+
+Use the source-only `figure_uncaptioned_source_recovery` remedy
+automatically **after an already registered Send**, without resending:
+- exactly one retained original Docling crop on this specific page;
+- exact `MAPPING_REVIEW_REQUIRED` owned response, *not* UI error,
+  nonresponse, mixed/partial reply or generic model uncertainty;
+- original source PDF, page image, crop and Docling geometry all SHA-bound,
+  physically present, regular, unique and unchanged;
+- original PDF page has enough native selectable text (at least 100 words
+  and 500 characters), absolutely NO printed numbered Figure reference,
+  and a crop containing only a few embedded source text tokens (no prose
+  block or unknown multi-crop relationships);
+- record `Unlabeled source graphic` with page/crop identity, NOT a fabricated
+  printed caption or a verified physics description.
+
+The normal worker must save a new-file-only literal model refusal plus
+a source SHA/geometry/word-count witness, re-run the standard figure
+composite and collision preflight, copy only exact crop bytes, and create a
+source-bound page checkpoint. The normal `figure_mapping_checkpoints`
+verifier MUST independently recompute the source-only proof on every
+reuse, reject a missing/tampered refusal/witness and revoke
+`runner.valid('figures')` when provenance changes. A completed owned
+model refusal is eligible for fast stable capture instead of an unnecessary
+90-second wait; never use the marker as permission to resubmit the
+source. Source-only structural completeness does not certify
+pixel/diagram physics, multimedia teaching QA or student publication.
+
+This narrowly resolves the source-crop type found in Serway 6.4 page 6
+without a second Gemini Send. Its historical stage remains
+`FIGURES_ATTEMPT_FAILED_NO_AUTO_RETRY`: old immutable
+stage-log/receipt/triage cannot be rewritten, and a future source must
+exercise the integrated full-stage path for independent G2 acceptance.
+Other `MAPPING_REVIEW_REQUIRED` cases remain fail-closed.
+
 ## Source-grounded panel-caption reconciliation — 11 November 2026
 
 After Gemini Flash-Lite produces a figure-caption mapping, a parent

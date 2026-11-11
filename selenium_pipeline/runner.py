@@ -334,6 +334,15 @@ def valid(stage: str, folder: Path) -> bool:
                 if len(parts) != 3:
                     return False
                 src, _label, dst = (part.strip() for part in parts)
+                if _label == '"Unlabeled source graphic"':
+                    # Structural stage readiness must NOT trust a generic
+                    # printed-caption substitute without the SHA-bound
+                    # original model refusal + source-only PDF evidence.
+                    from .figure_mapping_checkpoints import checkpoint_can_resume
+                    if not checkpoint_can_resume(
+                            folder, int(page_crop_dir.name.split("_")[1]),
+                            copy_to_root=True):
+                        return False
                 if (src not in original_crops or src in validated or
                         not dst.lower().endswith(".png") or
                         not dst or dst != Path(dst).name or
