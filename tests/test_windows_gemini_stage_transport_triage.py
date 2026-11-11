@@ -72,6 +72,57 @@ class GeminiStageTransportTriageTests(unittest.TestCase):
         self.assertNotIn("KEY_NOT_TO_REPORT", str(r))
         self.assertEqual(before, sorted(self.trial.iterdir()))
 
+    def test_verified_pre_send_picker_failure_reclassified_without_resend(self):
+        import re
+        prefix = self.begun()
+        self.finish(prefix, "FIGURES_ATTEMPT_FAILED_NO_AUTO_RETRY")
+        self.log(
+            "[microgen] browser UI model: flash\n"
+            "[microgen] browser thinking level: medium\n"
+            "Figure extraction completed successfully.\n"
+            "[2026-11-11 18:45:29] [INFO] [GEMINI-MODE] "
+            "OWNED_FAMILY_VERIFIED_AFTER_NEW_CHAT Flash Medium\n"
+            "[2026-11-11 18:45:29] [INFO] Selenium attached successfully.\n"
+            "Traceback (most recent call last):\n"
+            "  File \"gemini_model.py\", line 130, in _owned_picker\n"
+            "selenium_pipeline.gemini_model.GeminiModelError: "
+            "PRE_SEND_MODE_PICKER_NOT_UNIQUE_OR_MISSING\n")
+        # Simulate an immutable diagnosis created before this new remedy.
+        with patch("selenium_pipeline.windows_gemini_stage_transport_triage."
+                   "_PRE_SEND_OWNED_PICKER_TRACEBACK", re.compile(r"(?!)")):
+            old = persist_terminal_triage(trial_dir=self.trial, stage="figures")
+        self.assertEqual(old["status"],
+                         "LOCAL_EXTRACTION_DONE_BROWSER_SESSION_SEEN_SEND_UNVERIFIED")
+        original = (self.trial / "figures_transport_triage.json").read_bytes()
+        updated = diagnose(trial_dir=self.trial, stage="figures")
+        self.assertEqual(updated["status"],
+                         "GEMINI_UI_PICKER_UNVERIFIED_BEFORE_SEND_NO_RESEND")
+        self.assertTrue(updated["owned_picker_rejected_before_send"])
+        self.assertTrue(updated["browser_automation_or_capture_failure_proven"])
+        self.assertFalse(updated["provider_outage_proven"])
+        self.assertEqual(updated["registered_browser_send_count_in_stage_log"], 0)
+        self.assertFalse(updated["original_submission_resend_authorized"])
+        self.assertEqual(updated["safe_recovery_route"],
+                         "ATOMIC_OWNED_PICKER_SNAPSHOT_AND_BOUNDED_PRE_SEND_RECHECK")
+        reused = persist_terminal_triage(trial_dir=self.trial, stage="figures")
+        self.assertEqual(reused["status"], "PRIOR_SHA_BOUND_TRIAGE_REUSED_NO_SEND")
+        self.assertEqual(reused["new_readonly_classification"], updated["status"])
+        self.assertEqual(reused["new_readonly_safe_recovery_route"],
+                         updated["safe_recovery_route"])
+        self.assertEqual((self.trial / "figures_transport_triage.json").read_bytes(),
+                         original)
+
+    def test_model_prose_cannot_spoof_pre_send_picker_traceback(self):
+        prefix = self.begun()
+        self.finish(prefix, "FIGURES_ATTEMPT_FAILED_NO_AUTO_RETRY")
+        self.log(
+            "Selenium attached successfully.\n"
+            "Figure extraction completed successfully.\n"
+            "Gemini text: PRE_SEND_MODE_PICKER_NOT_UNIQUE_OR_MISSING\n")
+        result = diagnose(trial_dir=self.trial)
+        self.assertFalse(result["owned_picker_rejected_before_send"])
+        self.assertFalse(result["browser_automation_or_capture_failure_proven"])
+
     def test_registered_slide_send_with_unattributed_reply_is_not_resubmitted(self):
         prefix = self.begun("slides")
         self.finish(prefix, "STAGE_FAILED_OR_OUTPUT_INCOMPLETE_NO_RETRY",

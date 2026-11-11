@@ -1681,7 +1681,7 @@ class GeminiSeleniumClient:
             selected_mode = assert_owned_gemini_mode(
                 self.driver, owned,
                 mode=(os.getenv("MICROGEN_GEMINI_UI_MODE", "flash").strip().lower()
-                      or "flash"))
+                      or "flash"), wait_seconds=4)
             log(f"[GEMINI-MODE] PRE_SEND_OWNED_FAMILY_VERIFIED {selected_mode}")
             from selenium_pipeline.gemini_thinking import (
                 configured_thinking_level, assert_owned_gemini_thinking_level)
@@ -1692,7 +1692,7 @@ class GeminiSeleniumClient:
             selected_mode = assert_owned_gemini_mode(
                 self.driver, owned,
                 mode=(os.getenv("MICROGEN_GEMINI_UI_MODE", "flash").strip().lower()
-                      or "flash"))
+                      or "flash"), wait_seconds=4)
             log(f"[GEMINI-MODE] POST_THINKING_OWNED_FAMILY_REVERIFIED {selected_mode}")
             # Shared evidence path for figures, slides and narration. A Send
             # click is NOT proof of registration. Capture a prompt-free

@@ -111,6 +111,56 @@ def _owned_picker(driver, owned_handle: str | None):
         'button[aria-haspopup="menu"]',
         '[role="button"][aria-haspopup="menu"]',
     )
+    # A long editor prompt can trigger continuous Angular re-rendering.
+    # Independent find_elements calls then see different Selenium element IDs
+    # for the SAME logical model control and falsely report ambiguity. Use ONE
+    # read-only, synchronous DOM snapshot so CSS alternatives are deduplicated
+    # by underlying node identity, not by time-varying WebElement IDs.
+    # No events, navigation, Send, model choice or prompt contents are read.
+    try:
+        atomic = driver.execute_script("""
+            const selectors = [
+              'button[aria-label^="Open mode picker"]',
+              '[data-test-id="bard-mode-menu-button"]',
+              '[aria-label*="model"]',
+              '[aria-label*="mode"]',
+              'button[aria-haspopup="menu"]',
+              '[role="button"][aria-haspopup="menu"]'
+            ];
+            const nodes = new Set();
+            for (const selector of selectors) {
+              for (const node of document.querySelectorAll(selector)) {
+                nodes.add(node);
+              }
+            }
+            const visible = node => {
+              const r = node.getBoundingClientRect();
+              if (r.width <= 0 || r.height <= 0) return false;
+              for (let p = node; p; p = p.parentElement) {
+                const s = getComputedStyle(p);
+                if (s.display === 'none' || s.visibility === 'hidden' ||
+                    Number(s.opacity) <= 0.01) return false;
+              }
+              return true;
+            };
+            return [...nodes].filter(node => {
+              if (!visible(node)) return false;
+              const hint = ((node.getAttribute('aria-label') || '') + ' ' +
+                            (node.getAttribute('data-test-id') || '')
+                           ).toLowerCase();
+              return (hint.includes('mode') || hint.includes('model')) &&
+                     ['picker','select','choose','switch','change',
+                      'menu','current','bard-mode'].some(x => hint.includes(x));
+            });
+        """)
+    except (AttributeError, AssertionError, NotImplementedError):
+        # Lightweight offline test drivers may not implement DOM JavaScript.
+        # The historical semantic selector path remains available to them.
+        atomic = None
+    if isinstance(atomic, (list, tuple)):
+        if len(atomic) != 1:
+            raise GeminiModelError("PRE_SEND_MODE_PICKER_NOT_UNIQUE_OR_MISSING")
+        return atomic[0]
     unique = {}
     for selector in selectors:
         for candidate in driver.find_elements(By.CSS_SELECTOR, selector):
@@ -153,25 +203,42 @@ def _observed_picker_label(picker) -> str:
 
 
 def assert_owned_gemini_mode(driver, owned_handle: str | None,
-                             mode: str = "flash") -> str:
-    """Read-only, source-worker-owned model-family check before any Send.
+                             mode: str = "flash", *,
+                             wait_seconds: float = 0.0) -> str:
+    """Read-only exact owned-model verification at the single Send boundary.
 
-    Never accept "Flash-Lite" as Flash; never borrow a different tab's
-    correctly selected model. A mismatch is a *pre-Send* failure, not a
-    service outage or permission for another provider request.
+    A bounded *pre-Send-only* wait handles transient Angular rehydration or
+    temporary missing/duplicated picker nodes. It NEVER changes the model,
+    borrows another tab, retries a Send, or waits out a wrong-family label.
     """
-    from selenium.webdriver.common.by import By
+    from selenium.common.exceptions import StaleElementReferenceException
 
     if (mode not in MODEL_SPECS or not owned_handle
+            or not isinstance(wait_seconds, (int, float))
+            or not 0 <= wait_seconds <= 10
             or driver.current_window_handle != owned_handle
             or not str(driver.current_url).startswith("https://gemini.google.com/")):
         raise GeminiModelError("PRE_SEND_OWNED_GEMINI_TAB_OR_MODEL_UNVERIFIED")
-    selected = _observed_picker_label(
-        _owned_picker(driver, owned_handle))
-    if not _matches_mode(selected, mode):
-        raise GeminiModelError(
-            "PRE_SEND_GEMINI_MODEL_FAMILY_MISMATCH_NO_SEND: " + selected)
-    return selected
+    deadline = time.monotonic() + wait_seconds
+    while True:
+        try:
+            selected = _observed_picker_label(
+                _owned_picker(driver, owned_handle))
+        except (GeminiModelError, StaleElementReferenceException) as exc:
+            transient = (
+                isinstance(exc, StaleElementReferenceException)
+                or str(exc) == "PRE_SEND_MODE_PICKER_NOT_UNIQUE_OR_MISSING"
+            )
+            if not transient or time.monotonic() >= deadline:
+                raise
+            # Ownership can change during an Angular update; each pass
+            # re-checks the same exact tab and Gemini origin.
+            time.sleep(0.2)
+            continue
+        if not _matches_mode(selected, mode):
+            raise GeminiModelError(
+                "PRE_SEND_GEMINI_MODEL_FAMILY_MISMATCH_NO_SEND: " + selected)
+        return selected
 
 
 def select_owned_gemini_mode(driver, owned_handle: str | None, *,

@@ -155,7 +155,7 @@ def _browser_request(instruction: str,attachments: list[Path],
             from .gemini_model import (
                 assert_owned_gemini_mode, configured_ui_mode)
             selected_family=assert_owned_gemini_mode(
-                client.driver,owned_handle,mode=configured_ui_mode())
+                client.driver,owned_handle,mode=configured_ui_mode(),wait_seconds=4)
             print("[MicroGen] PRE_SEND_OWNED_FAMILY_VERIFIED "
                   +selected_family,file=sys.stderr,flush=True)
             from .gemini_thinking import (
@@ -167,7 +167,7 @@ def _browser_request(instruction: str,attachments: list[Path],
             # Reading the nested Thinking menu must preserve the Flash
             # contract; verify model identity a second time before the click.
             assert_owned_gemini_mode(
-                client.driver, owned_handle, mode=configured_ui_mode())
+                client.driver, owned_handle, mode=configured_ui_mode(),wait_seconds=4)
             baseline=owned_gemini_send_baseline(client.driver,owned_handle)
             send_boundary_entered=True
             clicked=click_one_owned_gemini_send(

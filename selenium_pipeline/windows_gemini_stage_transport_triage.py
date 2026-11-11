@@ -42,6 +42,12 @@ _DUPLICATE_TARGET_REASON = "ambiguous_duplicate_target_no_layout_provenance"
 _ISOLATED_PACKAGE_IMPORT_FAILURE = re.compile(
     r"(?m)^ModuleNotFoundError: No module named 'selenium_pipeline'$"
 )
+# Trusted local Python exception from the exact pre-Send model verifier, not
+# an ordinary Gemini message. Never infer a provider outage from this.
+_PRE_SEND_OWNED_PICKER_TRACEBACK = re.compile(
+    r"(?m)^selenium_pipeline\.gemini_model\.GeminiModelError: "
+    r"PRE_SEND_MODE_PICKER_NOT_UNIQUE_OR_MISSING\s*$"
+)
 # Only trust the real vendor's anchored, timestamped own-tab picker marker,
 # together with this runner's explicitly requested mode. Never infer a UI
 # selection from arbitrary Gemini response text or a parent-tab preflight.
@@ -245,6 +251,11 @@ def diagnose(*, trial_dir: Path, stage: str = "figures") -> dict:
     local_worker_import_failure = (
         stage == "figures" and not send
         and bool(_ISOLATED_PACKAGE_IMPORT_FAILURE.search(raw)))
+    pre_send_picker_failure = bool(
+        backend == "selenium" and not send
+        and "[GEMINI-MODE] OWNED_FAMILY_VERIFIED_AFTER_NEW_CHAT" in raw
+        and "gemini_model.py" in raw
+        and _PRE_SEND_OWNED_PICKER_TRACEBACK.search(raw))
     family_audit = audit_original_stage_model_family(
         raw, registered_send=send if backend == "selenium" else False)
     state = result.get("status") if result is not None else None
@@ -262,6 +273,8 @@ def diagnose(*, trial_dir: Path, stage: str = "figures") -> dict:
         label = "REGISTERED_BROWSER_SEND_BUT_NO_ACCEPTED_STAGE"
     elif local_worker_import_failure:
         label = "ISOLATED_WINDOWS_WORKER_IMPORT_FAILED_BEFORE_MODEL_SEND"
+    elif pre_send_picker_failure:
+        label = "GEMINI_UI_PICKER_UNVERIFIED_BEFORE_SEND_NO_RESEND"
     elif result is None:
         label = "PRE_SEND_INTENT_WITH_NO_FINAL_RESULT_REVIEW_REQUIRED"
     elif local_extract and session:
@@ -290,6 +303,7 @@ def diagnose(*, trial_dir: Path, stage: str = "figures") -> dict:
         "owned_visible_ui_terminal_error_verified": (send and owned_ui_terminal),
         "figure_composite_local_gate_observed": composite_gate,
         "local_worker_package_import_failed": local_worker_import_failure,
+        "owned_picker_rejected_before_send": pre_send_picker_failure,
         "local_worker_import_remedy": (
             "INCLUDE_CHECKED_OUT_REPO_IN_ISOLATED_WORKER_PYTHONPATH"
             if local_worker_import_failure else "NOT_APPLICABLE"),
@@ -301,7 +315,10 @@ def diagnose(*, trial_dir: Path, stage: str = "figures") -> dict:
             if composite_gate else "NOT_OBSERVED"),
         "safe_recovery_route": (
             "INDEPENDENT_SOURCE_SPACE_GEOMETRY_EVIDENCE_NO_MODEL_RESEND"
-            if composite_gate else "NORMAL_STAGE_GATE_REMAINS_IN_FORCE"),
+            if composite_gate else
+            "ATOMIC_OWNED_PICKER_SNAPSHOT_AND_BOUNDED_PRE_SEND_RECHECK"
+            if pre_send_picker_failure else
+            "NORMAL_STAGE_GATE_REMAINS_IN_FORCE"),
         "owned_stage_supervisor_timeout_recorded": supervisor_timeout,
         "owned_stage_supervisor_exit_recorded": supervisor_completed,
         "unbuffered_child_output_evidence_present": (
@@ -310,7 +327,7 @@ def diagnose(*, trial_dir: Path, stage: str = "figures") -> dict:
         "api_generation_status_observed": "NOT_CHECKED" if backend == "selenium"
                                           else "CONTENT_GENERATION_NOT_INFERRED_FROM_LOG",
         "provider_outage_proven": False,
-        "browser_automation_or_capture_failure_proven": False,
+        "browser_automation_or_capture_failure_proven": pre_send_picker_failure,
         "user_prompt_or_provider_secret_logged_in_report": False,
         "original_submission_resend_authorized": False,
         "new_model_or_tts_calls": False,
@@ -356,6 +373,7 @@ def persist_terminal_triage(*, trial_dir: Path, stage: str) -> dict:
         "original_source_pdf_modified": False,
         "student_publication_authorized": False,
     }
+    pre_send_picker_failure = report.get("owned_picker_rejected_before_send") is True
     if diagnostic_file.exists() or diagnostic_file.is_symlink():
         prior = _verified_json(diagnostic_file)
         if prior != report:
@@ -375,6 +393,7 @@ def persist_terminal_triage(*, trial_dir: Path, stage: str) -> dict:
                 "safe_recovery_route",
                 "local_worker_package_import_failed",
                 "local_worker_import_remedy",
+                "owned_picker_rejected_before_send",
                 "expected_ui_family_from_owned_stage_log",
                 "owned_worker_picker_observation_count",
                 "owned_worker_wrong_ui_family_observed",
@@ -402,7 +421,11 @@ def persist_terminal_triage(*, trial_dir: Path, stage: str) -> dict:
                     "SOURCE_FIGURE_COMPOSITE_PROVENANCE_REQUIRED_NO_RESEND"}) or
                 (prior.get("status") == "BROWSER_SESSION_SEEN_SEND_UNVERIFIED"
                  and report["status"] ==
-                    "ISOLATED_WINDOWS_WORKER_IMPORT_FAILED_BEFORE_MODEL_SEND"))
+                    "ISOLATED_WINDOWS_WORKER_IMPORT_FAILED_BEFORE_MODEL_SEND") or
+                (prior.get("status") ==
+                    "LOCAL_EXTRACTION_DONE_BROWSER_SESSION_SEEN_SEND_UNVERIFIED"
+                 and report["status"] ==
+                    "GEMINI_UI_PICKER_UNVERIFIED_BEFORE_SEND_NO_RESEND"))
             old_claim_safe = (
                 prior.get("automatic_resubmission_authorized") is False
                 and prior.get("model_requests_during_diagnosis") == 0
@@ -427,7 +450,15 @@ def persist_terminal_triage(*, trial_dir: Path, stage: str) -> dict:
                 and all(prior[k] == report[k] or
                         (k == "owned_browser_send_registered" and send_upgrade) or
                         (k == "registered_browser_send_count_in_stage_log"
-                         and send_upgrade and prior[k] == 0)
+                         and send_upgrade and prior[k] == 0) or
+                        (k == "safe_recovery_route" and pre_send_picker_failure
+                         and prior[k] == "NORMAL_STAGE_GATE_REMAINS_IN_FORCE"
+                         and report[k] ==
+                         "ATOMIC_OWNED_PICKER_SNAPSHOT_AND_BOUNDED_PRE_SEND_RECHECK") or
+                        (k in ("browser_automation_or_capture_failure_proven",
+                               "owned_picker_rejected_before_send")
+                         and pre_send_picker_failure
+                         and prior[k] is False and report[k] is True)
                         for k in prior if k != "status"))
             if compatible:
                 update = ({"new_readonly_owned_browser_send_registered": True,
@@ -444,6 +475,8 @@ def persist_terminal_triage(*, trial_dir: Path, stage: str) -> dict:
                             report["owned_worker_thinking_contract_breach_observed"],
                         "new_readonly_thinking_contract_recovery_route":
                             report["thinking_contract_recovery_route"],
+                        "new_readonly_safe_recovery_route":
+                            report["safe_recovery_route"],
                         **update}
             raise ValueError("Historical stage diagnosis or evidence changed")
         return {**prior, "status": "PRIOR_SHA_BOUND_TRIAGE_REUSED_NO_SEND"}

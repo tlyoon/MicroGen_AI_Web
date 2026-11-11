@@ -88,3 +88,51 @@ checks. The real November 11, 2026 Dell-115 no-Send vendor test observed:
 
 This evidence establishes correct browser setup **only**, not successful
 slide generation, independent academic QA, acoustic QA or learner release.
+
+## Long-prompt atomic picker snapshot and bounded pre-Send recovery (11 Nov)
+
+**Real G2 discovery:** On distinct Serway 7.7, the three-page Docling
+extraction finished and the vendor's owned fresh chat positively selected
+Flash + Medium. After uploading two source images and typing the actual
+figure-mapping instruction, `_owned_picker` rejected the model control with
+`PRE_SEND_MODE_PICKER_NOT_UNIQUE_OR_MISSING`; the SHA-bound figures stage
+failed with **zero registered Gemini Sends**. The historical stage may not be
+resubmitted. A later read-only analysis cannot categorically exclude a
+nonregistered click, but the Python traceback is above the actual Send call.
+
+**Source-free root-cause reproduction:** Disposable owned Gemini tabs with
+two neutral PNGs and a short synthetic composer input retained a uniquely
+detectable model button. Extending the synthetic composer to a long prompt
+reproduced the exact legacy picker exception even though an independent,
+single JavaScript DOM snapshot still showed one visible, correctly labelled
+`Open mode picker, currently Flash Medium` control. This establishes
+inconsistent multi-query Selenium element discovery during a long editor
+state, not a proven Gemini service outage or missing Flash model. The
+particular Angular/Chrome element-ID transition is not independently proved.
+
+**Production correction:** The shared `gemini_model._owned_picker` now reads
+all semantic selectors within one synchronous, read-only DOM evaluation.
+A JavaScript `Set` deduplicates actual node identities and tests own-element
+visibility, accessibility label and stable model test-id. It returns the
+candidate only when **exactly one** semantic control is present. Lightweight
+source-free test doubles still use the former semantic Selenium loop when
+they do not implement native DOM reads. The normal source vendor and the
+shared direct Selenium path now allow up to **four seconds** of bounded
+pre-Send re-evaluation only when the picker is temporarily absent/ambiguous
+or the element becomes stale. They immediately reject foreign tabs, wrong
+Flash-Lite/Pro family and unverifiable labels; neither path sends or replays a
+request as a recovery action.
+
+**Live regression evidence:** A second clean disposable Gemini owned tab
+with two neutral uploads and a long synthetic prompt now returned the
+correct model picker even in the same state that had reproduced the old
+exception. This test performed no Send, API, TTS, original-source retry or
+student publication. Source-free `test_gemini_model_atomic_picker.py`
+exercises atomic control identity, transient missing DOM, false duplicates,
+real vendor one-click guard integration, exact Flash rejection and foreign
+tab/origin safety. Stage triage independently classifies the trusted local
+pre-Send traceback as `GEMINI_UI_PICKER_UNVERIFIED_BEFORE_SEND_NO_RESEND`
+and exposes `ATOMIC_OWNED_PICKER_SNAPSHOT_AND_BOUNDED_PRE_SEND_RECHECK`.
+Old Serway 7.7 raw attempt and diagnostic receipts remain SHA-bound and
+unchanged; any reclassification is read-only. Genuine post-fix G2 acceptance
+requires a distinct unclaimed source and remains NOT VERIFIED.
