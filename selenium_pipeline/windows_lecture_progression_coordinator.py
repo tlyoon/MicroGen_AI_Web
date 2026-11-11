@@ -45,6 +45,41 @@ def _report(*, status: str, source_sha256: str, section: str,
     }
 
 
+def _source_locked_wrong_owned_model_family(trial_dir: Path, stage: str) -> bool:
+    """Audit immutable stage log before accepting a previously claimed result.
+
+    Existing source claims remain untouched; a real source success with
+    Flash-Lite where Flash was requested must never authorize slides or media.
+    Historical test fixtures with no original log have no positive wrong-model
+    observation; missing scientific QA remains a separate release gate.
+    """
+    if stage not in ("figures", "slides", "narration"):
+        return False
+    log = trial_dir / (
+        "figures_stage_stdout.raw.log" if stage == "figures"
+        else f"stage_{stage}_stdout.raw.log")
+    if not log.exists() and not log.is_symlink():
+        return False
+    require(log.is_file() and not log.is_symlink()
+            and log.stat().st_size <= 4_000_000,
+            "Unsafe original owned-model stage log")
+    saved = trial_dir / (
+        "figures_transport_triage.json" if stage == "figures"
+        else f"stage_{stage}_transport_triage.json")
+    if saved.exists() or saved.is_symlink():
+        prior = _verified_json(saved)
+        receipt = trial_dir / (
+            "figures_attempt_result.json" if stage == "figures"
+            else f"stage_{stage}_result.json")
+        require(
+            prior.get("terminal_log_sha256") == file_sha256(log)
+            and prior.get("terminal_result_sha256") == file_sha256(receipt),
+            "Previously SHA-bound model/response evidence has changed")
+    from .windows_gemini_stage_transport_triage import diagnose
+    verdict = diagnose(trial_dir=trial_dir, stage=stage)
+    return verdict.get("owned_worker_wrong_ui_family_observed") is True
+
+
 def inspect_progress(*, source_root: Path, section: str, trial_dir: Path,
                      communication_mode: str = "selenium",
                      technical_check=None, provider_inspect=None) -> dict:
@@ -118,6 +153,15 @@ def inspect_progress(*, source_root: Path, section: str, trial_dir: Path,
                     status="HALTED_PREVIOUS_FIGURES_FAILED_NO_RESEND",
                     source_sha256=sha, section=section,
                     prior_status=data.get("status"))
+            if (communication_mode == "selenium"
+                    and _source_locked_wrong_owned_model_family(
+                        trial_dir, "figures")):
+                return _report(
+                    status="HALTED_FIGURES_WRONG_UI_MODEL_FAMILY_NO_RESEND",
+                    source_sha256=sha, section=section,
+                    model_contract_breach="FLASH_REQUEST_ROUTED_TO_FLASH_LITE",
+                    academic_or_release_approval=False,
+                    original_figures_resubmission_authorized=False)
             lecture = expected.parent
             workspace = lecture / ".microgen_work"
             require(workspace.is_dir() and not workspace.is_symlink()
@@ -172,6 +216,14 @@ def inspect_progress(*, source_root: Path, section: str, trial_dir: Path,
                         source_sha256=sha, section=section,
                         halted_stage=stage,
                         prior_status=receipt.get("status"))
+                if (communication_mode == "selenium" and stage in ("slides","narration")
+                        and _source_locked_wrong_owned_model_family(
+                            trial_dir, stage)):
+                    return _report(
+                        status="HALTED_ACCEPTED_STAGE_WRONG_UI_MODEL_FAMILY_NO_RESEND",
+                        source_sha256=sha, section=section, halted_stage=stage,
+                        academic_or_release_approval=False,
+                        original_stage_resubmission_authorized=False)
                 outputs = receipt.get("output_sha256")
                 require(type(outputs) is dict,
                         "Accepted original stage has no immutable output hashes")

@@ -1324,8 +1324,6 @@ class GeminiSeleniumClient:
         )
         if target_mode not in {"flash", "pro"}:
             raise RuntimeError(f"Unsupported MICROGEN_GEMINI_UI_MODE={target_mode!r}")
-        target_prefix = "Flash" if target_mode == "flash" else "3.1 Pro"
-
         # Every mapping page gets a browser tab owned by this MicroGen instance.
         # Reusing an arbitrary authenticated user tab left stale image chips,
         # nonreactive Send buttons and even another conversation's prompt history.
@@ -1375,73 +1373,12 @@ class GeminiSeleniumClient:
                 "refusing to use an unknown fallback tab."
             )
 
-        def _mode_matches(label: str) -> bool:
-            label_l = (label or "").lower()
-            return "currently" in label_l and target_mode in label_l
-
-        if not _mode_matches(selected_mode):
-            try:
-                picker.click()
-            except Exception:
-                self.driver.execute_script("arguments[0].click();", picker)
-
-            target = None
-            mode_deadline = time.time() + 8.0
-            while time.time() < mode_deadline and target is None:
-                for selector in ('[role="menuitem"]', 'gem-menu-item[role="menuitem"]'):
-                    try:
-                        items = self.driver.find_elements(By.CSS_SELECTOR, selector)
-                    except Exception:
-                        items = []
-                    for item in items:
-                        try:
-                            label = (item.text or "").strip().lower()
-                            if item.is_displayed() and (
-                                (
-                                    target_mode == "flash"
-                                    and "flash" in label
-                                    and "pro" not in label
-                                )
-                                or (
-                                    target_mode == "pro"
-                                    and label.startswith(target_prefix.lower())
-                                )
-                            ):
-                                target = item
-                                break
-                        except Exception:
-                            continue
-                    if target is not None:
-                        break
-                if target is None:
-                    time.sleep(0.20)
-            if target is None:
-                raise RuntimeError(f"Gemini {target_prefix} option was not available.")
-            try:
-                target.click()
-            except Exception:
-                self.driver.execute_script("arguments[0].click();", target)
-
-            confirm_deadline = time.time() + 8.0
-            while time.time() < confirm_deadline:
-                try:
-                    found = self.driver.find_elements(By.CSS_SELECTOR, 'button[aria-label^="Open mode picker"]')
-                    for candidate in found:
-                        if not candidate.is_displayed():
-                            continue
-                        selected_mode = candidate.get_attribute("aria-label") or ""
-                        if _mode_matches(selected_mode):
-                            picker = candidate
-                            break
-                    if _mode_matches(selected_mode):
-                        break
-                except Exception:
-                    pass
-                time.sleep(0.20)
-            if not _mode_matches(selected_mode):
-                raise RuntimeError(
-                    f"Gemini {target_prefix} selection was not confirmed; UI reports {selected_mode!r}."
-                )
+        # One canonical model selector for parent and ALL owned workers.
+        # "Flash-Lite" is NOT Flash. Reject mixed/ambiguous menu entries
+        # before the job has uploaded a source or made any Gemini Send.
+        from selenium_pipeline.gemini_model import select_owned_gemini_mode
+        selected_mode = select_owned_gemini_mode(
+            self.driver, self._automation_tab, mode=target_mode, timeout=20)
 
         log(f"Selected Gemini tab via mode picker: {selected_mode} (phase={phase})")
 
@@ -1516,6 +1453,12 @@ class GeminiSeleniumClient:
         # placeholder/wrapper for the actual editable or mutate innerHTML
         # behind Angular/Quill's state. A failed clear must remain fatal.
         self._clear_prompt_safely()
+        # Clicking New chat can reset the model to Flash-Lite even if the
+        # parent runner and first owned-tab picker both showed Flash.
+        # Re-select strictly here BEFORE uploads or any registered Send.
+        selected_mode = select_owned_gemini_mode(
+            self.driver, self._automation_tab, mode=target_mode, timeout=20)
+        log(f"[GEMINI-MODE] OWNED_FAMILY_VERIFIED_AFTER_NEW_CHAT {selected_mode}")
         log("Opened Gemini")
 
     @staticmethod
@@ -1725,6 +1668,15 @@ class GeminiSeleniumClient:
                 observe_gemini_send_registration,
             )
             owned = getattr(self, "_automation_tab", None)
+            # Mandatory read-only last-moment gate: UI model may change after
+            # selecting Flash or while uploading source attachments. Never
+            # click Send to Flash-Lite/Pro under a Flash source claim.
+            from selenium_pipeline.gemini_model import assert_owned_gemini_mode
+            selected_mode = assert_owned_gemini_mode(
+                self.driver, owned,
+                mode=(os.getenv("MICROGEN_GEMINI_UI_MODE", "flash").strip().lower()
+                      or "flash"))
+            log(f"[GEMINI-MODE] PRE_SEND_OWNED_FAMILY_VERIFIED {selected_mode}")
             # Shared evidence path for figures, slides and narration. A Send
             # click is NOT proof of registration. Capture a prompt-free
             # baseline, click at most once, then inspect only the owned tab.

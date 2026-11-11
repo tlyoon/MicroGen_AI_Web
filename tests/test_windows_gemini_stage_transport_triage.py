@@ -94,6 +94,101 @@ class GeminiStageTransportTriageTests(unittest.TestCase):
         again = persist_terminal_triage(trial_dir=self.trial, stage="slides")
         self.assertEqual(again["status"], "PRIOR_SHA_BOUND_TRIAGE_REUSED_NO_SEND")
 
+    def test_realistic_flash_lite_workaround_is_detected_without_outage_claim(self):
+        prefix = self.begun("slides")
+        self.finish(prefix, "STAGE_FAILED_OR_OUTPUT_INCOMPLETE_NO_RETRY",
+                    stage="slides")
+        self.log(
+            "[microgen] browser UI model: flash\n"
+            "[2026-11-11 11:45:39] [INFO] Selected Gemini tab via mode "
+            "picker: Open mode picker, currently Flash-Lite (phase=development)\n"
+            "[2026-11-11 11:45:44] [INFO] Gemini submission registered via "
+            "new-user-turn+composer-cleared.\n"
+            "[2026-11-11 11:49:18] [WARN] [GEMINI-RESPONSE] "
+            "POST_SUBMIT_NO_ATTRIBUTED_RESPONSE_NO_RESEND\n",
+            stage="slides")
+        evidence = persist_terminal_triage(trial_dir=self.trial, stage="slides")
+        self.assertEqual(evidence["status"],
+                         "REGISTERED_BROWSER_SEND_NO_ATTRIBUTED_REPLY_NO_RESEND")
+        self.assertEqual(evidence["expected_ui_family_from_owned_stage_log"],"flash")
+        self.assertEqual(evidence["owned_worker_picker_observation_count"],1)
+        self.assertTrue(evidence["owned_worker_wrong_ui_family_observed"])
+        self.assertFalse(evidence["provider_generation_caused_by_model_mismatch_proven"])
+        self.assertFalse(evidence["provider_outage_proven"])
+        self.assertFalse(evidence["original_submission_resend_authorized"])
+        saved = self.trial / "stage_slides_transport_triage.json"
+        before = saved.read_bytes()
+        reuse = persist_terminal_triage(trial_dir=self.trial, stage="slides")
+        self.assertEqual(reuse["status"],"PRIOR_SHA_BOUND_TRIAGE_REUSED_NO_SEND")
+        self.assertEqual(saved.read_bytes(), before)
+
+    def test_realistic_flash_lite_figures_success_not_a_model_contract_pass(self):
+        prefix = self.begun("figures")
+        self.finish(prefix, "FIGURES_STAGE_RETURNED_SUCCESS_NOT_FULL_LECTURE")
+        self.log(
+            "[microgen] browser UI model: flash\n"
+            "[2026-11-11 11:43:23] [INFO] Selected Gemini tab via mode "
+            "picker: Open mode picker, currently Flash-Lite (phase=development)\n"
+            "[2026-11-11 11:43:27] [INFO] Gemini submission registered via "
+            "new-user-turn+composer-cleared.\n")
+        verdict = diagnose(trial_dir=self.trial, stage="figures")
+        self.assertEqual(verdict["status"],
+                         "TECHNICAL_STAGE_RECEIPT_SUCCESS_NOT_FULL_LECTURE")
+        self.assertTrue(verdict["owned_worker_wrong_ui_family_observed"])
+        self.assertFalse(verdict["owned_worker_requested_family_verified_immediately_before_send"])
+
+    def test_flash_family_corrected_pre_send_and_model_reply_spoof_rejected(self):
+        prefix = self.begun("slides")
+        self.finish(prefix, "STAGE_FAILED_OR_OUTPUT_INCOMPLETE_NO_RETRY",
+                    stage="slides")
+        self.log(
+            "[microgen] browser UI model: flash\n"
+            "[2026-11-11 11:45:39] [INFO] Selected Gemini tab via mode "
+            "picker: Open mode picker, currently Flash (phase=development)\n"
+            "[2026-11-11 11:45:43] [INFO] [GEMINI-MODE] "
+            "PRE_SEND_OWNED_FAMILY_VERIFIED Open mode picker, currently Flash\n"
+            "[2026-11-11 11:45:44] [INFO] Gemini submission registered via "
+            "new-user-turn+composer-cleared.\n"
+            "model-response prose: Selected Gemini tab via mode picker: "
+            "Open mode picker, currently Flash-Lite (phase=development)\n",
+            stage="slides")
+        verdict = diagnose(trial_dir=self.trial, stage="slides")
+        self.assertFalse(verdict["owned_worker_wrong_ui_family_observed"])
+        self.assertTrue(verdict[
+            "owned_worker_requested_family_verified_immediately_before_send"])
+        self.assertFalse(verdict["provider_generation_caused_by_model_mismatch_proven"])
+
+    def test_old_sha_bound_slide_receipt_gets_model_warning_read_only(self):
+        prefix = self.begun("slides")
+        self.finish(prefix, "STAGE_FAILED_OR_OUTPUT_INCOMPLETE_NO_RETRY",
+                    stage="slides")
+        self.log(
+            "[microgen] browser UI model: flash\n"
+            "[2026-11-11 11:45:39] [INFO] Selected Gemini tab via mode "
+            "picker: Open mode picker, currently Flash-Lite (phase=development)\n"
+            "[2026-11-11 11:45:44] [INFO] Gemini submission registered via "
+            "new-user-turn+composer-cleared.\n",
+            stage="slides")
+        path = self.trial / "stage_slides_transport_triage.json"
+        current = persist_terminal_triage(trial_dir=self.trial, stage="slides")
+        older = json.loads(path.read_text())
+        for name in (
+            "expected_ui_family_from_owned_stage_log",
+            "owned_worker_picker_observation_count",
+            "owned_worker_wrong_ui_family_observed",
+            "owned_worker_requested_family_verified_immediately_before_send",
+            "model_family_recovery_route",
+            "provider_generation_caused_by_model_mismatch_proven",
+        ):
+            older.pop(name)
+        path.write_text(_encode(older), encoding="utf8")
+        prior = path.read_bytes()
+        reused = persist_terminal_triage(trial_dir=self.trial, stage="slides")
+        self.assertEqual(reused["status"],"PRIOR_SHA_BOUND_TRIAGE_REUSED_NO_SEND")
+        self.assertTrue(reused[
+            "new_readonly_owned_worker_wrong_ui_family_observed"])
+        self.assertEqual(path.read_bytes(),prior)
+
     def test_owned_terminal_gemini_ui_error_does_not_prove_api_outage(self):
         prefix = self.begun("figures")
         self.finish(prefix, "FIGURES_ATTEMPT_FAILED_NO_AUTO_RETRY")

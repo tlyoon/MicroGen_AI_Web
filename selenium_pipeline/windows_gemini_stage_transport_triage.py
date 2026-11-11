@@ -42,6 +42,45 @@ _DUPLICATE_TARGET_REASON = "ambiguous_duplicate_target_no_layout_provenance"
 _ISOLATED_PACKAGE_IMPORT_FAILURE = re.compile(
     r"(?m)^ModuleNotFoundError: No module named 'selenium_pipeline'$"
 )
+# Only trust the real vendor's anchored, timestamped own-tab picker marker,
+# together with this runner's explicitly requested mode. Never infer a UI
+# selection from arbitrary Gemini response text or a parent-tab preflight.
+_EXPECTED_UI_MODE = re.compile(
+    r"(?m)^\[microgen\] browser UI model: (flash|pro)\s*$")
+_VENDOR_OWNED_MODE = re.compile(
+    r"(?m)^\[\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\] \[INFO\] "
+    r"Selected Gemini tab via mode picker: "
+    r"(Open mode picker, currently [^\r\n]+?) \(phase=[^)]*\)\s*$")
+_VERIFIED_OWNED_PRE_SEND = re.compile(
+    r"(?m)^\[\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\] \[INFO\] "
+    r"\[GEMINI-MODE\] PRE_SEND_OWNED_FAMILY_VERIFIED "
+    r"(Open mode picker, currently [^\r\n]+)\s*$")
+
+
+def audit_original_stage_model_family(raw: str, *, registered_send: bool) -> dict:
+    """Source-log only: detect a bad owned model family, never infer outage."""
+    from .gemini_model import _matches_mode
+    requested = _EXPECTED_UI_MODE.search(raw)
+    mode = requested.group(1) if requested else None
+    selected = _VENDOR_OWNED_MODE.findall(raw)
+    verified = _VERIFIED_OWNED_PRE_SEND.findall(raw)
+    wrong = bool(
+        registered_send and mode and selected
+        and any(not _matches_mode(label, mode) for label in selected))
+    valid_pre_send = bool(
+        registered_send and mode and verified
+        and all(_matches_mode(label, mode) for label in verified))
+    return {
+        "expected_ui_family_from_owned_stage_log": mode or "UNVERIFIED",
+        "owned_worker_picker_observation_count": len(selected),
+        "owned_worker_wrong_ui_family_observed": wrong,
+        "owned_worker_requested_family_verified_immediately_before_send":
+            valid_pre_send,
+        "model_family_recovery_route": (
+            "CORRECT_OWNED_TAB_MODEL_SELECTION_AND_USE_DISTINCT_SOURCE_NO_RESEND"
+            if wrong else "NO_MODEL_FAMILY_MISMATCH_PROVEN"),
+        "provider_generation_caused_by_model_mismatch_proven": False,
+    }
 
 
 def _local_crop_evidence(trial: Path, contract: dict) -> dict:
@@ -176,6 +215,8 @@ def diagnose(*, trial_dir: Path, stage: str = "figures") -> dict:
     local_worker_import_failure = (
         stage == "figures" and not send
         and bool(_ISOLATED_PACKAGE_IMPORT_FAILURE.search(raw)))
+    family_audit = audit_original_stage_model_family(
+        raw, registered_send=send if backend == "selenium" else False)
     state = result.get("status") if result is not None else None
     if state in ACCEPTED:
         label = "TECHNICAL_STAGE_RECEIPT_SUCCESS_NOT_FULL_LECTURE"
@@ -222,6 +263,7 @@ def diagnose(*, trial_dir: Path, stage: str = "figures") -> dict:
         "local_worker_import_remedy": (
             "INCLUDE_CHECKED_OUT_REPO_IN_ISOLATED_WORKER_PYTHONPATH"
             if local_worker_import_failure else "NOT_APPLICABLE"),
+        **family_audit,
         "source_figure_geometry_blocker": (
             "DUPLICATE_TARGET_WITHOUT_SOURCE_LAYOUT"
             if duplicate_target_geometry else
@@ -303,6 +345,12 @@ def persist_terminal_triage(*, trial_dir: Path, stage: str) -> dict:
                 "safe_recovery_route",
                 "local_worker_package_import_failed",
                 "local_worker_import_remedy",
+                "expected_ui_family_from_owned_stage_log",
+                "owned_worker_picker_observation_count",
+                "owned_worker_wrong_ui_family_observed",
+                "owned_worker_requested_family_verified_immediately_before_send",
+                "model_family_recovery_route",
+                "provider_generation_caused_by_model_mismatch_proven",
             }
             only_new_fields = set(report) - set(prior)
             compatible_status = (
@@ -352,7 +400,12 @@ def persist_terminal_triage(*, trial_dir: Path, stage: str) -> dict:
                                report["registered_browser_send_count_in_stage_log"]}
                           if send_upgrade else {})
                 return {**prior, "status": "PRIOR_SHA_BOUND_TRIAGE_REUSED_NO_SEND",
-                        "new_readonly_classification": report["status"], **update}
+                        "new_readonly_classification": report["status"],
+                        "new_readonly_owned_worker_wrong_ui_family_observed":
+                            report["owned_worker_wrong_ui_family_observed"],
+                        "new_readonly_model_family_recovery_route":
+                            report["model_family_recovery_route"],
+                        **update}
             raise ValueError("Historical stage diagnosis or evidence changed")
         return {**prior, "status": "PRIOR_SHA_BOUND_TRIAGE_REUSED_NO_SEND"}
     _new_atomic(diagnostic_file, report)

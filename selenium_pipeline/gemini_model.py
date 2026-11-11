@@ -59,11 +59,124 @@ def _eligible_mode_menu_text(text: str, mode: str) -> bool:
     """Choose the intended Flash family, never Flash-Lite or mixed menus."""
     if not isinstance(text,str) or mode not in MODEL_SPECS:
         return False
-    first=text.splitlines()[0].strip().casefold()
-    if mode=="flash":
-        return (bool(re.search(r"\bflash\b",first))
-                and not re.search(r"\b(?:lite|pro)\b",first))
-    return bool(first.startswith(MODEL_SPECS[mode]["menu_prefix"].casefold()))
+    # Nov 2026 Gemini uses a two-line model option:
+    #   "All-around help" / "3.8 Flash"
+    # in <gem-menu-item role="menuitemradio">, not a role=menuitem whose
+    # first line is "Flash". Test *each exact sublabel*, never the whole
+    # menu container (which lists Flash-Lite, Flash and Pro together).
+    lines = [line.strip().casefold() for line in text.splitlines()
+             if line.strip()]
+    if not 1 <= len(lines) <= 4:
+        return False
+    if mode == "flash":
+        pattern = r"(?:\d+(?:\.\d+)?\s+)?flash(?:\s+(?:high|fast))?"
+    else:
+        pattern = r"(?:\d+(?:\.\d+)?\s+)?pro"
+    return any(re.fullmatch(pattern, line, flags=re.I) is not None
+               for line in lines)
+
+
+def assert_owned_gemini_mode(driver, owned_handle: str | None,
+                             mode: str = "flash") -> str:
+    """Read-only, source-worker-owned model-family check before any Send.
+
+    Never accept "Flash-Lite" as Flash; never borrow a different tab's
+    correctly selected model. A mismatch is a *pre-Send* failure, not a
+    service outage or permission for another provider request.
+    """
+    from selenium.webdriver.common.by import By
+
+    if (mode not in MODEL_SPECS or not owned_handle
+            or driver.current_window_handle != owned_handle
+            or not str(driver.current_url).startswith("https://gemini.google.com/")):
+        raise GeminiModelError("PRE_SEND_OWNED_GEMINI_TAB_OR_MODEL_UNVERIFIED")
+    pickers = [
+        item for item in driver.find_elements(
+            By.CSS_SELECTOR, 'button[aria-label^="Open mode picker"]'
+        ) if item.is_displayed()
+    ]
+    if len(pickers) != 1:
+        raise GeminiModelError("PRE_SEND_MODE_PICKER_NOT_UNIQUE_OR_MISSING")
+    selected = pickers[0].get_attribute("aria-label") or ""
+    if not _matches_mode(selected, mode):
+        raise GeminiModelError(
+            "PRE_SEND_GEMINI_MODEL_FAMILY_MISMATCH_NO_SEND: " + selected)
+    return selected
+
+
+def select_owned_gemini_mode(driver, owned_handle: str | None, *,
+                             mode: str = "flash", timeout: float = 15) -> str:
+    """Select exactly the requested UI family *inside the owned tab*.
+
+    Limited to pre-submission model-picker interaction. Does not navigate,
+    create tabs, type prompts, or click Send. Flash-Lite/Pro never qualify.
+    """
+    from selenium.webdriver.common.by import By
+
+    if (mode not in MODEL_SPECS or not owned_handle
+            or not isinstance(timeout, (int, float)) or not 1 <= timeout <= 30):
+        raise GeminiModelError("Invalid owned-tab model selection parameters")
+
+    def owned_picker():
+        if (driver.current_window_handle != owned_handle
+                or not str(driver.current_url).startswith(
+                    "https://gemini.google.com/")):
+            raise GeminiModelError("PRE_SEND_OWNED_GEMINI_TAB_CHANGED")
+        found = [
+            item for item in driver.find_elements(
+                By.CSS_SELECTOR, 'button[aria-label^="Open mode picker"]'
+            ) if item.is_displayed()
+        ]
+        if len(found) != 1:
+            raise GeminiModelError("PRE_SEND_MODE_PICKER_NOT_UNIQUE_OR_MISSING")
+        return found[0]
+
+    picker = owned_picker()
+    current = picker.get_attribute("aria-label") or ""
+    if _matches_mode(current, mode):
+        return assert_owned_gemini_mode(driver, owned_handle, mode)
+    try:
+        picker.click()
+    except Exception:
+        driver.execute_script("arguments[0].click();", picker)
+    deadline = time.monotonic() + timeout
+    target = None
+    while time.monotonic() < deadline:
+        # The tab must remain ours throughout menu interaction.
+        if driver.current_window_handle != owned_handle:
+            raise GeminiModelError("PRE_SEND_OWNED_GEMINI_TAB_CHANGED")
+        unique = {}
+        for selector in ('[role="menuitemradio"]',
+                         'gem-menu-item[role="menuitemradio"]',
+                         '[role="menuitem"]',
+                         'gem-menu-item[role="menuitem"]'):
+            for item in driver.find_elements(By.CSS_SELECTOR, selector):
+                if item.is_displayed() and _eligible_mode_menu_text(
+                        item.text or "", mode):
+                    unique[item.id] = item
+        if len(unique) > 1:
+            raise GeminiModelError("PRE_SEND_AMBIGUOUS_GEMINI_MODEL_MENU")
+        if unique:
+            target = next(iter(unique.values()))
+            break
+        time.sleep(0.2)
+    if target is None or target.get_attribute("aria-disabled") == "true":
+        raise GeminiModelError(
+            "PRE_SEND_REQUESTED_GEMINI_MODEL_NOT_AVAILABLE_NO_SEND")
+    try:
+        target.click()
+    except Exception:
+        driver.execute_script("arguments[0].click();", target)
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            return assert_owned_gemini_mode(driver, owned_handle, mode)
+        except GeminiModelError:
+            # A changed/foreign tab must NEVER be waited out or borrowed.
+            if driver.current_window_handle != owned_handle:
+                raise
+            time.sleep(0.2)
+    raise GeminiModelError("PRE_SEND_GEMINI_MODEL_FAMILY_NOT_CONFIRMED_NO_SEND")
 
 
 def browser_model_evidence(label: str, *, requested_mode: str,
@@ -176,68 +289,12 @@ def ensure_mode(port: int = 9222, mode: str | None = None, timeout: float = 15) 
                 "recovery; check authentication before resuming."
             )
 
-        current = picker.get_attribute("aria-label") or ""
-        if _matches_mode(current, target_mode):
-            return current
-
-        try:
-            picker.click()
-        except Exception:
-            driver.execute_script("arguments[0].click();", picker)
-
-        target = None
-        prefix = MODEL_SPECS[target_mode]["menu_prefix"]
-        selection_deadline=time.monotonic()+max(3.0,min(timeout,20.0))
-        while time.monotonic() < selection_deadline:
-            items = []
-            for selector in (
-                '[role="menuitem"]',
-                'gem-menu-item[role="menuitem"]',
-            ):
-                try:
-                    items.extend(driver.find_elements(By.CSS_SELECTOR, selector))
-                except Exception:
-                    pass
-            for item in items:
-                try:
-                    if item.is_displayed() and _eligible_mode_menu_text(item.text or "",target_mode):
-                        target = item
-                        break
-                except Exception:
-                    continue
-            if target is not None:
-                break
-            time.sleep(0.20)
-
-        if target is None or target.get_attribute("aria-disabled") == "true":
-            raise GeminiModelError(
-                f"Gemini {prefix} is unavailable or disabled in this account."
-            )
-
-        try:
-            target.click()
-        except Exception:
-            driver.execute_script("arguments[0].click();", target)
-
-        confirmation_deadline=time.monotonic()+max(3.0,min(timeout,20.0))
-        while time.monotonic() < confirmation_deadline:
-            try:
-                found = driver.find_elements(
-                    By.CSS_SELECTOR, 'button[aria-label^="Open mode picker"]'
-                )
-                for item in found:
-                    if not item.is_displayed():
-                        continue
-                    current = item.get_attribute("aria-label") or ""
-                    if _matches_mode(current, target_mode):
-                        return current
-            except Exception:
-                pass
-            time.sleep(0.25)
-
-        raise GeminiModelError(
-            f"Model selection not confirmed for {target_mode}; UI reports {current!r}"
-        )
+        # The parent preflight and copied vendor workers must use the
+        # exact SAME owned-tab selector and current Gemini menu structure.
+        # A parent Flash label is not proof of the model in a later owned tab.
+        return select_owned_gemini_mode(
+            driver, driver.current_window_handle, mode=target_mode,
+            timeout=max(1.0, min(float(timeout), 30.0)))
     finally:
         driver.quit()
 
