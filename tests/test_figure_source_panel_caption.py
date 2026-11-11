@@ -120,7 +120,7 @@ class PanelPdfTests(unittest.TestCase):
     def test_duplicate_or_missing_corner_source_markers(self):
         for words in (
                 [("a",108,193)],
-                [("a",108,193),("a",109,193),("b",108,343)],
+                [("a",108,193),("a",119,193),("b",108,343)],
                 [("a",108,193),("c",108,343)],
                 [("a",188,193),("b",108,343)],
                 [("a",108,130),("b",108,343)],
