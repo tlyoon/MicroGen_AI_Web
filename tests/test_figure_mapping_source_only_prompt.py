@@ -25,7 +25,16 @@ class FigureMappingPromptTests(unittest.TestCase):
         self.assertIn("MAPPING_REVIEW_REQUIRED",text)
         self.assertIn("Otherwise return exactly one line per crop",text)
         self.assertIn("exact_count = len(parsed) == len(fig_files)",text)
-        self.assertIn("if exact_count and not explicit_error:",text)
+        # Exact model refusal is a final answer only for one source-backed
+        # uncaptioned crop; all other ambiguous responses remain blocked.
+        self.assertIn(
+            'if (exact_count and not explicit_error) or txt == "MAPPING_REVIEW_REQUIRED":',
+            text)
+        self.assertIn('len(fig_files) == 1',text)
+        self.assertIn('except UncaptionedSourceNotProven as exc:',text)
+        self.assertIn(
+            'if len(parsed) != len(fig_files) or _looks_like_gemini_failure_text(txt):',
+            text)
 
     def test_vendor_source_syntax(self):
         ast.parse(FILE.read_text(encoding="utf-8"))
