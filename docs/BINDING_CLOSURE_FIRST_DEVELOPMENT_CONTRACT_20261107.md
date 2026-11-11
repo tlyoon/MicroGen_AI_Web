@@ -9,6 +9,34 @@ API-based `microgen_ai` project must never inherit this agreement by accident.
 commit `67f49ca68fce7519b1c031752cb21e0ce28f5e41` (both hosted Windows
 CI jobs successful). Subsequent commit IDs are resolved afresh each turn.
 
+## Source-grounded panel-caption reconciliation — 11 November 2026
+
+After Gemini Flash-Lite produces a figure-caption mapping, a parent
+printed caption (`Figure N.M`) and suggested panel targets
+(`Figure N.M(a).png` / `Figure N.M(b).png`) may disagree even though
+the original source PDF has explicit lettered panels. **This is not
+permission to accept model-invented panel labels.** In the normal mapped
+figure worker, the shared `figure_source_panel_caption` module reconciles
+only when: original source/PDF/page/crop hashes and Docling rectangles
+match; exactly one genuine printed PDF caption block explicitly lists
+every proposed panel; a unique letter appears near the lower-left of
+each individual source-declared crop; and all members have distinct,
+complete, consistent identifiers. It then records new-file-only,
+SHA-bound PDF word/geometry evidence before allowing the *existing*
+figure-composite/non-overwrite gate to decide whether to copy. Missing
+or ambiguous evidence retains the original fail-closed review status.
+No additional Gemini Send, manual per-PDF intervention, image
+stitching, academic QA promotion, WAV or release authorization follows.
+
+The Serway 7.9 original response was genuinely registered, received
+in approximately twelve seconds and stopped on
+`panel_identifier_mismatch` as required. Its terminal receipt and
+original response are immutable: the new source-evidence-only code is
+**not** a pass or a retry of this historical claim. Its read-only
+reconciliation probe and synthetic normal-worker positive/adversarial
+regressions demonstrate a general next-run remedy; independent fresh
+source, full Windows CI and all downstream G2/G3 gates still apply.
+
 ## Owner supersession — Figure caption mapping is Flash-Lite / no Thinking (11 November 2026)
 
 This later explicit owner instruction **permanently supersedes** any earlier

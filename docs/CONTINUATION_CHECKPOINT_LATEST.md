@@ -1,3 +1,36 @@
+# 11 November 2026 - Source-only figure-panel caption reconciliation in normal worker
+
+**Trigger:** Serway 7.9 distinct original source SHA
+`76a1771932abcbf85cdc721d03b5e9a612e8922b88824a1259b25a63ba662d59`;
+page 1 Flash-Lite owned Gemini browser Send registered, three correct-length
+mapping rows returned after ~12 seconds. `Figure 7.21` parent labels
+conflicted with `Figure 7.21(a).png` and `Figure 7.21(b).png` target
+filenames. Existing `FigureCompositeReviewRequired:
+panel_identifier_mismatch` correctly stopped all publication.
+Original terminal status `FIGURES_ATTEMPT_FAILED_NO_AUTO_RETRY`, no G2 PASS.
+
+**Independent read-only original evidence:** physical source page text block
+for `Figure 7.21` explicitly describes (a) and (b); source PDF letters
+`a` and `b` lie near the bottom-left of the independently SHA-recorded
+Docling crop rectangles. New shared
+`selenium_pipeline.figure_source_panel_caption.reconcile_parent_caption_panels`
+requires matching source/crop/page hashes, strict crop inventory, unique
+printed caption and local letter for every proposed panel. Integrated into
+the genuine vendor `map_and_rename_selenium_v8.py` **before**
+`validate_and_prepare_mappings`; creates a new-file-only source-word
+SHA evidence record prior to any accepted copied crop, never claims
+semantic/full source crop pixel proof or academic/release approval.
+No provider Send to reconcile. Ambiguous cases remain blocked.
+
+**Tests:** positive and adversarial synthetic PDF/real normal vendor
+worker with one mocked historical Gemini response, and a read-only
+original 7.9 reconciliation probe. Focused figure group: 46 passed.
+A new exact-head CI and genuinely unclaimed original-source stage must
+establish runtime acceptance. Source 7.9 may not be resent; G2/G3 remain
+unverified until actual downstream technical/scientific/audio/video gates.
+
+---
+
 # 11 November 2026 - Owner figure-caption Flash-Lite model / no Thinking mandate
 
 **What was proven by a genuine source:** Serway 7.8 figures on Dell-115,

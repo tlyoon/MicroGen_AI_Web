@@ -1783,19 +1783,56 @@ def map_and_rename_single_step(
     # a missing legacy manifest is unknown, never assumed to be geometry.
     geometry_candidate = None
     geometry_manifest = crops_dir / (page_png.stem + "_crop_geometry.json")
+    source_pdf = CFG.root / "source.pdf"
+    if not source_pdf.is_file():
+        source_pdf = CFG.root / "problems.pdf"
     if geometry_manifest.exists() or geometry_manifest.is_symlink():
-        source_pdf = CFG.root / "source.pdf"
-        if not source_pdf.is_file():
-            source_pdf = CFG.root / "problems.pdf"
         geometry_candidate = inspect_source_locked_composite_candidates(
             manifest=geometry_manifest, source_pdf=source_pdf,
             page_png=page_png, crops_dir=crops_dir, mappings=resolved_triples,
         )
+    # Model text may quote only the parent printed caption while proposing
+    # original source panel filenames: "Figure N.M" vs "Figure N.M(a).png".
+    # Reconcile only when SHA-bound source PDF TEXT, caption block and a
+    # UNIQUE bottom-left panel marker in EACH original crop independently
+    # corroborate the panel names. This is NOT arbitrary panel stitching.
+    from selenium_pipeline.figure_source_panel_caption import (
+        reconcile_parent_caption_panels, SourcePanelEvidenceError)
+    panel_source_witness = None
+    if geometry_candidate is not None:
+        try:
+            resolved_triples, panel_source_witness = reconcile_parent_caption_panels(
+                mappings=resolved_triples, source_pdf=source_pdf,
+                page_png=page_png, crops_dir=crops_dir,
+                geometry_manifest=geometry_manifest)
+        except SourcePanelEvidenceError as exc:
+            # An ambiguous marker or source citation is NOT a reason to
+            # override the existing figure-composite fail-closed review.
+            # No model retry; the original response and caption labels stay.
+            log(f"[FIGURE PANEL] Source-only corroboration unavailable: {exc}",
+                "WARN")
     try:
         resolved_triples = validate_and_prepare_mappings(resolved_triples)
         # Preflight *all* original crops and destinations before first copy.
         for crop_name, _label, target in resolved_triples:
             require_non_destructive_destination(crops_dir / crop_name, crops_dir / target)
+        if panel_source_witness is not None:
+            # New-file-only, fsync'd provenance BEFORE any mapped figure copy.
+            # It records the original model response and independent source
+            # evidence without granting scientific QA or publication approval.
+            import hashlib
+            panel_source_witness["original_model_response_sha256"] = hashlib.sha256(
+                (txt or "").encode("utf-8")).hexdigest()
+            path = page_png.with_name(
+                page_png.stem + "_source_panel_caption_evidence.json")
+            encoded = (json.dumps(panel_source_witness, sort_keys=True,
+                                  indent=2, ensure_ascii=False) + "\n").encode("utf-8")
+            with path.open("xb") as handle:
+                handle.write(encoded)
+                handle.flush()
+                os.fsync(handle.fileno())
+            log(f"[FIGURE PANEL] Source-only SHA-bound panel-caption "
+                f"corroboration persisted: {path.name}; not academic QA")
     except FigureCompositeReviewRequired as exc:
         import hashlib
         evidence = {
