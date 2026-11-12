@@ -1,6 +1,8 @@
 """Synthetic audio used ONLY for fail-closed contract tests, not real media evidence."""
 import hashlib
 import json
+import math
+from array import array
 from pathlib import Path
 import tempfile
 import unittest
@@ -75,7 +77,15 @@ class OriginalBoundTimingInspector(unittest.TestCase):
                 f.setnchannels(1)
                 f.setsampwidth(2)
                 f.setframerate(24000)
-                f.writeframes(b"\0\0"*24000)
+                # The old fixture was entirely SILENT. It passed historic
+                # container checks but must not pass the new real PCM signal
+                # integrity gate. A deterministic synthetic tone is suitable
+                # for testing rendering geometry, never academic audio QA.
+                frequency=330+110*i
+                pcm=array("h",(int(7000*math.sin(
+                    2*math.pi*frequency*j/24000))
+                    for j in range(24000)))
+                f.writeframes(pcm.tobytes())
     @staticmethod
     def sha(path):
         return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -141,6 +151,16 @@ class OriginalBoundTimingInspector(unittest.TestCase):
         with self.assertRaises(SlideTimingReviewBlocked):
             render(audio_folder=self.audio,
                    original_source=self.original,output_dir=dest)
+
+    def test_silent_wav_is_rejected_by_normal_preflight(self):
+        from selenium_pipeline.pcm_signal_integrity import PCMIntegrityBlocked
+        with wave.open(str(self.audio/"slide1.wav"),"wb") as wav:
+            wav.setnchannels(1)
+            wav.setsampwidth(2)
+            wav.setframerate(24000)
+            wav.writeframes(b"\0\0"*24000)
+        with self.assertRaises(PCMIntegrityBlocked):
+            inspect(audio_folder=self.audio,original_source=self.original)
 
     def test_missing_wav_or_changed_source_fails(self):
         (self.audio/"slide2.wav").unlink()
