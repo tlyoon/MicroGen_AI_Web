@@ -19,6 +19,7 @@ from .evidence_reuse_contract import file_sha256
 from .runner import blocks, check_valid
 from .tts_effective_identity import verify_effective_identity
 from .tts_pcm_contract import verify_pcm
+from .pcm_signal_integrity import inspect_pcm_signal
 from .highlight_video_preview import (
     ffmpeg_path, probe_mp4, H264_EVEN_DIMENSION_PAD_FILTER)
 from .ffmpeg_fps_mode_compat import fps_mode_flags
@@ -114,10 +115,18 @@ def inspect(*, audio_folder: Path, original_source: Path) -> dict:
     evidence=[]
     for n,_ in speech:
         wav=folder/f"slide{n}.wav"
-        proof=verify_pcm(wav.read_bytes(),label=wav.name)
+        raw=wav.read_bytes()
+        proof=verify_pcm(raw,label=wav.name)
+        # Normal review must not proceed on a well-formed but silent,
+        # saturated or dropout-damaged TTS file. This verifies PCM signal
+        # integrity ONLY; it cannot certify audible words or correct voice.
+        signal=inspect_pcm_signal(raw,label=wav.name)
+        need(signal["wav_sha256"]==file_sha256(wav),
+             "Original WAV bytes changed during acoustic preflight")
         durations.append(proof["duration_seconds"])
         evidence.append({"slide":n,"name":wav.name,
-                         "sha256":file_sha256(wav),**proof})
+                         "sha256":file_sha256(wav),**proof,
+                         "pcm_signal_integrity":signal})
     chunks=groups_for_duration(durations)
     return {"source_sha256":record["source_sha256"],
             "slides_sha256":record["slides_sha256"],
@@ -128,6 +137,8 @@ def inspect(*, audio_folder: Path, original_source: Path) -> dict:
             "fallback_voice_equivalence_not_asserted":bool(effective["fallback_used"]),
             "segments":evidence,
             "total_pcm_seconds":round(sum(durations),3),
+            "objective_pcm_signal_integrity_verified":True,
+            "audio_pronunciation_independently_verified":False,
             "parts":chunks,
             "per_element_sync_verified":False,
             "student_publication_authorized":False}
