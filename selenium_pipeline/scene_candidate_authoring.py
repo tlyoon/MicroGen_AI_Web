@@ -93,6 +93,11 @@ def draft(source:Path,slides:Path)->dict:
             # than forcing the narrator to focus on a random fraction piece.
             from .sourcebound_multiblock_text_focus import discover_groups
             targets.extend(discover_groups(page,i,targets))
+            # Genuine PDF math formulas may be split into 4-8 horizontally
+            # overlapping numerator/denominator glyph blocks. Never guess
+            # their semantics; make one independently rechecked visual region.
+            from .sourcebound_math_row_focus import discover_math_rows
+            targets.extend(discover_math_rows(page,i,targets))
             # A portrait/square montage may contain (a), (b), (c). Aspect
             # ratio alone cannot detect this ordinary multi-panel figure.
             panel_labels=visible_multi_panel_labels(body)

@@ -40,7 +40,7 @@ FILES = ("full_deck_gap_diagnostic.json", "element_mapping_candidates.json",
 
 # Cache and request identity MUST change when a safety-critical detector
 # changes: older immutable model worklists must not silently lose panel flags.
-MAPPING_DETECTOR_REVISION = 2
+MAPPING_DETECTOR_REVISION = 3
 
 
 def _source_hashes(source: Path, slides: Path, script: Path) -> dict:
