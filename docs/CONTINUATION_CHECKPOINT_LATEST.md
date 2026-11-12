@@ -1,3 +1,11 @@
+# Latest continuation: Serway 6.4 text-stage recovery (2026-11-12)
+
+Validated on Dell-115: source-only page 6 mapping recovered, 14-slide PDF accepted, 14-block narration adopted from a completed captured Gemini response, script QA accepted. The final V7 trial is 20261112_PR528_G2_SERWAY6_4_NARRATION_SOURCE_REUSE_V7. All original failure attempts are preserved; the original source PDF is unchanged. No WAV/MP4 or public release. Full evidence and reusable code fixes: [SERWAY6_4_SOURCE_RECOVERY_20261112.md](SERWAY6_4_SOURCE_RECOVERY_20261112.md).
+
+Next: source-grounded audio/voice QA and media pipeline only under current authorization gates; do not mislabel G2/G3 complete.
+
+---
+
 # 12 November 2026 - Auto-recover Gemini caption refusal for truly uncaptioned PDF graphic
 
 **Actual original failure / no same-source replay:** Dell-115 source-locked

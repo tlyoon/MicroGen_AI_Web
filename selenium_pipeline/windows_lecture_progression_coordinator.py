@@ -123,6 +123,15 @@ def inspect_progress(*, source_root: Path, section: str, trial_dir: Path,
             "Immutable original-source contract or staged PDF changed")
         started = trial_dir / "figures_attempt_started.json"
         result = trial_dir / "figures_attempt_result.json"
+        rescue = trial_dir / "figures_source_only_local_recovery.json"
+        is_recovery = rescue.exists() or rescue.is_symlink()
+        if is_recovery:
+            require(not started.exists() and not started.is_symlink()
+                    and not result.exists() and not result.is_symlink(),
+                    "Source-only recovery cannot disguise earlier local sends")
+            from .figures_failed_source_only_resume import verify_recovery_receipt
+            verify_recovery_receipt(trial_dir)
+            result = rescue
         if started.exists() or started.is_symlink():
             intent = _verified_json(started)
             require(intent.get("schema_version") == 1
@@ -135,7 +144,7 @@ def inspect_progress(*, source_root: Path, section: str, trial_dir: Path,
                     status="HALTED_PRIOR_FIGURES_SEND_UNRESOLVED",
                     source_sha256=sha, section=section,
                     reason="Pre-send claim exists; never send this stage again")
-        elif result.exists() or result.is_symlink():
+        elif (result.exists() or result.is_symlink()) and not is_recovery:
             raise CampaignRecoveryBlocked("Figure result without original send intent")
         if not result.exists():
             require(not any(trial_dir.glob("stage_*_started.json"))
@@ -146,20 +155,30 @@ def inspect_progress(*, source_root: Path, section: str, trial_dir: Path,
             next_stage = "figures"
         else:
             data = _verified_json(result)
-            require(data.get("original_source_sha256") == sha
-                    and data.get("staged_original_sha256") == sha
-                    and data.get("student_publication_authorized") is False,
-                    "Figure stage SHA or publication guard changed")
-            if (data.get("status") != "FIGURES_STAGE_RETURNED_SUCCESS_NOT_FULL_LECTURE"
-                    or data.get("figure_stage_exit_code") != 0
-                    or data.get("new_video_rendered") is not False):
-                return _report(
-                    status="HALTED_PREVIOUS_FIGURES_FAILED_NO_RESEND",
-                    source_sha256=sha, section=section,
-                    prior_status=data.get("status"))
+            if is_recovery:
+                # The old provider FIGURES_ATTEMPT_FAILED result belongs to
+                # a different immutable trial, and is never relabeled PASS.
+                # This separate source-only recovery is rechecked above.
+                require(data.get("source_sha256") == sha
+                        and data.get("student_publication_authorized") is False
+                        and data.get("new_provider_sends") == 0,
+                        "Source-only figure recovery is not source locked")
+            else:
+                require(data.get("original_source_sha256") == sha
+                        and data.get("staged_original_sha256") == sha
+                        and data.get("student_publication_authorized") is False,
+                        "Figure stage SHA or publication guard changed")
+                if (data.get("status") != "FIGURES_STAGE_RETURNED_SUCCESS_NOT_FULL_LECTURE"
+                        or data.get("figure_stage_exit_code") != 0
+                        or data.get("new_video_rendered") is not False):
+                    return _report(
+                        status="HALTED_PREVIOUS_FIGURES_FAILED_NO_RESEND",
+                        source_sha256=sha, section=section,
+                        prior_status=data.get("status"))
             ui_breach = (
                 _source_locked_ui_contract_breach(trial_dir, "figures")
-                if communication_mode == "selenium" else None)
+                if communication_mode == "selenium" and not is_recovery
+                else None)
             if ui_breach:
                 return _report(
                     status=(

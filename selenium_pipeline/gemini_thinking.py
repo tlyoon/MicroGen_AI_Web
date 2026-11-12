@@ -15,6 +15,43 @@ import time
 
 LEVELS = frozenset(("low", "medium", "high"))
 
+# In-process, owned-tab-only, very short-lived proof. The *first* proof
+# always comes from the actual checked Thinking radio, not picker wording.
+# A later pre-Send check may avoid reopening an overlay only while the
+# same tab, same selected picker label and verified level are unchanged.
+_VERIFIED_THINKING_BY_TAB = {}
+_PROOF_TTL_SECONDS = 60
+
+
+def _tab_key(driver, handle):
+    return (id(driver), getattr(driver, "session_id", None), handle)
+
+
+def _read_only_reuse_verified_level(driver, handle, level):
+    from .gemini_model import _owned_picker
+    _owned(driver, handle)
+    entry = _VERIFIED_THINKING_BY_TAB.get(_tab_key(driver, handle))
+    if not entry:
+        return False
+    old_level, old_label, observed = entry
+    if old_level != level or time.monotonic() - observed > _PROOF_TTL_SECONDS:
+        return False
+    picker = _owned_picker(driver, handle)
+    label = (picker.get_attribute("aria-label") or "").strip()
+    # The label is a change detector, not the original proof.
+    return bool(old_label and old_label == label and
+                re.search("(?i)(?<![A-Za-z])" + re.escape(level) + "(?![A-Za-z])", label))
+
+
+def _remember_level_verified_by_radio(driver, handle, level):
+    from .gemini_model import _owned_picker
+    _owned(driver, handle)
+    picker = _owned_picker(driver, handle)
+    label = (picker.get_attribute("aria-label") or "").strip()
+    if label and re.search("(?i)(?<![A-Za-z])" + re.escape(level) + "(?![A-Za-z])", label):
+        _VERIFIED_THINKING_BY_TAB[_tab_key(driver, handle)] = (
+            level, label, time.monotonic())
+
 
 class GeminiThinkingError(RuntimeError):
     pass
@@ -143,6 +180,13 @@ def assert_owned_gemini_thinking_level(driver, handle: str,
     """
     if level not in LEVELS:
         raise GeminiThinkingError("Unsupported thinking level")
+    # After the same owned tab's radio has been genuinely verified once,
+    # reopening its menu after multiple uploads can hit a hidden Angular
+    # overlay. Only reuse a short-lived radio proof when the same owned
+    # picker retains its exact visible model + thinking label. This never
+    # infers the thinking level solely from the picker wording.
+    if _read_only_reuse_verified_level(driver, handle, level):
+        return level
     picker = None
     try:
         picker = _expand_for_thinking(driver, handle)
@@ -150,6 +194,7 @@ def assert_owned_gemini_thinking_level(driver, handle: str,
         if len(options) != 1 or not _checked(options[0]):
             raise GeminiThinkingError(
                 "PRE_SEND_THINKING_LEVEL_NOT_VERIFIED_NO_SEND")
+        _remember_level_verified_by_radio(driver, handle, level)
         return level
     finally:
         if picker is not None:
@@ -181,6 +226,9 @@ def select_owned_gemini_thinking_level(driver, handle: str, *,
                 raise GeminiThinkingError("PRE_SEND_AMBIGUOUS_THINKING_LEVEL_MENU")
             if len(choices) == 1:
                 if _checked(choices[0]):
+                    # Already-selected radio is equally strong evidence.
+                    # Preserve it for a later no-click pre-Send check.
+                    _remember_level_verified_by_radio(driver, handle, level)
                     return level
                 if (choices[0].get_attribute("aria-disabled") or "").casefold() == "true":
                     raise GeminiThinkingError(
