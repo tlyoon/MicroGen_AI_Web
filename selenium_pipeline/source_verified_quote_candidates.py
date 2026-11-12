@@ -181,11 +181,12 @@ def build_verified_source_candidates(*, folder: Path, job: dict) -> dict:
             seen = set()
             for _score, _n, page, quote, physical_bbox in ranked[:30]:
                 pair = (page, quote)
-                if (pair in seen or any(
-                    p == page and (quote in prior or prior in quote)
-                    for p, prior in seen)):
-                    # A short source line inside an already selected 2-line
-                    # excerpt does not count as distinct corroboration.
+                # Preserve distinct physically witnessed subspans. A later
+                # independent review can quote a shorter exact passage even
+                # when an earlier pass cited its longer containing sentence.
+                # This proves quotation presence ONLY, not independent
+                # scientific corroboration or semantic equivalence.
+                if pair in seen:
                     continue
                 seen.add(pair)
                 if pair not in cached_proofs:
