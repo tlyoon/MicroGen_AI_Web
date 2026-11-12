@@ -30,7 +30,48 @@ _MAX_PAGES = 24
 _MAX_WORD_LINES = 1200
 _MAX_CANDIDATES_PER_UTTERANCE = 2
 _MAX_QUOTE_CHARS = 200
-_MAX_EXPANDED_LINE_WINDOWS = 1200
+# A single physical line or adjacent pair cannot cite a multi-step
+# explanation that crosses three or more textbook lines. Longer quotes
+# remain *alternatives*, not mathematical proof or automatic approval.
+_MAX_PARAGRAPH_QUOTE_CHARS = 460
+_MAX_CONTIGUOUS_QUOTE_LINES = 5
+_MAX_EXPANDED_LINE_WINDOWS = 2600
+
+
+def _section_scope_first_page(page, source: Path) -> float | None:
+    """Ignore preceding-section carryover before a witnessed target heading.
+
+    Chapter extracts often start half way through a *previous* section on
+    page one. The source folder's numeric subchapter identity is advisory:
+    filter only when an exact physical section heading matches it. The PDF
+    and heading retain their original SHA, no OCR or inferred math.
+    """
+    label = source.parent.name.strip()
+    if not re.fullmatch(r"\d{1,2}\.\d{1,3}", label):
+        return None
+    headings = []
+    for block in page.get_text("blocks"):
+        if len(block) < 5 or not isinstance(block[4], str):
+            continue
+        value = " ".join(block[4].split())
+        if (20 <= len(value) <= 120
+                and re.match(re.escape(label) + r"\s+[A-Za-z]", value)
+                and not re.match(r"^\d+\.\d+\s+Figure\b", value)
+                and float(block[1]) >= 45):
+            headings.append(float(block[1]))
+    # Multiple apparent headings are ambiguous. Never guess the boundary.
+    return headings[0] if len(headings) == 1 else None
+
+
+def _publisher_navigation(quote: str) -> bool:
+    """Do not rank textbook website/assessment-navigation as physics evidence."""
+    q = quote.lower()
+    return any(x in q for x in (
+        "additional assessment items",
+        "see the preface for an explanation of the icons",
+        "go to www.",
+        "for online homework",
+    ))
 
 
 def _numeric_tokens(text: str) -> set[str]:
@@ -60,8 +101,18 @@ def _line_catalog(source_path: str, expected_sha256: str) -> tuple:
         require(1 <= len(pdf) <= _MAX_PAGES,
                 "Citation extraction requires bounded source PDF; do not guess")
         for physical_page, page in enumerate(pdf, 1):
+            # Preserve actual section scope when the extracted PDF begins
+            # with carryover text from the preceding textbook subchapter.
+            # A different folder layout or ambiguous title fails OPEN as
+            # a retrieval filter, never as mathematical/academic approval.
+            first_section_y = (
+                _section_scope_first_page(page, source)
+                if physical_page == 1 else None)
             groups = defaultdict(list)
             for word in page.get_text("words", sort=True):
+                if (first_section_y is not None
+                        and float(word[3]) < first_section_y - 1.0):
+                    continue
                 groups[(word[5], word[6])].append(word)
             for words in groups.values():
                 if not 2 <= len(words) <= 30:
@@ -78,7 +129,8 @@ def _line_catalog(source_path: str, expected_sha256: str) -> tuple:
                     alternatives.append(words[1:])
                 for option in alternatives:
                     quote = " ".join(str(word[4]) for word in option)
-                    if 8 <= len(quote) <= _MAX_QUOTE_CHARS and _terms(quote):
+                    if (8 <= len(quote) <= _MAX_QUOTE_CHARS
+                            and _terms(quote) and not _publisher_navigation(quote)):
                         physical_bbox = (
                             round(min(word[0] for word in option), 3),
                             round(min(word[1] for word in option), 3),
@@ -99,22 +151,37 @@ def _line_catalog(source_path: str, expected_sha256: str) -> tuple:
                 if 1 <= len(words) <= 30:
                     by_block[block_id].append((line_id, words))
             for rows in by_block.values():
-                for (a_idx, a), (b_idx, b) in zip(rows, rows[1:]):
-                    if a_idx + 1 != b_idx or not a or not b:
-                        continue
-                    if (abs(float(b[0][1]) - float(a[0][1])) > 28
-                            or abs(float(b[0][0]) - float(a[0][0])) > 90):
-                        continue
-                    both = a + b
-                    quote = " ".join(str(w[4]) for w in both)
-                    if (not 20 <= len(quote) <= _MAX_QUOTE_CHARS
-                            or not _terms(quote)):
-                        continue
-                    bbox = (round(min(w[0] for w in both), 3),
-                            round(min(w[1] for w in both), 3),
-                            round(max(w[2] for w in both), 3),
-                            round(max(w[3] for w in both), 3))
-                    if len(expanded) < _MAX_EXPANDED_LINE_WINDOWS:
+                for start in range(len(rows)):
+                    current = []
+                    for offset in range(_MAX_CONTIGUOUS_QUOTE_LINES):
+                        j = start + offset
+                        if j >= len(rows):
+                            break
+                        line_id, words = rows[j]
+                        if (not words or (offset and (
+                                rows[j-1][0] + 1 != line_id
+                                or abs(float(words[0][1]) -
+                                       float(rows[j-1][1][0][1])) > 28
+                                or abs(float(words[0][0]) -
+                                       float(rows[j-1][1][0][0])) > 90))):
+                            break
+                        current.extend(words)
+                        if offset == 0:
+                            continue  # Single physical lines are above.
+                        quote = " ".join(str(w[4]) for w in current)
+                        limit = (_MAX_QUOTE_CHARS if offset == 1
+                                 else _MAX_PARAGRAPH_QUOTE_CHARS)
+                        if len(quote) > limit:
+                            break
+                        if (not (20 <= len(quote) and _terms(quote))
+                                or _publisher_navigation(quote)):
+                            continue
+                        bbox = (round(min(w[0] for w in current), 3),
+                                round(min(w[1] for w in current), 3),
+                                round(max(w[2] for w in current), 3),
+                                round(max(w[3] for w in current), 3))
+                        if len(expanded) >= _MAX_EXPANDED_LINE_WINDOWS:
+                            break
                         expanded.append((physical_page, quote,
                                          frozenset(_terms(quote)), bbox))
     require(_sha(source) == expected_sha256,
