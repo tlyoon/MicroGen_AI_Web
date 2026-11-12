@@ -1116,6 +1116,12 @@ def _execute_unlocked(s: Settings) -> Path:
                         actual_voice,
                         "--max-repairs",
                         os.environ.get("MICROGEN_TTS_QA_REPAIR_ROUNDS", "2"),
+                        # The old repair module intentionally STOPPED after
+                        # a passing isolated candidate. This explicit
+                        # internal-only mode uses its verified source/voice
+                        # repair machinery and crash-safe handoff to resume
+                        # the next normal stage, without release approval.
+                        "--auto-integrate-technical-repair",
                         ("--routine-production-gemini" if actual_provider == "gemini"
                          else "--conditional-cloud-fallback"),
                     ],
