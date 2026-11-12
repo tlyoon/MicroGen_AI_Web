@@ -174,6 +174,50 @@ class OnceOnlyAcademicReview(unittest.TestCase):
         self.assertEqual(json.loads((self.window/"request_state.json").read_text())["status"],
                          "SUBMITTED_OR_UNCERTAIN")
 
+    def test_windows_crlf_model_reply_revalidated_without_new_send(self):
+        original='''{
+"rows": [
+1
+]
+}'''.replace("\n","\r\n")
+        calls=[]
+        result=submit_once(**self.kw,
+                           transport=lambda *_:calls.append(1) or original,
+                           validator=self.validate)
+        self.assertEqual(result,self.accepted)
+        self.assertEqual(calls,[1])
+        saved=self.window/"model_response_untrusted.txt"
+        self.assertEqual(saved.read_bytes(),original.encode("utf8"))
+        state=json.loads((self.window/"request_state.json").read_text())
+        self.assertEqual(state["response_length_chars"],len(original))
+        self.assertEqual(state["response_sha256"],
+                         hashlib.sha256(original.encode()).hexdigest())
+        with self.assertRaises(ReviewCheckpointError):
+            submit_once(**self.kw,transport=lambda *_:calls.append(2),
+                        validator=self.validate)
+        self.assertEqual(calls,[1])
+
+    def test_crlf_crash_reconciliation_preserves_exact_original_bytes(self):
+        from selenium_pipeline.academic_review_checkpoint import recover_claimed_observation
+        raw='''{
+"rows": [1]
+}'''.replace("\n","\r\n")
+        prepare(**self.kw)
+        mark_submission_maybe(self.window,expected_fingerprint=self.fp)
+        record_observation(self.window,raw=raw,expected_fingerprint=self.fp)
+        state_path=self.window/"request_state.json"
+        state=json.loads(state_path.read_text())
+        state["status"]="SUBMITTED_OR_UNCERTAIN"
+        state.pop("response_sha256",None)
+        state.pop("response_length_chars",None)
+        state_path.write_text(json.dumps(state),encoding="utf8")
+        replay=recover_claimed_observation(
+            checkpoint=self.window,expected_fingerprint=self.fp)
+        self.assertEqual(replay["response_length_chars"],len(raw))
+        self.assertEqual(validate_saved(
+            checkpoint=self.window,expected_fingerprint=self.fp,
+            validator=self.validate),self.accepted)
+
     def test_empty_model_response_cannot_be_approved_or_resent(self):
         with self.assertRaises(ReviewCheckpointError):
             submit_once(**self.kw,transport=lambda *_:"",validator=self.validate)

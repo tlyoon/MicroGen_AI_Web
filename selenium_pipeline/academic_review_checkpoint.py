@@ -250,7 +250,7 @@ def recover_claimed_observation(*,checkpoint:Path,
                  "source_sha256","slides_sha256","script_sha256",
                  "prompt_sha256","review_mode")),
              "Saved model response provenance does not match claim")
-    raw=raw_path.read_text(encoding="utf8")
+    raw=raw_path.read_bytes().decode("utf8")  # preserve original CRLF in SHA-bound response
     data=raw.encode("utf8")
     _require(bool(raw.strip()) and len(raw)<=MAX_RAW
              and evidence.get("response_sha256")==_sha(data)
@@ -277,7 +277,7 @@ def validate_saved(*,checkpoint:Path,expected_fingerprint:str,validator)->dict:
     _require(path.is_file() and not path.is_symlink()
              and path.stat().st_size<=MAX_RAW*4,
              "Original model reply missing or replaced")
-    raw=path.read_text(encoding="utf8")
+    raw=path.read_bytes().decode("utf8")  # preserve exact captured model line endings
     _require(raw.strip() and _sha(raw.encode("utf8"))==state.get("response_sha256")
              and len(raw)==state.get("response_length_chars"),
              "Reply is empty, truncated or changed")
