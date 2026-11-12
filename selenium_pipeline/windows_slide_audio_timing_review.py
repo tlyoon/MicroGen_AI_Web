@@ -93,10 +93,22 @@ def inspect(*, audio_folder: Path, original_source: Path) -> dict:
     tts=folder/"tts_input_manifest.json"
     need(tts.is_file() and not tts.is_symlink(),
          "No completed TTS producer manifest")
-    effective=verify_effective_identity(
-        json.loads(tts.read_text(encoding="utf8")), speech)
-    need(not effective["fallback_used"],
-         "Fallback speaker has not passed independent voice comparison")
+    tts_record=json.loads(tts.read_text(encoding="utf8"))
+    effective=verify_effective_identity(tts_record, speech)
+    if effective["fallback_used"]:
+        # A homogeneous fallback is not enough: its original actual
+        # provider timeout/retry journal must independently prove that
+        # the primary models really exhausted their allowed attempts.
+        from .tts_attempt_evidence import AttemptEvidence
+        event_proof=tts_record.get("attempt_evidence")
+        need(isinstance(event_proof,dict),
+             "Effective fallback lacks observed provider attempt evidence")
+        AttemptEvidence.verify_saved(folder,speech,event_proof)
+    # The source review is diagnostic rather than released speech/video.
+    # A complete same-engine fallback is allowed to be *measured*, but its
+    # independent acoustic voice-equivalence gate is never promoted to PASS.
+    # verify_effective_identity already rejects mixed-engine batches and
+    # undocumented/misordered fallback chains.
     durations=[]
     evidence=[]
     for n,_ in speech:
@@ -110,7 +122,10 @@ def inspect(*, audio_folder: Path, original_source: Path) -> dict:
             "slides_sha256":record["slides_sha256"],
             "script_sha256":record["script_sha256"],
             "tts_manifest_sha256":file_sha256(tts),
-            "speaker":effective,"segments":evidence,
+            "speaker":effective,
+            "independent_voice_listening_verified":False,
+            "fallback_voice_equivalence_not_asserted":bool(effective["fallback_used"]),
+            "segments":evidence,
             "total_pcm_seconds":round(sum(durations),3),
             "parts":chunks,
             "per_element_sync_verified":False,
@@ -225,6 +240,9 @@ def render(*, audio_folder:Path, original_source:Path,
         "tts_manifest_sha256":proof["tts_manifest_sha256"],
         "audio_wav_provenance":proof["segments"],
         "tts_voice":proof["speaker"],
+        "independent_voice_listening_verified":False,
+        "fallback_voice_equivalence_not_asserted":proof[
+            "fallback_voice_equivalence_not_asserted"],
         "total_verified_input_audio_seconds":proof["total_pcm_seconds"],
         "part_count":len(reports),"parts":reports,
         "actual_per_element_highlight_sync_verified":False,

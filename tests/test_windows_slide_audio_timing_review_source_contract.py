@@ -83,6 +83,39 @@ class OriginalBoundTimingInspector(unittest.TestCase):
         self.assertEqual(len(result["segments"]),2)
         self.assertFalse(result["per_element_sync_verified"])
         self.assertFalse(result["student_publication_authorized"])
+    def test_single_engine_fallback_is_reviewable_not_voice_approved(self):
+        from selenium_pipeline.tts_effective_identity import (
+            DEFAULT, GEMINI_FLASH, LITE)
+        path=self.audio/"tts_input_manifest.json"
+        manifest=json.loads(path.read_text(encoding="utf8"))
+        manifest["primary"]=dict(GEMINI_FLASH)
+        manifest["requested_primary"]=dict(DEFAULT)
+        manifest["all_slides_one_effective_voice"]=True
+        manifest["fallback_chain"]=[LITE]
+        for item in manifest["slides"]:
+            item.update(dict(GEMINI_FLASH))
+            item["fallback_used"]=True
+            item["primary_provider"]=DEFAULT["provider"]
+            item["primary_model"]=DEFAULT["model"]
+            item["primary_voice"]=DEFAULT["voice"]
+            item["voice_consistency"]={
+                "mode":"full_batch_single_engine_voice",
+                "independent_listening_required":True,
+                "cross_model_voice_equivalence_verified":False}
+        path.write_text(json.dumps(manifest),encoding="utf8")
+        with self.assertRaises(SlideTimingReviewBlocked):
+            inspect(audio_folder=self.audio,original_source=self.original)
+        manifest["attempt_evidence"]={"path":".tts_attempt_evidence",
+                                       "sha256":"test_only"}
+        path.write_text(json.dumps(manifest),encoding="utf8")
+        from unittest.mock import patch
+        from selenium_pipeline.tts_attempt_evidence import AttemptEvidence
+        with patch.object(AttemptEvidence,"verify_saved",return_value=None):
+            result=inspect(audio_folder=self.audio,original_source=self.original)
+        self.assertTrue(result["speaker"]["fallback_used"])
+        self.assertFalse(result["independent_voice_listening_verified"])
+        self.assertTrue(result["fallback_voice_equivalence_not_asserted"])
+
     def test_actual_ffmpeg_review_remains_unapproved(self):
         from selenium_pipeline.windows_slide_audio_timing_review import render
         from selenium_pipeline.highlight_video_preview import ffmpeg_path

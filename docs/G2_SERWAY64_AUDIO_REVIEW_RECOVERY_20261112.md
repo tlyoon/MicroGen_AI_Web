@@ -34,3 +34,14 @@ Actual slide-14 first-pass AI review: 4/4 rows source-valid, 0 SUPPORTED, 4 UNRE
 - Academic-review checkpoint CRLF regression and source-citation adaptive batching regression passed.
 - No API key values, provider prompts or personal credentials should be committed.
 - Continue the existing bounded slide-13 TTS queue **only**; do not resubmit any ambiguous Gemini web request or duplicate the 14-slide batch. If the source's physical figure/element correspondence stays unverifiable, record G2/G3 as blocked and advance general codebase work, not per-PDF perfection loops.
+
+
+## Completion checkpoint — all six real academic batches
+
+The 14-slide, 74-utterance first-pass Gemini academic campaign finished **all six batches** with independently checked source-citation input, one durable Gemini Send per batch and no resubmissions. Two original whole-batch responses (slides 1–3 and 8–10) contained one inadmissible source quotation each; `source_citation_partial_rescue.py` recovered the remaining individually verified rows without rewriting or re-sending the original replies.
+
+**Final immutable ledger:** `%LOCALAPPDATA%\MicroGen_AI_Web_Checkpoints\20261112_SERWAY64_SOURCE_REVIEW_COVERAGE_LEDGER_V2.json`. Genuine results: 74/74 reviewed in six batches; 72 source-valid rows, 2 untrusted rows rejected, 23 supported, 49 unresolved, 0 incorrect, 0 missing review. The 49 unresolved and 2 untrusted records remain **blocking evidence gaps**. This is one source-cited AI review pass, not independent scientific verification or a learner-release permit.
+
+**Codebase reusability:** New `source_citation_partial_rescue.py` and `source_review_coverage_ledger.py`, with no-Send regression tests, validate individually source-grounded rows, catch source/response SHA tampering, account for each utterance exactly once, disallow duplicated results and never invent missing academic proof. The normal original source and old failed stages are untouched.
+
+**Whole-batch fallback hardening:** Gemini Flash TTS/Kore recovered the difficult genuine slide 13 after Flash-Lite/Kore timed out. The slide-level FFmpeg review now accepts a homogeneous fallback as **review-only** only with actual SHA-bound provider failure journal (`AttemptEvidence.verify_saved`), while recording `independent_voice_listening_verified=false`; no false speaker-equivalence assertion. The slide-14 provider request remains finite/retry-bound at this checkpoint, not accepted as complete until the actual terminal result.
