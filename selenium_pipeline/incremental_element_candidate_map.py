@@ -43,6 +43,14 @@ def candidate_map(*,folder:Path, queue:dict|None=None)->dict:
                     "panel_identity_review_required":False,
                     "anchor":{"type":"text_block","index":source_block_index},
                 })
+            # The historic mapper exposed ONLY text blocks, so figure/panel
+            # utterances had no physical visual target to select even when
+            # a real image was present. Add physically witnessed candidates,
+            # not semantic approval, before the model's source review.
+            from .verified_slide_visual_candidates import (
+                registered_raster_targets, composite_math_targets)
+            targets.extend(registered_raster_targets(page, index))
+            targets.extend(composite_math_targets(page, index, targets))
             refs=[]
             for utterance in row["original_verbatim_utterances"]:
                 candidates=stable_recommendations(
