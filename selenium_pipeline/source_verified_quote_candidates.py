@@ -74,6 +74,153 @@ def _publisher_navigation(quote: str) -> bool:
     ))
 
 
+def _source_model_sections(source: Path, expected_sha256: str) -> dict[int, tuple]:
+    """Physically witness ordered numbered subsection headings in original PDF.
+
+    Model labels are a retrieval SCOPE, never physics semantics. A slide with
+    one unambiguous title 'Model N: ...' can search inside that numbered source
+    section, rather than unrelated exercises / other regimes. Ambiguous or
+    missing markers disable scope filtering; they cannot create false proof.
+    """
+    markers=[]
+    with pymupdf.open(source) as pdf:
+        for page_number, page in enumerate(pdf,1):
+            for block in page.get_text("blocks"):
+                if len(block)<5 or not isinstance(block[4],str):
+                    continue
+                clean=" ".join(block[4].split())
+                m=re.match(r"(?i)^model\s+(\d{1,2})\s*:",clean)
+                if m and 20 <= len(clean) <= 1400:
+                    markers.append((int(m.group(1)),page_number,
+                                    float(block[1])))
+        last=len(pdf)+1
+    require(_sha(source)==expected_sha256,
+            "Original source changed while mapping physical subheadings")
+    if (len(markers)<2
+            or len({x[0] for x in markers})!=len(markers)
+            or markers!=sorted(markers,key=lambda x:(x[1],x[2]))
+            or [x[0] for x in markers]!=list(range(
+                markers[0][0],markers[0][0]+len(markers)))):
+        return {}  # no reliable subsection boundary inferred
+    result={}
+    for i,(number,first_page,first_y) in enumerate(markers):
+        if i+1<len(markers):
+            _n,stop_page,stop_y=markers[i+1]
+        else:
+            stop_page,stop_y=last,0.0
+        result[number]=(first_page,first_y,stop_page,stop_y)
+    return result
+
+
+def _source_example_sections(source: Path, expected_sha256: str) -> dict[tuple, tuple]:
+    """Restrict numbered worked/conceptual examples by actual PDF headings.
+
+    An Example 6.8 slide must never cite a nearby Example 6.9 solution merely
+    because both mention terminal speed. Scan only heading starts, not figure
+    captions, and enable boundaries only for unambiguous consecutive labels.
+    """
+    markers=[]
+    with pymupdf.open(source) as pdf:
+        total=len(pdf)
+        for physical_page,page in enumerate(pdf,1):
+            for block in page.get_text("blocks"):
+                if len(block)<5 or not isinstance(block[4],str):
+                    continue
+                value=" ".join(block[4].split())
+                match=re.match(
+                    r"(?i)^(?:conceptual\s+)?example\s+(\d{1,2})\.(\d{1,3})\s+",
+                    value)
+                if match and 20<=len(value)<=1400:
+                    markers.append(((int(match.group(1)),int(match.group(2))),
+                                    physical_page,float(block[1])))
+    require(_sha(source)==expected_sha256,
+            "Source changed while extracting physical numbered examples")
+    if (len(markers)<2
+            or len({x[0] for x in markers})!=len(markers)
+            or markers!=sorted(markers,key=lambda x:(x[1],x[2]))
+            or any(current[0][0]!=following[0][0]
+                   or current[0][1]+1!=following[0][1]
+                   for current,following in zip(markers,markers[1:]))):
+        return {}
+    results={}
+    for i,(key,page,y) in enumerate(markers):
+        stop=(markers[i+1][1],markers[i+1][2]
+              ) if i+1<len(markers) else (total+1,0.)
+        results[key]=(page,y,*stop)
+    return results
+
+
+def _slide_example_title(slide: dict) -> tuple[int,int] | None:
+    """Only the actual title PDF text bbox may claim the numbered example."""
+    labels=[]
+    for row in slide.get("visual_targets",[]):
+        if (type(row) is not dict
+                or type(row.get("visible_text")) is not str
+                or type(row.get("bbox_pdf_pt")) is not list
+                or len(row["bbox_pdf_pt"])!=4
+                or not 6<=row["bbox_pdf_pt"][1]<=46):
+            continue
+        name=" ".join(row["visible_text"].split())
+        match=re.match(
+            r"(?i)^(?:conceptual\s+)?example\s+(\d{1,2})\.(\d{1,3})\s*:",
+            name)
+        if match:
+            labels.append((int(match.group(1)),int(match.group(2))))
+    return labels[0] if len(labels)==1 else None
+
+
+def _slide_model_title(slide: dict) -> int | None:
+    """Only a physical slide HEADER matching a model label constrains search."""
+    headings=[]
+    for row in slide.get("visual_targets",[]):
+        if (type(row) is not dict
+                or type(row.get("visible_text")) is not str
+                or type(row.get("bbox_pdf_pt")) is not list
+                or len(row["bbox_pdf_pt"])!=4):
+            continue
+        bbox=row["bbox_pdf_pt"]
+        if not (6 <= bbox[1] <= 46):
+            continue
+        m=re.match(r"(?i)^model\s+(\d{1,2})\s*:",
+                   " ".join(row["visible_text"].split()))
+        if m:
+            headings.append(int(m.group(1)))
+    return headings[0] if len(headings)==1 else None
+
+
+def _within_physical_model_scope(page: int, bbox: tuple,
+                                 scope: tuple) -> bool:
+    start_page,start_y,end_page,end_y=scope
+    if not (start_page<=page<=end_page):
+        return False
+    if page==start_page and bbox[1]<start_y-1.0:
+        return False
+    if page==end_page and bbox[3]>end_y+1.0:
+        return False
+    return True
+
+
+def _content_pairs(text: str) -> set[tuple[str,str]]:
+    """Unstemmed phrase hits: optional source SEARCH signals, not truth."""
+    tokens=[w for w in re.findall(r"[A-Za-z]{4,}",text.casefold())
+            if w not in _STOP]
+    return set(zip(tokens,tokens[1:]))
+
+
+def _same_physical_quote_region(a: tuple, b: tuple) -> bool:
+    """Avoid wasting both source slots on overlapping slices of one paragraph."""
+    if a[0]!=b[0]:
+        return False
+    x0,y0,x1,y1=a[1]
+    p0,q0,p1,q1=b[1]
+    intersection=max(0,min(x1,p1)-max(x0,p0))*max(
+        0,min(y1,q1)-max(y0,q0))
+    area_a=(x1-x0)*(y1-y0)
+    area_b=(p1-p0)*(q1-q0)
+    return bool(area_a>0 and area_b>0 and
+                intersection / min(area_a,area_b) >= .55)
+
+
 def _numeric_tokens(text: str) -> set[str]:
     """Only conservative literal numeric tokens; no spoken-number conversion."""
     return {n for n in re.findall(
@@ -206,6 +353,10 @@ def build_verified_source_candidates(*, folder: Path, job: dict) -> dict:
                 "Original PDF/slide/narration hash changed before quote packet")
 
     catalogue = _line_catalog(str(source), original_sha)
+    # Exact physical numbered headings, not utterance similarity, determine
+    # whether a slide's model subsection has an unambiguous source window.
+    model_scopes = _source_model_sections(source, original_sha)
+    example_scopes = _source_example_sections(source, original_sha)
     counts = Counter(term for _page, _quote, terms, _bbox in catalogue
                      for term in terms)
     numeric_counts = Counter(number for _page, quote, _terms_found, _bbox
@@ -213,6 +364,14 @@ def build_verified_source_candidates(*, folder: Path, job: dict) -> dict:
     selected = []
     cached_proofs = {}
     for slide in job["slides"]:
+        model_number = _slide_model_title(slide)
+        example_number = _slide_example_title(slide)
+        # A physically witnessed exact Example 6.8 heading takes priority
+        # over a broad model subsection. Unmatched/ambiguous headings fall
+        # back to existing conservative full-PDF quote retrieval.
+        source_scope = (example_scopes.get(example_number)
+                        if example_number is not None
+                        else model_scopes.get(model_number))
         visible_by_id = {target["id"]: target.get("visible_text", "")
                          for target in slide.get("visual_targets", [])
                          if type(target) is dict and type(target.get("id")) is str}
@@ -226,54 +385,76 @@ def build_verified_source_candidates(*, folder: Path, job: dict) -> dict:
             visible_terms = _terms(visible)
             numeric_query = _numeric_tokens(visible) | _numeric_tokens(
                 unit["spoken_text"])
+            # Longer scientific reasoning needs *coverage of the actual
+            # spoken claim*, not just one rare word or a nearby equation
+            # number. Search rewards exact ordered content phrases but never
+            # equates lexical overlap with scientific truth.
+            spoken_pairs = _content_pairs(unit["spoken_text"])
             ranked = []
             for page, quote, terms, physical_bbox in catalogue:
+                if (source_scope is not None
+                        and not _within_physical_model_scope(
+                            page, physical_bbox, source_scope)):
+                    continue
                 intersection = original_terms & terms
                 visible_hits = visible_terms & terms
                 numbers = numeric_query & _numeric_tokens(quote)
                 if not (intersection or visible_hits or numbers):
                     continue
-                # Rare narration terms, visible slide terms and literal
-                # numeric matches diversify the candidate bibliography.
-                # No ranking result can establish mathematical semantics.
-                score = (sum(1.0 / (1.0 + counts[t]) for t in intersection)
-                         + .45 * sum(1.0 / (1.0 + counts[t])
-                                     for t in visible_hits)
-                         + 2.0 * sum(1.0 / (1.0 + numeric_counts[n])
-                                     for n in numbers))
+                # Exact phrase overlap plus claim coverage dominate generic
+                # frequency/numeric hints. Source page model scope is a
+                # physical chapter-heading boundary, not an academic verdict.
+                lexical_coverage = len(intersection) / max(1,len(original_terms))
+                ordered_coverage = len(
+                    spoken_pairs & _content_pairs(quote)) / max(1,len(spoken_pairs))
+                score = (
+                    5.0 * lexical_coverage + 3.0 * ordered_coverage
+                    + .20 * sum(1.0/(1.0+counts[t]) for t in intersection)
+                    + .18 * sum(1.0/(1.0+counts[t]) for t in visible_hits)
+                    + .12 * sum(1.0/(1.0+numeric_counts[n]) for n in numbers)
+                )
                 ranked.append((score, len(intersection) + len(visible_hits)
                                + len(numbers), page, quote, physical_bbox))
             ranked.sort(key=lambda t: (-t[0], -t[1], t[2], t[3]))
             choices = []
             seen = set()
-            for _score, _n, page, quote, physical_bbox in ranked[:30]:
-                pair = (page, quote)
-                # Preserve distinct physically witnessed subspans. A later
-                # independent review can quote a shorter exact passage even
-                # when an earlier pass cited its longer containing sentence.
-                # This proves quotation presence ONLY, not independent
-                # scientific corroboration or semantic equivalence.
-                if pair in seen:
-                    continue
-                seen.add(pair)
-                if pair not in cached_proofs:
-                    try:
-                        proof = prove_source_quote_occurrence(
-                            source_pdf=source,
-                            expected_sha256=original_sha,
-                            page_number=page,
-                            verbatim_quote=quote)
-                    except (ValueError, RuntimeError, OSError):
-                        proof = None
-                    cached_proofs[pair] = proof
-                if cached_proofs[pair] is None:
-                    continue
-                choices.append({
-                    "source_page": page,
-                    "verbatim_source_quote": quote,
-                    "quote_sha256": cached_proofs[pair]["quote_sha256"],
-                    "source_text_bbox_pdf_pt": list(physical_bbox),
-                })
+            used_regions = []
+            # Prefer two distinct physical derivation regions. When the
+            # source contains only ONE pertinent region, retain its exact
+            # shorter/subspan variant as a fallback for independent reviewers
+            # (without inventing a second page or pretending it is proof).
+            for prefer_new_region in (True, False):
+                for _score, _n, page, quote, physical_bbox in ranked[:100]:
+                    pair = (page, quote)
+                    if pair in seen:
+                        continue
+                    if prefer_new_region and any(
+                            _same_physical_quote_region(
+                                (page,physical_bbox),previous)
+                            for previous in used_regions):
+                        continue
+                    if pair not in cached_proofs:
+                        try:
+                            proof = prove_source_quote_occurrence(
+                                source_pdf=source,
+                                expected_sha256=original_sha,
+                                page_number=page,
+                                verbatim_quote=quote)
+                        except (ValueError, RuntimeError, OSError):
+                            proof = None
+                        cached_proofs[pair] = proof
+                    if cached_proofs[pair] is None:
+                        continue
+                    seen.add(pair)
+                    choices.append({
+                        "source_page": page,
+                        "verbatim_source_quote": quote,
+                        "quote_sha256": cached_proofs[pair]["quote_sha256"],
+                        "source_text_bbox_pdf_pt": list(physical_bbox),
+                    })
+                    used_regions.append((page,physical_bbox))
+                    if len(choices) >= _MAX_CANDIDATES_PER_UTTERANCE:
+                        break
                 if len(choices) >= _MAX_CANDIDATES_PER_UTTERANCE:
                     break
             selected.append({
