@@ -30,6 +30,14 @@ _MAX_PAGES = 24
 _MAX_WORD_LINES = 1200
 _MAX_CANDIDATES_PER_UTTERANCE = 2
 _MAX_QUOTE_CHARS = 200
+_MAX_EXPANDED_LINE_WINDOWS = 1200
+
+
+def _numeric_tokens(text: str) -> set[str]:
+    """Only conservative literal numeric tokens; no spoken-number conversion."""
+    return {n for n in re.findall(
+        r"(?<![a-zA-Z0-9])\d+(?:\.\d+)?(?![a-zA-Z0-9])", text)
+        if len(n) >= 2 or "." in n}
 
 
 def _terms(text: str) -> set[str]:
@@ -47,6 +55,7 @@ def _line_catalog(source_path: str, expected_sha256: str) -> tuple:
             _sha(source) == expected_sha256,
             "Source identity drift before building academic citation packet")
     lines = []
+    expanded = []
     with pymupdf.open(source) as pdf:
         require(1 <= len(pdf) <= _MAX_PAGES,
                 "Citation extraction requires bounded source PDF; do not guess")
@@ -80,9 +89,37 @@ def _line_catalog(source_path: str, expected_sha256: str) -> tuple:
                                       frozenset(_terms(quote)), physical_bbox))
                     require(len(lines) <= _MAX_WORD_LINES,
                             "Unbounded source PDF quote lines; fail before model Send")
+            # A scientifically relevant equation explanation often crosses
+            # two physical source lines. Include strictly consecutive lines
+            # from ONE original PDF text block as review-only candidates.
+            # The independent spatial/word witness below still decides which
+            # of these exact physical sequences really constitute a quote.
+            by_block = defaultdict(list)
+            for (block_id, line_id), words in sorted(groups.items()):
+                if 1 <= len(words) <= 30:
+                    by_block[block_id].append((line_id, words))
+            for rows in by_block.values():
+                for (a_idx, a), (b_idx, b) in zip(rows, rows[1:]):
+                    if a_idx + 1 != b_idx or not a or not b:
+                        continue
+                    if (abs(float(b[0][1]) - float(a[0][1])) > 28
+                            or abs(float(b[0][0]) - float(a[0][0])) > 90):
+                        continue
+                    both = a + b
+                    quote = " ".join(str(w[4]) for w in both)
+                    if (not 20 <= len(quote) <= _MAX_QUOTE_CHARS
+                            or not _terms(quote)):
+                        continue
+                    bbox = (round(min(w[0] for w in both), 3),
+                            round(min(w[1] for w in both), 3),
+                            round(max(w[2] for w in both), 3),
+                            round(max(w[3] for w in both), 3))
+                    if len(expanded) < _MAX_EXPANDED_LINE_WINDOWS:
+                        expanded.append((physical_page, quote,
+                                         frozenset(_terms(quote)), bbox))
     require(_sha(source) == expected_sha256,
             "Academic source PDF changed during quote candidate scan")
-    return tuple(lines)
+    return tuple(lines + expanded)
 
 
 def build_verified_source_candidates(*, folder: Path, job: dict) -> dict:
@@ -104,27 +141,51 @@ def build_verified_source_candidates(*, folder: Path, job: dict) -> dict:
     catalogue = _line_catalog(str(source), original_sha)
     counts = Counter(term for _page, _quote, terms, _bbox in catalogue
                      for term in terms)
+    numeric_counts = Counter(number for _page, quote, _terms_found, _bbox
+                             in catalogue for number in _numeric_tokens(quote))
     selected = []
     cached_proofs = {}
     for slide in job["slides"]:
+        visible_by_id = {target["id"]: target.get("visible_text", "")
+                         for target in slide.get("visual_targets", [])
+                         if type(target) is dict and type(target.get("id")) is str}
         for unit in slide["utterances"]:
             original_terms = _terms(unit["spoken_text"])
+            # The physically rendered slide can retain numerals (e.g.
+            # 980, 0.900, 75) that speech renders as words. Treat these as
+            # SEARCH HINTS only, never an approved numeric equivalence.
+            visible = " ".join(visible_by_id.get(t, "")
+                               for t in unit.get("ranked_candidates", [])[:3])
+            visible_terms = _terms(visible)
+            numeric_query = _numeric_tokens(visible) | _numeric_tokens(
+                unit["spoken_text"])
             ranked = []
             for page, quote, terms, physical_bbox in catalogue:
                 intersection = original_terms & terms
-                if not intersection:
+                visible_hits = visible_terms & terms
+                numbers = numeric_query & _numeric_tokens(quote)
+                if not (intersection or visible_hits or numbers):
                     continue
-                # Avoid first-page/early-line bias and repeated generic words:
-                # rare matching terms score higher, but none constitutes proof.
-                score = sum(1.0 / (1.0 + counts[t]) for t in intersection)
-                ranked.append((score, len(intersection), page,
-                               quote, physical_bbox))
+                # Rare narration terms, visible slide terms and literal
+                # numeric matches diversify the candidate bibliography.
+                # No ranking result can establish mathematical semantics.
+                score = (sum(1.0 / (1.0 + counts[t]) for t in intersection)
+                         + .45 * sum(1.0 / (1.0 + counts[t])
+                                     for t in visible_hits)
+                         + 2.0 * sum(1.0 / (1.0 + numeric_counts[n])
+                                     for n in numbers))
+                ranked.append((score, len(intersection) + len(visible_hits)
+                               + len(numbers), page, quote, physical_bbox))
             ranked.sort(key=lambda t: (-t[0], -t[1], t[2], t[3]))
             choices = []
             seen = set()
             for _score, _n, page, quote, physical_bbox in ranked[:30]:
                 pair = (page, quote)
-                if pair in seen:
+                if (pair in seen or any(
+                    p == page and (quote in prior or prior in quote)
+                    for p, prior in seen)):
+                    # A short source line inside an already selected 2-line
+                    # excerpt does not count as distinct corroboration.
                     continue
                 seen.add(pair)
                 if pair not in cached_proofs:
@@ -168,8 +229,23 @@ def build_verified_source_candidates(*, folder: Path, job: dict) -> dict:
         "all_mathematics_verified": False,
         "student_publication_authorized": False,
     }
-    require(len(json.dumps(payload, ensure_ascii=False)) <= 13000,
-            "Too many source citation candidates for bounded academic prompt")
+    # Large batches must not become unreviewable merely because the
+    # evidence finder located longer, better source passages. Preserve one
+    # physically witnessed candidate for every utterance where available;
+    # remove the most expensive *second* citation deterministically until
+    # the existing bounded Gemini prompt contract is satisfied.
+    def packet_chars() -> int:
+        return len(json.dumps(payload, ensure_ascii=False))
+    while packet_chars() > 13000:
+        optional = [(len(c["verbatim_source_quote"]), i)
+                    for i, row in enumerate(selected)
+                    for c in row["allowed_citations"][1:]]
+        require(bool(optional),
+                "At least one source citation per utterance exceeds bounded prompt")
+        _size, index = max(optional)
+        selected[index]["allowed_citations"].pop()
+    require(packet_chars() <= 13000,
+            "Source citation packet size remains invalid")
     return payload
 
 
