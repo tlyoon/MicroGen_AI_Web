@@ -27,7 +27,9 @@ class OriginalBoundTimingInspector(unittest.TestCase):
         doc.close()
         doc=pymupdf.open()
         for i in (1,2):
-            pg=doc.new_page(width=600,height=400)
+            # 363 pt at the production 1.5x scale => 545 px (odd).
+            # Previously the real Serway PDF failed libx264 with 545x409.
+            pg=doc.new_page(width=363,height=273)
             pg.insert_text((60,80),f"Slide {i} explanation")
         doc.save(self.original/"slides.pdf")
         doc.close()
@@ -131,6 +133,10 @@ class OriginalBoundTimingInspector(unittest.TestCase):
         self.assertFalse(result["student_publication_authorized"])
         self.assertFalse(result["video_production_or_release_accepted"])
         self.assertTrue((dest/result["parts"][0]["mp4_file"]).is_file())
+        from PIL import Image
+        with Image.open(dest/"slide_frames"/"slide1.png") as frame:
+            self.assertTrue(frame.width%2 or frame.height%2,
+                            "Regression must exercise odd-sized actual raster")
         self.assertLess(result["parts"][0]["actual_container_duration_s"],600)
         with self.assertRaises(SlideTimingReviewBlocked):
             render(audio_folder=self.audio,

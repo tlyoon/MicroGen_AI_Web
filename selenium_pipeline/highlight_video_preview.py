@@ -24,6 +24,12 @@ from .storyboard_gate import canonical_sha256
 from .ffmpeg_fps_mode_compat import fps_mode_flags
 
 
+# Canonical remedy for fractional/odd-sized PDF raster frames in H.264 4:2:0.
+# Both review and highlighted normal encoder paths must apply this filter;
+# it pads at most one pixel, never distorts the actual source panel.
+H264_EVEN_DIMENSION_PAD_FILTER = "pad=ceil(iw/2)*2:ceil(ih/2)*2"
+
+
 class HighlightVideoError(ValueError):
     """Highlight media does not match validated upstream inputs."""
 
@@ -212,7 +218,7 @@ def compose_highlight_preview(
          # valid scales can yield odd pixel width/height (e.g. 681x383).
          # H.264 yuv420p requires both dimensions divisible by two. Pad by
          # at most one pixel; never rescale or crop source figure panels.
-         "-vf","pad=ceil(iw/2)*2:ceil(ih/2)*2",
+         "-vf",H264_EVEN_DIMENSION_PAD_FILTER,
           "-pix_fmt","yuv420p",*fps_mode_flags(exe,"vfr"),
          "-c:a","aac","-b:a","160k",
          "-movflags","+faststart","-t",f"{wav_length:.6f}",

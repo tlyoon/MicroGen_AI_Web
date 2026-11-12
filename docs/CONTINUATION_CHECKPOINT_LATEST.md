@@ -1,4 +1,34 @@
-# Latest continuation: 12 November 2026 — Serway 6.4 source review and audio fallback
+# Latest v5.0 closure checkpoint — Serway 6.4, 12 November 2026 (Dell-115)
+
+**Active workstream:** MicroGen_AI_Web, PR #528, branch `feature/pr528-autonomous-ai-lecture-acceptance`, Windows Dell-115 only. The entry head `b795ef4` passed all three hosted Windows CI checks. A later head containing the following H.264 recurrence fix requires its **own** exact-head CI confirmation. Neither PR merge nor public/student publication is authorized or claimed.
+
+**Frozen original candidate:** Serway 6.4 PDF SHA-256 `64b748468e6bdb12ddb127f1d8bea90a7f3f63d270fbb5378ba1d3ddeeb955fd`, slide PDF `814fdbe054f09a3073e3d7c82bd5929d48c46a18255fdd5aeac3f7adcd4d1e72`, narration `7806b3e006b6727cec1acf9a0c9aeda2318c6e50f6821269fbae5c440223ee59`. Original source and all prior failure receipts unchanged; no source/model resubmissions in this v5 invocation.
+
+## Frozen acceptance charter and verified gate movement
+
+| Gate | Classification/status | Real evidence and remaining requirement |
+|---|---|---|
+| Source-to-slide technical assets | `PASS_VERIFIED` (structural only) | 14-slide original-source PDF, matching 14-block script and deterministic script/math-risk gates in the existing V7 trial |
+| Source-bound TTS PCM batch and provider reconciliation | `PASS_VERIFIED` for technical audio integrity only | Existing one-shot fallback completed 14/14 WAVs and `tts_input_manifest.json` on Dell-115 at 13:36:55, 12 Nov 2026; manifest SHA `9937956d4f9d3028a8bde9742860956a5538d7863f87cb4d3426440651d8e966`; real provider **Chirp3-HD / en-US-Chirp3-HD-Kore**, NOT a successful Gemini voice batch; 24kHz mono PCM16, 833.471s combined. Existing failed Gemini attempts preserved and provider journal independently verified |
+| Representative real slide-level video encoding (diagnostic, not production media) | `PASS_VERIFIED` after reproduced failure and shared fix | Failed V1 review on **545x409-pixel** real PDF frames; V2 review recorded actual FFmpeg video+audio with padded H.264 **546x410** frames, source SHA and PCM checks; two MP4s 527.15s (slides 1–9) and 306.32s (slides 10–14), each strictly below 600s. Receipt `%LOCALAPPDATA%\\MicroGen_AI_Web_Checkpoints\\20261112_SERWAY64_REAL_AUDIO_TECH_REVIEW_V2\\audio_timing_review_receipt.json` explicitly marks release/element-sync **false** |
+| Academic source meaning | `NOT_VERIFIED` for independent domain acceptance | Frozen 74-unit source-citation ledger: 23 supported, 49 unresolved, 2 cross-utterance citation rejects, 0 missing review. These cannot be silently approved |
+| Accurate narrated element/panel highlighting | `FAIL_REPRODUCED` in existing autodraft | 45/74 visual-to-narration target links ambiguous; slide-level timing preview does NOT satisfy actual active-element highlights |
+| Listening fidelity and independent acoustic review | `NOT_VERIFIED` | Formal voice/pronunciation and spoken-math review absent; Chirp3-HD/Kore identity proven, voice quality/equivalence NOT proven |
+| G2/G3 learner pilot, production lecture release and publication | `NOT_VERIFIED` / `NOT_AUTHORIZED` | Must first resolve true element sync and academic/acoustic validity, then obtain existing contract's release permission. No merge or upload |
+
+## v5.0 permanent-learning record: repeated H.264 odd-raster failure
+
+- **Root-cause signature:** actual original Beamer PDF at 1.5x raster yielded odd 545×409 pixel PNGs; `libx264` + `yuv420p` rejected the video input before EOF, producing a zero-byte MP4. This is a normal-input renderer defect, not Gemini nor source-PDF semantics.
+- **Previously available remedy and missing dispatch:** `selenium_pipeline.highlight_video_preview` already applied `pad=ceil(iw/2)*2:ceil(ih/2)*2`, but the newer normal `windows_slide_audio_timing_review.render` encoder omitted the established filter. Synthetic even-size fixtures did not detect that integration gap.
+- **Shared automatic remedy:** canonical constant `H264_EVEN_DIMENSION_PAD_FILTER` now in `highlight_video_preview.py`, consumed by **both normal video-preview and slide-audio review encoder entrypoints**. FFmpeg automatically pads each odd dimension by at most one pixel; no source crop, rescaling, rerendering, model call or manual setting. Completed output is independently probed for audio/video streams, duration, source SHA, and no-overwrite rules.
+- **Actual trigger and postcondition:** V1 failed exactly with odd original frames; revised **normal** `python -m selenium_pipeline.windows_slide_audio_timing_review` invocation against the SAME SHA-locked candidate automatically generated two duration-verified MP4s in a new V2 destination (old V1 failure preserved). Cross-path regressions: `tests/test_windows_slide_audio_timing_review_source_contract.py` now forces an odd raster and real libx264 encoding; `tests/test_highlight_video_preview.py` covers the original highlighted-video path. Fail-closed no-overwrite/source/tamper tests remain enabled. A repair is not marked deployed beyond this branch without exact-head CI.
+- **Disposition:** technical audio and limited *slide-level* review encoding accepted; **G2/G3 remains NOT COMPLETE WITH NAMED BLOCKERS**, no approval inferred from diagnostic review media. The next eligible milestone is the original-source, scientifically defensible per-element mapping/sync gate; do not repeat the now closed TTS/FFmpeg generation or reset old Gemini attempts.
+
+The historical notes below describe earlier attempts and should not supersede this new v5 checkpoint.
+
+---
+
+# Historical continuation: 12 November 2026 — Serway 6.4 source review and audio fallback
 
 **Development branch:** `feature/pr528-autonomous-ai-lecture-acceptance` on Dell-115, PR #528. Verified clean commit `edb90ef` passed all three hosted Windows checks, then additional general-purpose source-review recovery/ledger and fallback-audio-review hardening were implemented locally and remain to be committed at the active checkpoint.
 

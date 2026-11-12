@@ -19,7 +19,8 @@ from .evidence_reuse_contract import file_sha256
 from .runner import blocks, check_valid
 from .tts_effective_identity import verify_effective_identity
 from .tts_pcm_contract import verify_pcm
-from .highlight_video_preview import ffmpeg_path, probe_mp4
+from .highlight_video_preview import (
+    ffmpeg_path, probe_mp4, H264_EVEN_DIMENSION_PAD_FILTER)
 from .ffmpeg_fps_mode_compat import fps_mode_flags
 
 class SlideTimingReviewBlocked(ValueError):
@@ -206,7 +207,8 @@ def render(*, audio_folder:Path, original_source:Path,
             "-f","concat","-safe","0","-i",str(playlist_audio),
             "-map","0:v:0","-map","1:a:0",
             "-c:v","libx264","-preset","veryfast","-tune","stillimage",
-            "-crf","26","-pix_fmt","yuv420p",
+            "-crf","26","-vf",H264_EVEN_DIMENSION_PAD_FILTER,
+            "-pix_fmt","yuv420p",
             *fps,"-c:a","aac","-b:a","96k",
             "-shortest",str(destination)
         ]
