@@ -22,6 +22,7 @@ class GeminiG1GenerationStallTests(unittest.TestCase):
         # selection has separate stateful regression coverage.
         for name in (
             "select_owned_gemini_thinking_level",
+            "select_owned_gemini_thinking_with_recovery",
             "assert_owned_gemini_thinking_level",
         ):
             fake = patch("selenium_pipeline.gemini_thinking." + name,
@@ -57,12 +58,19 @@ class GeminiG1GenerationStallTests(unittest.TestCase):
                   patch("selenium_pipeline.gemini_selenium_only_policy.click_one_owned_gemini_send",
                         side_effect=lambda *a,**kw:clicks.append("UNSAFE_SEND")),
                   patch.dict("os.environ",{"LOCALAPPDATA":folder})):
-                with self.assertRaises(GeminiModelError) as caught:
+                # Normal direct G1 path applies bounded PRE-SEND recovery
+                # and intentionally wraps the selector error in its typed
+                # no-Send halt; an old raw GeminiModelError is not its API.
+                from selenium_pipeline.gemini_selenium_only_policy import (
+                    GeminiSeleniumTemporaryFailure)
+                with self.assertRaises(GeminiSeleniumTemporaryFailure) as caught:
                     series_gemini._browser_request(
                         "source-free synthetic request",[],port=9222,
                         wait_cap_s=20,min_chars=8)
             self.assertEqual(clicks,[])
-            self.assertEqual(closed,["closed"])
+            self.assertTrue(1 <= len(closed) <= 3)
+            self.assertTrue(all(x=="closed" for x in closed))
+            self.assertIsInstance(caught.exception.__cause__,GeminiModelError)
             self.assertFalse(caught.exception.gemini_send_boundary_entered)
             self.assertEqual(caught.exception.gemini_failure_phase,
                              "GEMINI_MODEL_PICKER_NOT_READY")

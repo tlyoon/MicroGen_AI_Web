@@ -65,8 +65,15 @@ class FigureCaptionPolicyTests(unittest.TestCase):
                         "MICROGEN_GEMINI_UI_MODE":"flash-lite"}):
                     with self.assertRaises(GeminiStagePolicyError):
                         browser_stage_needs_thinking()
+        # New v4.1 policy: figure captions PREFER Lite with no Thinking,
+        # but full Flash/Pro is now an explicitly verified fallback when
+        # Lite is absent. That fallback MUST verify a checked effort level.
+        self.assertTrue(browser_stage_needs_thinking(
+            mode="flash",stage="figures"))
+        self.assertTrue(browser_stage_needs_thinking(
+            mode="pro",stage="figures"))
         with self.assertRaises(GeminiStagePolicyError):
-            browser_stage_needs_thinking(mode="flash",stage="figures")
+            browser_stage_needs_thinking(mode="hydrogen",stage="figures")
 
     def test_figure_selector_accepts_lite_after_new_chat_and_no_medium(self):
         browser=AdaptiveBrowser(mode="flash",level="low")

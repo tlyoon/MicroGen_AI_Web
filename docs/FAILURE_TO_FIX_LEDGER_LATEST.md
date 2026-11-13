@@ -1,5 +1,21 @@
 # MicroGen_AI_Web failure-to-fix ledger — current continuation
 
+## CI retrospective recovery — 13 November 2026, PR #528 full Windows suite
+
+**Evidence**: exact-head `11671d4` Windows reliability CI `43364764915` failed its *first* historical figure test after **449 passed, 20 skipped**, because a November 11 assertion expected `browser_stage_needs_thinking(mode="flash",stage="figures")` to raise. The November 13 owner-authorized adaptive figure fallback now allows full Flash/Pro only **with separately verified thinking**, so the old expectation contradicted the new binding contract. The normal production gate correctly demands checked effort. Fixed the historical fixture to assert true for full Flash/Pro figure fallback and still reject unknown model names, rather than undoing safe recovery.
+
+**Prior concealed failure**: exact-head `1fd2099` Windows reliability CI `43360528743` had failed at **827 passed** on an old G1 transport test expecting a raw `GeminiModelError`. The production `prepare_with_bounded_retries` intentionally wraps pre-Send picker failure as typed `GeminiSeleniumTemporaryFailure` after at most three *unsent* preparations. Updated the fixture to stub the modern thinking adapter and assert typed halt, preserved raw error as cause, zero Send clicks and bounded disposal. Preserved source/no-resend semantics.
+
+**Local environment-only test failure detected in full suite:** Dell-115's general Python has `google-genai 1.4.0`, while actual Gemini 3.8 TTS strictly requires **2.25–2.x**. Production correctly rejects use of the incompatible SDK before any paid call; the unrelated watchdog timeout fixture had assumed SDK availability. The test now mocks only its already-validated isolated Python selection so it tests the two forced timeout requests without relaxing the production SDK gate or requiring host package upgrades.
+
+**Second local SDK fixture isolation:** The general Python has `google-genai 1.4.0` and `tests/test_gemini_keys.py::test_client_factory_applies_configured_request_timeout` also assumed modern `HttpRetryOptions` existed before it could test the requested HTTP timeout. The regression now supplies explicit mocked `HttpOptions` and `HttpRetryOptions` constructors only inside this single unit test; the true production `create_gemini_client` SDK gate is unchanged. The four affected historical modules now report **39 passed**, no model/API submission.
+
+**Permanent process fix:** After adding a new model policy or transport adapter, run the *entire historical and Stage 3 regression suite* as in `.github/workflows/microgen-reliability-tests.yml` before claiming engineering completion. An exact-head targeted test pass is insufficient. The owner rule remains: automatic recovery belongs in normal runner/worker execution, while historic regression expectations must be reconciled with the actual effective contract rather than weakening production checks. No Gemini model Send, source rewrite, API/TTS charge, G2 certification or protected merge was authorized.
+
+---
+
+
+
 ## MG-GEMINI-UI-ADAPTIVE-V2 — 13 November 2026 (Dell-115)
 
 **Historical incidents reused:** MG-GEMINI-001/002/003, no-response one-Send claim PR317, November 11 long-editor atomic picker, model-family removal on 9222/9225, the November 13 Pro/Medium academic-route recovery and source-level transport circuit. Old controls were spread across model picker, Thinking submenu, copied vendor and stage audit: a UI family correctly recovered in the child could still look wrong to the original parent acceptance log, driving repeated Selenium fixes.

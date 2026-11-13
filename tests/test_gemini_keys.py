@@ -2,6 +2,7 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import gemini_keys
@@ -32,7 +33,16 @@ class GeminiKeyPoolTests(unittest.TestCase):
                 "MICROGEN_GEMINI_SDK_RETRY_ATTEMPTS": "1",
             },
             clear=True,
-        ), patch("gemini_keys.genai.Client", return_value=sentinel) as client_ctor:
+        ), patch("gemini_keys.genai.Client", return_value=sentinel) as client_ctor, \
+           patch("gemini_keys.types.HttpRetryOptions", create=True,
+                 new=lambda attempts: SimpleNamespace(attempts=attempts)), \
+           patch("gemini_keys.types.HttpOptions",
+                 new=lambda timeout,retry_options:
+                 SimpleNamespace(timeout=timeout,retry_options=retry_options)):
+            # The client factory's configured timeout/retry contract is
+            # tested independently of the local SDK installation. Another
+            # regression explicitly verifies that a truly incompatible
+            # production SDK is rejected BEFORE any provider request.
             self.assertIs(gemini_keys.create_gemini_client("secret"), sentinel)
 
         kwargs = client_ctor.call_args.kwargs

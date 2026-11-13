@@ -396,7 +396,15 @@ class TTSTests(unittest.TestCase):
             "MICROGEN_TTS_HARD_TIMEOUT_SECONDS": "10",
             "MICROGEN_TTS_REQUEST_ATTEMPTS": "2",
         }):
-            with patch("selenium_pipeline.tts.subprocess.run", side_effect=timeout) as run:
+            # This test verifies the *watchdog's two timed-out child calls*,
+            # not SDK eligibility. The production SDK gate is independently
+            # tested and must remain fail-closed even on an old Dell Python.
+            # Use a mocked already-validated isolated worker so this fixture
+            # cannot depend on the host's mutable google-genai installation.
+            with patch("selenium_pipeline.tts._modern_tts_worker_python",
+                       return_value=sys.executable), patch(
+                       "selenium_pipeline.tts.subprocess.run",
+                       side_effect=timeout) as run:
                 with self.assertRaises(TimeoutError):
                     _gemini_say_with_watchdog("hello", 7, "gemini-3.8-flash-lite-tts", "Kore")
                 self.assertEqual(run.call_count, 2)
