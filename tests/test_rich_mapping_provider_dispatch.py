@@ -6,6 +6,7 @@ and model response: no real paid generation or browser/tab navigation.
 """
 from __future__ import annotations
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -91,6 +92,14 @@ class OneShotOriginalSourceQueueTests(unittest.TestCase):
         temp=tempfile.TemporaryDirectory()
         self.addCleanup(temp.cleanup)
         self.root=Path(temp.name)
+        # A fresh, isolated *machine-global* claim directory per test. The
+        # production dispatcher always uses canonical LOCALAPPDATA; changing
+        # --attempt-root cannot reset its once-only source claim.
+        self.local_appdata=self.root/"LOCALAPPDATA"
+        self.local_appdata.mkdir()
+        environment=patch.dict(os.environ,{"LOCALAPPDATA":str(self.local_appdata)})
+        environment.start()
+        self.addCleanup(environment.stop)
         self.original=self.root/"publisher"/"22"/"22.1"
         self.original.mkdir(parents=True)
         self.source=self.original/"source.pdf"
@@ -225,6 +234,12 @@ class OneShotOriginalSourceQueueTests(unittest.TestCase):
                                              "sole supported LLM generation route"):
                     _real_transport(name,"synthetic prompt",port,12)
 
+    def _canonical_global_claim(self):
+        from selenium_pipeline.figure_source_identity import _sha
+        return (self.local_appdata/"MicroGen_AI_Web_Checkpoints"/
+                ".microgen_rich_mapping_once"/_sha(self.source)/
+                "slide_001.once.json")
+
     def test_postsend_gemini_timeout_stops_without_retry_or_provider_switch(self):
         attempts=[]
         def uncertain(provider,prompt,port,wait):
@@ -235,9 +250,124 @@ class OneShotOriginalSourceQueueTests(unittest.TestCase):
         self.assertEqual(attempts,[("gemini",9222)])
         claim=json.loads((self.out/"slide_001.one_submission.json").read_text())
         self.assertEqual(claim["status"],"MAY_HAVE_SUBMITTED_RECONCILE_BEFORE_RESEND")
+        global_claim=self._canonical_global_claim()
+        self.assertTrue(global_claim.is_file())
+        self.assertEqual(json.loads(global_claim.read_text())["status"],
+                         "MAY_HAVE_SUBMITTED_RECONCILE_BEFORE_RESEND")
         with self.assertRaisesRegex(RichMappingError,"already claimed"):
             self._call(uncertain)
+        # A new caller attempt directory does NOT reset the shared claim.
+        second_root=self.root/"alternate_attempt_root"
+        second_root.mkdir()
+        with self.assertRaisesRegex(RichMappingError,
+                                    "Source-global original slide already claimed"):
+            dispatch_one(source_folder=self.original,checkpoint=self.ck,
+                         fallback_dir=self.fallback,queue_folder=self.queue,
+                         slide=1,attempt_root=second_root,
+                         provider_statuses=self.provider,transport=uncertain,
+                         wait_cap_s=12)
+        self.assertEqual(list(second_root.iterdir()),[])
         self.assertEqual(attempts,[("gemini",9222)])
+
+    def test_successful_response_claim_cannot_replay_from_new_attempt_directory(self):
+        sent=[]
+        first=self._call(lambda *args:(sent.append(args),self.reply())[1])
+        global_claim=self._canonical_global_claim()
+        self.assertEqual(first["status"],"CAPTURED_SOURCE_VERIFIED_REVIEW_ONLY")
+        self.assertTrue(global_claim.is_file())
+        self.assertEqual(json.loads(global_claim.read_text())["status"],
+                         "CAPTURED_SOURCE_VERIFIED_REVIEW_ONLY")
+        alternate=self.root/"new_session_attempt"
+        alternate.mkdir()
+        with self.assertRaisesRegex(RichMappingError,
+                                    "Source-global original slide already claimed"):
+            dispatch_one(source_folder=self.original,checkpoint=self.ck,
+                         fallback_dir=self.fallback,queue_folder=self.queue,
+                         slide=1,attempt_root=alternate,
+                         provider_statuses=self.provider,
+                         transport=lambda *args:(_ for _ in ()).throw(
+                             AssertionError("One-time Send was already captured")),
+                         wait_cap_s=12)
+        self.assertEqual(len(sent),1)
+        self.assertFalse(any(alternate.iterdir()))
+
+    def test_absent_gemini_never_creates_source_global_claim(self):
+        status=[{"provider":"gemini","debug_port":9222,
+                 "status":"BROWSER_UNAVAILABLE",
+                 "authenticated_ui_ready":False,
+                 "model_submission_performed":False}]
+        result=self._call(None,providers=status)
+        self.assertEqual(result["model_submissions"],0)
+        self.assertFalse(self._canonical_global_claim().exists())
+
+    def test_concurrent_new_attempt_roots_have_one_atomic_global_winner(self):
+        from concurrent.futures import ThreadPoolExecutor
+        import threading
+        alternate=self.root/"competing_attempt_root"
+        alternate.mkdir()
+        submitted=[]
+        lock=threading.Lock()
+
+        def transport(*args):
+            with lock:
+                submitted.append(args)
+            return self.reply()
+
+        def call(attempt_root):
+            try:
+                return dispatch_one(
+                    source_folder=self.original,checkpoint=self.ck,
+                    fallback_dir=self.fallback,queue_folder=self.queue,
+                    slide=1,attempt_root=attempt_root,
+                    provider_statuses=self.provider,
+                    transport=transport,wait_cap_s=12)
+            except RichMappingError as exc:
+                return {"status":"GLOBAL_DUPLICATE_DENIED","error":str(exc)}
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            results=list(pool.map(call,[self.out,alternate]))
+        self.assertEqual(len(submitted),1)
+        self.assertEqual(
+            sorted(row["status"] for row in results),
+            ["CAPTURED_SOURCE_VERIFIED_REVIEW_ONLY",
+             "GLOBAL_DUPLICATE_DENIED"])
+        self.assertEqual(json.loads(self._canonical_global_claim().read_text())[
+                         "status"],"CAPTURED_SOURCE_VERIFIED_REVIEW_ONLY")
+
+    def test_distinct_publisher_sha_gets_a_distinct_global_scope(self):
+        # Truly new source bytes need a fresh source mapping checkpoint and
+        # independent queue; changing the caller's attempt folder alone does
+        # not count as a new source.
+        first=self._call(lambda *args:self.reply())
+        self.assertEqual(first["status"],"CAPTURED_SOURCE_VERIFIED_REVIEW_ONLY")
+        old_claim=self._canonical_global_claim()
+        self.assertTrue(old_claim.is_file())
+        from selenium_pipeline.rich_mapping_provider_dispatch import _global_slide_claim
+        fake_different_sha="a"*64
+        new_path=_global_slide_claim(
+            source_sha256=fake_different_sha,slide=1,
+            source_folder=self.original,queue_folder=self.queue)
+        self.assertNotEqual(new_path,old_claim)
+        self.assertFalse(new_path.exists())
+        self.assertTrue(old_claim.is_file())
+
+    def test_symlinked_source_claim_index_fails_before_any_provider_send(self):
+        from selenium_pipeline.figure_source_identity import _sha
+        root=self.local_appdata/"MicroGen_AI_Web_Checkpoints"
+        root.mkdir()
+        sibling=self.root/"foreign"
+        sibling.mkdir()
+        try:
+            (root/".microgen_rich_mapping_once").symlink_to(
+                sibling,target_is_directory=True)
+        except (NotImplementedError,OSError):
+            self.skipTest("Windows does not permit creation of directory symlinks")
+        sent=[]
+        with self.assertRaisesRegex(RichMappingError,
+                                    "Unsafe global original-slide claim index"):
+            self._call(lambda *args:sent.append(args))
+        self.assertEqual(sent,[])
+        self.assertFalse((sibling/_sha(self.source)).exists())
 
 
 if __name__=="__main__":

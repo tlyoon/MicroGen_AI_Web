@@ -43,6 +43,39 @@ def _update_claim(path:Path,payload:dict)->None:
     os.replace(pending,path)
 
 
+def _global_slide_claim(*, source_sha256: str, slide: int,
+                        source_folder: Path, queue_folder: Path) -> Path:
+    """Source-global one-Send identity across ALL attempt folders and runs.
+
+    Academic source claims already use a global original-unit index. Rich
+    source/figure mapping previously protected only a caller-owned directory;
+    changing --attempt-root could silently resubmit the same original units.
+    The permanent source-SHA+slide claim is placed in the machine's canonical
+    Windows checkpoint root, not under any caller-controlled attempt folder.
+    A newly edited script with the same publisher source does NOT bypass an
+    original source slide claim; it requires distinct provenance review.
+    """
+    require(isinstance(source_sha256,str) and len(source_sha256)==64
+            and all(c in "0123456789abcdef" for c in source_sha256)
+            and type(slide) is int and 1<=slide<=500,
+            "Untrusted original publisher SHA or slide identity")
+    local=Path(os.environ.get("LOCALAPPDATA")
+               or (Path.home()/"AppData"/"Local")).absolute()
+    root=local/"MicroGen_AI_Web_Checkpoints"
+    shared=root/".microgen_rich_mapping_once"
+    per_source=shared/source_sha256
+    for folder in (local,root,shared,per_source):
+        require(not folder.is_symlink()
+                and (not folder.exists() or folder.is_dir()),
+                "Unsafe global original-slide claim index")
+    require(not per_source.is_relative_to(source_folder)
+            and not source_folder.is_relative_to(per_source)
+            and not per_source.is_relative_to(queue_folder)
+            and not queue_folder.is_relative_to(per_source),
+            "Global original-source claim cannot overlap source or frozen queue")
+    return per_source/f"slide_{slide:03d}.once.json"
+
+
 def _real_transport(provider:str,prompt:str,port:int,wait_cap_s:int)->str:
     if provider=="gemini":
         from .series_gemini import _browser_request
@@ -84,8 +117,16 @@ def dispatch_one(*,source_folder:Path,checkpoint:Path,fallback_dir:Path,
             "student_publication_authorized":False,
         }
     claim=attempt_root/f"slide_{slide:03d}.one_submission.json"
+    global_claim=_global_slide_claim(
+        source_sha256=manifest["source_inputs_sha256"]["source.pdf"],
+        slide=slide,source_folder=original,queue_folder=queue_folder)
+    # Global identity is authoritative even if caller names another attempt
+    # folder. Verify BOTH before touching Gemini/Chrome or claiming a job.
     require(not claim.exists() and not claim.is_symlink(),
             "Original model job already claimed; reconcile before any retry")
+    require(not global_claim.exists() and not global_claim.is_symlink(),
+            "Source-global original slide already claimed across attempt roots; "
+            "no Gemini Send replay")
     statuses=(provider_statuses if provider_statuses is not None
               else [inspect_provider("gemini")])
     selected=choose_provider(statuses)
@@ -124,6 +165,27 @@ def dispatch_one(*,source_folder:Path,checkpoint:Path,fallback_dir:Path,
         "paid_tts_authorized":False,
         "student_publication_authorized":False,
     }
+    # Create the permanent, SOURCE-GLOBAL claim atomically before any
+    # local receipt or potential Send. In a concurrent new attempt root only
+    # ONE exclusive create can succeed; the loser must fail before transport.
+    for directory in (global_claim.parent.parent.parent,
+                      global_claim.parent.parent,global_claim.parent):
+        require(not directory.is_symlink(),
+                "Symlinked global source claim root prohibited")
+        directory.mkdir(exist_ok=True)
+        require(directory.is_dir() and not directory.is_symlink(),
+                "Global original claim root became unsafe")
+    try:
+        _write_new(global_claim,{**initial,
+            "global_original_source_slide_once":True,
+            "global_claim_scope":
+                "ORIGINAL_PUBLISHER_SHA_AND_SLIDE_ACROSS_ATTEMPT_ROOTS",
+        })
+    except FileExistsError as exc:
+        # Concurrent second attempt must never get as far as transport.
+        raise RichMappingError(
+            "Source-global original slide already claimed by another "
+            "attempt; never submit the same original request twice") from exc
     _write_new(claim,initial)
     # A failure of an already owned submission is NEVER silently retried,
     # even if the other provider is available and has an active composer.
@@ -164,6 +226,11 @@ def dispatch_one(*,source_folder:Path,checkpoint:Path,fallback_dir:Path,
                 audit["text_source_and_author_anchors_passed"],
         }
         _update_claim(claim,final)
+        _update_claim(global_claim,{**final,
+            "global_original_source_slide_once":True,
+            "global_claim_scope":
+                "ORIGINAL_PUBLISHER_SHA_AND_SLIDE_ACROSS_ATTEMPT_ROOTS",
+        })
         return final
     except Exception as error:
         # The one-Send claim was already durably written. A callback can fail
