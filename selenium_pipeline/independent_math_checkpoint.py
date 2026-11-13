@@ -20,8 +20,11 @@ from .figure_source_identity import _sha, require
 from .source_physics_drag_symbolic_qa import inspect as inspect_drag
 
 
-REVISION = 1
-NAME = "source_math_symbolic_proof_v1.json"
+# Version 2 installs a NEW immutable source-SHA-bound sidecar. Existing
+# v1 proof receipts and accepted cached script-QA remain untouched; normal
+# cached runner/video handoffs execute ensure() and adopt the newer version.
+REVISION = 2
+NAME = "source_math_symbolic_proof_v2.json"
 MANIFEST = "receipt.json"
 
 
@@ -62,7 +65,22 @@ def _verify_cache(*,folder: Path,source_hash: str,
             and report.get("script_sha256")==script_hash
             and report.get("G2_approved") is False
             and report.get("audio_or_TTS_authorized") is False
-            and report.get("source_script_math_equations_all_semantically_verified") is False,
+            and report.get("source_script_math_equations_all_semantically_verified") is False
+            and report.get("conditional_math_is_independent_narration_review") is False
+            and ((report.get("conditional_physics_challenges_v2") is None
+                  and report.get("source_physically_has_relevant_model_headings") is False)
+                 or (type(report.get("conditional_physics_challenges_v2")) is dict
+                     and report["conditional_physics_challenges_v2"].get(
+                         "status")=="EXACT_CONDITIONAL_DRAG_IDENTITIES_REVIEW_INPUT_ONLY"
+                     and type(report["conditional_physics_challenges_v2"].get(
+                         "checks")) is dict
+                     and len(report["conditional_physics_challenges_v2"]["checks"])==13
+                     and all(v is True for v in report[
+                         "conditional_physics_challenges_v2"]["checks"].values())
+                     and report["conditional_physics_challenges_v2"].get(
+                         "G2_approved") is False
+                     and report["conditional_physics_challenges_v2"].get(
+                         "student_publication_authorized") is False)),
             "Previously verified source math proof changed or claims unsupported approval")
     return {"schema_version":1,
             "status":"REUSED_IMMUTABLE_SOURCE_MATH_PROOF"
@@ -73,6 +91,11 @@ def _verify_cache(*,folder: Path,source_hash: str,
             "script_sha256":script_hash,
             "proof_sha256":record["sha256"],
             "symbolic_proof_available":report["proof"] is not None,
+            "conditional_drag_challenge_proof_available":(
+                report["conditional_physics_challenges_v2"] is not None),
+            "conditional_drag_challenge_identities_proven":(
+                len(report["conditional_physics_challenges_v2"]["checks"])
+                if report["conditional_physics_challenges_v2"] else 0),
             "new_model_or_tts_requests":0,
             "all_narration_mathematics_verified":False,
             "G2_approved":False,

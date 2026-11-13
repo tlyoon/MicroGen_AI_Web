@@ -38,6 +38,12 @@ def _context(source: Path) -> tuple[dict,list[str]]:
             "released from rest" in t for t in pages),
         "quadratic_speed_squared":any("square of the speed" in t or
             "speed squared" in t for t in pages),
+        # Topic indicators are literal publisher-source words only. They
+        # NEVER make a computed theorem applicable to one spoken claim.
+        "printed_time_constant_topic":any("time constant" in t
+                                           for t in pages),
+        "printed_parachute_topic":any("parachute" in t
+                                     for t in pages),
     }
     return context,pages
 
@@ -103,6 +109,95 @@ def prove_model_identities() -> dict:
             "entire_original_narration_scientifically_approved":False}
 
 
+def prove_conditional_drag_challenges_v2() -> dict:
+    """Exact *conditional* laws, not a decision about textbook/voice meaning.
+
+    These reusable equations address the two common reasoning traps after a
+    linear/quadratic drag derivation: comparing two masses at the SAME b,
+    and the force/velocity signs immediately after drag increases. Every
+    condition is explicit. This does not assert that an original figure,
+    narration, or model reply actually supplied those assumptions.
+    """
+    import sympy as sp
+    m,b,g,r,k,q,u=sp.symbols(
+        "m b g r k q u",positive=True,finite=True)
+    mass_1=m
+    mass_2=r*m
+    vt_1=mass_1*g/b
+    vt_2=mass_2*g/b
+    tau_1=mass_1/b
+    tau_2=mass_2/b
+
+    # Positive-downward convention. BEFORE opening, the falling object is
+    # at terminal speed with coefficient k. AFTER opening, k increases to
+    # (1+q)k, q>0. Speed remains downward initially: v_before>0.
+    # The force sum and acceleration therefore point UP, even though the
+    # velocity still points DOWN. This is a conditional result, not a
+    # claim about the actual skydiver without the narrated assumptions.
+    k_before=k
+    k_after=k*(1+q)
+    speed_before=sp.sqrt(m*g/k_before)
+    speed_new_terminal=sp.sqrt(m*g/k_after)
+    speed_above_new_terminal=speed_new_terminal*(1+u)
+    checks={
+        "same_b_linear_terminal_speed_ratio_equals_mass_ratio":
+            sp.simplify(vt_2/vt_1-r)==0,
+        "same_b_linear_time_constant_ratio_equals_mass_ratio":
+            sp.simplify(tau_2/tau_1-r)==0,
+        "doubled_mass_doubles_terminal_speed_same_b":
+            sp.simplify((vt_2/vt_1).subs(r,2)-2)==0,
+        "doubled_mass_doubles_tau_same_b":
+            sp.simplify((tau_2/tau_1).subs(r,2)-2)==0,
+        "initial_terminal_force_before_drag_increase_is_zero":
+            sp.simplify(m*g-k_before*speed_before**2)==0,
+        "post_opening_drag_to_weight_ratio_is_one_plus_q":
+            sp.simplify(k_after*speed_before**2/(m*g)-(1+q))==0,
+        "post_opening_net_force_upward_minus_qmg":
+            sp.simplify((m*g-k_after*speed_before**2)+q*m*g)==0,
+        "post_opening_acceleration_upward_minus_qg":
+            sp.simplify((m*g-k_after*speed_before**2)/m+q*g)==0,
+        "new_quadratic_terminal_speed_ratio_squared_one_over_one_plus_q":
+            sp.simplify((speed_new_terminal/speed_before)**2
+                        -1/(1+q))==0,
+        "new_terminal_force_balances_weight":
+            sp.simplify(m*g-k_after*speed_new_terminal**2)==0,
+        "above_new_terminal_drag_exceeds_weight_by_positive_fraction":
+            sp.simplify(k_after*speed_above_new_terminal**2/(m*g)
+                        -(1+u)**2)==0,
+        "above_new_terminal_acceleration_is_upward":
+            sp.simplify((m*g-k_after*speed_above_new_terminal**2)/m
+                        +g*u*(2+u))==0,
+        "quadratic_drag_increases_with_positive_downward_speed":
+            sp.simplify(sp.diff(k_after*sp.Symbol("v",positive=True)**2,
+                                 sp.Symbol("v",positive=True))
+                        -2*k_after*sp.Symbol("v",positive=True))==0,
+    }
+    require(all(bool(value) for value in checks.values()),
+            "Conditioned independent drag challenge theorem failed")
+    return {
+        "schema_version":2,
+        "status":"EXACT_CONDITIONAL_DRAG_IDENTITIES_REVIEW_INPUT_ONLY",
+        "conditions":[
+            "m>0, g>0, b>0, k_before>0, and positive-downward velocity",
+            "linear compared masses share the SAME drag coefficient b",
+            "second mass r*m, r>0; r=2 for doubling",
+            "before parachute opens, object travels downward at old terminal speed",
+            "on opening, quadratic drag coefficient becomes (1+q)k with q>0",
+            "after opening, mass and g do not change and no added external forces",
+            "during deceleration, downward speed stays above new terminal speed",
+        ],
+        "conditional_positive_variables":["m","b","g","r","k","q","u"],
+        "checks":checks,
+        "mathematical_conditional_results_proven":True,
+        "printed_source_equations_independently_glyph_verified":False,
+        "original_narration_utterance_semantics_approved":False,
+        "real_source_drag_coefficients_empirically_verified":False,
+        "word_level_audio_correspondence_verified":False,
+        "student_publication_authorized":False,
+        "G2_approved":False,
+    }
+
+
 def inspect(*,source: Path,script: Path|None=None) -> dict:
     source=Path(source).absolute()
     context,pages=_context(source)
@@ -111,6 +206,10 @@ def inspect(*,source: Path,script: Path|None=None) -> dict:
               "quadratic_speed_squared")
     applicable=all(context[k] for k in required)
     details=prove_model_identities() if applicable else None
+    # A distinct conditional proof is available only under a source PDF
+    # with BOTH actual drag models. Its assumptions are not inferred as
+    # accepted properties of the specific teacher's narration.
+    conditional=prove_conditional_drag_challenges_v2() if applicable else None
     script_sha=None
     if script is not None:
         script=Path(script).absolute()
@@ -129,6 +228,11 @@ def inspect(*,source: Path,script: Path|None=None) -> dict:
         "source_physically_has_relevant_model_headings":applicable,
         "source_script_math_equations_all_semantically_verified":False,
         "proof":details,
+        "conditional_physics_challenges_v2":conditional,
+        "printed_time_constant_and_parachute_topics_cooccur":bool(
+            context["printed_time_constant_topic"] and
+            context["printed_parachute_topic"]),
+        "conditional_math_is_independent_narration_review":False,
         "mathematical_all_utterance_review_approved":False,
         "source_to_panel_semantic_approval":False,
         "audio_or_TTS_authorized":False,
