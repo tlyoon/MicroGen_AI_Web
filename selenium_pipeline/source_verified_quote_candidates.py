@@ -200,10 +200,34 @@ def _within_physical_model_scope(page: int, bbox: tuple,
     return True
 
 
-def _content_pairs(text: str) -> set[tuple[str,str]]:
-    """Unstemmed phrase hits: optional source SEARCH signals, not truth."""
-    tokens=[w for w in re.findall(r"[A-Za-z]{4,}",text.casefold())
+def _retrieval_lexeme(word: str) -> str:
+    """Regular English inflections for SEARCH RANKING ONLY, not citation truth.
+
+    A lecture may ask about 'terminal speeds and time constants' while the
+    source describes 'terminal speed' and 'time constant'. Exact-match
+    retrieval otherwise prefers an irrelevant table about 'speeds'. Preserve
+    negation, operators, scientific sign/domain words, and every literal
+    quoted byte: this function is never used in source proof or AI grading.
+    """
+    if word.endswith("ies") and len(word) >= 6:
+        return word[:-3] + "y"  # velocities -> velocity
+    if word.endswith("sses") and len(word) >= 6:
+        return word[:-2]       # masses -> mass
+    if (word.endswith("s") and len(word) >= 5
+            and not word.endswith(("ss", "us", "is"))):
+        return word[:-1]       # speeds, constants, spheres
+    return word
+
+
+def _search_words(text: str) -> list[str]:
+    return [_retrieval_lexeme(w)
+            for w in re.findall(r"[A-Za-z]{4,}", text.casefold())
             if w not in _STOP]
+
+
+def _content_pairs(text: str) -> set[tuple[str,str]]:
+    """Conservative inflected phrase SEARCH signals, never physics proof."""
+    tokens=_search_words(text)
     return set(zip(tokens,tokens[1:]))
 
 
@@ -229,10 +253,9 @@ def _numeric_tokens(text: str) -> set[str]:
 
 
 def _terms(text: str) -> set[str]:
-    return {
-        t for t in re.findall(r"[a-zA-Z]{4,}", text.lower())
-        if t not in _STOP
-    }
+    # These are *retrieval* lexemes only. The original, unchanged exact
+    # publisher text, geometry and SHA are checked independently afterwards.
+    return set(_search_words(text))
 
 
 @lru_cache(maxsize=8)
