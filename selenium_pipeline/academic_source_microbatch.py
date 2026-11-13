@@ -18,10 +18,11 @@ from pathlib import Path
 from .ai_academic_web_review import review_instructions
 from .figure_source_identity import require
 from .source_review_autonomous_campaign import _assert_job, sha
+from .source_verified_quote_candidates import build_verified_source_candidates
 
 MAX_UNITS_PER_JOB = 2
 MAX_PLAN_JOBS = 24
-MANIFEST_REVISION = 2
+MANIFEST_REVISION = 3
 
 
 def _read(path: Path) -> dict:
@@ -90,25 +91,57 @@ def unclaimed_microbatch_plan(*, original_plan: Path,
                 subset=[u for u in slide["utterances"] if u["id"] in keep]
                 if subset:
                     slides.append({**slide,"utterances":subset})
-            source_packet=job["verified_source_quote_candidates_v1"]
-            selected_quotes=[
-                record for record in source_packet["utterances"]
+            old_packet=job["verified_source_quote_candidates_v1"]
+            old_quotes=[
+                record for record in old_packet["utterances"]
                 if record["utterance_id"] in keep
             ]
-            require(len(selected_quotes)==len(group) and
+            require(len(old_quotes)==len(group) and
                     sum(len(s["utterances"]) for s in slides)==len(group),
                     "Missing original source quotation or short unit")
-            filtered={**job,
-                      "slides":slides,
-                      "utterance_count":len(group),
-                      "selected_original_slides":[s["slide"] for s in slides],
-                      "verified_source_quote_candidates_v1":{
-                          **source_packet,"utterances":selected_quotes},
+            # Prior source-review plans were immutable, but their physically
+            # witnessed quote rankings can be STALE after a new general
+            # source-extractor fix. The historic original plan MUST stay
+            # frozen; rebuild evidence only for the still-UNCLAIMED subset,
+            # from the SAME exact original source/slides/script on disk.
+            # This is the normal shared microbatch path, not a one-off
+            # challenge to a previously consumed Serway utterance.
+            fresh_job={**job,"slides":slides,
+                       "utterance_count":len(group),
+                       "selected_original_slides":[s["slide"] for s in slides]}
+            fresh_packet=build_verified_source_candidates(
+                folder=folder,job=fresh_job)
+            fresh_quotes=fresh_packet["utterances"]
+            require([r["utterance_id"] for r in fresh_quotes]==group
+                    and fresh_packet["source_sha256"]==source_sha
+                    and fresh_packet["slides_sha256"]==job["slides_sha256"]
+                    and fresh_packet["script_sha256"]==job["script_sha256"]
+                    and fresh_packet["citations_are_scientific_proof"] is False
+                    and fresh_packet["student_publication_authorized"] is False,
+                    "Refreshed quotation packet changed original source or units")
+            filtered={**fresh_job,
+                      "verified_source_quote_candidates_v1":fresh_packet,
                       "academic_approval":False,
                       "student_publication_authorized":False}
-            # The exact original utterance IDs and source/slide/script hashes
-            # remain unchanged. Only the subset of verified source candidates
-            # appears in the model prompt. Never make up citations/targets.
+            old_bytes=json.dumps(old_quotes,ensure_ascii=False,
+                                 sort_keys=True).encode("utf8")
+            fresh_bytes=json.dumps(fresh_quotes,ensure_ascii=False,
+                                   sort_keys=True).encode("utf8")
+            refresh={
+                "schema_version":1,
+                "status":"CURRENT_ORIGINAL_SOURCE_QUOTE_PACKET_REBUILT",
+                "previous_quote_rows_sha256":sha(old_bytes),
+                "source_reverified_quote_rows_sha256":sha(fresh_bytes),
+                "quotes_changed_since_frozen_plan":old_bytes!=fresh_bytes,
+                "only_original_unclaimed_units":group,
+                "original_source_sha256":source_sha,
+                "source_and_script_unchanged":True,
+                "model_sends":0,"academic_approval":False,
+                "student_publication_authorized":False,
+            }
+            # Exact source-unit identities remain unchanged. The new,
+            # independently witnessed quote packet is added only to the
+            # derived unsent request; no historic academic reply is revised.
             exact=review_instructions(filtered,mode="INDEPENDENT_CHALLENGE")
             emitted.append({**entry,
                             "source_job":filtered,
@@ -121,7 +154,8 @@ def unclaimed_microbatch_plan(*, original_plan: Path,
                             "student_publication_authorized":False,
                             "source_microbatch_max_units":max_units,
                             "source_original_large_job_request_sha256":
-                                entry["source_job_request_sha256"]})
+                                entry["source_job_request_sha256"],
+                            "source_quote_refresh_v1":refresh})
     require(len(emitted)<=MAX_PLAN_JOBS,
             "More than 24 still-unclaimed jobs: split by distinct source range "
             "without dropping or resending source utterances")
@@ -175,7 +209,7 @@ def ensure_microbatch_dispatch(*, original_plan:Path,
     # Keep each previous short plan immutable; never overwrite it on resume.
     inventory_sha=hashlib.sha256(payload.encode("utf8")).hexdigest()[:20]
     plan_path=derived_dir/(plan["original_plan_sha256"][:20]+"_"+
-                          inventory_sha+"_microbatch_v2.json")
+                          inventory_sha+"_microbatch_v3.json")
     if plan_path.exists():
         require(not plan_path.is_symlink() and
                 plan_path.read_text(encoding="utf8")==payload,

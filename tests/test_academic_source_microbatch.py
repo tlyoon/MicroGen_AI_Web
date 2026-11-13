@@ -28,7 +28,10 @@ class AcademicShortSourceJobTests(TestCase):
         self.ids=["s014.utterance.001","s014.utterance.002",
                   "s014.utterance.003","s014.utterance.004"]
         self.job={
+            "original_folder":str(self.base),
             "source_sha256":SOURCE,
+            "slides_sha256":"c"*64,
+            "script_sha256":"d"*64,
             "status":"SOURCE_BOUND_AI_REVIEW_REQUEST_NOT_DISPATCHED",
             "source_research_is_new_evidence_only":True,
             "utterance_count":4,
@@ -68,6 +71,29 @@ class AcademicShortSourceJobTests(TestCase):
                  for x in s["utterances"]]))
         self.verifier.start()
         self.addCleanup(self.verifier.stop)
+        # The old journal tests use a synthetic _assert_job with no PDF
+        # files. Stub only physical quote extraction here; a separate
+        # test below exercises the REAL PDF verifier and normal microbatch
+        # caller without any mocked quote production.
+        def synthetic_source_quote_packet(*, folder, job):
+            return {
+                "source_sha256":SOURCE,
+                "slides_sha256":job["slides_sha256"],
+                "script_sha256":job["script_sha256"],
+                "utterances":[{
+                    "utterance_id":u["id"],"allowed_citations":[]}
+                    for slide in job["slides"]
+                    for u in slide["utterances"]],
+                "citations_are_scientific_proof":False,
+                "all_mathematics_verified":False,
+                "student_publication_authorized":False,
+            }
+        quote_builder=patch(
+            "selenium_pipeline.academic_source_microbatch."
+            "build_verified_source_candidates",
+            side_effect=synthetic_source_quote_packet)
+        quote_builder.start()
+        self.addCleanup(quote_builder.stop)
 
     def _claim(self,uids,name="d"*64):
         claim_dir=self.checkpoints/".microgen_academic_source_once"/SOURCE

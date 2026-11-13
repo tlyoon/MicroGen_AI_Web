@@ -1,5 +1,19 @@
 # MicroGen_AI_Web failure-to-fix ledger — current continuation
 
+## MG-G2-STALE-QUOTE-PACKET-20261113 — archived source evidence bypassed current extractor
+
+**Historical remedy reused:** `source_verified_quote_candidates.build_verified_source_candidates` already retrieves and independently proves source-page passages; `academic_source_microbatch.unclaimed_microbatch_plan` already enforces the original-source SHA, a global once-only claimed-unit ledger, and a versioned write-once derived plan. The missing wiring was not a lack of new physics reasoning or another Gemini Selenium defect: a derived short plan copied a frozen older `verified_source_quote_candidates_v1` list without invoking the current source extractor.
+
+**Real, read-only proof:** Two unchanged original source/SHA review units on slide 14 returned independently valid model replies but `UNRESOLVED`. The archived plan gave the parachute question irrelevant page-4 quotes. Running the current extractor directly against **the identical original PDF, slide and script SHA** instead found page-5 parachute source passages and verified them against the original page. The mismatch was introduced by stale quote packet inheritance, not failed provider response, source file drift or a non-existent quotation. The separate linear-drag comparison still has inadequate model-backed source evidence; no mathematical support is inferred merely from a better quote search.
+
+**Normal automatic remedy:** `academic_source_microbatch.unclaimed_microbatch_plan` now rebuilds `build_verified_source_candidates` once for **only each still-unclaimed** subset, after authenticating the archived original job, source/slides/script file hashes and shared claims. The verified fresh packet is checked against the same source, slide and script SHA and exactly the same utterance IDs, bound to a new exact request SHA in immutable **microbatch v3**. The previous exact source job/prompt and all review responses remain untouched. Each derived job records old/new quote-packet SHA, any change and zero model Send, with no scientific approval. If source drift, candidate identity, or physical witness fails, no derived job is dispatched. Even an improved quote may leave the model's scientific finding `UNRESOLVED`.
+
+**Regression and recurrence boundary:** A real *synthetic* source PDF test exercises the actual shared microbatch entrypoint, its persisted plan and independent physical quote witness; synthetic global-claim tests confirm all-consumed units skip quote extraction and cannot be resubmitted. Existing source-retrieval, original-subsection scoping, PDF hash drift and model-route tests remain in scope. This remedy applies to new, unclaimed source jobs only, not the 41 already claimed original Serway6.4 review units (zero remaining). **G2 remains not approved.** Full exact-head hosted Windows CI required before engineering acceptance of the patch.
+
+---
+
+
+
 ## MG-G2-HEALTH-CIRCUIT-LATCH-20261113 — time expiry was mistaken for restored Gemini service
 
 **Observed authoritative failure, Dell-115:** the prior academic response health circuit had two original source-SHA-verified, distinct Pro/Medium no-accepted-response events, but after 3600 seconds `inspect` returned `distinct_failed_requests=0` and `automatic_new_academic_model_send_allowed=true`, without any new attributable Gemini response. This exposed the final unclaimed original Serway 6.4 academic units to another unverified provider Send. The prior 1800-second cooldown had never provided proof of model responsiveness. A restored model selector and a registered Send are likewise NOT valid response proof.
