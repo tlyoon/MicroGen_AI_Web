@@ -97,8 +97,16 @@ def stable_recommendations(speech: str, candidates: list[dict]) -> list[dict]:
     ranked=[]
     for target in candidates:
         kind=target.get("kind")
-        if kind not in ("text_block","image_caption_panel"):
+        if kind not in ("text_block","image_caption_panel","math_row_group"):
             continue
+        if kind=="math_row_group":
+            # Recycle physically reconstructed 2-8 glyph-fragment equations
+            # as review targets, never claims of mathematical equivalence.
+            anchor=target.get("anchor") or {}
+            if (anchor.get("type")!="math_row_group"
+                    or target.get("original_math_block_hashes_verified") is not True
+                    or target.get("mathematical_semantics_verified") is not False):
+                continue
         if kind=="image_caption_panel":
             anchor=target.get("anchor") or {}
             if (anchor.get("type")!="original_pdf_panel_visual_provenance"
@@ -141,7 +149,29 @@ def stable_recommendations(speech: str, candidates: list[dict]) -> list[dict]:
                                sorted(spoken_math & target_math),
                            "possible_trig_mismatch_review":trig_conflict,
                            "anchor":target["anchor"]})
-    return sorted(ranked,key=lambda x:(-x["overlap_hint"],x["draft_element_id"]))[:3]
+    # A physically contiguous equation row may include a heading/text block
+    # already offered separately. Never manufacture a new 'close second'
+    # ambiguity by ranking duplicate evidence as two independent choices.
+    # Retain all source-verified groups in the visual inventory for review,
+    # but rank a group only when its additional fragments provide material
+    # lexical or mathematical-term coverage over constituent text blocks.
+    deduplicated=[]
+    for candidate in ranked:
+        anchor=candidate["anchor"]
+        if anchor.get("type")=="math_row_group":
+            members=set(anchor.get("indices",[]))
+            constituent=[r for r in ranked
+                if r["anchor"].get("type")=="text_block"
+                and r["anchor"].get("index") in members]
+            if constituent:
+                best=max(constituent,key=lambda x:x["overlap_hint"])
+                if (candidate["overlap_hint"]<=best["overlap_hint"]+.07
+                        and candidate["mathematical_term_coverage_hint"]
+                            <=best["mathematical_term_coverage_hint"]+.1):
+                    continue
+        deduplicated.append(candidate)
+    return sorted(deduplicated,
+                  key=lambda x:(-x["overlap_hint"],x["draft_element_id"]))[:3]
 
 
 def propose(*, source_pdf: Path, slides_pdf: Path, script_txt: Path) -> dict:
@@ -216,6 +246,25 @@ def propose(*, source_pdf: Path, slides_pdf: Path, script_txt: Path) -> dict:
                     "source_evidence_verified":False,
                     "author_reviewed":False,
                 })
+            # Existing rich drafts ALREADY contain grouped mathematical
+            # regions. The previously fixed independent source verifier must
+            # ENRICH those same physical IDs, not append duplicate shapes.
+            # Unwitnessed math-row geometry stays visible for review only;
+            # it may never receive a trusted ranking or speech cue.
+            from .verified_slide_visual_candidates import composite_math_targets
+            verified_math={formula["draft_element_id"]:formula
+                for formula in composite_math_targets(pg,number,[])}
+            for target in targets:
+                if target["kind"]!="math_row_group":
+                    continue
+                witness=verified_math.get(target["draft_element_id"])
+                source_matched=bool(
+                    witness and target["anchor"]==witness["anchor"]
+                    and target["visible_text"]==witness["visible_text"])
+                target["original_math_block_hashes_verified"]=source_matched
+                target["mathematical_semantics_verified"]=False
+            require(len({t["draft_element_id"] for t in targets})==len(targets),
+                    "Repeated physical element IDs in rich review candidate inventory")
             spoken=[]
             for j,unit in enumerate(utterances(text),1):
                 matches=stable_recommendations(unit,targets)

@@ -85,6 +85,14 @@ def complete_from_published(*, source: Path, require_slide_tts_qa: bool = False)
             and not lecture.is_relative_to(staging),
             "Local video staging must be separate from textbook source")
     staging.mkdir(parents=True, exist_ok=True)
+    # Video-only resumes can bypass runner.script_qa, including when a
+    # completed source-bound element-WAV batch already exists. Apply the
+    # same versioned independent math remedy to both NEW and PREVIOUS
+    # element audio before any render; legacy video-only manifests without
+    # a script keep their older explicit source-anchor constraints.
+    if (lecture/"script.txt").is_file():
+        from .independent_math_checkpoint import ensure as ensure_math
+        ensure_math(source=source,script=lecture/"script.txt")
     if not any(present):
         # The old exact-text-only element selector failed at the first Beamer
         # image/icon on every original Thomas section. Produce an immutable

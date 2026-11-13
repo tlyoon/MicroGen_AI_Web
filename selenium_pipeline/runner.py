@@ -934,6 +934,19 @@ def _execute_unlocked(s: Settings) -> Path:
             model_stamp = f"{s.tts_qa_model}:threshold={s.tts_qa_threshold:.3f}:v1"
         else:
             model_stamp = browser_model
+        if stage in {"script_qa", "tts", "tts_qa"}:
+            # New independent math remedies MUST also run on a previously
+            # accepted script_qa cache. Regenerating that old stage would
+            # overwrite its frozen source-bound reports and may re-trigger
+            # expensive narration/TTS. Reconcile a separate SHA-locked proof
+            # once, and reuse it on every later cached-stage resume.
+            source_math=folder/"source.pdf"
+            spoken_math=folder/"script.txt"
+            if source_math.is_file() and spoken_math.is_file():
+                from .independent_math_checkpoint import ensure as ensure_math
+                proof_state=ensure_math(source=source_math,script=spoken_math)
+                print(f"[microgen] source math evidence: {proof_state['status']}; "
+                      "original script_qa and TTS assets unchanged")
         if changed_upstream:
             state["completed"].pop(stage, None)
         previously_completed=state["completed"].get(stage, {})
