@@ -138,3 +138,16 @@ class NormalAcademicRequalification(TestCase):
         self.assertEqual(again["new_requests_attempted"],0)
         self.assertEqual(again["academic_source_free_probe"]
                          ["new_provider_requests"],0)
+
+    def test_cli_reports_unrequalified_source_model_as_blocker(self):
+        # Parent runners must not interpret a safe 0-Send health stop as a
+        # successful reviewed source-stage completion.
+        from selenium_pipeline.academic_review_model_failover import main
+        with patch("selenium_pipeline.academic_review_model_failover.run",
+                   return_value={
+                       "status":"ACADEMIC_GEMINI_SOURCE_FREE_REQUALIFICATION_REQUIRED",
+                       "G2_approved":False,
+                       "new_requests_attempted":0}):
+            self.assertEqual(main([
+                "--plan",str(self.plan),
+                "--checkpoint-root",str(self.work)]),2)
