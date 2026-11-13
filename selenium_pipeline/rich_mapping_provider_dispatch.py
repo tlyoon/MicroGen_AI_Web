@@ -19,8 +19,9 @@ from .rich_mapping_provider_readiness import (
     inspect_provider,choose_provider,ProviderNotReady)
 from .rich_unresolved_model_queue import verify_queue,merge_response
 from .rich_element_model_alignment import (
-    RichMappingError,require,parse_response,sha_bytes)
+    RichMappingError,require,parse_response,sha_bytes,stable_hash)
 from .rich_unresolved_model_queue import prompt_partial
+from .academic_source_microbatch import claimed_original_source_units
 
 
 def _write_new(path:Path,payload:dict)->None:
@@ -88,6 +89,90 @@ def _real_transport(provider:str,prompt:str,port:int,wait_cap_s:int)->str:
         "ChatGPT and Gemini API fallback are disabled.")
 
 
+def _academic_unclaimed_scope(
+        *, pending: dict, source_sha256: str,
+        checkpoint_parent: Path) -> tuple[dict,list[str]]:
+    """Never send old academic original units via the different rich route.
+
+    The shared source-global academic claim index is authoritative for
+    already claimed utterances, including unknown/corrupt model responses.
+    Excluded units stay NULL and UNRESOLVED, never silently pass G2.
+    """
+    claimed=claimed_original_source_units(
+        source_sha256=source_sha256,
+        checkpoint_parent=checkpoint_parent)
+    all_units=pending["only_unresolved_original_utterances"]
+    ids=[u["utterance_id"] for u in all_units]
+    require(len(set(ids))==len(ids),
+            "Original rich source unit identity repeated")
+    excluded=[uid for uid in ids if uid in claimed]
+    if not excluded:
+        return pending,[]
+    eligible=[unit for unit in all_units
+              if unit["utterance_id"] not in claimed]
+    # A newly SHA-bound sub-request has a different identity from the
+    # immutable full original queue. The model sees ONLY eligible speech.
+    scoped={**pending,
+        "only_unresolved_original_utterances":eligible,
+        "full_original_partial_request_sha256":
+            pending["partial_request_sha256"],
+        "consumed_academic_source_units_excluded_not_approved":excluded,
+        "academic_claim_inventory_sha256":stable_hash(sorted(claimed)),
+    }
+    scoped.pop("partial_request_sha256")
+    scoped["partial_request_sha256"]=stable_hash(scoped)
+    return scoped,excluded
+
+
+def _merge_eligible_answer(
+        *, proposed: dict, scoped: dict, full: dict,
+        consumed: list[str]) -> dict:
+    """Re-expand a limited response without changing old claimed units."""
+    choices=proposed.get("associations")
+    eligible=scoped["only_unresolved_original_utterances"]
+    require(type(choices) is list and len(choices)==len(eligible)
+            and proposed.get("slide")==full["slide"]
+            and proposed.get("partial_request_sha256")==
+                scoped["partial_request_sha256"]
+            and proposed.get("paid_tts_authorized") in (None,False)
+            and proposed.get("student_publication_authorized") in (None,False),
+            "Gemini response contains unclaimed/claimed unit or wrong source")
+    expected=[u["utterance_id"] for u in eligible]
+    require([x.get("utterance_id") for x in choices
+             if type(x) is dict]==expected
+            and len(expected)==len(choices),
+            "Gemini response contains old claimed or reordered source units")
+    if not consumed:
+        return proposed
+    accepted={x["utterance_id"]:x for x in choices}
+    claimed=set(consumed)
+    expanded=[]
+    for unit in full["only_unresolved_original_utterances"]:
+        uid=unit["utterance_id"]
+        if uid in claimed:
+            expanded.append({
+                "utterance_id":uid,
+                "target_id":None,
+                "source_page":None,
+                "source_quote":None,
+                "reason":"Prior source-global academic claim consumed; "
+                         "hold unresolved; never repeat a model submission",
+                "needs_review":True,
+            })
+        else:
+            require(uid in accepted, "Unclaimed original utterance omitted")
+            expanded.append(accepted[uid])
+    require(len(expanded)==len(full["only_unresolved_original_utterances"]),
+            "Prior claimed source unit was dropped from review outcome")
+    return {
+        "slide":full["slide"],
+        "partial_request_sha256":full["partial_request_sha256"],
+        "associations":expanded,
+        "paid_tts_authorized":False,
+        "student_publication_authorized":False,
+    }
+
+
 def dispatch_one(*,source_folder:Path,checkpoint:Path,fallback_dir:Path,
                  queue_folder:Path,slide:int,attempt_root:Path,
                  wait_cap_s:int=95,
@@ -117,9 +202,25 @@ def dispatch_one(*,source_folder:Path,checkpoint:Path,fallback_dir:Path,
             "student_publication_authorized":False,
         }
     claim=attempt_root/f"slide_{slide:03d}.one_submission.json"
+    source_sha=manifest["source_inputs_sha256"]["source.pdf"]
     global_claim=_global_slide_claim(
-        source_sha256=manifest["source_inputs_sha256"]["source.pdf"],
+        source_sha256=source_sha,
         slide=slide,source_folder=original,queue_folder=queue_folder)
+    scoped,excluded=_academic_unclaimed_scope(
+        pending=pending,source_sha256=source_sha,
+        checkpoint_parent=global_claim.parent.parent.parent)
+    eligible=scoped["only_unresolved_original_utterances"]
+    if not eligible:
+        return {
+            "status":"ALL_UNRESOLVED_SLIDE_UNITS_PREVIOUSLY_ACADEMIC_CLAIMED_NO_SEND",
+            "slide":slide,"model_submissions":0,
+            "source_sha256":source_sha,
+            "original_unresolved_utterances_held":len(unsent),
+            "academic_claimed_units_excluded":len(excluded),
+            "new_eligible_utterances":0,
+            "prior_academic_approvals_inferred":False,
+            "student_publication_authorized":False,
+        }
     # Global identity is authoritative even if caller names another attempt
     # folder. Verify BOTH before touching Gemini/Chrome or claiming a job.
     require(not claim.exists() and not claim.is_symlink(),
@@ -147,16 +248,20 @@ def dispatch_one(*,source_folder:Path,checkpoint:Path,fallback_dir:Path,
             and inspected["authenticated_ui_ready"] is True
             and inspected["model_submission_performed"] is False,
             "Selected model provider is not a safe authenticated browser")
-    prompt=prompt_partial(pending)
+    prompt=prompt_partial(scoped)
     initial={
         "schema_version":1,
         "status":"MAY_HAVE_SUBMITTED_RECONCILE_BEFORE_RESEND",
         "provider":provider,
         "browser_debug_port":port,
         "slide":slide,
-        "partial_request_sha256":pending["partial_request_sha256"],
+        "partial_request_sha256":scoped["partial_request_sha256"],
+        "original_frozen_full_request_sha256":pending["partial_request_sha256"],
         "source_inputs_sha256":manifest["source_inputs_sha256"],
-        "requested_utterances":len(unsent),
+        "requested_utterances":len(eligible),
+        "prior_academic_claimed_original_units_excluded":len(excluded),
+        "academic_claimed_utterance_ids":excluded,
+        "prior_academic_claims_not_approved_by_this_route":True,
         "prior_accepted_prose_links_protected":len(
             pending["accepted_prose_links_already_sha_verified_do_not_resend"]),
         "original_prompt_sha256":sha_bytes(prompt.encode("utf8")),
@@ -165,6 +270,16 @@ def dispatch_one(*,source_folder:Path,checkpoint:Path,fallback_dir:Path,
         "paid_tts_authorized":False,
         "student_publication_authorized":False,
     }
+    # The academic ledger may have progressed while Gemini readiness
+    # was inspected. Recheck fresh eligible source IDs immediately before
+    # the exclusive Send claim. Once reserved, unknown provider outcome
+    # remains non-retryable; no academic claim can be overwritten here.
+    latest_academic=claimed_original_source_units(
+        source_sha256=source_sha,
+        checkpoint_parent=global_claim.parent.parent.parent)
+    require(all(u["utterance_id"] not in latest_academic for u in eligible),
+            "A pending academic original source unit was claimed while "
+            "provider preflight ran; stop without a Gemini Send")
     # Create the permanent, SOURCE-GLOBAL claim atomically before any
     # local receipt or potential Send. In a concurrent new attempt root only
     # ONE exclusive create can succeed; the loser must fail before transport.
@@ -204,10 +319,15 @@ def dispatch_one(*,source_folder:Path,checkpoint:Path,fallback_dir:Path,
         _write_new(raw_out,{"status":"RAW_PROVIDER_COPY_UNVERIFIED",
                              "provider":provider,"text":response})
         proposed=parse_response(response)
+        # The model was never shown the 39 previous academic claims (for the
+        # current Serway source). Before shared original audit, fill those
+        # slots with explicit NULL unresolved results, NEVER invented passes.
+        expanded=_merge_eligible_answer(
+            proposed=proposed,scoped=scoped,full=pending,consumed=excluded)
         merged,audit=merge_response(
             source_folder=original,checkpoint=checkpoint,
             fallback_dir=fallback_dir,queue_folder=queue_folder,
-            slide=slide,partial_response=proposed)
+            slide=slide,partial_response=expanded)
         # Recompute after provider interaction; source/previous accepted
         # text cannot be altered without invalidating the entire job.
         verify_queue(source_folder=original,checkpoint=checkpoint,

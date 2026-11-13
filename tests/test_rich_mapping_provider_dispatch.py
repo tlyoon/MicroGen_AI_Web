@@ -351,6 +351,140 @@ class OneShotOriginalSourceQueueTests(unittest.TestCase):
         self.assertFalse(new_path.exists())
         self.assertTrue(old_claim.is_file())
 
+    def _academic_claim(self,identifiers):
+        from selenium_pipeline.figure_source_identity import _sha
+        digest=_sha(self.source)
+        folder=(self.local_appdata/"MicroGen_AI_Web_Checkpoints"/
+                ".microgen_academic_source_once"/digest)
+        folder.mkdir(parents=True,exist_ok=True)
+        h="d"*64
+        (folder/(h+".json")).write_text(json.dumps({
+            "schema_version":1,
+            "type":"THIRD_PASS_CHANGED_SOURCE_REVIEW",
+            "source_sha256":digest,
+            "utterance_ids":identifiers,
+            "request_sha256":h,
+        }),encoding="utf8")
+        return folder
+
+    def test_previously_academic_claimed_only_unit_stops_before_send(self):
+        req=json.loads((self.queue/"slide_001.unresolved_request.json").read_text("utf8"))
+        ident=req["only_unresolved_original_utterances"][0]["utterance_id"]
+        self._academic_claim([ident])
+        called=[]
+        result=self._call(lambda *args:called.append(args))
+        self.assertEqual(result["status"],
+            "ALL_UNRESOLVED_SLIDE_UNITS_PREVIOUSLY_ACADEMIC_CLAIMED_NO_SEND")
+        self.assertEqual(result["academic_claimed_units_excluded"],1)
+        self.assertEqual(result["new_eligible_utterances"],0)
+        self.assertEqual(called,[])
+        self.assertEqual(list(self.out.iterdir()),[])
+        self.assertFalse(self._canonical_global_claim().exists())
+
+    def _add_second_unreviewed_math_unit(self):
+        prose="The experiment provides evidence for the observed physical process."
+        math1="For tangent substitution, x equals a times tangent theta."
+        math2="For secant substitution, y equals b times secant theta."
+        for path,with_vector in ((self.source,False),(self.slides,True)):
+            with pymupdf.open() as pdf:
+                page=pdf.new_page()
+                for i,words in enumerate((prose,math1,math2)):
+                    page.insert_text((70,85+43*i),words)
+                if with_vector:
+                    page.draw_line((70,250),(240,220))
+                pdf.save(path)
+        self.script.write_text(
+            "**Slide 1 [14 seconds]:\n"+prose+" "+math1+" "+math2,
+            encoding="utf8")
+        root=self.root/"second_original_sha_cache"
+        root.mkdir()
+        with self.assertRaises(ElementMappingCheckpointBlocked):
+            require_automatic_mapping_or_checkpoint(
+                source=self.source,slides=self.slides,script=self.script,
+                checkpoint_root=root)
+        self.ck=next(root.glob("rich_element_map_*"))
+        self.fallback=self.root/"second_accepted_source_prose"
+        stage_section(source_folder=self.original,checkpoint=self.ck,
+                      destination=self.fallback)
+        self.queue=self.root/"second_unresolved_only"
+        prepare_queue(source_folder=self.original,checkpoint=self.ck,
+                      fallback_dir=self.fallback,destination=self.queue)
+        self.original_bytes=[x.read_bytes() for x in
+                             (self.source,self.slides,self.script)]
+
+    def test_shared_academic_claim_filters_only_old_unit_then_merges_null(self):
+        self._add_second_unreviewed_math_unit()
+        req=json.loads((self.queue/"slide_001.unresolved_request.json").read_text("utf8"))
+        units=req["only_unresolved_original_utterances"]
+        self.assertEqual(len(units),2)
+        old_id,new_id=(u["utterance_id"] for u in units)
+        self._academic_claim([old_id])
+        seen=[]
+        def only_unclaimed(provider,prompt,port,wait):
+            task=json.loads(prompt.split("\n\n")[-1])
+            selected=task["only_unresolved_original_utterances"]
+            self.assertEqual([x["utterance_id"] for x in selected],[new_id])
+            self.assertNotIn(old_id,prompt)
+            self.assertNotEqual(task["partial_request_sha256"],
+                                req["partial_request_sha256"])
+            seen.append((provider,port))
+            return json.dumps({
+                "slide":1,
+                "partial_request_sha256":task["partial_request_sha256"],
+                "associations":[{
+                    "utterance_id":new_id,
+                    "target_id":None,"source_page":None,
+                    "source_quote":None,"needs_review":True,
+                    "reason":"Exact independent math evidence not available"}],
+            })
+        record=self._call(only_unclaimed)
+        self.assertEqual(record["status"],"CAPTURED_SOURCE_VERIFIED_REVIEW_ONLY")
+        self.assertEqual(record["requested_utterances"],1)
+        self.assertEqual(record["prior_academic_claimed_original_units_excluded"],1)
+        self.assertEqual(seen,[("gemini",9222)])
+        merged=json.loads((self.out/"slide_001.merged_response.json").read_text("utf8"))
+        associations={x["utterance_id"]:x for x in merged["associations"]}
+        self.assertIsNone(associations[old_id]["target_id"])
+        self.assertTrue(associations[old_id]["needs_review"])
+        self.assertIn("Prior source-global academic claim",
+                      associations[old_id]["reason"])
+        self.assertIsNone(associations[new_id]["target_id"])
+        self.assertFalse(merged["student_publication_authorized"])
+        self.assertEqual(self.original_bytes,[x.read_bytes() for x in
+                             (self.source,self.slides,self.script)])
+
+    def test_claim_appearing_during_provider_preflight_stops_without_send(self):
+        req=json.loads((self.queue/"slide_001.unresolved_request.json").read_text("utf8"))
+        uid=req["only_unresolved_original_utterances"][0]["utterance_id"]
+        from selenium_pipeline.rich_mapping_provider_readiness import (
+            choose_provider as ordinary_choose)
+        def claim_during_readiness(rows):
+            self._academic_claim([uid])
+            return ordinary_choose(rows)
+        attempts=[]
+        with patch("selenium_pipeline.rich_mapping_provider_dispatch."
+                   "choose_provider",side_effect=claim_during_readiness):
+            with self.assertRaisesRegex(RichMappingError,
+                                        "claimed while provider preflight"):
+                self._call(lambda *args:attempts.append(args))
+        self.assertEqual(attempts,[])
+        self.assertFalse(self._canonical_global_claim().exists())
+        self.assertEqual(list(self.out.iterdir()),[])
+
+    def test_rejects_untrusted_academic_claim_instead_of_sending(self):
+        req=json.loads((self.queue/"slide_001.unresolved_request.json").read_text("utf8"))
+        identifier=req["only_unresolved_original_utterances"][0]["utterance_id"]
+        folder=self._academic_claim([identifier])
+        target=next(folder.glob("*.json"))
+        invalid=json.loads(target.read_text("utf8"))
+        invalid["source_sha256"]="f"*64
+        target.write_text(json.dumps(invalid),encoding="utf8")
+        called=[]
+        with self.assertRaises((ValueError,RichMappingError)):
+            self._call(lambda *args:called.append(args))
+        self.assertEqual(called,[])
+        self.assertFalse(self._canonical_global_claim().exists())
+
     def test_symlinked_source_claim_index_fails_before_any_provider_send(self):
         from selenium_pipeline.figure_source_identity import _sha
         root=self.local_appdata/"MicroGen_AI_Web_Checkpoints"
@@ -368,6 +502,51 @@ class OneShotOriginalSourceQueueTests(unittest.TestCase):
             self._call(lambda *args:sent.append(args))
         self.assertEqual(sent,[])
         self.assertFalse((sibling/_sha(self.source)).exists())
+
+
+class DellRealAcademicAndRichScopeTests(unittest.TestCase):
+    def test_real_original_queue_never_resubmits_academic_claimed_units(self):
+        from selenium_pipeline.figure_source_identity import _sha
+        from selenium_pipeline.rich_unresolved_model_queue import verify_queue
+        from selenium_pipeline.rich_mapping_provider_dispatch import (
+            _academic_unclaimed_scope,_global_slide_claim)
+        root=Path.home()/"AppData"/"Local"/"MicroGen_AI_Web_Checkpoints"
+        folder=(root/"20261112_PR528_G2_SERWAY6_4_NARRATION_SOURCE_REUSE_V7"/
+                "source_tree"/"6"/"6.4")
+        checkpoint=(root/"20261113_G2_RICH_MATH_RECOVERY_CHECKPOINT_V5"/
+                    "rich_element_map_945d5c66ec52f0bcb2c34513")
+        fallback=root/"20261113_G2_SERWAY64_SAFE_PROSE_VERIFIED_7OF74_V1"
+        queue=root/"20261113_G2_SERWAY64_UNRESOLVED_ONLY_RICH_QUEUE_67OF74_V1"
+        if not all(x.exists() for x in
+                   (folder/"source.pdf",checkpoint,fallback,queue)):
+            self.skipTest("Original Serway §6.4 only on authorized Dell-115")
+        before={x:_sha(folder/x)for x in
+                ("source.pdf","slides.pdf","script.txt")}
+        manifest,_,rows=verify_queue(
+            source_folder=folder,checkpoint=checkpoint,
+            fallback_dir=fallback,queue_folder=queue)
+        self.assertEqual(manifest["source_inputs_sha256"]["source.pdf"],
+                         before["source.pdf"])
+        pending=excluded=eligible=0
+        for slide,request in enumerate(rows,1):
+            global_claim=_global_slide_claim(
+                source_sha256=before["source.pdf"],slide=slide,
+                source_folder=folder,queue_folder=queue)
+            proposed,old=_academic_unclaimed_scope(
+                pending=request,source_sha256=before["source.pdf"],
+                checkpoint_parent=global_claim.parent.parent.parent)
+            ids=[x["utterance_id"]for x in
+                 proposed["only_unresolved_original_utterances"]]
+            self.assertFalse(set(ids)&set(old))
+            self.assertEqual(
+                len(ids)+len(old),
+                len(request["only_unresolved_original_utterances"]))
+            pending+=len(request["only_unresolved_original_utterances"])
+            excluded+=len(old)
+            eligible+=len(ids)
+        self.assertEqual(pending,manifest["only_unresolved_utterances_requested"])
+        self.assertEqual(pending,excluded+eligible)
+        self.assertEqual(before,{x:_sha(folder/x)for x in before})
 
 
 if __name__=="__main__":
