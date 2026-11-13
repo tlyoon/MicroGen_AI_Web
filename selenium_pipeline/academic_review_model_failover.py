@@ -46,7 +46,7 @@ def _new_verified_receipt(root: Path, receipt: dict) -> None:
 
 def run(*, plan_path: Path, root: Path, max_jobs: int = 1,
         chrome_port: int = 9222, only_positions: set[int] | None = None,
-        campaign=None, inspect_ready=None) -> dict:
+        campaign=None, inspect_ready=None, health_probe=None) -> dict:
     """Preflight exact Flash, recover to exactly verified Pro, then dispatch.
 
     No source claim may be created before an exact owned-tab model/Thinking
@@ -105,7 +105,12 @@ def run(*, plan_path: Path, root: Path, max_jobs: int = 1,
             from .academic_review_transport_circuit import inspect as health
             gate=health(checkpoint_parent=root.parent,
                         source_sha=source_sha,family=chosen)
-            if not gate["automatic_new_academic_model_send_allowed"]:
+            if (not gate["automatic_new_academic_model_send_allowed"]
+                    and not gate.get("source_free_health_probe_due")):
+                # A cooldown that has not expired is a safe, fully
+                # automatic zero-Send stop. Once due, continue ONLY to
+                # a verified *source-free* requalification, never straight
+                # to a new original-PDF claim.
                 return {"status":gate["status"],
                         "new_requests_attempted":0,
                         "jobs_completed":[],
@@ -142,12 +147,38 @@ def run(*, plan_path: Path, root: Path, max_jobs: int = 1,
         from .academic_review_transport_circuit import inspect as health
         gate=health(checkpoint_parent=root.parent,
                     source_sha=source_sha,family=chosen)
+        source_free_probe=None
+        if (not gate["automatic_new_academic_model_send_allowed"]
+                and gate.get("source_free_health_probe_due")):
+            # Automatic normal-pipeline recovery after a real response
+            # outage: probe ONE distinct, source-free, SHA-claimed Gemini
+            # request on the independently verified SAME model+Medium
+            # route. Do not burn any remaining original utterance claims
+            # unless the resulting reply itself is trustworthy.
+            from .academic_provider_requalification import probe_once
+            try:
+                source_free_probe=(health_probe or probe_once)(
+                    checkpoint_parent=root.parent,source_sha=source_sha,
+                    family=chosen,chrome_port=ready["verified_port"])
+            except Exception as exc:
+                return {
+                    "status":"ACADEMIC_SOURCE_FREE_HEALTH_LOCAL_ERROR_NO_SOURCE_SEND",
+                    "health_error_class":type(exc).__name__,
+                    "new_requests_attempted":0,
+                    "jobs_completed":[],"jobs_not_rerun":[],
+                    "academic_transport_health":gate,
+                    "G2_approved":False,
+                    "student_publication_authorized":False,
+                }
+            gate=health(checkpoint_parent=root.parent,
+                        source_sha=source_sha,family=chosen)
         if not gate["automatic_new_academic_model_send_allowed"]:
             return {"status":gate["status"],
                     "new_requests_attempted":0,
                     "jobs_completed":[],
                     "jobs_not_rerun":[],
                     "academic_transport_health":gate,
+                    "academic_source_free_probe":source_free_probe,
                     "G2_approved":False,
                     "student_publication_authorized":False}
         receipt = {
@@ -191,8 +222,19 @@ def run(*, plan_path: Path, root: Path, max_jobs: int = 1,
                     "remaining_unclaimed":source_microbatch[
                         "remaining_original_unclaimed_units"],
                 },"academic_model_route":receipt}
+        # One short synthetic success establishes only that the model can
+        # return an attributable small answer; it does NOT prove source-
+        # sized academic review health. Limit the first resumed campaign to
+        # one distinct original source job, even if --max-new-jobs was 6.
+        recovered_route=bool(
+            gate.get("independent_source_free_reply_reverified"))
+        # The proof may have been created in a prior invocation (or by
+        # the source-free normal diagnostic). Keep the one-original-job cap
+        # for every invocation of the requalified model, not just the
+        # exact call that first generated the short canary.
+        bounded_source_jobs=min(max_jobs,1) if recovered_route else max_jobs
         outcome = campaign(plan_path=dispatch_plan, root=dispatch_root,
-                           max_jobs=max_jobs,
+                           max_jobs=bounded_source_jobs,
                            chrome_port=ready["verified_port"],
                            only_positions=only_positions)
         # A failed source-owned claim is preserved as a SHA-locked transport
@@ -217,7 +259,13 @@ def run(*, plan_path: Path, root: Path, max_jobs: int = 1,
             raise AcademicReviewRouteError(
                 "Source-review transport cannot independently approve G2")
         extra={"academic_model_route":receipt,
-               "academic_transport_health":gate}
+               "academic_transport_health":gate,
+               "bounded_original_source_jobs_budget":bounded_source_jobs}
+        if source_free_probe is not None:
+            # A synthetic health reply is NOT source academic approval.
+            # Include its immutable evidence in the ordinary campaign report
+            # for the next cross-session stage-health audit.
+            extra["academic_source_free_probe"]=source_free_probe
         if source_microbatch is not None:
             extra["academic_microbatch"]={
                 "plan_path":str(dispatch_plan),
@@ -247,12 +295,15 @@ def main(argv=None) -> int:
     parser.add_argument("--chrome-port", type=int, default=9222)
     parser.add_argument("--only-job", type=int, action="append")
     args = parser.parse_args(argv)
+    from .academic_provider_requalification import AcademicProbeError
+    from .academic_review_transport_circuit import AcademicTransportCircuitError
     try:
         result = run(
             plan_path=args.plan, root=args.checkpoint_root,
             max_jobs=args.max_new_jobs, chrome_port=args.chrome_port,
             only_positions=set(args.only_job) if args.only_job else None)
-    except (AcademicGeminiPreSendBlocked, AcademicReviewRouteError) as exc:
+    except (AcademicGeminiPreSendBlocked, AcademicReviewRouteError,
+            AcademicProbeError, AcademicTransportCircuitError) as exc:
         # No arbitrary browser exception text, source document content,
         # account identity or prompt is emitted.
         result = {
@@ -265,6 +316,16 @@ def main(argv=None) -> int:
         print(json.dumps(result, indent=2, sort_keys=True))
         return 2
     print(json.dumps(result, indent=2, sort_keys=True))
+    # A safely deferred health gate MUST NOT exit 0: a parent workflow may
+    # otherwise mistake "no model Send" for "review stage completed".
+    # This classification is distinct from a planned zero dispatch budget
+    # or a successfully prepared immutable short-batch plan.
+    if result.get("status") in {
+        "ACADEMIC_GEMINI_SOURCE_FREE_REQUALIFICATION_REQUIRED",
+        "ACADEMIC_GEMINI_RESPONSES_TEMPORARILY_SUSPENDED",
+        "ACADEMIC_SOURCE_FREE_HEALTH_LOCAL_ERROR_NO_SOURCE_SEND",
+    }:
+        return 2
     # A failed once-claimed review is a nonzero orchestration result, NEVER
     # a positive scientific G2 acceptance or reason for a duplicate Send.
     return int(result.get("G2_approved") is False and

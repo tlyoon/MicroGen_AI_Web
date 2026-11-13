@@ -56,9 +56,23 @@ class SourceLockedAcademicTransportCircuit(TestCase):
         self.assertFalse(stopped["automatic_new_academic_model_send_allowed"])
         self.assertFalse(stopped["provider_outage_proven"])
         self.assertFalse(stopped["old_request_retry_authorized"])
-        self.assertTrue(inspect(checkpoint_parent=self.root,
-                                source_sha=SOURCE,family="pro",now=2802)
-                        ["automatic_new_academic_model_send_allowed"])
+        # Time alone is NOT proof Gemini recovered. Historical failure
+        # receipts remain active even after the old 30-minute cooldown.
+        expired=inspect(checkpoint_parent=self.root,
+                        source_sha=SOURCE,family="pro",now=2802)
+        self.assertFalse(expired["automatic_new_academic_model_send_allowed"])
+        self.assertTrue(expired["source_free_health_probe_due"])
+        self.assertEqual(expired["distinct_failed_requests"],2)
+        self.assertEqual(expired["status"],
+                         "ACADEMIC_GEMINI_SOURCE_FREE_REQUALIFICATION_REQUIRED")
+        # Exact historical defect: 3600 seconds used to erase two genuine
+        # failure observations and silently reopen ORIGINAL source Sends.
+        beyond_old_window=inspect(checkpoint_parent=self.root,
+                         source_sha=SOURCE,family="pro",now=1000+7200)
+        self.assertEqual(beyond_old_window["distinct_failed_requests"],2)
+        self.assertFalse(beyond_old_window[
+            "automatic_new_academic_model_send_allowed"])
+        self.assertTrue(beyond_old_window["source_free_health_probe_due"])
 
     def test_duplicate_failure_same_original_fingerprint_not_counted_twice(self):
         old=self.checkpoint("only","b"*64)

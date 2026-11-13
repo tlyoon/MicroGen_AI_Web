@@ -183,18 +183,53 @@ def inspect(*, checkpoint_parent:Path, source_sha:str, family:str,
                      and not path.is_symlink(),
                      "Unexpected academic source transport evidence")
             event=_read_and_verify(path)
-            if (event["academic_model_family"]==family
-                    and 0 <= instant-event["observed_unix"] <= WINDOW_SECONDS):
+            if event["academic_model_family"]==family:
+                _require(event["observed_unix"]<=instant,
+                         "Academic response failure dated in future")
                 entries.append(event)
     entries.sort(key=lambda x:x["observed_unix"])
-    active=(len(entries)>=THRESHOLD and
-            instant-entries[-1]["observed_unix"]<SUSPENSION_SECONDS)
+    # CRITICAL recurrence fix: the previous implementation deleted failures
+    # from the *decision* after 3600 s and reopened source-bound Sends
+    # merely because 1800 s elapsed. Gemini's model responsiveness was never
+    # re-established, so a later campaign would consume further original
+    # claims on precisely the same failed transport. Retain the witnessed
+    # historical pair forever. Cooldown enables a SOURCE-FREE diagnostic,
+    # never fresh original PDF submissions by itself.
+    tripped=any(
+        0 <= entries[i]["observed_unix"]-entries[i-1]["observed_unix"]
+           <=WINDOW_SECONDS
+        for i in range(1,len(entries))
+    )
+    cooldown_due=False
+    recovered=False
+    recovery_observed=None
+    if tripped:
+        last_failure=entries[-1]["observed_unix"]
+        cooldown_due=instant-last_failure>=SUSPENSION_SECONDS
+        from .academic_provider_requalification import latest_success
+        evidence=latest_success(
+            checkpoint_parent=checkpoint_parent,source_sha=source_sha,
+            family=family,after_unix=last_failure,now=instant)
+        recovered=evidence is not None
+        if recovered:
+            recovery_observed=evidence["observed_unix"]
+    active=tripped and not recovered
+    status=(
+        "ACADEMIC_GEMINI_REQUALIFIED_NEW_SOURCE_SEND_ALLOWED"
+        if tripped and recovered else
+        "ACADEMIC_GEMINI_SOURCE_FREE_REQUALIFICATION_REQUIRED"
+        if active and cooldown_due else
+        "ACADEMIC_GEMINI_RESPONSES_TEMPORARILY_SUSPENDED"
+        if active else "NO_ACTIVE_ACADEMIC_RESPONSE_HEALTH_SUSPENSION")
     return {
-        "schema_version":1,
-        "status":("ACADEMIC_GEMINI_RESPONSES_TEMPORARILY_SUSPENDED"
-                  if active else "NO_ACTIVE_ACADEMIC_RESPONSE_HEALTH_SUSPENSION"),
+        "schema_version":2,
+        "status":status,
         "source_sha256":source_sha,"model_family":family,
         "distinct_failed_requests":len(entries),
+        "persistent_unrequalified_failure_pair":bool(active),
+        "source_free_health_probe_due":bool(active and cooldown_due),
+        "independent_source_free_reply_reverified":bool(recovered),
+        "recovery_observed_unix":recovery_observed,
         "automatic_new_academic_model_send_allowed":not active,
         "provider_outage_proven":False,
         "old_request_retry_authorized":False,
