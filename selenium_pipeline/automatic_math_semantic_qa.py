@@ -218,6 +218,14 @@ def main(argv=None)->int:
         if not a.source_pdf.is_file(): raise ValueError("Missing original source PDF")
         source_hash=hashlib.sha256(a.source_pdf.read_bytes()).hexdigest()
     report=inspect_math_semantics(before.decode("utf-8-sig"),source_sha256=source_hash)
+    if a.source_pdf:
+        # Reuse independent symbolic source-grounded mathematical laws in
+        # the NORMAL pre-TTS script_qa stage. The theorem checker is optional
+        # for unrelated subject matter, and never silently marks incomplete
+        # source semantic review, element speech, or final G2 as passed.
+        from .source_physics_drag_symbolic_qa import inspect as source_drag_proof
+        report["source_grounded_symbolic_drag_proof_v1"]=source_drag_proof(
+            source=a.source_pdf,script=a.script)
     if a.report.exists(): raise FileExistsError("Never overwrite math semantic receipt")
     with a.report.open("x",encoding="utf8") as stream:
         json.dump(report,stream,indent=2,ensure_ascii=False);stream.write("\n")

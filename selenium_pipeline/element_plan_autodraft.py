@@ -89,11 +89,25 @@ def math_markers(text: str) -> set[str]:
 
 def stable_recommendations(speech: str, candidates: list[dict]) -> list[dict]:
     spoken_math=math_markers(speech)
+    # Only SOURCE-WITNESSED caption panels may have a deterministic
+    # author-label match. A vague 'panel b' is never used to guess a
+    # rectangular image region, and the hint never approves science/TTS.
+    named=re.search(r"(?i)\b(?:panel|diagram)\s*\(?([a-f])\)?\b",speech)
+    requested_panel=named.group(1).lower() if named else None
     ranked=[]
     for target in candidates:
-        if target.get("kind") != "text_block":
-            # Figure meanings and subfigure labels require actual visual review.
+        kind=target.get("kind")
+        if kind not in ("text_block","image_caption_panel"):
             continue
+        if kind=="image_caption_panel":
+            anchor=target.get("anchor") or {}
+            if (anchor.get("type")!="original_pdf_panel_visual_provenance"
+                    or target.get("source_caption_panel_meaning_verified") is not True
+                    or target.get("independent_visual_registration_verified") is not True
+                    or target.get("mathematical_semantics_verified") is not False):
+                continue
+            if requested_panel and anchor.get("panel")!=requested_panel:
+                continue
         visible=target.get("visible_text","") or ""
         lexical=similarity(speech,visible)
         target_math=math_markers(visible)
@@ -112,6 +126,11 @@ def stable_recommendations(speech: str, candidates: list[dict]) -> list[dict]:
             # Do not merely down-rank it: candidates may otherwise outrank
             # all correct expressions in the same rendered slide.
             continue
+        if kind=="image_caption_panel" and requested_panel:
+            # Original textbook's unique visible (a)/(b)/(c) anchors
+            # independently match source caption meanings to actual image
+            # pixels. This is a robust *ranking hint* only, not academic QA.
+            score=max(score,.99)
         score=round(score,4)
         if score>0:
             ranked.append({"draft_element_id":target["draft_element_id"],
@@ -170,6 +189,33 @@ def propose(*, source_pdf: Path, slides_pdf: Path, script_txt: Path) -> dict:
                 except ElementStageError as exc:
                     excluded.append({"draft_element_id":item["draft_element_id"],
                                      "reason":str(exc)})
+            # The historical rich-lecture mapper listed only the WHOLE
+            # multi-panel bitmap, even after an independent source-caption
+            # and cross-detector physical panel proof became available. Add
+            # these safe, distinctly selectable captioned panel candidates
+            # to the *ordinary* source-grounded rich mapping request too.
+            # Their source-visible caption proves panel meaning/provenance,
+            # not a narrated claim's mathematical correctness or TTS timing.
+            from .captioned_panel_target_router import panel_targets_for_slide
+            for panel in panel_targets_for_slide(
+                    source=source,slides=slides,slide_number=number,
+                    rendered_text=pg.get_text()):
+                targets.append({
+                    "draft_element_id":panel["draft_element_id"],
+                    "kind":panel["kind"],
+                    "anchor":panel["anchor"],
+                    "rendered_rect_pt":panel["bbox_pdf_pt"],
+                    "visible_text":panel["visible_text"],
+                    "suspected_multipart":False,
+                    "panel_identity_review_required":False,
+                    "source_caption_panel_meaning_verified":True,
+                    "independent_visual_registration_verified":True,
+                    "mathematical_semantics_verified":False,
+                    "source_page_candidate_unverified":
+                        [panel["anchor"]["source_page"]],
+                    "source_evidence_verified":False,
+                    "author_reviewed":False,
+                })
             spoken=[]
             for j,unit in enumerate(utterances(text),1):
                 matches=stable_recommendations(unit,targets)

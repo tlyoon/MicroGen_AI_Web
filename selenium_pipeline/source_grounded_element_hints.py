@@ -33,6 +33,10 @@ def source_evidence_worklist(*,folder:Path,candidates:dict|None=None)->dict:
             require(type(n) is int and 1<=n<=len(deck),"Invalid original slide number")
             raw=deck[n-1].get_text("blocks")
             ids={}
+            # Verify the newly registered panel set ONE time per slide,
+            # against the unchanged original source and the actual slide
+            # bitmap. A cached/forged image-panel rectangle is not evidence.
+            verified_panels=None
             for elem in slide["candidate_visual_targets"]:
                 kind=elem.get("kind")
                 if kind=="text_block":
@@ -45,6 +49,16 @@ def source_evidence_worklist(*,folder:Path,candidates:dict|None=None)->dict:
                 elif kind in ("image_whole","math_row_group"):
                     from .verified_slide_visual_candidates import verify_visual_target
                     verify_visual_target(deck[n-1],n,elem)
+                elif kind=="image_caption_panel":
+                    if verified_panels is None:
+                        from .captioned_panel_target_router import panel_targets_for_slide
+                        verified_panels={
+                            p["draft_element_id"]:p for p in panel_targets_for_slide(
+                                source=folder/"source.pdf",
+                                slides=folder/"slides.pdf",slide_number=n)}
+                    require(elem["draft_element_id"] in verified_panels
+                            and elem==verified_panels[elem["draft_element_id"]],
+                            "Source caption/panel visual geometry or semantics altered")
                 else:
                     require(False,"Unrecognized or forged visual target kind")
                 ids[elem["draft_element_id"]]=elem

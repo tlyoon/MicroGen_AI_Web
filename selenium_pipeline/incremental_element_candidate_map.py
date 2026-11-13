@@ -51,6 +51,15 @@ def candidate_map(*,folder:Path, queue:dict|None=None)->dict:
                 registered_raster_targets, composite_math_targets)
             targets.extend(registered_raster_targets(page, index))
             targets.extend(composite_math_targets(page, index, targets))
+            # Recycle the source-caption/panel-marker and dual-detector
+            # correspondence evidence on-the-fly. The returned targets carry
+            # exact caption meaning and independent PDF/image provenance,
+            # NEVER automatic mathematical or acoustic approval.
+            if any(t["kind"]=="image_whole" for t in targets):
+                from .captioned_panel_target_router import panel_targets_for_slide
+                targets.extend(panel_targets_for_slide(
+                    source=folder/"source.pdf",slides=slides,
+                    slide_number=index,rendered_text=page.get_text()))
             refs=[]
             for utterance in row["original_verbatim_utterances"]:
                 candidates=stable_recommendations(
