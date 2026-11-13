@@ -96,7 +96,9 @@ class FreshIndependentOriginalTests(unittest.TestCase):
 
     def test_real_runner_contract_passes_one_send_budget_to_bounded_child(self):
         fake = Mock(return_value=subprocess.CompletedProcess([], 1, "", ""))
-        with patch("selenium_pipeline.windows_bounded_stage_process.run_bounded",
+        with patch("selenium_pipeline.windows_new_source_browser_admission.inspect_new_source_browser_admission",
+                   return_value={"new_source_stage_send_eligible":True}), patch(
+            "selenium_pipeline.windows_bounded_stage_process.run_bounded",
                    fake), patch(
             "selenium_pipeline.windows_gemini_provider_halt.record_stage",
             return_value={"status": "MOCK_ONLY_NO_HEALTH_MUTATION"},
@@ -120,7 +122,9 @@ class FreshIndependentOriginalTests(unittest.TestCase):
 
     def test_new_original_after_prior_503_uses_key_two_with_no_resend_budget(self):
         fake = Mock(return_value=subprocess.CompletedProcess([], 1, "", ""))
-        with patch("selenium_pipeline.windows_gemini_provider_halt.inspect_halt",
+        with patch("selenium_pipeline.windows_new_source_browser_admission.inspect_new_source_browser_admission",
+                   return_value={"new_source_stage_send_eligible":True}), patch(
+            "selenium_pipeline.windows_gemini_provider_halt.inspect_halt",
                    return_value={
                        "status": "NO_PROVIDER_HALT",
                        "new_generation_dispatch_allowed_by_health_policy": True,

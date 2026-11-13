@@ -1,5 +1,19 @@
 # MicroGen_AI_Web failure-to-fix ledger — current continuation
 
+## MG-NEW-SOURCE-GEMINI-ROUTE-HEALTH-INCONSISTENCY-20261113 — Dell-115 fresh PDF generation
+
+**Historical recurrence physically reproduced:** On new Serway §1.2, source SHA `814ce3e174b730271b04bbec4284bb4a15930d5026a2fcbb5148e0cf5ec018cb`, the normal Windows coordinator considered the figures stage ready because the temporary `windows_gemini_provider_halt` returned `NO_PROVIDER_HALT`. However independent immutable source-free evidence in `windows_provider_route_evidence_preflight` had a verified Gemini browser UI failure and source-sized canary without attributable new user-turn registration. The most recent Nov 10 1973-character Gemini V3 canary produced valid JSON but `gemini_new_user_turn_verified=null` and `gemini_send_registration_status=null`; mere browser login/model response or cooldown expiry must not justify sending a source PDF.
+
+**Permanent normal-path remedy:** New `selenium_pipeline.windows_new_source_browser_admission` loads the latest canonical immutable SHA-verified source-free canary and existing browser/health readings. It requires a source-sized actual verified response with explicit positive owned new-user-turn registration, no source attachment and health approval, rejecting an older positive overridden by newer failure, stale/forged receipt, or uncertain model attribution. The **same** gate now runs automatically in real `windows_lecture_progression_coordinator.inspect_progress`, `windows_fresh_source_trial.run_trial` and `windows_original_stage_sequence.run_stage` (slides/narration), BEFORE any immutable Send-intent/model call. Future independently attributable new canary evidence unlocks genuinely new source work automatically without modifying source content or relying on chat history; previously submitted/ambiguous old requests remain never retryable. No ChatGPT/API fallback or silent account switching.
+
+**Real new source and QA evidence:** Seven-stage §1.2 dry-run returned `FRESH_SOURCE_SEVEN_STAGE_DRY_RUN_READY` with original+staged source hashes identical, zero Gemini/TTS calls. After fix, real read-only coordinator returned `HALTED_UNVERIFIED_GEMINI_BROWSER_ROUTE_NO_SEND`; direct figures admission returned `GEMINI_SOURCE_ROUTE_UNVERIFIED_NO_SUBMISSION`; no figures Send ledger or result was created. Existing real Serway §6.4 14 SHA-bound WAVs pass objective PCM signal integrity with 833.471s input/2 slide-level groups, but independent pronunciation, acoustic transcript, mathematical semantics and element-level synchronization remain unverified. This is not successful new slide/audio/video generation or G2 clearance.
+
+**Automated recurrence coverage:** `tests/test_windows_new_source_browser_admission.py`, targeted direct slides-stage negative test and preexisting fake-bounded-worker tests. Registered in `.github/workflows/microgen-reliability-tests.yml` offline history list. Technical report: `docs/FRESH_SERWAY12_SOURCE_ROUTE_RECOVERY_20261113.md`. Exact-head Windows CI still required before engineering acceptance; no merge, release or publication.
+
+---
+
+# MicroGen_AI_Web failure-to-fix ledger — current continuation
+
 ## MG-G2-CONDITIONAL-DRAG-THEOREM-V2 — 13 Nov 2026, real physics and immutable on-flight sidecar
 
 **Historical recurring blocker:** Serway §6.4 slide 14 asks two nontrivial physics questions unresolved in the 41-consumed-claim source academic campaign: same-size spheres with masses m and 2m in common linear drag, and directions of velocity/net force/acceleration immediately after a parachute increases quadratic drag. Previous source citation improvements provided genuine printed passages, but a physically available quotation alone does not independently prove the analytical claim or permit repeating an original Gemini Send.

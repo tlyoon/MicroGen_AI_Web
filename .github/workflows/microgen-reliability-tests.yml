@@ -65,6 +65,7 @@ jobs:
             "tests.test_windows_operator_launcher"
             "tests.test_original_windows_batch_controller"
             "tests.test_windows_fresh_source_trial"
+            "tests.test_windows_new_source_browser_admission"
             "tests.test_windows_recovery_integrity"
             "tests.test_windows_release_readiness_board"
             "tests.test_windows_install_smoke"

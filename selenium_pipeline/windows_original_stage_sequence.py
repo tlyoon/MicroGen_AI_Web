@@ -56,7 +56,8 @@ def _trial(trial_dir: Path) -> tuple[dict, Path, Path]:
 
 def run_stage(*, trial_dir: Path, stage: str, timeout_seconds: int = 480,
               stage_runner=None, communication_mode: str = "selenium",
-              confirm_content_api_cost: bool = False) -> dict:
+              confirm_content_api_cost: bool = False,
+              browser_route_inspect=None) -> dict:
     require(stage in _ORDER, "Only vetted slides/narration/script QA stages supported")
     require(communication_mode in {"selenium", "api"},
             "Automatic API fallback prohibited after uncertain browser send")
@@ -175,6 +176,24 @@ def run_stage(*, trial_dir: Path, stage: str, timeout_seconds: int = 480,
                 "provider_health_gate": health,
                 "new_model_or_tts_calls": False,
                 "student_publication_authorized": False,
+            }
+    if stage in ("slides", "narration") and communication_mode == "selenium" and (
+            stage_runner is None or browser_route_inspect is not None):
+        from .windows_new_source_browser_admission import (
+            inspect_new_source_browser_admission)
+        try:
+            route = (browser_route_inspect or
+                     inspect_new_source_browser_admission)()
+        except (ValueError, OSError, TypeError):
+            route = {"status":"NEW_SOURCE_GEMINI_ROUTE_EVIDENCE_REJECTED",
+                     "new_source_stage_send_eligible":False}
+        if route.get("new_source_stage_send_eligible") is not True:
+            return {
+                "status":"GEMINI_SOURCE_ROUTE_UNVERIFIED_NO_SUBMISSION",
+                "stage":stage, "source_sha256":contract["source_sha256"],
+                "source_free_route_status":route.get("status"),
+                "new_model_or_tts_calls":False,
+                "student_publication_authorized":False,
             }
     _new_atomic(started, intent)
     command = [

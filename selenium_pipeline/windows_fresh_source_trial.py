@@ -53,7 +53,8 @@ def run_trial(*, source_root: Path, section: str, trial_dir: Path,
               subprocess_run=None,
               timeout_seconds: int = DEFAULT_FIGURE_STAGE_TIMEOUT_SECONDS,
               communication_mode: str = "selenium",
-              confirm_content_api_cost: bool = False) -> dict:
+              confirm_content_api_cost: bool = False,
+              browser_route_inspect=None) -> dict:
     require(os.name == "nt", "Only native Windows Dell-115 original trials")
     require(communication_mode in {"selenium", "api"},
             "No automatic API fallback after uncertain Selenium send")
@@ -170,6 +171,30 @@ def run_trial(*, source_root: Path, section: str, trial_dir: Path,
         result["status"] = "GEMINI_PROVIDER_COOLDOWN_NO_SUBMISSION"
         result["provider_health_gate"] = provider_gate
         return result
+    # Reuse the SHA-validated independent source-free canary history in the
+    # NORMAL live figures stage, not just in a diagnostic script. Synthetic
+    # subprocess seams remain inert unless an explicit test injector provides
+    # a route verdict. Never auto-switch to an API key, account or old prompt.
+    if communication_mode == "selenium" and (
+            subprocess_run is None or browser_route_inspect is not None):
+        from .windows_new_source_browser_admission import (
+            inspect_new_source_browser_admission)
+        try:
+            route = (browser_route_inspect or
+                     inspect_new_source_browser_admission)()
+        except (ValueError, OSError, TypeError):
+            route = {"status":"NEW_SOURCE_GEMINI_ROUTE_EVIDENCE_REJECTED",
+                     "new_source_stage_send_eligible":False}
+        if route.get("new_source_stage_send_eligible") is not True:
+            result["status"] = "GEMINI_SOURCE_ROUTE_UNVERIFIED_NO_SUBMISSION"
+            result["source_free_route_gate"] = {
+                "status":route.get("status"),
+                "owned_new_user_turn_verified":route.get(
+                    "owned_new_user_turn_verified",False),
+                "historical_canary_claim_verified":route.get(
+                    "historical_canary_claim_verified",False),
+                "new_model_or_tts_calls":False}
+            return result
     # Persist the send-intent *before* invoking an unpredictable browser.
     # A crash, ambiguous send or timeout must NEVER be silently retried.
     model_attempt = {
