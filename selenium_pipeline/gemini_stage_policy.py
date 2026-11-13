@@ -54,10 +54,14 @@ def browser_stage_needs_thinking(*, mode: str | None = None,
     active = (stage if stage is not None else
               os.getenv("MICROGEN_ACTIVE_GENERATION_STAGE", "").strip().lower())
     if active == "figures":
-        if selected != FIGURE_UI_MODE:
-            raise GeminiStagePolicyError(
-                "Figure caption stage requires exact Flash-Lite, not Thinking menu")
-        return False
+        # Default Flash-Lite remains light and needs no effort submenu.
+        # When physically unavailable, an independently verified full
+        # Flash/Pro fallback MUST pass the normal thinking/effort gate.
+        if selected == FIGURE_UI_MODE:
+            return False
+        if selected in ("flash","pro"):
+            return True
+        raise GeminiStagePolicyError("Unknown figure-stage fallback model")
     if selected == FIGURE_UI_MODE:
         raise GeminiStagePolicyError(
             "Flash-Lite without Thinking permitted ONLY for figures stage")

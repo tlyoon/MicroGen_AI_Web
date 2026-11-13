@@ -96,39 +96,70 @@ def _eligible_mode_menu_text(text: str, mode: str) -> bool:
                for line in lines)
 
 
-def visible_offered_gemini_families(driver) -> list[str]:
-    """Read only visible model-radio family names; never choose a substitute.
+def _visible_model_options(driver):
+    """Atomic accessible model options; separate exact option from wrappers.
 
-    Capturing exact available model families is essential for treating model
-    removal as an entitlement/capability change rather than repeating a
-    broken Selenium-picker fix. Ignore menu wrappers and arbitrary page text.
+    The runtime probe traverses open shadow roots once. Older/offline
+    Selenium drivers retain the semantic role+test-id fallback. Duplicate
+    selectors must never yield duplicate model choices.
     """
     from selenium.webdriver.common.by import By
-    labels=set()
-    for selector in ('[role="menuitemradio"]',
-                     'gem-menu-item[role="menuitemradio"]',
-                     '[data-test-id^="bard-mode-option"]',
-                     '[role="radio"]','[role="option"]',
-                     '[role="menuitem"]'):
-        try:
-            elements=driver.find_elements(By.CSS_SELECTOR,selector)
-        except Exception:
-            continue
-        for item in elements:
+    from .gemini_ui_semantic_controls import snapshot_options,Option
+    from .gemini_ui_adaptive_protocol import normalized_family
+    atomic=snapshot_options(driver)
+    items=[]
+    if atomic is not None:
+        items=list(atomic)
+    else:
+        unique={}
+        selectors=(
+          '[role="menuitemradio"]','[role="radio"]',
+          '[role="option"]','[role="menuitemcheckbox"]',
+          '[role="menuitem"]','gem-menu-item[role="menuitem"]',
+          'gem-menu-item[role="menuitemradio"]',
+          '[data-test-id^="bard-mode-option"]',
+          '[data-test-id*="model-option"]',
+        )
+        for selector in selectors:
             try:
-                if not item.is_displayed():
-                    continue
-                text=(item.text or "").casefold()
-                if len(text)>180:
-                    continue
-                variants=re.findall(
-                    r"(?<!\\w)(flash[\\s-]*lite|flash|pro|hydrogen|argon|carbon)(?!\\w)",
-                    text,flags=re.I)
-                if len(variants)==1:
-                    labels.add(variants[0].replace(" ","-").casefold())
+                found=driver.find_elements(By.CSS_SELECTOR,selector)
             except Exception:
                 continue
-    return sorted(labels)
+            for item in found:
+                try:
+                    if not item.is_displayed():
+                        continue
+                    key=getattr(item,"id",None) or id(item)
+                    label="\n".join(filter(None,(
+                        item.text or "",
+                        item.get_attribute("aria-label") or "",
+                        item.get_attribute("title") or "",
+                    )))
+                    if 0<len(label)<=230:
+                        unique[key]=Option(
+                            item,label,
+                            (item.get_attribute("aria-checked")=="true"
+                             or item.get_attribute("aria-selected")=="true"),
+                            item.get_attribute("aria-disabled")=="true")
+                except Exception:
+                    continue
+        items=list(unique.values())
+    result=[]
+    for candidate in items:
+        family=normalized_family(candidate.label)
+        if family and len(candidate.label)<=230:
+            result.append((family,candidate))
+    return result
+
+
+def visible_offered_gemini_families(driver) -> list[str]:
+    """Read positive known-family evidence from visible individual controls.
+
+    Unknown models such as Hydrogen/Argon/Carbon are NOT presumed equivalent
+    to Flash. An absent/ambiguous menu cannot justify any model fallback.
+    """
+    return sorted({family for family,option in _visible_model_options(driver)
+                   if not option.disabled})
 
 
 def _owned_picker(driver, owned_handle: str | None):
@@ -168,9 +199,19 @@ def _owned_picker(driver, owned_handle: str | None):
               '[role="button"][aria-haspopup="menu"]'
             ];
             const nodes = new Set();
-            for (const selector of selectors) {
-              for (const node of document.querySelectorAll(selector)) {
-                nodes.add(node);
+            // Retain the historical document.querySelectorAll probe, but
+            // expand into open Shadow DOM roots for custom-element redesigns.
+            const roots=[document], seenRoots=new Set();
+            for (const root of roots) {
+              if (seenRoots.has(root) || seenRoots.size>=80)continue;
+              seenRoots.add(root);
+              for (const selector of selectors) {
+                for (const node of root.querySelectorAll(selector))
+                  nodes.add(node);
+              }
+              for (const node of root.querySelectorAll('*')) {
+                if (node.shadowRoot && !seenRoots.has(node.shadowRoot))
+                  roots.push(node.shadowRoot);
               }
             }
             const visible = node => {
@@ -223,22 +264,38 @@ def _owned_picker(driver, owned_handle: str | None):
 
 
 def _observed_picker_label(picker) -> str:
-    label = picker.get_attribute("aria-label") or ""
-    if re.search(r"\bcurrently\b", label, flags=re.I):
-        return label
-    alternate = re.search(
-        r"(?:current|selected)\s+model\s*[:\-]\s*(.+)$", label, flags=re.I)
-    if alternate:
-        return "Open mode picker, currently " + alternate.group(1)
-    # If Gemini removes aria-label but keeps its dedicated model button,
-    # use that button's *own* visible model name, never another element.
-    test = str(picker.get_attribute("data-test-id") or "").casefold()
-    text = (picker.text or "").strip()
-    if ("mode" in test and "menu" in test and
-            re.fullmatch(r"(?:gemini\s+)?(?:\d+(?:\.\d+)?\s+)?"
-                         r"(?:flash(?:\s+(?:high|fast))?|pro|flash[ -]lite)",
-                         text, flags=re.I)):
-        return "Open mode picker, currently " + text
+    """Require evidence from the dedicated control of its CURRENT family.
+
+    Accessibility word order, model versions and text host can change. A
+    generic 'Choose model' action label proves nothing about selection.
+    """
+    from .gemini_ui_adaptive_protocol import normalized_family
+    for name in ("aria-label","title","aria-description"):
+        label=str(picker.get_attribute(name) or "").strip()
+        if not label:
+            continue
+        if re.search(
+          r"\b(?:currently|current\s+(?:model|mode)|selected\s+(?:model|mode)|"
+          r"using\s+(?:model\s+)?|active\s+(?:model|mode))\b",
+          label,flags=re.I):
+            if re.search(r"\bcurrently\b",label,flags=re.I):
+                return label
+            named=re.search(
+                r"\b(?:current|selected|active)\s+(?:model|mode)\s*[:\-]\s*(.*)$",
+                label,flags=re.I)
+            return "Open mode picker, currently "+(
+                named.group(1) if named else label)
+    # The own text of a uniquely proved model selector is a selected
+    # model label. Never infer it from the page body or any other tab.
+    test=str(picker.get_attribute("data-test-id") or "").casefold()
+    text=(getattr(picker,"text","") or "").strip()
+    label=str(picker.get_attribute("aria-label") or "").casefold()
+    if (("mode" in test or "model" in test or
+         ("model" in label and "picker" in label))
+        and normalized_family(text) is not None
+        and len(text)<=90
+        and len(text.splitlines())<=2):
+        return "Open mode picker, currently "+text
     raise GeminiModelError("PRE_SEND_SELECTED_MODEL_FAMILY_UNOBSERVABLE")
 
 
@@ -337,10 +394,13 @@ def select_owned_gemini_mode(driver, owned_handle: str | None, *,
     current = _observed_picker_label(picker)
     if _matches_mode(current, mode):
         return assert_owned_gemini_mode(driver, owned_handle, mode)
-    try:
-        picker.click()
-    except Exception:
-        driver.execute_script("arguments[0].click();", picker)
+    # A failed exact selection may leave the same model menu open. A retry
+    # must NOT toggle an already-open menu shut before scanning its options.
+    if (picker.get_attribute("aria-expanded") or "").casefold() != "true":
+        try:
+            picker.click()
+        except Exception:
+            driver.execute_script("arguments[0].click();", picker)
     deadline = time.monotonic() + timeout
     target = None
     while time.monotonic() < deadline:
@@ -348,17 +408,11 @@ def select_owned_gemini_mode(driver, owned_handle: str | None, *,
         if driver.current_window_handle != owned_handle:
             raise GeminiModelError("PRE_SEND_OWNED_GEMINI_TAB_CHANGED")
         unique = {}
-        for selector in ('[role="menuitemradio"]',
-                         'gem-menu-item[role="menuitemradio"]',
-                         '[role="radio"]', '[role="option"]',
-                         '[role="menuitemcheckbox"]', '[role="menuitem"]',
-                         'gem-menu-item[role="menuitem"]',
-                         '[data-test-id^="bard-mode-option"]',
-                         'gem-menu-item[aria-checked]'):
-            for item in driver.find_elements(By.CSS_SELECTOR, selector):
-                if item.is_displayed() and _eligible_mode_menu_text(
-                        item.text or "", mode):
-                    unique[item.id] = item
+        for family, item in _visible_model_options(driver):
+            if family != mode or item.disabled:
+                continue
+            element=item.element
+            unique[getattr(element,"id",None) or id(element)]=element
         if len(unique) > 1:
             raise GeminiModelError("PRE_SEND_AMBIGUOUS_GEMINI_MODEL_MENU")
         if unique:
@@ -372,6 +426,9 @@ def select_owned_gemini_mode(driver, owned_handle: str | None, *,
         # guess that Hydrogen/Pro/Flash-Lite is semantically equivalent.
         detail=("; requested="+mode+"; offered="+",".join(offered)
                 if offered and mode not in offered else "")
+        # Include only the dedicated picker's short current-family label for
+        # diagnostics (never prompt text, account details, or page contents).
+        detail+="; current="+str(current)[:100]
         raise GeminiModelError(
             "PRE_SEND_REQUESTED_GEMINI_MODEL_NOT_AVAILABLE_NO_SEND"+detail)
     try:
@@ -388,6 +445,66 @@ def select_owned_gemini_mode(driver, owned_handle: str | None, *,
                 raise
             time.sleep(0.2)
     raise GeminiModelError("PRE_SEND_GEMINI_MODEL_FAMILY_NOT_CONFIRMED_NO_SEND")
+
+
+def select_owned_gemini_with_recovery(
+        driver, owned_handle: str | None, *, mode: str = "flash",
+        stage: str | None = None, timeout: float = 15,
+        allow_fallback: bool = True) -> str:
+    """Normal pre-Send route: prefer Flash, adapt only to verified absence.
+
+    This deliberately reuses the EXACT low-level selector. A recognized
+    fallback is a same-task model-family choice, never a new provider, API,
+    alternate account, response retry or bypass of mathematical/source QA.
+
+    Only when the positive visible model menu establishes that the
+    contracted family is unavailable can the *stage policy* choose a
+    verified family. Unknown marketing models are never guessed as Flash.
+    """
+    import os
+    from .gemini_ui_adaptive_protocol import (
+        choose_family, GeminiAdaptivePolicyError)
+    try:
+        return select_owned_gemini_mode(
+            driver,owned_handle,mode=mode,timeout=timeout)
+    except GeminiModelError as error:
+        # An ambiguous selector, stale tab, missing selected-state proof or
+        # changed UI is not evidence the model was removed. Do not silently
+        # fallback in those cases. An academic no-Send source preflight can
+        # also require the exact original family.
+        if (not allow_fallback or not str(error).startswith(
+            "PRE_SEND_REQUESTED_GEMINI_MODEL_NOT_AVAILABLE_NO_SEND")):
+            raise
+        active=(stage or os.getenv("MICROGEN_ACTIVE_GENERATION_STAGE","")
+                or os.getenv("MICROGEN_GEMINI_INTERACTION_STAGE","")
+                ).strip().casefold()
+        offered=visible_offered_gemini_families(driver)
+        if not offered or mode in offered:
+            raise GeminiModelError(
+                "PRE_SEND_MODEL_FALLBACK_NOT_AUTHORIZED_WITHOUT_EXACT_MENU_EVIDENCE"
+            ) from error
+        try:
+            route=choose_family(requested=mode,offered=offered,stage=active)
+        except GeminiAdaptivePolicyError as exc:
+            raise GeminiModelError(str(exc)) from error
+        if route.chosen == mode:
+            raise
+        selected=select_owned_gemini_mode(
+            driver,owned_handle,mode=route.chosen,timeout=timeout)
+        # Only verified chosen-mode controls may update this worker's
+        # stage-local runtime contract. Parent runner/other child jobs are
+        # untouched, and *every* subsequent pre-Send gate reads the update.
+        model_ids={
+            "flash":"gemini-3.8-flash",
+            "flash-lite":"gemini-3.5-flash-lite",
+            "pro":"gemini-3.1-pro",
+        }
+        os.environ["MICROGEN_GEMINI_UI_MODE"]=route.chosen
+        os.environ["MICROGEN_LLM_MODEL"]=model_ids[route.chosen]
+        os.environ["MICROGEN_MODEL_ROUTE_REASON"]=route.reason
+        os.environ["MICROGEN_MODEL_ROUTE_REQUESTED"]=route.requested
+        os.environ["MICROGEN_MODEL_ROUTE_OFFERED"]=",".join(route.offered)
+        return selected
 
 
 def browser_model_evidence(label: str, *, requested_mode: str,

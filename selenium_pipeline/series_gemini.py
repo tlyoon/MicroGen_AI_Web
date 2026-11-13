@@ -116,16 +116,25 @@ def _browser_request(instruction: str,attachments: list[Path],
                 # open_clean_gemini_chat performs both initial and post-New-chat
                 # model/Thinking verification on the precise owned tab.
                 owned.open_clean_gemini_chat()
+                # The owned worker may have selected a verified stage-safe
+                # fallback when Flash disappeared. Re-read its actual runtime
+                # contract instead of checking the stale original family.
+                selected=os.getenv("MICROGEN_GEMINI_UI_MODE",selected).strip().lower()
                 # New chats can reset both model and Thinking level.
                 # Both are checked again in THIS owned tab before any Send.
                 from .gemini_stage_policy import browser_stage_needs_thinking
                 if browser_stage_needs_thinking(mode=selected):
                     from .gemini_thinking import (
                         configured_thinking_level,
-                        select_owned_gemini_thinking_level)
-                    select_owned_gemini_thinking_level(
+                        select_owned_gemini_thinking_with_recovery)
+                    select_owned_gemini_thinking_with_recovery(
                         owned.driver, getattr(owned, "_automation_tab", None),
-                        level=configured_thinking_level(), timeout=20)
+                        level=configured_thinking_level(), timeout=20,
+                        stage=os.getenv("MICROGEN_ACTIVE_GENERATION_STAGE",
+                                        "academic_review"),
+                        allow_fallback=os.getenv(
+                            "MICROGEN_ACTIVE_GENERATION_STAGE","") in (
+                                "figures","slides","narration"))
                 # New chats may reset Gemini's mode: independently recheck.
                 from .gemini_model import (
                     assert_owned_gemini_mode, browser_model_evidence)

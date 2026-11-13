@@ -72,41 +72,81 @@ _VERIFIED_THINKING = re.compile(
     r"(?m)^\[\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\] \[INFO\] "
     r"\[GEMINI-THINKING\] PRE_SEND_OWNED_LEVEL_VERIFIED "
     r"(low|medium|high)\s*$")
+_OWNED_AFTER_CHAT_THINKING = re.compile(
+    r"(?m)^\[\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\] \[INFO\] "
+    r"\[GEMINI-THINKING\] OWNED_LEVEL_VERIFIED_AFTER_NEW_CHAT "
+    r"(low|medium|high)\s*$")
 
 
 def audit_original_stage_model_family(raw: str, *, registered_send: bool) -> dict:
     """Source-log only: detect a bad owned model family, never infer outage."""
     from .gemini_model import _matches_mode
+    from .gemini_ui_stage_route_witness import inspect_stage_route
     requested = _EXPECTED_UI_MODE.search(raw)
     mode = requested.group(1) if requested else None
     selected = _VENDOR_OWNED_MODE.findall(raw)
     verified = _VERIFIED_OWNED_PRE_SEND.findall(raw)
-    wrong = bool(
-        registered_send and mode and selected
-        and any(not _matches_mode(label, mode) for label in selected))
-    valid_pre_send = bool(
-        registered_send and mode and verified
-        and all(_matches_mode(label, mode) for label in verified))
     expected_thinking_match = _EXPECTED_THINKING.search(raw)
     expected_thinking = (expected_thinking_match.group(1)
                          if expected_thinking_match else None)
+    route=inspect_stage_route(
+        raw=raw,original_mode=mode,original_effort=expected_thinking)
+    # A child can adapt to the positively absent preferred model, but only
+    # when the exact route menu and stage/effort choice are independently
+    # witnessed in local, timestamped worker logs. Unexplained switches
+    # remain violations even when the resulting model is otherwise usable.
+    effective_mode=route["effective_model"]
+    wrong = bool(
+        registered_send and
+        (route["route_rejected"] or
+         (effective_mode and selected and any(
+             not _matches_mode(label,effective_mode) for label in selected))))
+    valid_pre_send = bool(
+        registered_send and effective_mode and verified and
+        not route["route_rejected"] and
+        all(_matches_mode(label,effective_mode) for label in verified))
     verified_thinking = _VERIFIED_THINKING.findall(raw)
     # Historical stages lacking an explicit expected thinking level are
     # informational only; do not rewrite old receipts to pretend they were
     # generated with Medium. New attempts have a runner-owned expectation,
     # and a missing/mismatched pre-Send proof invalidates acceptance.
     figure_lite = bool(
-        mode == "flash-lite" and _FIGURE_THINKING_NOT_REQUIRED.search(raw))
+        effective_mode == "flash-lite" and mode=="flash-lite"
+        and _FIGURE_THINKING_NOT_REQUIRED.search(raw))
     figure_lite_pre_send = bool(_FIGURE_NO_THINKING_PROOF.search(raw))
+    figure_full_fallback = bool(
+        route["model_fallback_verified"] and mode=="flash-lite"
+        and effective_mode in ("flash","pro"))
+    effective_effort=route["effective_thinking"]
+    # A full Flash/Pro figure fallback upgrades the Thinking requirement;
+    # the parent legitimately logged not_required for its *preferred* Lite.
+    # Independently require both the newly-owned chat and final pre-Send
+    # checked radios to agree on medium/high, never invent a Lite exemption.
+    after_chat_levels=_OWNED_AFTER_CHAT_THINKING.findall(raw)
+    figure_fallback_effort_proven=bool(
+        figure_full_fallback and verified_thinking and after_chat_levels
+        and all(level==verified_thinking[0] for level in verified_thinking)
+        and all(level==verified_thinking[0] for level in after_chat_levels)
+        and verified_thinking[0] in ("medium","high")
+        and (not effective_effort or
+             verified_thinking[0]==effective_effort))
     thinking_contract_breach = bool(
         registered_send and (
-            (expected_thinking and
-             (not verified_thinking or any(
-                 observed != expected_thinking for observed in verified_thinking)))
+            route["route_rejected"]
+            or (effective_effort and
+                (not verified_thinking or any(
+                    level!=effective_effort for level in verified_thinking)))
             or (figure_lite and not figure_lite_pre_send)
-            or (mode == "flash-lite" and not figure_lite)))
+            or (figure_full_fallback and not figure_fallback_effort_proven)
+            or (effective_mode=="flash-lite" and not figure_lite)))
     return {
         "expected_ui_family_from_owned_stage_log": mode or "UNVERIFIED",
+        "effective_owned_ui_family_after_verified_fallback":
+            effective_mode or "UNVERIFIED",
+        "adaptive_ui_model_and_thinking_route":route["status"],
+        "adaptive_ui_route_rejected":route["route_rejected"],
+        "adaptive_ui_model_fallback_verified":route["model_fallback_verified"],
+        "adaptive_ui_effort_fallback_verified":route["effort_fallback_verified"],
         "owned_worker_picker_observation_count": len(selected),
         "owned_worker_wrong_ui_family_observed": wrong,
         "owned_worker_requested_family_verified_immediately_before_send":
@@ -122,8 +162,13 @@ def audit_original_stage_model_family(raw: str, *, registered_send: bool) -> dic
             thinking_contract_breach,
         "owned_worker_requested_thinking_verified_before_send": bool(
             registered_send and not thinking_contract_breach
-            and ((expected_thinking and verified_thinking) or
-                 (figure_lite and figure_lite_pre_send))),
+            and ((effective_effort and verified_thinking) or
+                 (figure_lite and figure_lite_pre_send) or
+                 figure_fallback_effort_proven)),
+        "effective_owned_thinking_level_after_verified_fallback":
+            effective_effort or (verified_thinking[0]
+                if figure_fallback_effort_proven else
+                "not_required" if figure_lite else "UNVERIFIED"),
         "thinking_contract_recovery_route": (
             "ADAPT_OWNED_TAB_THINKING_MENU_ON_DISTINCT_SOURCE_NO_RESEND"
             if thinking_contract_breach else

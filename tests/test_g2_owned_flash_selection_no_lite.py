@@ -327,7 +327,13 @@ class G2OwnedFlashModelTests(unittest.TestCase):
     def test_normal_vendor_imports_one_canonical_selector_not_substring(self):
         source=(Path(__file__).resolve().parents[1]/"selenium_pipeline"/
                 "vendor_template_v2"/"selenium.py").read_text(encoding="utf8")
-        self.assertIn("select_owned_gemini_mode(",source)
+        # Canonical adaptive wrapper calls the original exact selector,
+        # then only a verified stage-compatible fallback if truly absent.
+        self.assertIn("select_owned_gemini_with_recovery(",source)
+        from selenium_pipeline import gemini_model
+        self.assertIn("select_owned_gemini_mode(",
+                      __import__("inspect").getsource(
+                          gemini_model.select_owned_gemini_with_recovery))
         self.assertIn("assert_owned_gemini_mode(",source)
         self.assertNotIn('"currently" in label_l and target_mode in label_l',source)
 

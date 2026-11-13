@@ -1,5 +1,19 @@
 # MicroGen_AI_Web failure-to-fix ledger — current continuation
 
+## MG-GEMINI-UI-ADAPTIVE-V2 — 13 November 2026 (Dell-115)
+
+**Historical incidents reused:** MG-GEMINI-001/002/003, no-response one-Send claim PR317, November 11 long-editor atomic picker, model-family removal on 9222/9225, the November 13 Pro/Medium academic-route recovery and source-level transport circuit. Old controls were spread across model picker, Thinking submenu, copied vendor and stage audit: a UI family correctly recovered in the child could still look wrong to the original parent acceptance log, driving repeated Selenium fixes.
+
+**General normal-path remedy:** Stage-scoped semantic-control snapshot with open Shadow DOM and atomic option node identity in `gemini_ui_semantic_controls`; known-family Flash/Flash-Lite/Pro option parsing; `gemini_ui_adaptive_protocol` ranks only positively offered compatible models and checked non-downgrading thinking levels (Medium to High only). `gemini_model.select_owned_gemini_with_recovery` and `gemini_thinking.select_owned_gemini_thinking_with_recovery` are called by actual `vendor_template_v2/selenium.py::open_clean_gemini_chat` before and after New chat, with stage-specific contract propagated through `series_gemini._browser_request`. The normal `windows_gemini_stage_transport_triage` validates the documented fallback with the new `gemini_ui_stage_route_witness` and separately checked last-moment model/thinking; no unproved model switch, malformed logs, source-claim replay, external provider or API. New source-free test fixtures exercise changing picker names, menu roles/order, new unknown model names, model removal, Lite/Flash discrimination, missing Medium and adversarial false acceptance.
+
+**Real evidence:** Three isolated Dell-115 authenticated no-Send runs, most recent 13 November 2026 after v2 selector changes, prove preferred Flash absent -> compatible, positively selected **Pro/Medium** in the same owned tab. No prompt, source upload, model Send, TTS or academic/YouTube claim. Combined targeted offline regression at this uncommitted point: **160 passed**, Python compile and `git diff --check` passed (existing vendor SyntaxWarning remains). The standing owner principle is permanently appended to Binding Closure-First Contract **v4.1**, Standing Autonomous Development Protocol and UI recovery contract: "automatic recovery must be part of normal pipeline execution, not depend on you repeatedly asking me to fix the next blocker."
+
+**Scope/limits:** No automation can pick a semantically hidden/unidentifiable future model correctly; this must halt before Send with explicit diagnostic. Gemini response generation remains a separate provider-health blocker, not certified by an exact model selection. G2/G3 and public release remain unapproved. This is a repo-wide shared remedy, not another Serway PDF replay.
+
+---
+
+
+
 ## New generalizable G2 incidents — 13 November 2026 (Dell-115)
 
 | Incident | Observed original failure | Durable normal-path remedy | Actual regression/real evidence | Disposition |

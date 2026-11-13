@@ -102,6 +102,29 @@ def _visible_unique(driver, selectors: tuple[str, ...], predicate):
 
 
 def _thinking_expander(driver):
+    # Canonical snapshot first: if the reasoning submenu changes tag names,
+    # visible accessible labels can still identify its unique control.
+    from .gemini_ui_semantic_controls import snapshot_options
+    atomic=snapshot_options(driver)
+    if atomic is not None:
+        valid={
+            "thinking level","thinking effort","thinking depth",
+            "reasoning level","reasoning effort","reasoning depth",
+            "effort level","thinking budget","inference effort",
+        }
+        found={}
+        for option in atomic:
+            name=option.label.splitlines()[0].strip().casefold()
+            if name in valid and not option.disabled:
+                el=option.element
+                found[getattr(el,"id",None) or id(el)]=el
+        if len(found)==1:
+            return next(iter(found.values()))
+        if len(found)>1:
+            raise GeminiThinkingError(
+                "PRE_SEND_AMBIGUOUS_THINKING_EXPANDER_NO_SEND")
+        # Some accessible buttons expose no menu item role; try the
+        # legacy semantic route only when no atomic candidate is present.
     selectors = (
         '[role="menuitem"]', '[role="menuitemradio"]',
         'gem-menu-item', '[role="button"]',
@@ -126,7 +149,20 @@ def _thinking_expander(driver):
 
 
 def _thinking_options(driver, requested):
-    # Role/host variants are intentional. No CSS positional/first-item guess.
+    # A single atomic, read-only DOM snapshot avoids element-ID drift while
+    # Gemini hydrates a nested Thinking menu (including open Shadow DOM).
+    # Only an individual visible option whose own text names the requested
+    # level qualifies; parent menu descriptions do not count.
+    from .gemini_ui_semantic_controls import snapshot_options
+    snapshot=snapshot_options(driver)
+    if snapshot is not None:
+        found={}
+        for choice in snapshot:
+            if _level_item(choice.label,requested):
+                item=choice.element
+                found[getattr(item,"id",None) or id(item)]=item
+        return list(found.values())
+    # Role/host variants remain supported for older Selenium/test drivers.
     selectors = (
         '[role="menuitemradio"]', '[role="radio"]', '[role="option"]',
         '[role="menuitemcheckbox"]', '[role="menuitem"]',
@@ -254,3 +290,93 @@ def select_owned_gemini_thinking_level(driver, handle: str, *,
     finally:
         if picker is not None:
             _close_picker(driver, handle, picker)
+
+
+def visible_offered_thinking_levels(driver) -> list[str]:
+    """Enumerate ONLY explicit visible selectable radio/option labels."""
+    from selenium.webdriver.common.by import By
+    from .gemini_ui_semantic_controls import snapshot_options
+    found=set()
+    atomic=snapshot_options(driver)
+    if atomic is not None:
+        rows=[(x.label,x.disabled) for x in atomic]
+    else:
+        selectors=(
+            '[role="menuitemradio"]','[role="radio"]',
+            '[role="option"]','[role="menuitemcheckbox"]',
+            '[aria-checked]','[aria-selected]',
+            'gem-menu-item[role="menuitemradio"]',
+        )
+        seen=set()
+        rows=[]
+        for selector in selectors:
+            try:
+                matches=driver.find_elements(By.CSS_SELECTOR,selector)
+            except Exception:
+                continue
+            for element in matches:
+                try:
+                    key=getattr(element,"id",None) or id(element)
+                    if key in seen or not element.is_displayed():
+                        continue
+                    seen.add(key)
+                    rows.append((
+                        (element.text or "") or
+                        (element.get_attribute("aria-label") or ""),
+                        (element.get_attribute("aria-disabled") or "").lower()=="true"))
+                except Exception:
+                    continue
+    for label,disabled in rows:
+        if not disabled:
+            for level in LEVELS:
+                if _level_item(label,level):
+                    found.add(level)
+    return sorted(found)
+
+
+def select_owned_gemini_thinking_with_recovery(
+        driver, handle: str, *, level: str = "medium",
+        stage: str | None = None, timeout: float = 15,
+        allow_fallback: bool = True) -> str:
+    """Non-downgrading pre-Send effort adaptation on the SAME owned tab.
+
+    Only an observed, selectable, named option may replace an absent level.
+    'Balanced', 'Auto', etc. are not assumed equivalent to 'Medium'.
+    """
+    from .gemini_ui_adaptive_protocol import (
+        choose_thinking, GeminiAdaptivePolicyError)
+    try:
+        return select_owned_gemini_thinking_level(
+            driver,handle,level=level,timeout=timeout)
+    except GeminiThinkingError as error:
+        if not allow_fallback or str(error) not in (
+                "PRE_SEND_REQUESTED_THINKING_LEVEL_UNAVAILABLE_NO_SEND",
+                "PRE_SEND_REQUESTED_THINKING_LEVEL_DISABLED_NO_SEND"):
+            raise
+        active=(stage or
+                os.getenv("MICROGEN_ACTIVE_GENERATION_STAGE","") or
+                os.getenv("MICROGEN_GEMINI_INTERACTION_STAGE","")
+                ).strip().casefold()
+        picker=None
+        try:
+            picker=_expand_for_thinking(driver,handle)
+            offered=visible_offered_thinking_levels(driver)
+            if not offered or level in offered:
+                raise GeminiThinkingError(
+                    "PRE_SEND_THINKING_FALLBACK_WITHOUT_POSITIVE_ABSENCE")
+            try:
+                chosen=choose_thinking(
+                    requested=level,offered=offered,stage=active)
+            except GeminiAdaptivePolicyError as exc:
+                raise GeminiThinkingError(str(exc)) from error
+        finally:
+            if picker is not None:
+                _close_picker(driver,handle,picker)
+        chosen=select_owned_gemini_thinking_level(
+            driver,handle,level=chosen,timeout=timeout)
+        os.environ["MICROGEN_GEMINI_THINKING_LEVEL"]=chosen
+        os.environ["MICROGEN_THINKING_ROUTE_REASON"]=(
+            "REQUESTED_LEVEL_UNAVAILABLE_VERIFIED_NON_DOWNGRADING")
+        os.environ["MICROGEN_THINKING_ROUTE_REQUESTED"]=level
+        os.environ["MICROGEN_THINKING_ROUTE_OFFERED"]=",".join(sorted(offered))
+        return chosen

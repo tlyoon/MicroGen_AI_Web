@@ -1323,6 +1323,12 @@ class GeminiSeleniumClient:
             or "flash"
         )
         from selenium_pipeline.gemini_stage_policy import browser_stage_needs_thinking
+        # Adaptation is stage-scoped, never an arbitrary source-review or
+        # TTS provider substitution. Academic preflights set the strict
+        # gate; their owned Pro recovery has a separate source ledger.
+        active_stage=os.getenv("MICROGEN_ACTIVE_GENERATION_STAGE","").strip().lower()
+        adaptive_allowed=(active_stage in {"figures","slides","narration"}
+                          and os.getenv("MICROGEN_DISABLE_ADAPTIVE_MODEL_FALLBACK")!="1")
         requires_thinking = browser_stage_needs_thinking(mode=target_mode)
         if target_mode not in {"flash-lite", "flash", "pro"}:
             raise RuntimeError(f"Unsupported MICROGEN_GEMINI_UI_MODE={target_mode!r}")
@@ -1377,11 +1383,22 @@ class GeminiSeleniumClient:
         # One canonical model selector for parent and ALL owned workers.
         # "Flash-Lite" is NOT Flash. Reject mixed/ambiguous menu entries
         # before the job has uploaded a source or made any Gemini Send.
-        from selenium_pipeline.gemini_model import select_owned_gemini_mode
+        from selenium_pipeline.gemini_model import select_owned_gemini_with_recovery
         self._microgen_presend_stage = "FIRST_OWNED_MODEL_SELECTION"
-        selected_mode = select_owned_gemini_mode(
-            self.driver, self._automation_tab, mode=target_mode, timeout=20)
-
+        selected_mode = select_owned_gemini_with_recovery(
+            self.driver, self._automation_tab, mode=target_mode, timeout=20,
+            stage=active_stage,allow_fallback=adaptive_allowed)
+        # The verified fallback is now this worker's exact contract for its
+        # whole request (including New chat, uploads and final one-Send).
+        target_mode=os.getenv("MICROGEN_GEMINI_UI_MODE",target_mode).strip().lower()
+        requires_thinking=browser_stage_needs_thinking(mode=target_mode)
+        route_reason=os.getenv("MICROGEN_MODEL_ROUTE_REASON","")
+        if route_reason:
+            requested=os.getenv("MICROGEN_MODEL_ROUTE_REQUESTED","")
+            offered=os.getenv("MICROGEN_MODEL_ROUTE_OFFERED","")
+            log("[GEMINI-MODE] ADAPTIVE_VERIFIED_FALLBACK "
+                f"requested={requested} selected={target_mode} "
+                f"offered={offered} reason={route_reason}")
         log(f"Selected Gemini tab via mode picker: {selected_mode} (phase={phase})")
 
         self._microgen_presend_stage = "OWNED_NEW_CHAT_RESET"
@@ -1470,20 +1487,30 @@ class GeminiSeleniumClient:
             timeout_seconds=max(12.0,min(45.0,picker_wait)))
         # Re-select strictly here BEFORE uploads or any registered Send.
         self._microgen_presend_stage = "SECOND_OWNED_MODEL_SELECTION"
-        selected_mode = select_owned_gemini_mode(
-            self.driver, self._automation_tab, mode=target_mode, timeout=20)
+        selected_mode = select_owned_gemini_with_recovery(
+            self.driver, self._automation_tab, mode=target_mode, timeout=20,
+            stage=active_stage,allow_fallback=False)
         # The selected thinking effort belongs to the same owned tab.
         # Gemini may reset this when New chat is clicked, just like its model.
         log(f"[GEMINI-MODE] OWNED_FAMILY_VERIFIED_AFTER_NEW_CHAT {selected_mode}")
         if requires_thinking:
             self._microgen_presend_stage = "OWNED_MEDIUM_THINKING_SELECTION"
             from selenium_pipeline.gemini_thinking import (
-                configured_thinking_level, select_owned_gemini_thinking_level)
+                configured_thinking_level,
+                select_owned_gemini_thinking_with_recovery)
             target_thinking = configured_thinking_level()
-            verified_thinking = select_owned_gemini_thinking_level(
+            verified_thinking = select_owned_gemini_thinking_with_recovery(
                 self.driver, self._automation_tab,
-                level=target_thinking, timeout=20)
+                level=target_thinking, timeout=20,stage=active_stage,
+                allow_fallback=adaptive_allowed)
             log(f"[GEMINI-THINKING] OWNED_LEVEL_VERIFIED_AFTER_NEW_CHAT {verified_thinking}")
+            thinking_reason=os.getenv("MICROGEN_THINKING_ROUTE_REASON","")
+            if thinking_reason:
+                requested_level=os.getenv("MICROGEN_THINKING_ROUTE_REQUESTED","")
+                offered_levels=os.getenv("MICROGEN_THINKING_ROUTE_OFFERED","")
+                log("[GEMINI-THINKING] ADAPTIVE_VERIFIED_EFFORT "
+                    f"requested={requested_level} selected={verified_thinking} "
+                    f"offered={offered_levels} reason={thinking_reason}")
         else:
             # Flash-Lite's caption task needs no Thinking submenu, avoiding
             # the non-interactable Medium expander seen in Serway 7.8.
