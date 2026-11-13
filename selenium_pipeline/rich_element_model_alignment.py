@@ -122,23 +122,85 @@ def request_for_slide(*, source_folder: Path, checkpoint: Path,
                 require(len(literal) <= max_page_chars,
                         "Large source page must be split explicitly; do not truncate quotes")
                 chosen.append({"source_page": index, "original_page_text": literal})
-        # Figure attribution is never guessed from text-only AI input.
-        # The model may nominate a figure but physical/academic evidence
-        # remains pending until source-proven image identity is separately bound.
+        # The original mapping checkpoint may contain the later general
+        # PDF-backed math-row / raster / caption-verified panel target types.
+        # Earlier source-review and safe-prose routes supported only the
+        # legacy text/image rectangle helper and stopped on these genuine
+        # source-verified targets as if the authored PDF had changed.
+        # Reuse THE SAME independent physical verifiers as the normal
+        # original-source candidate map, not a guessed bbox or an AI claim.
+        # This is review INPUT ONLY. Math / figure meanings remain blocked
+        # from automatic semantic promotion by assess_response below.
         target_rows = []
+        canonical_panels = None
         for t in row["auto_candidate_targets"]:
             require(isinstance(t, dict) and isinstance(t.get("draft_element_id"), str),
                     "Invalid candidate ID")
+            target_kind = t.get("kind")
             try:
-                r, kind = rectangle(deck[slide_number-1], t["anchor"])
-            except ElementStageError as exc:
-                raise RichMappingError("Stale authored PDF candidate geometry") from exc
+                if target_kind == "image_caption_panel":
+                    if canonical_panels is None:
+                        from .captioned_panel_target_router import (
+                            panel_targets_for_slide,
+                        )
+                        originals = panel_targets_for_slide(
+                            source=original / "source.pdf",
+                            slides=original / "slides.pdf",
+                            slide_number=slide_number,
+                        )
+                        canonical_panels = {
+                            v["draft_element_id"]: v for v in originals
+                        }
+                    proven = canonical_panels.get(t["draft_element_id"])
+                    require(proven is not None
+                            and t.get("kind") == proven["kind"]
+                            and t.get("anchor") == proven["anchor"]
+                            and t.get("visible_text") == proven["visible_text"]
+                            and t.get("panel_identity_review_required") is False
+                            and t.get("source_caption_panel_meaning_verified") is True
+                            and t.get("independent_visual_registration_verified") is True,
+                            "Source-caption panel identity or pixel proof changed")
+                    r = pymupdf.Rect(proven["bbox_pdf_pt"])
+                else:
+                    # The legacy anchored-element rectangle verifier ALREADY
+                    # supports frozen text groups, physically hashed 2-8
+                    # block math rows, and single-placement whole images.
+                    # Do not substitute the NEW different-schema visual
+                    # review inventory and thereby reject a valid original
+                    # source author mapping checkpoint.
+                    require(target_kind in {
+                            "text_block", "text_group",
+                            "math_row_group", "image_whole"},
+                            "Unknown author visual target requires review")
+                    r, _ = rectangle(deck[slide_number - 1], t["anchor"])
+                require(not r.is_empty and not r.is_infinite
+                        and deck[slide_number - 1].rect.contains(r)
+                        and r.get_area() >= 25
+                        and r.get_area() <
+                            .85 * deck[slide_number - 1].rect.get_area(),
+                        "Original visual region is no longer physically bounded")
+                recorded = t.get("rendered_rect_pt")
+                # Original V5 author mapping stores two-decimal boundaries
+                # (unlike the newer review candidate inventory which uses
+                # three decimals). Allow only that physical quantization.
+                require(isinstance(recorded, list) and len(recorded) == 4
+                        and all(type(v) in (int, float)
+                                for v in recorded)
+                        and all(abs(float(a) - float(b)) <= .012
+                                for a, b in zip(r, recorded)),
+                        "Authored PDF region differs from frozen source map")
+            except (ElementStageError, ValueError, TypeError, KeyError,
+                    RuntimeError) as exc:
+                raise RichMappingError(
+                    "Stale authored PDF candidate geometry or source panel"
+                ) from exc
             target_rows.append({
                 "target_id": t["draft_element_id"],
-                "kind": t["kind"],
+                "kind": target_kind,
                 "visible_text": t.get("visible_text") or "",
                 "author_rect_pdf_pt": [round(float(q), 3) for q in r],
-                "figure_panel_review_required": bool(t.get("panel_identity_review_required")),
+                "figure_panel_review_required":
+                    bool(t.get("panel_identity_review_required")),
             })
     utterances = [{"utterance_id": u["proposal_id"],
                    "verbatim_text": u["verbatim_script_fragment"]}
