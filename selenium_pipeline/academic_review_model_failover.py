@@ -73,6 +73,30 @@ def run(*, plan_path: Path, root: Path, max_jobs: int = 1,
         return {"status": "NO_MODEL_DISPATCH_BUDGET", "new_requests_attempted": 0,
                 "jobs_completed": [], "jobs_not_rerun": [],
                 "G2_approved": False, "student_publication_authorized": False}
+    # The global no-resend inventory is authoritative BEFORE model preflight.
+    # On older V1/V2 plans, check even one/two-unit source jobs: they, too,
+    # may contain an obsolete frozen quotation packet. Version 3 is already
+    # rebound to current source PDF evidence and its own prompt SHA.
+    # A completely consumed source review should exit without opening Gemini
+    # or rebuilding one previously claimed utterance.
+    needs_quote_refresh=bool(
+        campaign is real_campaign and
+        plan.get("source_microbatch_revision") != 3)
+    if needs_quote_refresh:
+        from .academic_source_microbatch import unclaimed_microbatch_plan
+        unsent=unclaimed_microbatch_plan(
+            original_plan=plan_path,checkpoint_parent=root.parent)
+        if not unsent["jobs"]:
+            return {
+                "status":"ALL_ORIGINAL_SOURCE_REVIEW_UNITS_ALREADY_CLAIMED_NO_SEND",
+                "source_sha256":source_sha,
+                "previous_consumed_units_excluded":
+                    unsent["previous_consumed_units_excluded"],
+                "remaining_original_unclaimed_units":0,
+                "new_requests_attempted":0,
+                "jobs_completed":[],"jobs_not_rerun":[],
+                "G2_approved":False,"student_publication_authorized":False,
+            }
     original = os.environ.get("MICROGEN_GEMINI_UI_MODE")
     original_model_id = os.environ.get("MICROGEN_LLM_MODEL")
     requested = configured_ui_mode()
@@ -200,10 +224,12 @@ def run(*, plan_path: Path, root: Path, max_jobs: int = 1,
         dispatch_plan=plan_path
         dispatch_root=root
         source_microbatch=None
-        if (campaign is real_campaign and
-                any(type(entry.get("source_job")) is dict and
-                    entry["source_job"].get("utterance_count",0)>2
-                    for entry in plan.get("jobs",[]))):
+        if needs_quote_refresh:
+            # A short (<=2 units) original plan is NOT exempt from stale
+            # quotation recovery. The current shared source extractor must
+            # run for every unsent, original plan before a model Send.
+            # Already-verified v3 plans retain their exact immutable prompt.
+
             from .academic_source_microbatch import ensure_microbatch_dispatch
             dispatch_plan,dispatch_root,source_microbatch=ensure_microbatch_dispatch(
                 original_plan=plan_path,requested_root=root)

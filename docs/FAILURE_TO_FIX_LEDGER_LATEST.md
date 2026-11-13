@@ -1,5 +1,19 @@
 # MicroGen_AI_Web failure-to-fix ledger — current continuation
 
+## MG-G2-QUOTE-REFRESH-SHORT-ENTRYPOINT-20261113 — one/two-unit plan bypass fixed
+
+**Root-cause recurrence discovered during closure audit:** The first versioned quotation-recovery repair `d15f580` correctly refreshed original-source quotes for long source-review jobs, but `academic_review_model_failover.run` invoked `ensure_microbatch_dispatch` only when a source job contained MORE THAN TWO original utterances. An already short v1/v2 original job could therefore enter the normal Selenium source-review campaign with an outdated frozen quote whitelist. This contradicted the v5.0 binding automatic-recovery and cross-entrypoint condition, despite the first exact-head CI already passing.
+
+**Shared normal-path remedy, no parallel workaround:** At the start of the real `academic_review_model_failover.run` campaign, before any Gemini model preflight or browser interaction, the source-SHA-locked `unclaimed_microbatch_plan` checks the *global immutable original-unit ledger*, for both short and long original plans. When all units were previously claimed, it returns `ALL_ORIGINAL_SOURCE_REVIEW_UNITS_ALREADY_CLAIMED_NO_SEND` with zero job dispatch and zero Gemini browser activity. Otherwise, any original v1/v2 plan, including a one-unit plan, is sent through the existing `ensure_microbatch_dispatch` and physical source quote-refresh v3. Already rebound v3 plans retain their exact immutable request hash and do not undergo rewriting. The canonical public `source_review_autonomous_campaign.main` delegates to this wrapper, so the normal CLI is protected. Existing original source/slide/script hashes, model/response claims and accepted findings are untouched.
+
+**Independent proof:** `tests/test_source_microbatch_quote_refresh.py` now exercises a real synthetic source PDF through the ACTUAL `academic_review_model_failover.run` caller for a one-unit old plan, confirms automatic fresh page-witnessed quotes, then injects a global consumed claim and asserts the caller stops before any model preflight. The broader source/failover suite remains independent. The genuine Dell-115 original Serway 6.4 academic CLI was run against its already consumed global ledger: **41 claimed; 0 remaining; 0 new Gemini requests**, `ALL_ORIGINAL_SOURCE_REVIEW_UNITS_ALREADY_CLAIMED_NO_SEND`. No model prompt, source PDF upload or retry occurred. This is a runtime **no-resend acceptance**, not G2 scientific correctness. The separate publication + full Windows CI on `d15f580` were both successful; the newly broadened shared-path fix requires a NEW exact-head CI to claim engineering closure.
+
+**Future failure trigger and finite recovery:** Older original v1/v2 source jobs automatically enter the latest physically SHA-witnessed source packet; globally claimed units automatically stop; an invalid/changed source fails before any model Send. The root remedy is reused by the normal worker and verified by cross-entrypoint + negative tests. Do not create fresh original Serway review claims by changing the model, date, short-job grouping or chat session.
+
+---
+
+
+
 ## MG-G2-STALE-QUOTE-PACKET-20261113 — archived source evidence bypassed current extractor
 
 **Historical remedy reused:** `source_verified_quote_candidates.build_verified_source_candidates` already retrieves and independently proves source-page passages; `academic_source_microbatch.unclaimed_microbatch_plan` already enforces the original-source SHA, a global once-only claimed-unit ledger, and a versioned write-once derived plan. The missing wiring was not a lack of new physics reasoning or another Gemini Selenium defect: a derived short plan copied a frozen older `verified_source_quote_candidates_v1` list without invoking the current source extractor.

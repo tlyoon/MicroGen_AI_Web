@@ -6,6 +6,7 @@ to the original SHA-bound job. The same app path is used for all source PDFs.
 from __future__ import annotations
 import hashlib
 import json
+import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase
@@ -213,4 +214,81 @@ class VersionedPhysicalCitationRefresh(TestCase):
                 unclaimed_microbatch_plan(
                     original_plan=self.plan_path,
                     checkpoint_parent=self.checkpoints)
+        self.assertEqual(self.plan_path.read_bytes(),self.original_bytes)
+
+    def test_normal_academic_campaign_refreshes_even_short_original_job(self):
+        """Cross-entrypoint: normal CLI's run wrapper must not skip <=2."""
+        from selenium_pipeline.academic_review_model_failover import run
+        observed=[]
+        def fake_campaign(*,plan_path,root,max_jobs,chrome_port,only_positions):
+            packet=json.loads(Path(plan_path).read_text(encoding="utf8"))
+            self.assertEqual(packet["source_microbatch_revision"],3)
+            self.assertEqual(len(packet["jobs"]),1)
+            item=packet["jobs"][0]
+            self.assertEqual(item["source_quote_refresh_v1"][
+                "only_original_unclaimed_units"],[self.uid])
+            self.assertTrue(item["source_quote_refresh_v1"][
+                "quotes_changed_since_frozen_plan"])
+            quotes=item["source_job"][
+                "verified_source_quote_candidates_v1"][
+                    "utterances"][0]["allowed_citations"]
+            self.assertTrue(any("parachute" in q[
+                "verbatim_source_quote"].casefold() for q in quotes))
+            observed.append(("normal_rebound",max_jobs,chrome_port))
+            return {"status":"UNSENT_NO_MODEL_REQUEST_FOR_TEST",
+                    "new_requests_attempted":0,
+                    "jobs_completed":[],"jobs_not_rerun":[],
+                    "G2_approved":False,
+                    "student_publication_authorized":False}
+        def ready(*,primary_port):
+            observed.append(("model_preflight",primary_port))
+            return {
+                "status":"EXACT_OWNED_GEMINI_MODEL_AND_THINKING_READY_NO_SEND",
+                "model_family":"flash","thinking_level":"medium",
+                "verified_port":primary_port,
+                "gemini_requests_submitted":0,
+            }
+        with patch.dict(os.environ,{
+                "MICROGEN_GEMINI_UI_MODE":"flash",
+                "MICROGEN_GEMINI_THINKING_LEVEL":"medium"}),patch(
+                "selenium_pipeline.source_review_autonomous_campaign.run",
+                new=fake_campaign):
+            outcome=run(plan_path=self.plan_path,root=self.work,
+                        max_jobs=1,inspect_ready=ready)
+        self.assertEqual(observed[0],("model_preflight",9222))
+        self.assertEqual(observed[1],("normal_rebound",1,9222))
+        self.assertEqual(outcome["academic_microbatch"][
+            "remaining_before_dispatch"],1)
+        self.assertEqual(outcome["new_requests_attempted"],0)
+        self.assertFalse(outcome["G2_approved"])
+        self.assertEqual(self.plan_path.read_bytes(),self.original_bytes)
+        self.assertEqual({n:_sha(self.assets/n) for n in self.hashes},
+                         self.hashes)
+
+    def test_normal_campaign_all_claimed_exits_before_gemini_preflight(self):
+        """No unit means zero original Sends and zero needless browser work."""
+        from selenium_pipeline.academic_review_model_failover import run
+        directory=self.checkpoints/".microgen_academic_source_once"/self.source_sha
+        directory.mkdir(parents=True)
+        token="e"*64
+        (directory/(token+".json")).write_text(json.dumps({
+            "schema_version":1,
+            "type":"THIRD_PASS_CHANGED_SOURCE_REVIEW",
+            "source_sha256":self.source_sha,
+            "utterance_ids":[self.uid],
+            "request_sha256":token,
+        }),encoding="utf8")
+        with patch.dict(os.environ,{
+                "MICROGEN_GEMINI_UI_MODE":"flash"}), patch(
+                "selenium_pipeline.source_review_autonomous_campaign.run",
+                side_effect=AssertionError("Consumed source campaign invoked")):
+            result=run(
+                plan_path=self.plan_path,root=self.work,max_jobs=1,
+                inspect_ready=lambda **_:self.fail(
+                    "Already consumed job opened a Gemini tab"))
+        self.assertEqual(result["status"],
+            "ALL_ORIGINAL_SOURCE_REVIEW_UNITS_ALREADY_CLAIMED_NO_SEND")
+        self.assertEqual(result["previous_consumed_units_excluded"],1)
+        self.assertEqual(result["remaining_original_unclaimed_units"],0)
+        self.assertEqual(result["new_requests_attempted"],0)
         self.assertEqual(self.plan_path.read_bytes(),self.original_bytes)
