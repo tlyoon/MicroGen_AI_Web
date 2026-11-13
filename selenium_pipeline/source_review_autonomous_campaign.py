@@ -305,6 +305,26 @@ def run(*,plan_path: Path,root: Path,max_jobs: int=2,
                 skipped.append({"job":position,
                                 "status":"REJECTED_ORIGINAL_MODEL_REPLY_NO_RETRY"})
                 continue
+            elif saved_state and saved_state["status"]=="CERTIFIED_PRESEND_UNSENT":
+                # Historical Gemini model-picker/composer failures could
+                # exhaust UI preparation before an actual Send, yet the old
+                # one-Send checkpoint reserved the original source claim.
+                # Only typed, write-once evidence from this EXACT owned
+                # prompt permits a bounded SAME-claim resume. Do not erase
+                # global/local claims or silently restart any uncertain Send.
+                from .academic_review_checkpoint import (
+                    _verify_certified_unsent,MAX_CERTIFIED_PRESEND_RECOVERIES)
+                require(previous_claimed[uids[0]]["request_sha256"]
+                        ==sha(prompt.encode("utf8"))
+                        and previous_claimed[uids[0]]["utterance_ids"]==uids,
+                        "No matching original global claim for certified pre-Send")
+                count=_verify_certified_unsent(checkpoint,saved_state)
+                if count>=MAX_CERTIFIED_PRESEND_RECOVERIES:
+                    skipped.append({"job":position,
+                                    "status":"CERTIFIED_PRESEND_FINITE_BUDGET_EXHAUSTED"})
+                    continue
+                # Final source SHA, prompt, and exact witness are independently
+                # revalidated AGAIN inside submit_once before its transport.
             elif saved_state and (checkpoint/"model_response_identity.json").exists():
                 outcome=_saved_valid_result(checkpoint,job,folder,prompt)
                 _new(result_path,outcome)
@@ -318,6 +338,30 @@ def run(*,plan_path: Path,root: Path,max_jobs: int=2,
         if attempted>=max_jobs:
             skipped.append({"job":position,"status":"CAMPAIGN_FINITE_BUDGET"})
             continue
+        dispatch_port=chrome_port
+        alternate_session=False
+        if transport is None:
+            # Exact model-family capability is checked on the ACTUAL owned
+            # fresh chat before claiming a new academic source utterance.
+            # Only if Flash is missing may the previous authorized Account B
+            # profile be tested, and only when it is ALREADY RUNNING. Never
+            # start an alternate login, switch model families or re-Send.
+            from .academic_gemini_presend_preflight import (
+                select_ready_existing_session,AcademicGeminiPreSendBlocked)
+            try:
+                model_ready=select_ready_existing_session(
+                    primary_port=chrome_port)
+                dispatch_port=model_ready["verified_port"]
+                alternate_session=model_ready["alternate_account_used"]
+            except AcademicGeminiPreSendBlocked as exc:
+                skipped.append({
+                    "job":position,
+                    "status":"PROVIDER_CAPABILITY_PREFLIGHT_BLOCKED_NO_SEND",
+                    "failure_phase":exc.failure_phase,
+                    "existing_claim_reused_without_new_send":
+                        claim_path.exists(),
+                })
+                break  # outage or model-removal affects other jobs too
         if not claim_path.exists():
             # PREPARE strictly checks source, template, prior request identity,
             # before claiming the original utterances and entering browser Send.
@@ -349,7 +393,7 @@ def run(*,plan_path: Path,root: Path,max_jobs: int=2,
         try:
             outcome=run_web_review(folder=folder,job=job,
                         mode="INDEPENDENT_CHALLENGE",
-                        transport=transport,chrome_port=chrome_port,
+                        transport=transport,chrome_port=dispatch_port,
                         checkpoint_dir=checkpoint)
         except Exception as exc:
             skipped.append({"job":position,
@@ -376,21 +420,10 @@ def run(*,plan_path: Path,root: Path,max_jobs: int=2,
 
 
 def main(argv=None):
-    import argparse
-    p=argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--plan",type=Path,required=True)
-    p.add_argument("--checkpoint-root",type=Path,required=True)
-    p.add_argument("--max-new-jobs",type=int,default=2)
-    p.add_argument("--chrome-port",type=int,default=9222)
-    p.add_argument("--only-job",type=int,action="append",
-                   help="Bounded job position (repeatable); defaults to full queue")
-    a=p.parse_args(argv)
-    result=run(plan_path=a.plan,root=a.checkpoint_root,
-               max_jobs=a.max_new_jobs,chrome_port=a.chrome_port,
-               only_positions=set(a.only_job) if a.only_job else None)
-    print(json.dumps(result,indent=2,sort_keys=True))
-    return int(result["G2_approved"] is False and
-               not result["jobs_completed"] and result["new_requests_attempted"]>0)
+    # The ordinary campaign CLI automatically uses scoped academic model
+    # recovery before the original global-claim-safe source review run().
+    from .academic_review_model_failover import main as recover_model_then_run
+    return recover_model_then_run(argv)
 
 
 if __name__=="__main__":

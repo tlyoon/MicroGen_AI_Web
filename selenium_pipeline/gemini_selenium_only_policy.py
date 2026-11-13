@@ -39,6 +39,9 @@ def presend_failure_code(error: BaseException) -> str:
     if any(x in detail for x in ("send control", "send button", "composer",
                                  "editor", "typing")):
         return "GEMINI_COMPOSER_OR_SEND_CONTROL_NOT_READY"
+    if ("requested_gemini_model_not_available" in detail
+            or "model_not_available_no_send" in detail):
+        return "GEMINI_REQUESTED_MODEL_FAMILY_UNAVAILABLE"
     if any(x in detail for x in ("mode", "picker", "flash", "pro",
                                  "thinking", "level")):
         return "GEMINI_MODEL_PICKER_NOT_READY"
@@ -80,6 +83,7 @@ def _nonretryable_presend(error: Exception) -> bool:
         "browser verification", "just a moment", "challenge",
         "captcha", "source mismatch", "source changed", "unauthorized",
         "permission denied", "different source", "invalid source",
+        "requested_gemini_model_not_available_no_send",
     ))
 
 

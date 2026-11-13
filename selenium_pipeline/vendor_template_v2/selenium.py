@@ -1333,6 +1333,7 @@ class GeminiSeleniumClient:
         previous = self._automation_tab
         self._automation_tab = _rotate_owned_gemini_tab(self.driver, previous)
         self._owned_tab_focus_emulated = False
+        self._microgen_presend_stage = "OWNED_NAVIGATE"
         self.driver.get(self.cfg.gemini_url)
         visibility_status = self._ensure_owned_tab_visible()
         log(f"Gemini owned tab lifecycle: {visibility_status}", "INFO")
@@ -1350,6 +1351,7 @@ class GeminiSeleniumClient:
         picker_wait = max(12.0, min(90.0, float(os.getenv(
             "MICROGEN_GEMINI_PICKER_WAIT_SECONDS", "45"
         ))))
+        self._microgen_presend_stage = "FIRST_OWNED_PICKER_HYDRATION"
         select_deadline = time.time() + picker_wait
         while time.time() < select_deadline and not selected:
             for handle in (self._automation_tab,):
@@ -1376,11 +1378,13 @@ class GeminiSeleniumClient:
         # "Flash-Lite" is NOT Flash. Reject mixed/ambiguous menu entries
         # before the job has uploaded a source or made any Gemini Send.
         from selenium_pipeline.gemini_model import select_owned_gemini_mode
+        self._microgen_presend_stage = "FIRST_OWNED_MODEL_SELECTION"
         selected_mode = select_owned_gemini_mode(
             self.driver, self._automation_tab, mode=target_mode, timeout=20)
 
         log(f"Selected Gemini tab via mode picker: {selected_mode} (phase={phase})")
 
+        self._microgen_presend_stage = "OWNED_NEW_CHAT_RESET"
         # Start a genuinely fresh conversation through Gemini's own New chat
         # control. Re-navigating to /app can reuse Angular conversation state
         # across pages even though the URL looks clean.
@@ -1454,13 +1458,25 @@ class GeminiSeleniumClient:
         self._clear_prompt_safely()
         # Clicking New chat can reset the model to Flash-Lite even if the
         # parent runner and first owned-tab picker both showed Flash.
+        # CRITICAL historical recovery: New chat can finish creating its
+        # editor LONG BEFORE the Angular model picker exists on Dell-115.
+        # Reuse the same exact owned-tab, bounded picker hydration check
+        # BEFORE the second selection; never borrow a parent tab, guess
+        # model status from the editor, or continue to a model Send.
+        from selenium_pipeline.gemini_model import wait_owned_gemini_picker
+        self._microgen_presend_stage = "SECOND_OWNED_PICKER_HYDRATION"
+        wait_owned_gemini_picker(
+            self.driver, self._automation_tab,
+            timeout_seconds=max(12.0,min(45.0,picker_wait)))
         # Re-select strictly here BEFORE uploads or any registered Send.
+        self._microgen_presend_stage = "SECOND_OWNED_MODEL_SELECTION"
         selected_mode = select_owned_gemini_mode(
             self.driver, self._automation_tab, mode=target_mode, timeout=20)
         # The selected thinking effort belongs to the same owned tab.
         # Gemini may reset this when New chat is clicked, just like its model.
         log(f"[GEMINI-MODE] OWNED_FAMILY_VERIFIED_AFTER_NEW_CHAT {selected_mode}")
         if requires_thinking:
+            self._microgen_presend_stage = "OWNED_MEDIUM_THINKING_SELECTION"
             from selenium_pipeline.gemini_thinking import (
                 configured_thinking_level, select_owned_gemini_thinking_level)
             target_thinking = configured_thinking_level()
@@ -1472,6 +1488,7 @@ class GeminiSeleniumClient:
             # Flash-Lite's caption task needs no Thinking submenu, avoiding
             # the non-interactable Medium expander seen in Serway 7.8.
             log("[GEMINI-THINKING] FIGURES_FLASH_LITE_NOT_REQUIRED")
+        self._microgen_presend_stage = "OWNED_MODEL_THINKING_READY"
         log("Opened Gemini")
 
     @staticmethod

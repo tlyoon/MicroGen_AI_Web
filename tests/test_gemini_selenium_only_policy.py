@@ -115,6 +115,36 @@ class GeminiSeleniumOnlyPolicyTests(unittest.TestCase):
         self.assertEqual(len(clients), 3)
         self.assertTrue(all(c.shutdown_count == 1 for c in clients))
 
+    def test_actual_requested_flash_unavailable_is_capability_not_picker_outage(self):
+        from selenium_pipeline.gemini_model import GeminiModelError
+        from selenium_pipeline.gemini_selenium_only_policy import (
+            presend_failure_code)
+        unavailable=GeminiModelError(
+            "PRE_SEND_REQUESTED_GEMINI_MODEL_NOT_AVAILABLE_NO_SEND; "
+            "requested=flash; offered=flash-lite,hydrogen,pro,argon,carbon")
+        self.assertEqual(
+            presend_failure_code(unavailable),
+            "GEMINI_REQUESTED_MODEL_FAMILY_UNAVAILABLE")
+        clients=[]
+        def new():
+            client=MockClient(len(clients))
+            clients.append(client)
+            return client
+        with self.assertRaises(GeminiSeleniumTemporaryFailure) as raised:
+            prepare_with_bounded_retries(
+                make_client=new,
+                prepare_without_send=lambda _: (_ for _ in ()).throw(
+                    unavailable),
+                dispose=lambda c:c.shutdown(),
+                sleeper=lambda _:self.fail("Known unavailable family must not retry"))
+        self.assertEqual(len(clients),1)
+        self.assertEqual(clients[0].shutdown_count,1)
+        self.assertEqual(
+            raised.exception.gemini_failure_phase,
+            "GEMINI_REQUESTED_MODEL_FAMILY_UNAVAILABLE")
+        self.assertEqual(raised.exception.gemini_prepare_attempts_used,1)
+        self.assertFalse(raised.exception.gemini_send_boundary_entered)
+
     def test_authentication_or_challenge_stops_without_retries(self):
         tried = []
         with self.assertRaises(GeminiSeleniumTemporaryFailure):

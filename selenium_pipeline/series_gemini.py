@@ -85,7 +85,9 @@ def _browser_request(instruction: str,attachments: list[Path],
                      *,port: int,wait_cap_s: int,
                      min_chars: int=200,accept_fn=None) -> str:
     from .three_pc_worker import LocalInstanceLock
-    from .gemini_model import ensure_mode
+    # The owned vendor tab itself is the only authoritative Gemini tab.
+    # Do not use ensure_mode(port, ...) here: it searches and may re-focus
+    # unrelated authenticated tabs after a separate owned chat was prepared.
 
     vendor=_vendor_module()
     cache=Path(os.getenv("LOCALAPPDATA") or (Path.home()/".cache"))/"Microvid"
@@ -111,7 +113,8 @@ def _browser_request(instruction: str,attachments: list[Path],
             def prepare_without_send(owned):
                 owned.start(ensure_gemini_on_launch=True)
                 selected=os.getenv("MICROGEN_GEMINI_UI_MODE","flash").strip().lower()
-                ensure_mode(port,selected)
+                # open_clean_gemini_chat performs both initial and post-New-chat
+                # model/Thinking verification on the precise owned tab.
                 owned.open_clean_gemini_chat()
                 # New chats can reset both model and Thinking level.
                 # Both are checked again in THIS owned tab before any Send.
@@ -124,12 +127,22 @@ def _browser_request(instruction: str,attachments: list[Path],
                         owned.driver, getattr(owned, "_automation_tab", None),
                         level=configured_thinking_level(), timeout=20)
                 # New chats may reset Gemini's mode: independently recheck.
-                from .gemini_model import browser_model_evidence
-                observed=ensure_mode(port,selected)
+                from .gemini_model import (
+                    assert_owned_gemini_mode, browser_model_evidence)
+                observed=assert_owned_gemini_mode(
+                    owned.driver,getattr(owned,"_automation_tab",None),
+                    mode=selected,wait_seconds=4)
+                # An explicitly selected Pro or caption-stage Flash-Lite
+                # cannot inherit the package-wide Flash model-ID default.
+                # This is requested-family evidence only; it does NOT prove
+                # the server model deployment or academic correctness.
+                model_ids={"flash":"gemini-3.8-flash",
+                           "pro":"gemini-3.1-pro",
+                           "flash-lite":"gemini-3.5-flash-lite"}
                 browser_model_evidence(
                     observed,requested_mode=selected,
                     requested_model_id=os.getenv(
-                        "MICROGEN_LLM_MODEL","gemini-3.8-flash"))
+                        "MICROGEN_LLM_MODEL",model_ids[selected]))
                 if attachments:
                     owned.upload_files(attachments)
                 if not owned.type_prompt_text(instruction,retries=3):

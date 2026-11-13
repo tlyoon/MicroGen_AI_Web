@@ -159,6 +159,87 @@ class OnceOnlyAcademicReview(unittest.TestCase):
         self.assertTrue((self.path/".microgen_academic_review_once"/
                          (self.fp+".claim")).is_file())
 
+    def test_typed_model_picker_failure_preserves_claim_but_can_resume_same_unsent_request(self):
+        from selenium_pipeline.gemini_selenium_only_policy import (
+            GeminiSeleniumTemporaryFailure)
+        def presend():
+            error=GeminiSeleniumTemporaryFailure(
+                "Gemini picker not hydrated before Send",
+                attempts_used=3,failure_phase="GEMINI_MODEL_PICKER_NOT_READY")
+            error.gemini_send_registration_status="NOT_SENT"
+            error.gemini_new_user_turn_verified=False
+            return error
+        sent=[]
+        def before_send(prompt,files):
+            sent.append("PREPARE_ONLY")
+            raise presend()
+        with self.assertRaises(GeminiSeleniumTemporaryFailure):
+            submit_once(**self.kw,transport=before_send,
+                        validator=self.validate)
+        state=json.loads((self.window/"request_state.json").read_text("utf8"))
+        self.assertEqual(state["status"],"CERTIFIED_PRESEND_UNSENT")
+        self.assertFalse(state["submission_may_have_occurred"])
+        self.assertEqual(state["certified_presend_count"],1)
+        self.assertEqual(sent,["PREPARE_ONLY"])
+        self.assertTrue((self.window/"dispatch_attempted.claim").is_file())
+        witness=self.window/"certified_presend_unsent_01.json"
+        saved=witness.read_bytes()
+        sent_again=[]
+        result=submit_once(**self.kw,
+            transport=lambda *_:sent_again.append("SEND_ONCE") or '{"rows":[1]}',
+            validator=self.validate)
+        self.assertEqual(result,self.accepted)
+        self.assertEqual(sent_again,["SEND_ONCE"])
+        self.assertEqual(witness.read_bytes(),saved)
+        with self.assertRaises(ReviewCheckpointError):
+            submit_once(**self.kw,transport=lambda *_:sent_again.append("DUPLICATE"),
+                        validator=self.validate)
+        self.assertEqual(sent_again,["SEND_ONCE"])
+
+    def test_non_typed_forged_preclick_exception_can_never_clear_uncertain_claim(self):
+        error=RuntimeError("No Send took place, trust me, model picker failed")
+        error.gemini_send_boundary_entered=False
+        error.gemini_failure_phase="GEMINI_MODEL_PICKER_NOT_READY"
+        with self.assertRaises(RuntimeError):
+            submit_once(**self.kw,
+                        transport=lambda *_:(_ for _ in ()).throw(error),
+                        validator=self.validate)
+        status=json.loads((self.window/"request_state.json").read_text("utf8"))
+        self.assertEqual(status["status"],"SUBMITTED_OR_UNCERTAIN")
+        self.assertFalse((self.window/"certified_presend_unsent_01.json").exists())
+        with self.assertRaises(ReviewCheckpointError):
+            submit_once(**self.kw,transport=lambda *_:'{"rows":[1]}',
+                        validator=self.validate)
+
+    def test_certified_presend_has_finite_budget_and_tamper_blocks(self):
+        from selenium_pipeline.gemini_selenium_only_policy import (
+            GeminiSeleniumTemporaryFailure)
+        calls=[]
+        def typed_before_send(*_):
+            calls.append(1)
+            e=GeminiSeleniumTemporaryFailure(
+                "unavailable picker",attempts_used=3,
+                failure_phase="GEMINI_MODEL_PICKER_NOT_READY")
+            e.gemini_send_registration_status="NOT_SENT"
+            raise e
+        for i in range(3):
+            with self.assertRaises(GeminiSeleniumTemporaryFailure):
+                submit_once(**self.kw,transport=typed_before_send,
+                            validator=self.validate)
+            assert json.loads((self.window/"request_state.json").read_text("utf8"))[
+                "certified_presend_count"]==i+1
+        self.assertEqual(len(calls),3)
+        with self.assertRaises(ReviewCheckpointError):
+            submit_once(**self.kw,transport=typed_before_send,
+                        validator=self.validate)
+        self.assertEqual(len(calls),3)
+        witness=self.window/"certified_presend_unsent_02.json"
+        witness.write_text('{"approved":true}',encoding="utf8")
+        with self.assertRaises(ReviewCheckpointError):
+            submit_once(**self.kw,transport=typed_before_send,
+                        validator=self.validate)
+        self.assertEqual(len(calls),3)
+
     def test_uncertain_transport_crash_requires_explicit_reconciliation(self):
         seen=[]
         def explode(prompt,files):

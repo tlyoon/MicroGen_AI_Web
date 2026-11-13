@@ -17,9 +17,12 @@ STATE_NAME="request_state.json"
 CLAIM_NAME="dispatch_attempted.claim"
 RESPONSE_EVIDENCE_NAME="model_response_identity.json"
 VALID_STATES={"PREPARED_NOT_SENT","SUBMITTED_OR_UNCERTAIN",
-              "NO_RESPONSE_UNRESOLVED","MODEL_REPLY_OBSERVED_UNVALIDATED",
+              "CERTIFIED_PRESEND_UNSENT","NO_RESPONSE_UNRESOLVED",
+              "MODEL_REPLY_OBSERVED_UNVALIDATED",
               "SOURCE_VALIDATED_ONE_PASS_UNAPPROVED","REJECTED_RESPONSE_UNTRUSTED",
               "LEGACY_SENT_NO_RESPONSE"}
+MAX_CERTIFIED_PRESEND_RECOVERIES=3
+PRESEND_WITNESS_PREFIX="certified_presend_unsent_"
 MAX_RAW=1_800_000
 
 class ReviewCheckpointError(ValueError):
@@ -173,6 +176,133 @@ def mark_submission_maybe(checkpoint:Path,*,expected_fingerprint:str)->dict:
     _update(root/STATE_NAME,state)
     return state
 
+def _certified_presend_error(error:BaseException)->bool:
+    """Permit recovery only on a typed, internally classified pre-click error.
+
+    A generic timeout, exception string or status guessed from a browser
+    screenshot is NEVER evidence that the owned Gemini Send was not clicked.
+    """
+    from .gemini_selenium_only_policy import GeminiSeleniumTemporaryFailure
+    return (
+        isinstance(error,GeminiSeleniumTemporaryFailure)
+        and getattr(error,"gemini_send_boundary_entered",None) is False
+        and getattr(error,"gemini_new_user_turn_verified",False) is not True
+        and getattr(error,"gemini_send_registration_status","NOT_SENT")=="NOT_SENT"
+        and 1<=int(getattr(error,"gemini_prepare_attempts_used",0) or 0)<=3
+        and getattr(error,"gemini_failure_phase",None) in {
+            "GEMINI_MODEL_PICKER_NOT_READY",
+            "GEMINI_REQUESTED_MODEL_FAMILY_UNAVAILABLE",
+            "GEMINI_COMPOSER_OR_SEND_CONTROL_NOT_READY",
+            "GEMINI_BROWSER_OR_WEBDRIVER_NOT_READY",
+            "AUTHENTICATION_OR_BROWSER_VERIFICATION_REQUIRED",
+            "PRE_SEND_PREPARATION_FAILED_UNCLASSIFIED",
+        }
+    )
+
+
+def _verify_certified_unsent(checkpoint:Path,state:dict)->int:
+    """Recheck every durable no-click witness before another provider callback."""
+    root=Path(checkpoint).absolute()
+    count=state.get("certified_presend_count")
+    _require(type(count) is int and 1<=count<=MAX_CERTIFIED_PRESEND_RECOVERIES
+             and state.get("status")=="CERTIFIED_PRESEND_UNSENT"
+             and state.get("submission_may_have_occurred") is False
+             and (root/CLAIM_NAME).is_file()
+             and not (root/CLAIM_NAME).is_symlink()
+             and (root/CLAIM_NAME).read_text("utf8").strip()==state["request_fingerprint"]
+             and not (root/RESPONSE_EVIDENCE_NAME).exists()
+             and not (root/"model_response_untrusted.txt").exists(),
+             "Not a uniquely source-owned, pre-Send certified Gemini claim")
+    for index in range(1,count+1):
+        path=root/(PRESEND_WITNESS_PREFIX+f"{index:02d}.json")
+        _require(path.is_file() and not path.is_symlink(),
+                 "One of the original no-Send witnesses is missing")
+        value=json.loads(path.read_text("utf8"))
+        _require(type(value) is dict and value.get("schema_version")==1
+                 and value.get("kind")=="OWNED_GEMINI_BEFORE_SEND_BOUNDARY"
+                 and value.get("request_fingerprint")==state["request_fingerprint"]
+                 and value.get("source_sha256")==state["source_sha256"]
+                 and value.get("certified_presend_count")==index
+                 and value.get("send_boundary_entered") is False
+                 and value.get("new_user_turn_verified") is False
+                 and value.get("model_response_recorded") is False
+                 and value.get("academic_approved") is False
+                 and value.get("tts_authorized") is False,
+                 "Tampered or foreign pre-Send witness cannot authorize retry")
+    return count
+
+
+def certify_unsent_preparation_failure(checkpoint:Path,*,
+                                       expected_fingerprint:str,
+                                       error:BaseException)->dict:
+    """Persist typed no-Send evidence without removing existing claim locks.
+
+    A process death between claim and this explicit observation is STILL
+    SUBMITTED_OR_UNCERTAIN forever. This rescue requires the actual
+    in-process exception from the owned browser BEFORE its Send boundary.
+    """
+    root=Path(checkpoint).absolute()
+    state=_load(root)
+    _require(_certified_presend_error(error)
+             and state["request_fingerprint"]==expected_fingerprint
+             and state["status"]=="SUBMITTED_OR_UNCERTAIN"
+             and (root/CLAIM_NAME).is_file()
+             and not (root/CLAIM_NAME).is_symlink()
+             and not (root/RESPONSE_EVIDENCE_NAME).exists()
+             and not (root/"model_response_untrusted.txt").exists(),
+             "No authenticated pre-Send no-click error or an uncertain Send exists")
+    prior=int(state.get("certified_presend_count",0) or 0)
+    count=prior+1
+    _require(count<=MAX_CERTIFIED_PRESEND_RECOVERIES,
+             "Finite no-Send preparation recovery budget exhausted")
+    evidence={
+        "schema_version":1,
+        "kind":"OWNED_GEMINI_BEFORE_SEND_BOUNDARY",
+        "request_fingerprint":expected_fingerprint,
+        "source_sha256":state["source_sha256"],
+        "certified_presend_count":count,
+        "failure_phase":error.gemini_failure_phase,
+        "attempts_used":error.gemini_prepare_attempts_used,
+        "send_boundary_entered":False,
+        "new_user_turn_verified":False,
+        "model_response_recorded":False,
+        "academic_approved":False,
+        "tts_authorized":False,
+    }
+    # Write immutable witness first. A crash here leaves the prior
+    # SUBMITTED_OR_UNCERTAIN state: no automatic repeat is possible.
+    _write_new(root/(PRESEND_WITNESS_PREFIX+f"{count:02d}.json"),evidence)
+    state.update(status="CERTIFIED_PRESEND_UNSENT",
+                 submission_may_have_occurred=False,
+                 certified_presend_count=count,
+                 can_auto_retry=False)
+    _update(root/STATE_NAME,state)
+    return state
+
+
+def resume_certified_unsent(checkpoint:Path,*,expected_fingerprint:str)->dict:
+    """Reserve same already-written Send claim again, never create another."""
+    root=Path(checkpoint).absolute()
+    state=_load(root)
+    _require(state["request_fingerprint"]==expected_fingerprint,
+             "Different original source/prompt in no-click recovery")
+    count=_verify_certified_unsent(root,state)
+    _require(count<MAX_CERTIFIED_PRESEND_RECOVERIES,
+             "Exactly bounded no-Send recovery exhausted; do not loop")
+    index=root.parent/".microgen_academic_review_once"/(
+        expected_fingerprint+".claim")
+    _require(index.is_file() and not index.is_symlink(),
+             "Original global one-Send lock missing; no recovery possible")
+    # Mark uncertain BEFORE entering the transport. If interrupted after
+    # this, the claim remains consumed; only another typed pre-Send error
+    # can prove no submission and make it eligible again.
+    state.update(status="SUBMITTED_OR_UNCERTAIN",
+                 submission_may_have_occurred=True,
+                 can_auto_retry=False)
+    _update(root/STATE_NAME,state)
+    return state
+
+
 def record_observation(checkpoint:Path,*,raw:str,
                        expected_fingerprint:str)->dict:
     root=Path(checkpoint).absolute()
@@ -316,14 +446,24 @@ def submit_once(*,checkpoint:Path,original_folder:Path,
                                     expected_fingerprint=digest)
         return validate_saved(checkpoint=checkpoint,
                               expected_fingerprint=digest,validator=validator)
-    mark_submission_maybe(checkpoint,expected_fingerprint=digest)
+    if state["status"]=="CERTIFIED_PRESEND_UNSENT":
+        resume_certified_unsent(checkpoint,expected_fingerprint=digest)
+    else:
+        mark_submission_maybe(checkpoint,expected_fingerprint=digest)
     try:
         raw=transport(request_text,
                       [Path(original_folder)/"source.pdf",
                        Path(original_folder)/"slides.pdf"])
-    except Exception:
-        # NO resend; callback may have sent prompt before error. Keep
-        # SUBMITTED_OR_UNCERTAIN permanently until same-response recovery.
+    except Exception as error:
+        # Only an explicitly typed exception from the TRUSTED owned-tab
+        # browser preparation, with Send boundary NOT entered, can prove
+        # there was no model request. Persist that immutable observation
+        # and allow another SAME-claim attempt under a finite budget.
+        # Arbitrary timeouts/errors/post-click failures remain permanently
+        # SUBMITTED_OR_UNCERTAIN. Claim locks are NEVER deleted.
+        if _certified_presend_error(error):
+            certify_unsent_preparation_failure(
+                checkpoint,expected_fingerprint=digest,error=error)
         raise
     record_observation(checkpoint,raw=raw,expected_fingerprint=digest)
     return validate_saved(checkpoint=checkpoint,

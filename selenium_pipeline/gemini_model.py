@@ -96,6 +96,41 @@ def _eligible_mode_menu_text(text: str, mode: str) -> bool:
                for line in lines)
 
 
+def visible_offered_gemini_families(driver) -> list[str]:
+    """Read only visible model-radio family names; never choose a substitute.
+
+    Capturing exact available model families is essential for treating model
+    removal as an entitlement/capability change rather than repeating a
+    broken Selenium-picker fix. Ignore menu wrappers and arbitrary page text.
+    """
+    from selenium.webdriver.common.by import By
+    labels=set()
+    for selector in ('[role="menuitemradio"]',
+                     'gem-menu-item[role="menuitemradio"]',
+                     '[data-test-id^="bard-mode-option"]',
+                     '[role="radio"]','[role="option"]',
+                     '[role="menuitem"]'):
+        try:
+            elements=driver.find_elements(By.CSS_SELECTOR,selector)
+        except Exception:
+            continue
+        for item in elements:
+            try:
+                if not item.is_displayed():
+                    continue
+                text=(item.text or "").casefold()
+                if len(text)>180:
+                    continue
+                variants=re.findall(
+                    r"(?<!\\w)(flash[\\s-]*lite|flash|pro|hydrogen|argon|carbon)(?!\\w)",
+                    text,flags=re.I)
+                if len(variants)==1:
+                    labels.add(variants[0].replace(" ","-").casefold())
+            except Exception:
+                continue
+    return sorted(labels)
+
+
 def _owned_picker(driver, owned_handle: str | None):
     """Behavior-based picker lookup with bounded, independently validated fallbacks.
 
@@ -246,6 +281,45 @@ def assert_owned_gemini_mode(driver, owned_handle: str | None,
         return selected
 
 
+def wait_owned_gemini_picker(driver, owned_handle: str | None, *,
+                             timeout_seconds: float = 30) -> str:
+    """Wait for the UNIQUE model picker in the exact owned Gemini tab.
+
+    New chat resets Angular controls independently of the editor and model;
+    an editable composer is NOT proof that the picker has rehydrated. Wait
+    before trying to choose the family, never borrow a different visible
+    Gemini tab, guess a CSS position, type a prompt, or click Send.
+    """
+    if (not isinstance(timeout_seconds,(int,float))
+            or not 1<=timeout_seconds<=60
+            or not owned_handle):
+        raise GeminiModelError("Invalid bounded owned-picker wait")
+    deadline=time.monotonic()+timeout_seconds
+    last=None
+    while True:
+        if (driver.current_window_handle!=owned_handle
+                or not str(driver.current_url).startswith(
+                    "https://gemini.google.com/")):
+            raise GeminiModelError(
+                "PRE_SEND_OWNED_GEMINI_TAB_CHANGED_WHILE_HYDRATING")
+        try:
+            return _observed_picker_label(_owned_picker(driver,owned_handle))
+        except GeminiModelError as error:
+            if str(error)!="PRE_SEND_MODE_PICKER_NOT_UNIQUE_OR_MISSING":
+                raise
+            last=error
+        except Exception as error:
+            from selenium.common.exceptions import (
+                StaleElementReferenceException)
+            if not isinstance(error,StaleElementReferenceException):
+                raise
+            last=error
+        if time.monotonic()>=deadline:
+            raise GeminiModelError(
+                "PRE_SEND_OWNED_MODEL_PICKER_NOT_REHYDRATED_NO_SEND") from last
+        time.sleep(0.25)
+
+
 def select_owned_gemini_mode(driver, owned_handle: str | None, *,
                              mode: str = "flash", timeout: float = 15) -> str:
     """Select exactly the requested UI family *inside the owned tab*.
@@ -292,8 +366,14 @@ def select_owned_gemini_mode(driver, owned_handle: str | None, *,
             break
         time.sleep(0.2)
     if target is None or target.get_attribute("aria-disabled") == "true":
+        offered=visible_offered_gemini_families(driver)
+        # This is NOT a harmless DOM change: the currently authenticated
+        # account's actual menu no longer offers the contracted model. Never
+        # guess that Hydrogen/Pro/Flash-Lite is semantically equivalent.
+        detail=("; requested="+mode+"; offered="+",".join(offered)
+                if offered and mode not in offered else "")
         raise GeminiModelError(
-            "PRE_SEND_REQUESTED_GEMINI_MODEL_NOT_AVAILABLE_NO_SEND")
+            "PRE_SEND_REQUESTED_GEMINI_MODEL_NOT_AVAILABLE_NO_SEND"+detail)
     try:
         target.click()
     except Exception:

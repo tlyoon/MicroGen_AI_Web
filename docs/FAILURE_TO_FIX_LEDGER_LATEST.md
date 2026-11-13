@@ -1,5 +1,15 @@
 # MicroGen_AI_Web failure-to-fix ledger — current continuation
 
+## New generalizable G2 incidents — 13 November 2026 (Dell-115)
+
+| Incident | Observed original failure | Durable normal-path remedy | Actual regression/real evidence | Disposition |
+| --- | --- | --- | --- | --- |
+| MG-G2-MODEL-20261113: Gemini Flash absent on both authorized UI accounts | Read-only 9222/9225 owned-tab menus offered no Flash; old Flash/Medium request blocked before Send | Verified source-academic-only Pro/Medium fallback; restore other stage defaults; route receipt and exact owner-tab checks; no cross-tab `ensure_mode` | Real original source upload and one registered Pro Send; 105 focused tests pass, 2 skip | Selenium ownership/model-picker repeat fixed; valid provider academic response not yet attained |
+| MG-G2-CHUNK-20261113: long source review returned incomplete JSON, and sorted plan key order invalidated request SHA | Genuine nine-unit Serway6.4 Pro reply contained one UNRESOLVED row; v1 short plan rejected before Send by source SHA validator | Source-global consumed-unit exclusion, two-unit immutable microbatches, v2 insertion-order JSON persistence, revalidation of persisted prompt SHA; no old unit resend | Real source: 37 old consumed + 2 new claimed, two untouched original units; v2 genuine short request passed owned Send but reply remained unverified | Generalized request-size/provenance recovery implemented; no academic approval |
+| MG-G2-HEALTH-20261113: repeated no-accepted-response requests consumed new academic source claims | Two distinct source-locked original checkpoints remained SUBMITTED_OR_UNCERTAIN after Pro sends | SHA-witnessed, finite source+model-specific academic transport circuit, normal campaign health preflight before browser; no API/offline fallback | Reconciled two original windows; normal CLI returned `ACADEMIC_GEMINI_RESPONSES_TEMPORARILY_SUSPENDED`, zero new request; 105 focused regression cases PASS | Automatic recurrence suppression active, provider outage not claimed, G2 remains blocked |
+
+---
+
 Updated 2026-10-24 (Asia/Kuala_Lumpur). PR287, PR288 and PR289 follow the CI-green PR286 in an isolated Dell-115 draft PR stack; PR289 all three CI jobs green at review. PR290 is the fourth staged, tested figure-raster hardening increment.
 
 | Incident | Source evidence | Durable correction | Regression or real outcome | Current status |

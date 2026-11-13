@@ -128,6 +128,93 @@ class BoundedAcademicSourceRetryTests(unittest.TestCase):
         self.assertEqual(completed["jobs_completed"][0]["supported"],1)
         self.assertFalse(completed["G2_approved"])
 
+    def test_real_no_send_model_picker_failure_reuses_same_global_claim_on_resume(self):
+        from selenium_pipeline.gemini_selenium_only_policy import (
+            GeminiSeleniumTemporaryFailure)
+        def before_send(*_):
+            error=GeminiSeleniumTemporaryFailure(
+                "model picker was unavailable before browser Send",
+                attempts_used=3,failure_phase="GEMINI_MODEL_PICKER_NOT_READY")
+            error.gemini_send_registration_status="NOT_SENT"
+            error.gemini_new_user_turn_verified=False
+            raise error
+        first=run(plan_path=self.plan,root=self.root,max_jobs=1,
+                  transport=Mock(side_effect=before_send))
+        self.assertEqual(first["new_requests_attempted"],1)
+        state=json.loads((self.root/"job_01_checkpoint"/"request_state.json").read_text("utf8"))
+        self.assertEqual(state["status"],"CERTIFIED_PRESEND_UNSENT")
+        self.assertFalse((self.root/"job_01_result.json").exists())
+        marker=self.root/"claimed"/"job_01.json"
+        marker_before=marker.read_bytes()
+        claimed=list((self.base/".microgen_academic_source_once").rglob("*.json"))
+        self.assertEqual(len(claimed),1)
+        global_before=claimed[0].read_bytes()
+        second_transport=Mock(return_value=self.response())
+        result=run(plan_path=self.plan,root=self.root,max_jobs=1,
+                   transport=second_transport)
+        second_transport.assert_called_once()
+        self.assertEqual(result["jobs_completed"][0]["status"],
+                         "NEW_VALID_SOURCE_REVIEW")
+        self.assertEqual(result["jobs_completed"][0]["supported"],1)
+        self.assertEqual(marker.read_bytes(),marker_before)
+        self.assertEqual(claimed[0].read_bytes(),global_before)
+        self.assertEqual(self.before,{n:_sha(self.folder/n) for n in self.before})
+        repeat_transport=Mock(side_effect=AssertionError("duplicate Send forbidden"))
+        third=run(plan_path=self.plan,root=self.root,max_jobs=1,
+                  transport=repeat_transport)
+        repeat_transport.assert_not_called()
+        self.assertEqual(third["jobs_completed"][0]["status"],
+                         "REUSED_VERIFIED_RESULT")
+
+    def test_real_model_unavailable_preflight_does_not_consume_any_review_claim(self):
+        from unittest.mock import patch
+        from selenium_pipeline.academic_gemini_presend_preflight import (
+            AcademicGeminiPreSendBlocked)
+        with patch(
+                "selenium_pipeline.academic_gemini_presend_preflight."
+                "select_ready_existing_session",
+                side_effect=AcademicGeminiPreSendBlocked(
+                    "GEMINI_REQUESTED_MODEL_FAMILY_UNAVAILABLE")) as probe:
+            result=run(plan_path=self.plan,root=self.root,max_jobs=1,
+                       transport=None)
+        probe.assert_called_once_with(primary_port=9222)
+        self.assertEqual(result["new_requests_attempted"],0)
+        self.assertEqual(result["jobs_not_rerun"][0]["status"],
+                         "PROVIDER_CAPABILITY_PREFLIGHT_BLOCKED_NO_SEND")
+        self.assertEqual(result["jobs_not_rerun"][0]["failure_phase"],
+                         "GEMINI_REQUESTED_MODEL_FAMILY_UNAVAILABLE")
+        self.assertFalse((self.root/"claimed"/"job_01.json").exists())
+        self.assertFalse((self.root/"job_01_checkpoint").exists())
+        self.assertFalse(list(self.base.rglob("dispatch_attempted.claim")))
+        self.assertEqual(self.before,{n:_sha(self.folder/n) for n in self.before})
+        self.assertFalse(result["G2_approved"])
+
+    def test_unclaimed_approved_alternate_session_routes_same_source_on_exact_flash(self):
+        from unittest.mock import patch
+        with patch("selenium_pipeline.academic_gemini_presend_preflight."
+                   "select_ready_existing_session",return_value={
+                       "status":"EXACT_OWNED_GEMINI_MODEL_AND_THINKING_READY_NO_SEND",
+                       "verified_port":9225,
+                       "alternate_account_used":True,
+                       "model_family":"flash",
+                       "thinking_level":"medium",
+                       "gemini_requests_submitted":0,
+                   }) as check,\
+             patch("selenium_pipeline.source_review_autonomous_campaign."
+                   "run_web_review",
+                   side_effect=RuntimeError("synthetic stop before browser send")) as send:
+            result=run(plan_path=self.plan,root=self.root,max_jobs=1,
+                       transport=None)
+        check.assert_called_once_with(primary_port=9222)
+        self.assertEqual(send.call_count,1)
+        self.assertEqual(send.call_args.kwargs["chrome_port"],9225)
+        self.assertEqual(send.call_args.kwargs["mode"],"INDEPENDENT_CHALLENGE")
+        self.assertEqual(result["new_requests_attempted"],1)
+        self.assertEqual(result["jobs_not_rerun"][0]["status"],
+                         "TRANSPORT_OR_VALIDATION_BLOCKED_NO_RETRY")
+        self.assertFalse(result["G2_approved"])
+        self.assertEqual(self.before,{n:_sha(self.folder/n) for n in self.before})
+
     def test_false_source_quotation_rejected_without_resubmission(self):
         bad=Mock(return_value=self.response(quote="FABRICATED EQUATION"))
         first=run(plan_path=self.plan,root=self.root,max_jobs=1,transport=bad)

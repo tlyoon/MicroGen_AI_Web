@@ -194,6 +194,59 @@ class G2OwnedFlashModelTests(unittest.TestCase):
                          "Open mode picker, currently Flash")
         self.assertEqual(len([e for e in driver.events if "send" in e]),0)
 
+    def test_new_chat_picker_hydration_can_lag_behind_ready_editor_without_send(self):
+        from selenium_pipeline.gemini_model import wait_owned_gemini_picker
+        class SlowNewChatPicker(FakeOwnedBrowser):
+            def __init__(self):
+                super().__init__(mode="Flash-Lite")
+                self.missing=4
+                self.checks=0
+            def find_elements(self,by,selector):
+                if selector=='button[aria-label^="Open mode picker"]':
+                    self.checks+=1
+                    if self.missing:
+                        self.missing-=1
+                        return []
+                return super().find_elements(by,selector)
+        driver=SlowNewChatPicker()
+        with patch("selenium_pipeline.gemini_model.time.sleep",
+                   return_value=None):
+            observed=wait_owned_gemini_picker(
+                driver,"owned",timeout_seconds=3)
+        self.assertEqual(observed,"Open mode picker, currently Flash-Lite")
+        self.assertEqual(driver.checks,5)
+        self.assertEqual(driver.events,[])
+        selected=select_owned_gemini_mode(
+            driver,"owned",mode="flash",timeout=1)
+        self.assertEqual(selected,"Open mode picker, currently Flash")
+        self.assertEqual(driver.events,["picker-open","selected:Flash"])
+        # New chat's original Flash-Lite state is never accepted as Flash.
+        driver.current_window_handle="other_tab"
+        with self.assertRaisesRegex(
+                GeminiModelError,"OWNED_GEMINI_TAB_CHANGED"):
+            wait_owned_gemini_picker(driver,"owned",timeout_seconds=1)
+
+    def test_actual_hydrogen_menu_does_not_masquerade_as_contracted_flash(self):
+        from selenium_pipeline.gemini_model import visible_offered_gemini_families
+        browser=LiveMenuShapeOwnedBrowser()
+        browser.mode="Hydrogen Medium"
+        browser.menu_options=(
+            "Quick answers\n3.5 Flash-Lite",
+            "Everyday help\n4 Hydrogen New",
+            "Detailed research\n3.1 Pro",
+            "Code & analysis\n4 Argon",
+            "Most complex work\n4 Carbon",
+        )
+        with self.assertRaisesRegex(
+                GeminiModelError,"PRE_SEND_REQUESTED_GEMINI_MODEL_NOT_AVAILABLE_NO_SEND") as caught:
+            select_owned_gemini_mode(browser,"owned",mode="flash",timeout=1)
+        self.assertIn("hydrogen",str(caught.exception).casefold())
+        self.assertIn("offered=",str(caught.exception))
+        self.assertNotIn("selected:Flash",browser.events)
+        self.assertFalse(any("send" in x.casefold() for x in browser.events))
+        self.assertNotIn("flash",visible_offered_gemini_families(browser))
+        self.assertIn("flash-lite",visible_offered_gemini_families(browser))
+
     def test_new_chat_can_reset_flash_lite_and_pipeline_corrects_again(self):
         driver=FakeOwnedBrowser()
         select_owned_gemini_mode(driver,"owned",mode="flash",timeout=1)
