@@ -33,6 +33,52 @@ def _read(path: Path) -> dict:
     return value
 
 
+def claimed_original_source_units(*, source_sha256: str,
+                                  checkpoint_parent: Path) -> set[str]:
+    """One authoritative source-global claim inventory shared by both
+    academic source-review microbatching and rich visual model dispatch.
+
+    A review attempt may be conclusively SENT, partially captured, or
+    ambiguous after Send. Every such original utterance ID is consumed; a
+    different UI account, job name or attempt-root cannot silently redo it.
+    Reading this ledger never changes the prior attempts or source PDFs.
+    """
+    checkpoint_parent=Path(checkpoint_parent).absolute()
+    require(type(source_sha256) is str and len(source_sha256)==64
+            and all(c in "0123456789abcdef" for c in source_sha256)
+            and not checkpoint_parent.is_symlink()
+            and (not checkpoint_parent.exists()
+                 or checkpoint_parent.is_dir()),
+            "Original source and canonical global claim root required")
+    # No canonical root means there are no historical claims ON THIS
+    # machine. Do not create folders while merely inspecting eligibility.
+    if not checkpoint_parent.exists():
+        return set()
+    root=checkpoint_parent/".microgen_academic_source_once"
+    claim_root=root/source_sha256
+    require(not root.is_symlink() and not claim_root.is_symlink(),
+            "Unsafe shared original-unit claims")
+    claimed_ids=set()
+    if claim_root.exists():
+        require(claim_root.is_dir(),"Invalid global original-source claim index")
+        for filename in sorted(claim_root.glob("*.json")):
+            claim=_read(filename)
+            require(claim.get("schema_version")==1
+                    and claim.get("type")== "THIRD_PASS_CHANGED_SOURCE_REVIEW"
+                    and claim.get("source_sha256")==source_sha256
+                    and type(claim.get("utterance_ids")) is list
+                    and len(claim["utterance_ids"])>=1
+                    and all(type(uid) is str and uid.strip()
+                            for uid in claim["utterance_ids"])
+                    and len(set(claim["utterance_ids"]))==
+                        len(claim["utterance_ids"])
+                    and type(claim.get("request_sha256")) is str
+                    and filename.stem==claim["request_sha256"],
+                    "Untrusted original-unit claim cannot be ignored")
+            claimed_ids.update(claim["utterance_ids"])
+    return claimed_ids
+
+
 def unclaimed_microbatch_plan(*, original_plan: Path,
                               checkpoint_parent: Path,
                               max_units: int=MAX_UNITS_PER_JOB) -> dict:
@@ -54,25 +100,8 @@ def unclaimed_microbatch_plan(*, original_plan: Path,
     require(type(source_sha) is str and len(source_sha)==64
             and all(c in "0123456789abcdef" for c in source_sha),
             "Original source identity required for short academic review")
-    claimed_ids=set()
-    claim_root=checkpoint_parent/".microgen_academic_source_once"/source_sha
-    require(not claim_root.is_symlink(), "Unsafe shared original-unit claims")
-    if claim_root.exists():
-        require(claim_root.is_dir(),"Invalid global original-source claim index")
-        for filename in sorted(claim_root.glob("*.json")):
-            claim=_read(filename)
-            require(claim.get("schema_version")==1
-                    and claim.get("type")==
-                        "THIRD_PASS_CHANGED_SOURCE_REVIEW"
-                    and claim.get("source_sha256")==source_sha
-                    and type(claim.get("utterance_ids")) is list
-                    and len(claim["utterance_ids"])>=1
-                    and len(set(claim["utterance_ids"]))==
-                        len(claim["utterance_ids"])
-                    and type(claim.get("request_sha256")) is str
-                    and filename.stem==claim["request_sha256"],
-                    "Untrusted original-unit claim cannot be ignored")
-            claimed_ids.update(claim["utterance_ids"])
+    claimed_ids=claimed_original_source_units(
+        source_sha256=source_sha, checkpoint_parent=checkpoint_parent)
     verified_original_uids=set()
     emitted=[]
     excluded=[]

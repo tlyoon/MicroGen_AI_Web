@@ -14,7 +14,7 @@ import os
 
 FIGURE_UI_MODE = "flash-lite"
 FIGURE_MODEL_ID = "gemini-3.5-flash-lite"
-NONFIGURE_STAGES = frozenset(("slides", "narration"))
+NONFIGURE_STAGES = frozenset(("slides", "narration", "rich_mapping"))
 
 
 class GeminiStagePolicyError(ValueError):

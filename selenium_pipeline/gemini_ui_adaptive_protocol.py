@@ -20,7 +20,8 @@ class GeminiAdaptivePolicyError(ValueError):
 
 
 FAMILIES=("flash","flash-lite","pro")
-STAGES=frozenset(("figures","slides","narration","academic_review"))
+STAGES=frozenset(("figures","slides","narration","academic_review",
+                  "rich_mapping"))
 LEVELS=("low","medium","high")
 
 
@@ -73,7 +74,8 @@ def choose_family(*,requested: str, offered: list[str] | tuple[str,...],
         # mask ambiguous/missing picker semantics or authentication errors.
         if stage=="figures":
             ranked=("flash-lite","flash","pro")
-        elif stage in ("slides","narration","academic_review"):
+        elif stage in ("slides","narration","academic_review",
+                          "rich_mapping"):
             ranked=("flash","pro")
         else:
             ranked=()

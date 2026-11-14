@@ -68,6 +68,36 @@ class GeminiModelAndEffortProtocolV2(unittest.TestCase):
             self.assertTrue(browser_stage_needs_thinking(mode="pro"))
         self.assertFalse(any("send" in e for e in browser.events))
 
+    def test_rich_mapping_missing_flash_chooses_only_verified_pro_medium(self):
+        browser=AdaptiveBrowser(mode="pro",level="medium")
+        browser.mode_rows=[x for x in browser.mode_rows
+                           if x.id!="model-flash"]
+        self.assertEqual(choose_family(
+            requested="flash",offered=["flash-lite","pro"],
+            stage="rich_mapping").chosen,"pro")
+        self.assertTrue(browser_stage_needs_thinking(
+            mode="pro",stage="rich_mapping"))
+        with patch.dict(os.environ,{
+                "MICROGEN_GEMINI_UI_MODE":"flash",
+                "MICROGEN_ACTIVE_GENERATION_STAGE":"rich_mapping",
+                "MICROGEN_GEMINI_THINKING_LEVEL":"medium"}):
+            selected=select_owned_gemini_with_recovery(
+                browser,"owned",mode="flash",stage="rich_mapping",
+                timeout=1,allow_fallback=True)
+            self.assertIn("Pro",selected)
+            self.assertEqual(os.environ["MICROGEN_GEMINI_UI_MODE"],"pro")
+            self.assertEqual(os.environ["MICROGEN_LLM_MODEL"],"gemini-3.1-pro")
+            self.assertEqual(select_owned_gemini_thinking_with_recovery(
+                browser,"owned",level="medium",stage="rich_mapping",
+                timeout=1),"medium")
+        self.assertEqual(browser.mode,"pro")
+        self.assertEqual(browser.level,"medium")
+        self.assertFalse(any("send" in e for e in browser.events))
+        # A cheap caption model is NEVER a silent substitute for reasoning.
+        with self.assertRaises(GeminiAdaptivePolicyError):
+            choose_family(requested="flash",offered=["flash-lite"],
+                          stage="rich_mapping")
+
     def test_figure_lite_missing_can_use_flash_with_checked_thinking(self):
         browser=AdaptiveBrowser(mode="pro",level="low")
         browser.mode_rows=[x for x in browser.mode_rows

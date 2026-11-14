@@ -15,7 +15,11 @@ PROFILE = "source_sized_selenium_only_v2"
 SHORT_PROFILE = "short_g1_selenium_only_v3"
 LONG_PROFILE = "source_sized_g1_selenium_only_v3"
 REGISTRATION_PROFILE = "short_g1_registered_turn_v4"
-APPROVED_PROFILES = (PROFILE, SHORT_PROFILE, LONG_PROFILE, REGISTRATION_PROFILE)
+OWNED_SOURCE_SIZED_PROFILE = "source_sized_g1_owned_turn_v5"
+RICH_ROUTE_SOURCE_SIZED_PROFILE = "source_sized_g2_rich_route_v6"
+APPROVED_PROFILES = (PROFILE, SHORT_PROFILE, LONG_PROFILE,
+                     REGISTRATION_PROFILE, OWNED_SOURCE_SIZED_PROFILE,
+                     RICH_ROUTE_SOURCE_SIZED_PROFILE)
 
 
 def summarize(result: dict) -> dict:

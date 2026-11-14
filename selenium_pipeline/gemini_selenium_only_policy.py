@@ -295,3 +295,31 @@ def observe_gemini_send_registration(
                 if observed else "OWNED_GEMINI_TAB_OBSERVATION_UNAVAILABLE"),
                 "registered": False}
         sleep(min(poll_s, remaining))
+
+def reconcile_late_owned_gemini_registration(
+    driver, owned_handle: str, baseline: dict, prior: dict
+) -> dict:
+    """Recheck Send ownership after a captured model reply, WITHOUT resending.
+
+    The early ~8s observation may precede slow Gemini DOM registration.
+    Reuse the ORIGINAL pre-Send baseline and same owned tab. Trust only an
+    independently new visible user turn, model turn, or conversation route
+    PLUS cleared composer. A valid JSON response alone is never proof of a
+    newly registered job. Neither a changed browser tab nor uncertain DOM
+    counts may promote the earlier negative/unknown Send evidence.
+    """
+    if not isinstance(prior,dict) or prior.get("registered") is True:
+        return prior
+    if not owned_handle or not isinstance(baseline,dict):
+        return prior
+    try:
+        late=observe_gemini_send_registration(
+            driver,owned_handle,baseline,wait_s=0.5,poll_s=0.25)
+    except (ValueError,OSError,RuntimeError):
+        return prior
+    if late.get("registered") is True:
+        return {
+            "status":"LATE_OWNED_"+late["status"],
+            "registered":True,
+        }
+    return prior

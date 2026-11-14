@@ -63,6 +63,45 @@ class G1SingleRouteTests(unittest.TestCase):
             {"outcome":"VALID_CANARY_RESPONSE","probe_profile":SHORT_PROFILE}
         )["academic_original_lecture_accepted"])
 
+    def test_rich_route_v6_reuses_exact_production_picker_and_validator(self):
+        from selenium_pipeline.gemini_g1_single_route_cli import (
+            RICH_ROUTE_SOURCE_SIZED_PROFILE,APPROVED_PROFILES)
+        from selenium_pipeline.windows_gemini_differential_probe import (
+            _request_browser)
+        profile=RICH_ROUTE_SOURCE_SIZED_PROFILE
+        prompt,expected,digest=_profile_spec(profile)
+        _,_,old_sha=_profile_spec("source_sized_g1_owned_turn_v5")
+        self.assertIn(profile,APPROVED_PROFILES)
+        self.assertNotEqual(digest,old_sha)
+        self.assertTrue(1200<=len(prompt)<=3000)
+        called=[]
+        def production_route(provider,text,port,wait_cap,*,accept_fn):
+            called.append((provider,text,port,wait_cap))
+            good=json.dumps(expected)
+            self.assertTrue(accept_fn(good))
+            self.assertFalse(accept_fn('{"probe":"another_canary"}'))
+            return good
+        with patch("selenium_pipeline.rich_mapping_provider_dispatch."
+                   "_real_transport",side_effect=production_route):
+            result=_request_browser(prompt,profile=profile)
+        self.assertEqual(result,json.dumps(expected))
+        self.assertEqual(called,[("gemini",prompt,9222,150)])
+
+    def test_new_owned_turn_v5_is_distinct_sha_bound_source_sized(self):
+        from selenium_pipeline.gemini_g1_single_route_cli import (
+            OWNED_SOURCE_SIZED_PROFILE, APPROVED_PROFILES)
+        fresh,expected,digest=_profile_spec(OWNED_SOURCE_SIZED_PROFILE)
+        old,_,old_digest=_profile_spec("source_sized_g1_selenium_only_v3")
+        self.assertIn(OWNED_SOURCE_SIZED_PROFILE,APPROVED_PROFILES)
+        self.assertNotEqual(digest,old_digest)
+        self.assertNotEqual(fresh,old)
+        self.assertTrue(1200<=len(fresh)<=3000)
+        self.assertIn("source_sized_owned_v5_ok",str(expected))
+        self.assertFalse(summarize({
+            "probe_profile":OWNED_SOURCE_SIZED_PROFILE,
+            "outcome":"NO_VERIFIED_RESPONSE",
+        })["academic_original_lecture_accepted"])
+
     @patch("selenium_pipeline.windows_gemini_differential_probe.sys.platform","win32")
     def test_verified_source_sized_gemini_response_is_not_academic_acceptance(self):
         _,expected,_=_profile_spec(PROFILE)
