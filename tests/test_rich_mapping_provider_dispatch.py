@@ -226,6 +226,110 @@ class OneShotOriginalSourceQueueTests(unittest.TestCase):
         self.assertEqual(result["status"],"GEMINI_SELENIUM_TEMPORARY_FAILURE_STOP")
         sender.assert_not_called()
 
+    def test_real_transport_scopes_rich_model_fallback_and_restores_env(self):
+        from selenium_pipeline.rich_mapping_provider_dispatch import _real_transport
+        from selenium_pipeline.series_gemini import OwnedGeminiResponse
+        watched=("MICROGEN_ACTIVE_GENERATION_STAGE",
+                 "MICROGEN_GEMINI_UI_MODE","MICROGEN_LLM_MODEL",
+                 "MICROGEN_GEMINI_THINKING_LEVEL",
+                 "MICROGEN_MODEL_ROUTE_REASON",
+                 "MICROGEN_MODEL_ROUTE_REQUESTED",
+                 "MICROGEN_MODEL_ROUTE_OFFERED")
+        before={name:os.environ.get(name) for name in watched}
+        seen=[]
+        def owned_only(prompt,attachments,*,port,wait_cap_s,min_chars,
+                       accept_fn):
+            seen.append((os.environ.get("MICROGEN_ACTIVE_GENERATION_STAGE"),
+                         os.environ.get("MICROGEN_GEMINI_THINKING_LEVEL"),
+                         port,wait_cap_s))
+            # Mimic an independently verified *owned-tab* adapter event,
+            # not a provider call or scientific approval.
+            os.environ["MICROGEN_GEMINI_UI_MODE"]="pro"
+            os.environ["MICROGEN_LLM_MODEL"]="gemini-3.1-pro"
+            os.environ["MICROGEN_MODEL_ROUTE_REASON"]=(
+                "EXACT_PREFERRED_ABSENT_STAGE_COMPATIBLE_FALLBACK")
+            return OwnedGeminiResponse(
+                '{"slide":1}',registration_status="NEW_TURN_REGISTERED",
+                new_turn_verified=True)
+        with patch("selenium_pipeline.series_gemini._browser_request",
+                   side_effect=owned_only):
+            result=_real_transport("gemini","synthetic prompt",9222,25)
+        self.assertEqual(seen[0][0],"rich_mapping")
+        self.assertIn(seen[0][1],("medium","high"))
+        self.assertEqual(result.rich_ui_family_verified,"pro")
+        self.assertEqual(result.rich_thinking_verified,seen[0][1])
+        self.assertEqual(result.rich_fallback_reason,
+                         "EXACT_PREFERRED_ABSENT_STAGE_COMPATIBLE_FALLBACK")
+        self.assertEqual({name:os.environ.get(name)for name in watched},before)
+
+    def test_rich_transport_concurrent_environment_stress(self):
+        from concurrent.futures import ThreadPoolExecutor
+        from time import sleep
+        from selenium_pipeline.rich_mapping_provider_dispatch import _real_transport
+        from selenium_pipeline.series_gemini import OwnedGeminiResponse
+        watched=("MICROGEN_ACTIVE_GENERATION_STAGE",
+                 "MICROGEN_GEMINI_THINKING_LEVEL",
+                 "MICROGEN_GEMINI_UI_MODE",
+                 "MICROGEN_LLM_MODEL",
+                 "MICROGEN_MODEL_ROUTE_REASON")
+        seen=[]
+        def owned_only(prompt,attachments,*,port,wait_cap_s,min_chars,
+                       accept_fn):
+            before=(os.getenv("MICROGEN_ACTIVE_GENERATION_STAGE"),
+                    os.getenv("MICROGEN_GEMINI_THINKING_LEVEL"),
+                    os.getenv("MICROGEN_GEMINI_UI_MODE"),
+                    os.getenv("MICROGEN_LLM_MODEL"),
+                    os.getenv("MICROGEN_MODEL_ROUTE_REASON"))
+            # Simulate a verified Pro/High vendor fallback while another
+            # rich mapping worker is trying to enter its own model stage.
+            os.environ["MICROGEN_GEMINI_UI_MODE"]="pro"
+            os.environ["MICROGEN_GEMINI_THINKING_LEVEL"]="high"
+            os.environ["MICROGEN_MODEL_ROUTE_REASON"]="VERIFIED_HIGH_FALLBACK"
+            sleep(0.002)
+            seen.append((prompt,before,os.getenv("MICROGEN_GEMINI_UI_MODE")))
+            return OwnedGeminiResponse(
+                '{"slide":1}',registration_status="NEW_TURN_REGISTERED",
+                new_turn_verified=True)
+        with patch.dict(os.environ,{"MICROGEN_ACTIVE_GENERATION_STAGE":"figures",
+                                    "MICROGEN_GEMINI_THINKING_LEVEL":"low",
+                                    "MICROGEN_GEMINI_UI_MODE":"flash-lite"}):
+            before={name:os.environ.get(name) for name in watched}
+            with patch("selenium_pipeline.series_gemini._browser_request",
+                       side_effect=owned_only):
+                with ThreadPoolExecutor(max_workers=8) as pool:
+                    results=list(pool.map(
+                        lambda i:_real_transport("gemini",str(i),9222,25),
+                        range(64)))
+            self.assertEqual(
+                {name:os.environ.get(name) for name in watched},before)
+        self.assertEqual(len(seen),64)
+        self.assertTrue(all(stage=="rich_mapping" and effort=="medium"
+                            and requested_family=="flash"
+                            and requested_model=="gemini-3.8-flash"
+                            and previous_route is None and family=="pro"
+                            for _,(stage,effort,requested_family,
+                                   requested_model,previous_route),family in seen))
+        self.assertTrue(all(r.rich_ui_family_verified=="pro"
+                            and r.rich_thinking_verified=="high"
+                            and r.gemini_new_user_turn_verified
+                            for r in results))
+
+    def test_rich_transport_presend_failure_restores_environment(self):
+        from selenium_pipeline.rich_mapping_provider_dispatch import _real_transport
+        watched=("MICROGEN_ACTIVE_GENERATION_STAGE",
+                 "MICROGEN_GEMINI_THINKING_LEVEL",
+                 "MICROGEN_GEMINI_UI_MODE")
+        with patch.dict(os.environ,{"MICROGEN_ACTIVE_GENERATION_STAGE":"figures",
+                                    "MICROGEN_GEMINI_THINKING_LEVEL":"low",
+                                    "MICROGEN_GEMINI_UI_MODE":"flash-lite"}):
+            before={name:os.environ.get(name) for name in watched}
+            with patch("selenium_pipeline.series_gemini._browser_request",
+                       side_effect=RuntimeError("pre-send UI unavailable")):
+                with self.assertRaisesRegex(RuntimeError,"pre-send UI"):
+                    _real_transport("gemini","test",9222,25)
+            self.assertEqual({name:os.environ.get(name) for name in watched},
+                             before)
+
     def test_no_direct_chatgpt_or_api_generation_transport(self):
         from selenium_pipeline.rich_mapping_provider_dispatch import _real_transport
         for name,port in (("chatgpt",9223),("api",9222)):

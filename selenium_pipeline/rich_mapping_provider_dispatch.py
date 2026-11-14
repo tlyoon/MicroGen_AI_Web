@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import threading
 import sys
 import time
 from pathlib import Path
@@ -77,16 +78,73 @@ def _global_slide_claim(*, source_sha256: str, slide: int,
     return per_source/f"slide_{slide:03d}.once.json"
 
 
+_RICH_MAPPING_ENV_LOCK = threading.RLock()
+
+
 def _real_transport(provider:str,prompt:str,port:int,wait_cap_s:int)->str:
-    if provider=="gemini":
-        from .series_gemini import _browser_request
-        from .rich_element_model_alignment import complete_json_response
-        return _browser_request(prompt,[],port=port,
-            wait_cap_s=wait_cap_s,min_chars=110,
-            accept_fn=complete_json_response)
-    raise RichMappingError(
-        "Gemini Selenium is the sole supported LLM generation route. "
-        "ChatGPT and Gemini API fallback are disabled.")
+    if provider!="gemini":
+        raise RichMappingError(
+            "Gemini Selenium is the sole supported LLM generation route. "
+            "ChatGPT and Gemini API fallback are disabled.")
+    from .series_gemini import _browser_request
+    from .rich_element_model_alignment import complete_json_response
+    # This is the NORMAL rich visual-mapping stage, distinct from strict
+    # original academic-review and cheap figure-caption stages. The
+    # existing owned-tab adaptive family policy is allowed to select a
+    # POSITIVELY OBSERVED Pro family + independently verified Medium when
+    # preferred Flash is NOT in the actual authenticated Gemini model menu.
+    # Never guess a family from its order or use Flash-Lite for rich math.
+    # Restore caller environment, including any in-worker adaptive route,
+    # so another job cannot inherit a stale model picker preference.
+    names=(
+        "MICROGEN_ACTIVE_GENERATION_STAGE",
+        "MICROGEN_GEMINI_THINKING_LEVEL",
+        "MICROGEN_GEMINI_UI_MODE",
+        "MICROGEN_LLM_MODEL",
+        "MICROGEN_MODEL_ROUTE_REASON",
+        "MICROGEN_MODEL_ROUTE_REQUESTED",
+        "MICROGEN_MODEL_ROUTE_OFFERED",
+    )
+    # Browser stages communicate their verified picker through environment.
+    # The owned browser port lock alone starts too late: protect this entire
+    # stage-environment lifetime against concurrent rich-mapping threads.
+    _RICH_MAPPING_ENV_LOCK.acquire()
+    old={name:os.environ.get(name) for name in names}
+    try:
+        os.environ["MICROGEN_ACTIVE_GENERATION_STAGE"]="rich_mapping"
+        # An inherited Low setting from a caption/previous job is NOT an
+        # explicit preference for this new reasoning task.
+        os.environ["MICROGEN_GEMINI_THINKING_LEVEL"]="medium"
+        # Rich scientific mapping ALWAYS starts Flash-first, even when an
+        # earlier stage left a Flash-Lite or Pro preference in the worker.
+        # Only owned-tab menu evidence can choose a different safe family.
+        os.environ["MICROGEN_GEMINI_UI_MODE"]="flash"
+        os.environ["MICROGEN_LLM_MODEL"]="gemini-3.8-flash"
+        for name in ("MICROGEN_MODEL_ROUTE_REASON",
+                     "MICROGEN_MODEL_ROUTE_REQUESTED",
+                     "MICROGEN_MODEL_ROUTE_OFFERED"):
+            os.environ.pop(name,None)
+        response=_browser_request(
+            prompt,[],port=port,wait_cap_s=wait_cap_s,
+            min_chars=110,accept_fn=complete_json_response)
+        # The underlying _browser_request verifies the exact selected
+        # family AND Thinking radio immediately before its one Send. UI
+        # family is verified; opaque server model version remains UNKNOWN.
+        if getattr(response,"gemini_new_user_turn_verified",False) is True:
+            response.rich_ui_family_verified=os.environ.get(
+                "MICROGEN_GEMINI_UI_MODE","flash")
+            response.rich_thinking_verified=os.environ.get(
+                "MICROGEN_GEMINI_THINKING_LEVEL","medium")
+            response.rich_fallback_reason=os.environ.get(
+                "MICROGEN_MODEL_ROUTE_REASON")
+        return response
+    finally:
+        for name,prior in old.items():
+            if prior is None:
+                os.environ.pop(name,None)
+            else:
+                os.environ[name]=prior
+        _RICH_MAPPING_ENV_LOCK.release()
 
 
 def _academic_unclaimed_scope(
@@ -344,6 +402,13 @@ def dispatch_one(*,source_folder:Path,checkpoint:Path,fallback_dir:Path,
                 audit["remaining_review_items"],
             "independently_supported_text_links":
                 audit["text_source_and_author_anchors_passed"],
+            "owned_gemini_selected_ui_family_verified":getattr(
+                response,"rich_ui_family_verified",None),
+            "owned_gemini_selected_thinking_level_verified":getattr(
+                response,"rich_thinking_verified",None),
+            "owned_gemini_verified_adaptive_route_reason":getattr(
+                response,"rich_fallback_reason",None),
+            "opaque_server_model_version_verified":False,
         }
         _update_claim(claim,final)
         _update_claim(global_claim,{**final,

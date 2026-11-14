@@ -134,7 +134,8 @@ def _browser_request(instruction: str,attachments: list[Path],
                                         "academic_review"),
                         allow_fallback=os.getenv(
                             "MICROGEN_ACTIVE_GENERATION_STAGE","") in (
-                                "figures","slides","narration"))
+                                "figures","slides","narration",
+                                "rich_mapping"))
                 # New chats may reset Gemini's mode: independently recheck.
                 from .gemini_model import (
                     assert_owned_gemini_mode, browser_model_evidence)

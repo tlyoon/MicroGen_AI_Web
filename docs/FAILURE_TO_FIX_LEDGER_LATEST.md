@@ -1,5 +1,15 @@
 # MicroGen_AI_Web failure-to-fix ledger — current continuation
 
+## MG-G2-RICH-GEMINI-PICKER-THREAD-ISOLATION-V1 — 14 Nov 2026
+
+**Recurrence cause:** Rich mapping inherited model/effort environment from earlier generation stages. An old Flash-Lite or Low selection could reach the normal Gemini Selenium worker and fail the pre-Send stage gate, while a requested verified Pro/Medium fallback was not fully wired through the existing `series_gemini` fallback path. Concurrent rich jobs could also mutate shared process environment before the browser port lock, causing cross-job selection contamination.
+
+**Baked remedy in regular production:** `rich_mapping_provider_dispatch._real_transport` sets Flash-first/Medium and clears stale route evidence at each rich job, then allows ONLY the positively observed owned-tab model picker to choose Pro, and verifies Medium or non-downgraded High on that SAME tab before the one Send. Shared adaptive family/stage policy, vendor Selenium client and shared browser request support the rich-mapping stage. A process-local `RLock` spans the complete environment lifetime and always restores the caller settings on success or exception. Only positively registered owned user-turn responses acquire verified picker metadata. This is not a separate Serway workaround or a new API/provider route. Source-global academic exclusions, permanent once-only source claim, quarantine and no-resend safety remain in force.
+
+**Test evidence:** Dell-115 **87 passed, 1 skipped** expanded offline suite, including 64 concurrent mocked rich transport requests through 8 workers, pre-Send failure restoration, verified fallback selection, real-source queue safeguards; `compileall` and `git diff --check` passed. This proves code-path invariants with synthetic transport, NOT live Gemini service health or real scientific mapping. Existing 39 academically consumed utterances were not resubmitted; the remaining 28 eligibility does not imply approved academic or media output. Exact-head hosted Windows CI acceptance and a positively attributed live provider route remain pending.
+
+---
+
 ## MG-G2-CROSS-LEDGER-ACADEMIC-TO-RICH-UNCLAIMED-V2 — 13 November 2026
 
 **Real G2 frontier, not another old-claim retry:** The frozen authentic Serway 6.4 rich visual queue has **74 original utterances, 7 independently source/author-grounded prose links and 67 still unresolved**. Earlier source-academic Gemini review consumed **41 original utterance IDs** in the canonical source-SHA global ledger; **39** of those 41 also occur in the rich queue (the other two are among the 7 safe links). BEFORE this fix, `rich_mapping_provider_dispatch` guarded only rich-map duplicate Sends, and could still submit the **39 already-consumed academic original utterance IDs** via a different *review route* even though they were claimed globally in academic source review. This was a distinct unresolved cross-pipeline resend vulnerability and a reason the owner repeatedly encountered the same claims.
