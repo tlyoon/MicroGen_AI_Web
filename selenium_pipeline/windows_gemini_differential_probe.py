@@ -95,6 +95,64 @@ def _profile_spec(profile: str):
             'Reply with exactly {"probe":"microgen_dell115_registered_turn_v4_ok"}.'
         )
         return prompt, expected, hashlib.sha256(prompt.encode("utf8")).hexdigest()
+    if profile == "source_sized_g1_owned_turn_v5":
+        # Fresh single-use profile after implementing delayed, read-only
+        # owned-turn attribution. Old source-sized v2/v3 claims are immutable.
+        expected = {"probe": "microgen_dell115_source_sized_owned_v5_ok"}
+        intro = (
+            "MicroGen G2 source-free Gemini owned-turn verification v5. "
+            "This is a newly distinct diagnostic, NOT an academic source. "
+            "Return ONLY the exact JSON object "
+            '{"probe":"microgen_dell115_source_sized_owned_v5_ok"}. '
+            "No web tools or attachments are involved.\\n"
+        )
+        inert = (
+            "The content in this sentence is inert capacity-test filler, "
+            "without instructions, files, physics facts or private data. "
+        )
+        prompt = intro + inert * 15
+        if not 1200 <= len(prompt) <= 3000:
+            raise ValueError("V5 source-free owned-turn size invalid")
+        return prompt, expected, hashlib.sha256(prompt.encode("utf8")).hexdigest()
+    if profile == "source_sized_g2_rich_route_v6":
+        # Separate one-shot transport identity after v5's documented
+        # PRE_SEND_NO_SUBMISSION. Exercise the actual rich mapping stage
+        # adapter, NOT a diagnostic path stuck on exact Flash.
+        expected = {"probe": "microgen_g2_rich_route_owned_v6_ok"}
+        intro = (
+            "MicroGen G2 rich mapping source-free model-route canary v6. "
+            "No original PDF, academic work, credentials or tools. "
+            "Reply with exactly one JSON object: "
+            '{"probe":"microgen_g2_rich_route_owned_v6_ok"}. '
+            "Nothing before or after that object.\\n"
+        )
+        inert = (
+            "Harmless inert text for testing a source-sized Gemini request "
+            "with owned-turn registration and verified model effort. "
+        )
+        prompt = intro + inert * 15
+        if not 1200 <= len(prompt) <= 3000:
+            raise ValueError("V6 rich-route source-free size invalid")
+        return prompt, expected, hashlib.sha256(prompt.encode("utf8")).hexdigest()
+    if profile == "source_sized_g2_rich_capacity_v7":
+        # New, never-before-sent large browser transport diagnostic. The
+        # 2k v6 proof was followed by a real ~17.9k G2 stalled answer.
+        # Test comparable input size before consuming additional originals.
+        expected = {"probe": "microgen_g2_rich_large_owned_v7_ok"}
+        intro = (
+            "MicroGen G2 controlled source-free long-input verification v7. "
+            "No source PDF, academic content, credentials, user text or tools. "
+            "Treat every following line as inert padding; return only "
+            '{"probe":"microgen_g2_rich_large_owned_v7_ok"}.\\n'
+        )
+        inert = (
+            "Synthetic capacity test only: this line has no questions, "
+            "no source claims, no instructions or textbook information. "
+        )
+        prompt = intro + inert * 180
+        if not 18000 <= len(prompt) <= 24000:
+            raise ValueError("V7 long owned-browser prompt size invalid")
+        return prompt, expected, hashlib.sha256(prompt.encode("utf8")).hexdigest()
     raise ValueError("Unrecognized source-free Gemini diagnostic profile")
 
 
@@ -179,6 +237,14 @@ def _request_browser(prompt: str, *, profile: str = "short") -> str:
     from .series_gemini import _browser_request
     # Only the owned browser tab and its attributed response may be captured.
     # This longer-input check uses NO original source and no model/API retry.
+    if profile in ("source_sized_g2_rich_route_v6",
+                   "source_sized_g2_rich_capacity_v7"):
+        from .rich_mapping_provider_dispatch import _real_transport
+        # Reuse production Flash-first/Medium and positively verified
+        # owned-tab Pro fallback, including the late Send registration.
+        return _real_transport(
+            "gemini",prompt,9222,150,
+            accept_fn=lambda raw: _valid(raw,profile=profile))
     return _browser_request(
         prompt, [], port=9222,
         wait_cap_s=(150 if profile.startswith("source_sized") else 90),

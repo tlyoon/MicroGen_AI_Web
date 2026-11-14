@@ -112,7 +112,14 @@ class StructuredApiCapacityTests(unittest.TestCase):
         ), patch(
             "selenium_pipeline.windows_gemini_provider_halt.record_stage",
             return_value={"status": "MOCKED_STAGE_RECEIPT"},
+        ), patch(
+            "selenium_pipeline.windows_new_source_browser_admission."
+            "inspect_new_source_browser_admission",
+            return_value={"new_source_stage_send_eligible": True},
         ):
+            # This test isolates historic cooldown/key selection ONLY.
+            # The independent source-free admission gate is tested in
+            # test_windows_new_source_browser_admission, never bypassed live.
             result = run_trial(
                 source_root=publisher, section="22.8", trial_dir=new_trial,
                 attempt_figures=True,

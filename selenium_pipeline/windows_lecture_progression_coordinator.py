@@ -86,7 +86,8 @@ def _source_locked_ui_contract_breach(trial_dir: Path, stage: str) -> str | None
 
 def inspect_progress(*, source_root: Path, section: str, trial_dir: Path,
                      communication_mode: str = "selenium",
-                     technical_check=None, provider_inspect=None) -> dict:
+                     technical_check=None, provider_inspect=None,
+                     browser_route_inspect=None) -> dict:
     """Read-only, SHA-verifying state machine. Never runs any provider."""
     require(os.name == "nt", "Only native Windows source progression supported")
     require(communication_mode in ("selenium", "api"),
@@ -295,6 +296,7 @@ def inspect_progress(*, source_root: Path, section: str, trial_dir: Path,
                 )
 
     if next_stage in ("figures", "slides", "narration"):
+        live_provider_inspect = provider_inspect is None
         if provider_inspect is None:
             from .windows_gemini_provider_halt import inspect_halt
             provider_inspect = inspect_halt
@@ -305,6 +307,26 @@ def inspect_progress(*, source_root: Path, section: str, trial_dir: Path,
                 source_sha256=sha, section=section,
                 next_stage=next_stage,
                 provider_health=health)
+        # Reuse the same historical source-free Gemini route gate used by
+        # the live figure-stage runner; never advertise a new browser Send as
+        # ready merely because its temporary cooldown has expired.
+        if communication_mode == "selenium" and (
+                live_provider_inspect or browser_route_inspect is not None):
+            from .windows_new_source_browser_admission import (
+                inspect_new_source_browser_admission)
+            try:
+                route = (browser_route_inspect or
+                         inspect_new_source_browser_admission)()
+            except (ValueError, OSError, TypeError):
+                route = {"status":"NEW_SOURCE_GEMINI_ROUTE_EVIDENCE_REJECTED",
+                         "new_source_stage_send_eligible":False}
+            if route.get("new_source_stage_send_eligible") is not True:
+                return _report(
+                    status="HALTED_UNVERIFIED_GEMINI_BROWSER_ROUTE_NO_SEND",
+                    source_sha256=sha, section=section,
+                    next_stage=next_stage,
+                    source_free_route_status=route.get("status"),
+                    new_source_browser_send_authorized=False)
     return _report(
         status="NEXT_SOURCE_STAGE_READY_EXPLICIT_ONE_SHOT_ONLY",
         source_sha256=sha, section=section,
@@ -318,12 +340,14 @@ def advance_one(*, source_root: Path, section: str, trial_dir: Path,
                 execute_next: bool = False, communication_mode: str = "selenium",
                 confirm_content_api_cost: bool = False,
                 technical_check=None, provider_inspect=None,
-                figure_runner=None, stage_runner=None) -> dict:
+                figure_runner=None, stage_runner=None,
+                browser_route_inspect=None) -> dict:
     """Never dispatch more than one stage, even when a stage succeeds."""
     state = inspect_progress(
         source_root=source_root, section=section, trial_dir=trial_dir,
         communication_mode=communication_mode,
-        technical_check=technical_check, provider_inspect=provider_inspect)
+        technical_check=technical_check, provider_inspect=provider_inspect,
+        browser_route_inspect=browser_route_inspect)
     if not execute_next:
         return state
     if state["status"] != "NEXT_SOURCE_STAGE_READY_EXPLICIT_ONE_SHOT_ONLY":
@@ -345,6 +369,8 @@ def advance_one(*, source_root: Path, section: str, trial_dir: Path,
         }
         if figure_runner is not None:
             args["subprocess_run"] = figure_runner
+        if browser_route_inspect is not None:
+            args["browser_route_inspect"] = browser_route_inspect
         result = run_trial(**args)
     else:
         from .windows_original_stage_sequence import run_stage

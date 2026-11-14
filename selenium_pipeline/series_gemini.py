@@ -298,6 +298,11 @@ def _browser_request(instruction: str,attachments: list[Path],
                         verified_new_turn=bool(registration["registered"]))
                     if recovered is not None:
                         if not registration["registered"]:
+                            from .gemini_selenium_only_policy import (
+                                reconcile_late_owned_gemini_registration)
+                            registration=reconcile_late_owned_gemini_registration(
+                                client.driver,owned_handle,baseline,registration)
+                        if not registration["registered"]:
                             raise SeriesBridgeError(
                                 "Gemini response present but NEW user turn "
                                 "not registered after a possible Send; "
@@ -363,6 +368,14 @@ def _browser_request(instruction: str,attachments: list[Path],
                     "Use offline recover-candidate after verifying content; "
                     "do not automatically resubmit source files."
                 ) from capture_error
+            if not registration["registered"]:
+                # Capture may succeed long after the initial short Send
+                # registration window. Recheck counts on the SAME owned tab
+                # against the ORIGINAL pre-click snapshot. No second click.
+                from .gemini_selenium_only_policy import (
+                    reconcile_late_owned_gemini_registration)
+                registration=reconcile_late_owned_gemini_registration(
+                    client.driver,owned_handle,baseline,registration)
             if not registration["registered"]:
                 from .gemini_response_recovery import (
                     latest_owned_response,quarantine_snapshot)

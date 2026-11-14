@@ -127,9 +127,25 @@ class WindowsOriginalStageSequenceTests(unittest.TestCase):
         self.assertEqual(timeout.call_count, 1)
 
     @patch("selenium_pipeline.runner.check_valid", return_value=True)
+    def test_live_slide_route_gate_blocks_before_immutable_send_intent(self, _valid):
+        """An unverified browser must not bypass the fresh-source coordinator."""
+        self.figure_receipt()
+        no_send = Mock(side_effect=AssertionError("unexpected Gemini Send"))
+        blocked=lambda:{"status":"NEW_SOURCE_GEMINI_ROUTE_UNVERIFIED_STOP_NO_SEND",
+                        "new_source_stage_send_eligible":False}
+        outcome=run_stage(trial_dir=self.trial,stage="slides",
+                          stage_runner=no_send,browser_route_inspect=blocked)
+        self.assertEqual("GEMINI_SOURCE_ROUTE_UNVERIFIED_NO_SUBMISSION",
+                         outcome["status"])
+        self.assertFalse((self.trial/"stage_slides_started.json").exists())
+        no_send.assert_not_called()
+
+    @patch("selenium_pipeline.runner.check_valid", return_value=True)
     def test_real_slide_stage_auto_records_triage_without_another_send(self, _valid):
         self.figure_receipt()
-        with patch("selenium_pipeline.windows_original_stage_sequence.run_bounded",
+        with patch("selenium_pipeline.windows_new_source_browser_admission.inspect_new_source_browser_admission",
+                   return_value={"new_source_stage_send_eligible":True}), patch(
+            "selenium_pipeline.windows_original_stage_sequence.run_bounded",
                    side_effect=subprocess.TimeoutExpired("slides", 30)) as runner, patch(
                    "selenium_pipeline.windows_gemini_provider_halt.record_stage",
                    return_value={"status": "MOCK_HEALTH"}):

@@ -226,6 +226,82 @@ class OneShotOriginalSourceQueueTests(unittest.TestCase):
         self.assertEqual(result["status"],"GEMINI_SELENIUM_TEMPORARY_FAILURE_STOP")
         sender.assert_not_called()
 
+    def test_live_rich_route_unverified_stops_before_permanent_claim(self):
+        """Authenticated composer does not certify the owned new user turn."""
+        failed={
+            "status":"NEW_SOURCE_GEMINI_ROUTE_UNVERIFIED_STOP_NO_SEND",
+            "new_source_stage_send_eligible":False,
+            "owned_new_user_turn_verified":False,
+            "new_model_or_tts_calls":False,
+        }
+        with patch("selenium_pipeline.windows_new_source_browser_admission."
+                   "inspect_new_source_browser_admission",return_value=failed):
+            with patch("selenium_pipeline.rich_mapping_provider_dispatch."
+                       "_real_transport",side_effect=AssertionError(
+                           "Must never send without route proof")) as sender:
+                result=self._call(None)
+        self.assertEqual(result["status"],
+                         "GEMINI_RICH_MAPPING_ROUTE_UNVERIFIED_NO_SEND")
+        self.assertEqual(result["model_submissions"],0)
+        self.assertEqual(result["new_eligible_utterances_preserved"],1)
+        self.assertEqual(list(self.out.iterdir()),[])
+        self.assertFalse(self._canonical_global_claim().exists())
+        sender.assert_not_called()
+
+    def test_live_rich_route_invalid_evidence_stops_no_claim(self):
+        with patch("selenium_pipeline.windows_new_source_browser_admission."
+                   "inspect_new_source_browser_admission",
+                   side_effect=ValueError("bad canary SHA")):
+            with patch("selenium_pipeline.rich_mapping_provider_dispatch."
+                       "_real_transport",side_effect=AssertionError(
+                           "No verified provider route")) as sender:
+                result=self._call(None)
+        self.assertEqual(result["status"],
+                         "GEMINI_RICH_MAPPING_ROUTE_EVIDENCE_INVALID_NO_SEND")
+        self.assertEqual(result["evidence_error_type"],"ValueError")
+        self.assertFalse(self._canonical_global_claim().exists())
+        sender.assert_not_called()
+
+    def test_verified_live_rich_route_keeps_exact_once_and_source_audit(self):
+        with patch("selenium_pipeline.windows_new_source_browser_admission."
+                   "inspect_new_source_browser_admission",
+                   return_value={"new_source_stage_send_eligible":True}), patch(
+            "selenium_pipeline.windows_rich_mapping_capacity_admission."
+            "inspect_rich_mapping_capacity",
+            return_value={"rich_model_send_eligible":True}
+        ):
+            with patch("selenium_pipeline.rich_mapping_provider_dispatch."
+                       "_real_transport",return_value=self.reply()) as sender:
+                result=self._call(None)
+        self.assertEqual(result["status"],
+                         "CAPTURED_SOURCE_VERIFIED_REVIEW_ONLY")
+        self.assertTrue(self._canonical_global_claim().exists())
+        self.assertEqual(sender.call_count,1)
+        with self.assertRaisesRegex(RichMappingError,"already claimed"):
+            self._call(lambda *a:None)
+        sender.assert_called_once()
+
+    def test_rich_capacity_short_canary_blocks_before_global_claim(self):
+        # A valid owned 2k canary cannot justify the 12k+ visual review.
+        with patch("selenium_pipeline.windows_new_source_browser_admission."
+                   "inspect_new_source_browser_admission",
+                   return_value={"new_source_stage_send_eligible":True}), patch(
+            "selenium_pipeline.windows_rich_mapping_capacity_admission."
+            "inspect_rich_mapping_capacity",
+            return_value={"rich_model_send_eligible":False,
+                          "status":"RICH_PROMPT_EXCEEDS_VERIFIED_CANARY_NO_SEND"}
+        ):
+            with patch("selenium_pipeline.rich_mapping_provider_dispatch."
+                       "_real_transport",side_effect=AssertionError(
+                           "No model call after insufficient capacity")) as send:
+                result=self._call(None)
+        self.assertEqual(result["status"],
+                         "GEMINI_RICH_MAPPING_CAPACITY_UNVERIFIED_NO_SEND")
+        self.assertEqual(result["model_submissions"],0)
+        self.assertFalse(self._canonical_global_claim().exists())
+        self.assertEqual(list(self.out.iterdir()),[])
+        send.assert_not_called()
+
     def test_real_transport_scopes_rich_model_fallback_and_restores_env(self):
         from selenium_pipeline.rich_mapping_provider_dispatch import _real_transport
         from selenium_pipeline.series_gemini import OwnedGeminiResponse

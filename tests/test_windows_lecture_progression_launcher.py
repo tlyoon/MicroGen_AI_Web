@@ -60,11 +60,16 @@ class WindowsLectureProgressionLauncherTests(unittest.TestCase):
         run = self.invoke(
             "-Mode", "LectureStatus", "-SourceRoot", str(self.source),
             "-Section", "77.9", "-TrialDir", str(self.trial))
-        self.assertEqual(run.returncode, 0, run.stderr + run.stdout)
+        # The isolated source fixture has NO authenticated source-free
+        # owned-new-turn canary. Under the new normal route gate, the
+        # inspect-only launcher must halt safely rather than advertise
+        # source readiness from a healthy temporary-capacity flag alone.
+        self.assertEqual(run.returncode, 2, run.stderr + run.stdout)
         report = json.loads(run.stdout)
         self.assertEqual(report["next_stage"], "figures")
         self.assertEqual(report["status"],
-                         "NEXT_SOURCE_STAGE_READY_EXPLICIT_ONE_SHOT_ONLY")
+                         "HALTED_UNVERIFIED_GEMINI_BROWSER_ROUTE_NO_SEND")
+        self.assertFalse(report["new_source_browser_send_authorized"])
         self.assertFalse(report["new_model_or_tts_calls"])
         self.assertFalse(report["student_publication_authorized"])
         self.assertEqual(list(self.trial.iterdir()), [])
