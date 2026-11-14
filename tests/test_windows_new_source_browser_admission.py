@@ -109,6 +109,20 @@ class NewSourceRouteAdmissionTest(unittest.TestCase):
             health={"new_generation_dispatch_allowed_by_health_policy":False}
         )["new_source_stage_send_eligible"])
 
+    def test_verifiable_21k_owned_capacity_profile_is_accepted(self):
+        from selenium_pipeline.gemini_g1_single_route_cli import (
+            RICH_LONG_CAPACITY_PROFILE)
+        path=self.write_canary(
+            "large_owned",profile=RICH_LONG_CAPACITY_PROFILE,
+            registered=True,mtime=2000)
+        latest=select_latest_claimed_browser_canary(
+            checkpoint_root=self.history)
+        self.assertTrue(evaluate_new_source_browser_admission(
+            latest=latest,browser=_browser(),health=_health()
+        )["new_source_stage_send_eligible"])
+        self.assertEqual(latest["canary_path"],str(path))
+        self.assertGreater(latest["canary"]["prompt_characters"],18000)
+
     def test_short_positive_is_not_source_sized_qualification(self):
         self.write_canary("short",profile="short_g1_registered_turn_v4",
                           registered=True,mtime=2000)

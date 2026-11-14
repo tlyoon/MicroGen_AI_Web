@@ -312,16 +312,15 @@ def dispatch_one(*,source_folder:Path,checkpoint:Path,fallback_dir:Path,
             and inspected["authenticated_ui_ready"] is True
             and inspected["model_submission_performed"] is False,
             "Selected model provider is not a safe authenticated browser")
+    # The original author/source request is recomputed identically. Before
+    # claiming another one-Send, require capacity evidence for its REAL length,
+    # not merely a prior 2k source-free test. No source text is logged here.
+    prompt=prompt_partial(scoped)
     if transport is None:
-        # The ordinary rich review is a NEW one-Send job, even when the
-        # original publisher/author source was prepared on an older date.
-        # Reuse the SAME latest source-free, SHA-bound owned-turn gate as
-        # figures/slides/narration. An authenticated composer alone does not
-        # prove that an owned model request can be attributed safely.
-        # Check BEFORE the source-global claim so temporary provider failure
-        # leaves all genuinely fresh original utterance IDs eligible.
         from .windows_new_source_browser_admission import (
             inspect_new_source_browser_admission)
+        from .windows_rich_mapping_capacity_admission import (
+            inspect_rich_mapping_capacity)
         try:
             admission=inspect_new_source_browser_admission()
         except (ValueError,OSError,RuntimeError) as error:
@@ -340,7 +339,25 @@ def dispatch_one(*,source_folder:Path,checkpoint:Path,fallback_dir:Path,
                 "route_admission":admission,
                 "student_publication_authorized":False,
             }
-    prompt=prompt_partial(scoped)
+        try:
+            capacity=inspect_rich_mapping_capacity(
+                prompt_characters=len(prompt),base_admission=admission)
+        except (ValueError,OSError,RuntimeError,KeyError,TypeError) as error:
+            return {
+                "status":"GEMINI_RICH_MAPPING_CAPACITY_EVIDENCE_INVALID_NO_SEND",
+                "slide":slide,"model_submissions":0,
+                "evidence_error_type":type(error).__name__,
+                "new_eligible_utterances_preserved":len(eligible),
+                "student_publication_authorized":False,
+            }
+        if capacity.get("rich_model_send_eligible") is not True:
+            return {
+                "status":"GEMINI_RICH_MAPPING_CAPACITY_UNVERIFIED_NO_SEND",
+                "slide":slide,"model_submissions":0,
+                "new_eligible_utterances_preserved":len(eligible),
+                "capacity_admission":capacity,
+                "student_publication_authorized":False,
+            }
     initial={
         "schema_version":1,
         "status":"MAY_HAVE_SUBMITTED_RECONCILE_BEFORE_RESEND",

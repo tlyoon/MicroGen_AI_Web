@@ -1,5 +1,15 @@
 # MicroGen_AI_Web failure-to-fix ledger — current continuation
 
+## MG-G2-LONG-RICH-SOURCE-SIZE-CANARY-CIRCUIT-V1 — 14 Nov 2026
+
+**Reproduced with authentic source:** Gemini v6 2,006-char source-free real browser probe was exact JSON PASS and new owned-turn PASS; subsequent 17,881-char **original** Serway 6.4 slide-4 semantic rich request Pro/Medium and one Send REGISTERED, generated only 46 transient chars, then 180s inactivity and no complete owned-model answer. Its separate local and source-global original claims remain `MAY_HAVE_SUBMITTED_RECONCILE_BEFORE_RESEND`; post-stop quarantine is zero bytes, marked `strict_json_capture_exception`, source retry FALSE, provider outage UNPROVEN. The previous slide-3 two-unit unknown original claim also remains untouched. No repeat Send permitted.
+
+**Source-independent correction:** Every normal `rich_mapping_provider_dispatch.dispatch_one` recomputes its full SHA-bound scoped original prompt length BEFORE source-global claim. `windows_rich_mapping_capacity_admission.inspect_rich_mapping_capacity` demands a latest source-free, SHA-verified new-turn canary of at least that size (existing <=3k canaries certify only <=their own input; a NEW 18k–24k controlled v7 profile is available for future original rich calls). It additionally reads all source-global rich once-only claim receipts, checks SHA/source/slidenum/symlink/size consistency, and HALTS new jobs after any post-canary `MAY_HAVE_SUBMITTED_RECONCILE_BEFORE_RESEND` real rich failure. The gate automatically resumes only when **newer verified** long-capacity evidence exists; this cannot reopen old claims and does not prove academic or audio accuracy. Negative outcomes never create a new real source send claim. The v7 profile does not contain textbook data.
+
+**Regression/contract:** 115 Dell-115 local tests PASSED, 1 skipped, including read-only genuine v6/slide4 evidence, source-global tamper, short/long canary, concurrent claim invariants, science/source/media gates and no-send. Registered in Windows historical CI; exact-head hosted CI still required. Preserve original and avoid further live source requests unless latest source-free payload-size and original recent outcome both pass.
+
+---
+
 ## MG-G2-RICH-ROUTE-OWNED-TURN-TRANSPORT-V3 — 14 Nov 2026
 
 **Real recurrence:** A fresh 2052-character Gemini source-free v5 probe returned pre-Send `GEMINI_REQUESTED_MODEL_FAMILY_UNAVAILABLE`, not a model-service outage; authenticated Gemini UI offered Pro/Flash-Lite but lacked standard Flash. The diagnostic route did not inherit the existing rich-mapping Flash-first and authenticated Pro/Medium fallback already baked into the production model picker. Prior source-sized v3 had also returned correct JSON without a positively verified owned NEW user turn, incorrectly treated by early dispatch as enough to proceed.

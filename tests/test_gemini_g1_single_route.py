@@ -63,6 +63,31 @@ class G1SingleRouteTests(unittest.TestCase):
             {"outcome":"VALID_CANARY_RESPONSE","probe_profile":SHORT_PROFILE}
         )["academic_original_lecture_accepted"])
 
+    def test_long_v7_profile_distinct_sourcefree_owned_transport(self):
+        from selenium_pipeline.gemini_g1_single_route_cli import (
+            RICH_LONG_CAPACITY_PROFILE, APPROVED_PROFILES)
+        from selenium_pipeline.windows_gemini_differential_probe import (
+            _request_browser)
+        prompt,expected,sha=_profile_spec(RICH_LONG_CAPACITY_PROFILE)
+        _,_,old_sha=_profile_spec("source_sized_g2_rich_route_v6")
+        self.assertNotEqual(sha,old_sha)
+        self.assertIn(RICH_LONG_CAPACITY_PROFILE,APPROVED_PROFILES)
+        self.assertTrue(18000<=len(prompt)<=24000)
+        self.assertNotIn("source.pdf",prompt)
+        observed=[]
+        def inspect_route(provider,text,port,wait_cap,*,accept_fn):
+            observed.append((provider,len(text),port,wait_cap))
+            good=json.dumps(expected)
+            self.assertTrue(accept_fn(good))
+            self.assertFalse(accept_fn("not_json"))
+            return good
+        with patch("selenium_pipeline.rich_mapping_provider_dispatch."
+                   "_real_transport",side_effect=inspect_route):
+            self.assertEqual(
+                _request_browser(prompt,profile=RICH_LONG_CAPACITY_PROFILE),
+                json.dumps(expected))
+        self.assertEqual(observed,[("gemini",len(prompt),9222,150)])
+
     def test_rich_route_v6_reuses_exact_production_picker_and_validator(self):
         from selenium_pipeline.gemini_g1_single_route_cli import (
             RICH_ROUTE_SOURCE_SIZED_PROFILE,APPROVED_PROFILES)

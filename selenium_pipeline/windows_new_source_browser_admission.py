@@ -75,7 +75,9 @@ def evaluate_new_source_browser_admission(
         and receipt.get("outcome") == "VALID_CANARY_RESPONSE"
         and isinstance(profile,str) and profile.startswith("source_sized")
         and type(receipt.get("prompt_characters")) is int
-        and 1200 <= receipt["prompt_characters"] <= 3000
+        and (1200 <= receipt["prompt_characters"] <= 3000
+             or (profile == "source_sized_g2_rich_capacity_v7"
+                 and 18000 <= receipt["prompt_characters"] <= 24000))
         and receipt.get("source_pdf_transmitted") is False
         and receipt.get("new_model_generation_calls") == 1
         and receipt.get("gemini_new_user_turn_verified") is True

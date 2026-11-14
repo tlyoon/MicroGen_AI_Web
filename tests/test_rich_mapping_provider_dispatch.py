@@ -265,7 +265,11 @@ class OneShotOriginalSourceQueueTests(unittest.TestCase):
     def test_verified_live_rich_route_keeps_exact_once_and_source_audit(self):
         with patch("selenium_pipeline.windows_new_source_browser_admission."
                    "inspect_new_source_browser_admission",
-                   return_value={"new_source_stage_send_eligible":True}):
+                   return_value={"new_source_stage_send_eligible":True}), patch(
+            "selenium_pipeline.windows_rich_mapping_capacity_admission."
+            "inspect_rich_mapping_capacity",
+            return_value={"rich_model_send_eligible":True}
+        ):
             with patch("selenium_pipeline.rich_mapping_provider_dispatch."
                        "_real_transport",return_value=self.reply()) as sender:
                 result=self._call(None)
@@ -276,6 +280,27 @@ class OneShotOriginalSourceQueueTests(unittest.TestCase):
         with self.assertRaisesRegex(RichMappingError,"already claimed"):
             self._call(lambda *a:None)
         sender.assert_called_once()
+
+    def test_rich_capacity_short_canary_blocks_before_global_claim(self):
+        # A valid owned 2k canary cannot justify the 12k+ visual review.
+        with patch("selenium_pipeline.windows_new_source_browser_admission."
+                   "inspect_new_source_browser_admission",
+                   return_value={"new_source_stage_send_eligible":True}), patch(
+            "selenium_pipeline.windows_rich_mapping_capacity_admission."
+            "inspect_rich_mapping_capacity",
+            return_value={"rich_model_send_eligible":False,
+                          "status":"RICH_PROMPT_EXCEEDS_VERIFIED_CANARY_NO_SEND"}
+        ):
+            with patch("selenium_pipeline.rich_mapping_provider_dispatch."
+                       "_real_transport",side_effect=AssertionError(
+                           "No model call after insufficient capacity")) as send:
+                result=self._call(None)
+        self.assertEqual(result["status"],
+                         "GEMINI_RICH_MAPPING_CAPACITY_UNVERIFIED_NO_SEND")
+        self.assertEqual(result["model_submissions"],0)
+        self.assertFalse(self._canonical_global_claim().exists())
+        self.assertEqual(list(self.out.iterdir()),[])
+        send.assert_not_called()
 
     def test_real_transport_scopes_rich_model_fallback_and_restores_env(self):
         from selenium_pipeline.rich_mapping_provider_dispatch import _real_transport
