@@ -1,5 +1,15 @@
 # MicroGen_AI_Web failure-to-fix ledger — current continuation
 
+## MG-G2-ORIGINAL-RICH-PROMPT-PAGE-OVERLOAD-WINDOW-V1 — 14 Nov 2026
+
+Authentic v7 large source-free one-Send Gemini JSON passed but original slide9 one-utterance source request failed at zero generated characters after 180s inactivity despite Pro/Medium and registered Send. Original source-global slide9 is MAY_HAVE_SUBMITTED_RECONCILE_BEFORE_RESEND (not repeatable); provider backend outage UNPROVEN; no scientific approval. Prior slides 3/4 remain similarly held. Original slide9 source-page text alone occupied 11,114 of 13,933 prompt chars. Excessive full-page context is a structural candidate contributor, not established exclusive provider failure cause.
+
+Normal rich_mapping_provider_dispatch now uses new pure rich_source_excerpt_windows.bounded_prompt_partial, selecting deterministic 420-char exact contiguous original source quote windows (at most two per source page), keeping original utterance request/identity/visible author geometry intact. No source text or full frozen queue mutation; any model proposal still passes original independent source/geometry/math audit; missing support must be null/needs_review. Original content and prior owned Send claims never resent. Invalid/over-budget compacted source returns zero Send and zero new source claim. The shared post-canary uncertainty circuit prevents another real rich Send until a NEW later comparable independent canary is genuinely verified.
+
+Physical 10-slide original Serway source read-only dry run reduced 12,864–17,881 chars to 5,709–9,116; no old original claims touched; 21 new source-global-rich-eligible units on slides 5–8,10–12 held for future NEW jobs, with full G2 semantic/PCM/MP4 still open. Synthetic 100-round deterministic, real Dell physical source containment and independent downstream no-regression focused tests: 48 passed/1 skipped. Historical Windows reliability CI includes new tests, exact updated head acceptance pending.
+
+---
+
 ## MG-G2-LONG-RICH-SOURCE-SIZE-CANARY-CIRCUIT-V1 — 14 Nov 2026
 
 **Reproduced with authentic source:** Gemini v6 2,006-char source-free real browser probe was exact JSON PASS and new owned-turn PASS; subsequent 17,881-char **original** Serway 6.4 slide-4 semantic rich request Pro/Medium and one Send REGISTERED, generated only 46 transient chars, then 180s inactivity and no complete owned-model answer. Its separate local and source-global original claims remain `MAY_HAVE_SUBMITTED_RECONCILE_BEFORE_RESEND`; post-stop quarantine is zero bytes, marked `strict_json_capture_exception`, source retry FALSE, provider outage UNPROVEN. The previous slide-3 two-unit unknown original claim also remains untouched. No repeat Send permitted.

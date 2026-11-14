@@ -312,11 +312,34 @@ def dispatch_one(*,source_folder:Path,checkpoint:Path,fallback_dir:Path,
             and inspected["authenticated_ui_ready"] is True
             and inspected["model_submission_performed"] is False,
             "Selected model provider is not a safe authenticated browser")
-    # The original author/source request is recomputed identically. Before
-    # claiming another one-Send, require capacity evidence for its REAL length,
-    # not merely a prior 2k source-free test. No source text is logged here.
+    # The same full original/author SHA-bound request is always retained
+    # for independent QA. Long PDFs can overwhelm the model with redundant
+    # full-page text. In the real transport only, deterministically select
+    # short exact contiguous original page windows without changing the
+    # source geometry, original unit identities or scientific approval gate.
     prompt=prompt_partial(scoped)
+    prompt_metadata={
+        "source_excerpt_mode":"FULL_ORIGINAL_TEXT",
+        "original_prompt_characters":len(prompt),
+        "sent_prompt_characters":len(prompt),
+        "source_excerpt_windows":0,
+        "original_source_queue_unchanged":True,
+    }
     if transport is None:
+        from .rich_source_excerpt_windows import bounded_prompt_partial
+        try:
+            prompt,prompt_metadata=bounded_prompt_partial(scoped)
+        except (ValueError,KeyError,TypeError) as error:
+            return {
+                "status":"RICH_ORIGINAL_SOURCE_WINDOWING_UNVERIFIED_NO_SEND",
+                "slide":slide,"model_submissions":0,
+                "evidence_error_type":type(error).__name__,
+                "new_eligible_utterances_preserved":len(eligible),
+                "student_publication_authorized":False,
+            }
+        # Before permanently reserving any source unit, compare the actual
+        # bounded prompt size to a new SHA-verified source-free canary and
+        # any newer failed real rich job. No model call in either preflight.
         from .windows_new_source_browser_admission import (
             inspect_new_source_browser_admission)
         from .windows_rich_mapping_capacity_admission import (
@@ -374,6 +397,7 @@ def dispatch_one(*,source_folder:Path,checkpoint:Path,fallback_dir:Path,
         "prior_accepted_prose_links_protected":len(
             pending["accepted_prose_links_already_sha_verified_do_not_resend"]),
         "original_prompt_sha256":sha_bytes(prompt.encode("utf8")),
+        "physical_prompt_excerpt_witness":prompt_metadata,
         "created_unix":round(time.time(),3),
         "model_response_captured":False,
         "paid_tts_authorized":False,
