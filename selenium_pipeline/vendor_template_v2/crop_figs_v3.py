@@ -22,6 +22,9 @@ from docling.datamodel.pipeline_options import PdfPipelineOptions
 from docling_core.types.doc import PictureItem
 from docling.datamodel.base_models import InputFormat
 from docling.document_converter import DocumentConverter, PdfFormatOption
+from selenium_pipeline.figure_crop_source_provenance import (
+    build_crop_geometry_candidate, save_page_crop_geometry,
+)
 
 # stdout unicode safe
 import sys
@@ -94,6 +97,7 @@ for i, (page_image, pdf_page) in enumerate(zip(pdf_pages, reader.pages), start=1
         conv_res = doc_converter.convert(pdf_path)
         doc = conv_res.document
         fig_counter = 0
+        crop_geometry_candidates = []
         for item, _ in doc.iterate_items():
             if isinstance(item, PictureItem):
                 fig_counter += 1
@@ -105,13 +109,29 @@ for i, (page_image, pdf_page) in enumerate(zip(pdf_pages, reader.pages), start=1
                     print(f"🗑️ Removed small figure: {fig_path.name}")
                 else:
                     print(f"✅ Saved figure: {fig_path.name}")
+                    crop_geometry_candidates.append(build_crop_geometry_candidate(
+                        picture=item, original_pdf=input_doc_path,
+                        page_png=png_path, crop_png=fig_path,
+                        page_number=i,
+                        page_width_pt=float(pdf_page.mediabox.width),
+                        page_height_pt=float(pdf_page.mediabox.height)))
+        # Source-space coordinates are candidate-only evidence. Missing or
+        # ambiguous Docling provenance MUST NOT be silently inferred from
+        # image shapes or from a model-supplied figure number.
+        save_page_crop_geometry(
+            target=page_dir / f"page_{i}_crop_geometry.json",
+            source_pdf=input_doc_path, page_png=png_path,
+            records=crop_geometry_candidates, page_number=i)
         if fig_counter == 0:
             print("⚠️  No figures found on this page.")
         print(f"[microgen-phase] LOCAL_FIGURE_CROP_PAGE_DONE page={i}", flush=True)
 
     except Exception as e:
-        print(f"❌ Error extracting figures from {pdf_path.name}: {e}")
-        continue
+        # A partial crop page or missing provenance must never turn into a
+        # successful figure-extraction receipt or a fresh Gemini mapping Send.
+        print(f"❌ Error extracting figures from {pdf_path.name}: {e}", flush=True)
+        raise RuntimeError(
+            f"LOCAL_FIGURE_CROP_OR_PROVENANCE_FAILED page={i}") from e
 
 print("\n✅ Figure extraction completed successfully.")
 
@@ -138,4 +158,14 @@ for page_folder in sorted(pages_dir.glob("page_*")):
         dst = target / png.name
         shutil.copy2(png, dst)
         print(f"Copied: {png} -> {dst}")
+    # Preserve the one-page Docling source-space candidate manifest with the
+    # actual crop bytes used by the mapping worker, not just in pages/.
+    geometry = page_folder / (page_folder.name + "_crop_geometry.json")
+    if geometry.is_file() and not geometry.is_symlink():
+        dest = target / geometry.name
+        if dest.exists():
+            if dest.read_bytes() != geometry.read_bytes():
+                raise RuntimeError("Existing crop geometry provenance differs")
+        else:
+            shutil.copy2(geometry, dest)
 

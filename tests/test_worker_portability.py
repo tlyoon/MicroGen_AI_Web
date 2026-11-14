@@ -130,10 +130,15 @@ class FlashDefaultTests(unittest.TestCase):
         code = (
             "from selenium_pipeline import runner; "
             "from selenium_pipeline.gemini_model import configured_ui_mode; "
+            "from selenium_pipeline.gemini_stage_policy import stage_ui_contract; "
             "assert runner.MODEL_PHASE == 'production'; "
             "assert runner.ACTIVE_LLM_MODEL == 'gemini-3.8-flash'; "
-            "assert runner.DEFAULT_CAPTION_MODEL == runner.DEFAULT_SLIDE_MODEL "
+            "assert runner.DEFAULT_CAPTION_MODEL == 'gemini-3.5-flash-lite'; "
+            "assert runner.DEFAULT_SLIDE_MODEL "
             "== runner.DEFAULT_NARRATION_MODEL == 'gemini-3.8-flash'; "
+            "assert stage_ui_contract('figures')['ui_mode'] == 'flash-lite'; "
+            "assert stage_ui_contract('figures')['thinking_required'] is False; "
+            "assert stage_ui_contract('slides')['thinking_required'] is True; "
             "assert runner.PRODUCTION_LLM_MODEL == 'gemini-3.8-flash'; "
             "assert configured_ui_mode() == 'flash'"
         )

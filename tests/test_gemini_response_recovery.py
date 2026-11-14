@@ -48,6 +48,19 @@ class GeminiQuarantineTests(unittest.TestCase):
         self.assertEqual(latest_owned_response(driver, "owned_tab")["text"], "")
         self.assertEqual(driver.calls, 0)
 
+    def test_late_reply_rejects_changed_gemini_conversation_route(self):
+        # Even with the same Chrome handle, another Gemini conversation is
+        # NOT the owned request and must never be accepted as recovery.
+        driver = FakeDriver(
+            url="https://gemini.google.com/app/another-conversation",
+            response='{"probe":"looks_valid_but_foreign"}', generating=False)
+        expected_url = "https://gemini.google.com/app/original-conversation"
+        snap = latest_owned_response(
+            driver, "owned_tab", expected_url=expected_url)
+        self.assertEqual(snap["capture_status"], "unavailable")
+        self.assertEqual(snap["text"], "")
+        self.assertEqual(driver.calls, 0)
+
     def test_snapshot_restricted_to_visible_model_response(self):
         driver = FakeDriver(response='{"status":"generating"}',
                             generating=True)
@@ -210,17 +223,142 @@ class GeminiQuarantineTests(unittest.TestCase):
              patch("selenium_pipeline.three_pc_worker.LocalInstanceLock",
                    side_effect=lambda *a, **kw: nullcontext()), \
              patch("selenium_pipeline.gemini_model.ensure_mode", return_value="Open mode picker, currently Gemini Flash"), \
+             patch("selenium_pipeline.gemini_model.assert_owned_gemini_mode", return_value="Open mode picker, currently Flash"), \
+             patch("selenium_pipeline.gemini_thinking.select_owned_gemini_thinking_level", return_value="medium"), \
+             patch("selenium_pipeline.gemini_thinking.assert_owned_gemini_thinking_level", return_value="medium"), \
+             patch("selenium_pipeline.gemini_response_recovery.await_owned_gemini_send_visible", return_value=True), \
+             patch("selenium_pipeline.gemini_selenium_only_policy.click_one_owned_gemini_send", return_value=True), \
+             patch("selenium_pipeline.gemini_selenium_only_policy.owned_gemini_send_baseline",
+                   return_value={"users":0,"models":0,"editor_length":100,"route":"/app"}), \
+             patch("selenium_pipeline.gemini_selenium_only_policy.observe_gemini_send_registration",
+                   return_value={"status":"NEW_USER_TURN_AND_COMPOSER_CLEARED",
+                                 "registered":True}), \
              patch.dict("os.environ",{"LOCALAPPDATA":str(self.dir)}):
             recovered=series_gemini._browser_request(
                 "A synthetic prompt",[self.dir/"source.pdf"],
                 port=9222,wait_cap_s=90,
             )
         self.assertEqual(recovered,full)
+        self.assertTrue(recovered.gemini_new_user_turn_verified)
+        self.assertTrue(recovered.gemini_late_response_reconciled)
+        self.assertEqual(recovered.gemini_send_registration_status,
+                         "NEW_USER_TURN_AND_COMPOSER_CLEARED")
         self.assertEqual(order[-1],"shutdown")
         self.assertGreaterEqual(order.count("copy"),2)
         snapshots=list((self.dir/"Microvid"/"gemini_quarantine").glob("*.raw.txt"))
         self.assertEqual(snapshots,[])
 
+
+class GeminiLateResponseGeneralizationTests(unittest.TestCase):
+    """The normal shared browser caller must recover a late answer without a resend."""
+
+    def test_only_model_owned_markdown_selected_not_outer_header(self):
+        from selenium_pipeline.gemini_response_recovery import _LATEST_MODEL_ONLY
+        expected = '{"probe":"microgen_zenbook_flash_existing_empty_v2_ok"}'
+        class GeminiRenderedDOM(FakeDriver):
+            def execute_script(self, script):
+                self.calls += 1
+                # Reproduce the observed Zenbook DOM:
+                # model-response.innerText = "Gemini said\\n\\n" + JSON;
+                # model-response .markdown.innerText = exact JSON.
+                return {"text": expected if "element.querySelectorAll" in script
+                        else "Gemini said\\n\\n" + expected,
+                        "generating": False}
+        self.assertIn("element.querySelectorAll", _LATEST_MODEL_ONLY)
+        self.assertIn("message-content .markdown", _LATEST_MODEL_ONLY)
+        self.assertNotIn("document.querySelectorAll('.markdown')", _LATEST_MODEL_ONLY)
+        snap = latest_owned_response(GeminiRenderedDOM(), "owned_tab")
+        self.assertEqual(json.loads(snap["text"]), json.loads(expected))
+
+    def test_valid_owned_answer_not_overwritten_by_longer_ui_chrome_copy(self):
+        from selenium_pipeline.gemini_response_recovery import response_snapshot_with_scoped_copy
+        raw = '{"probe":"microgen_zenbook_flash_existing_empty_v2_ok"}'
+        copied = []
+        snap = response_snapshot_with_scoped_copy(
+            FakeDriver(response=raw), "owned_tab",
+            copy_response=lambda _: copied.append(True) or ("Gemini said\\n\\n" + raw),
+            accept_fn=lambda text: json.loads(text) == json.loads(raw),
+        )
+        self.assertEqual(snap["text"], raw)
+        self.assertEqual(copied, [])
+
+    def test_normal_browser_request_automatically_reconciles_delayed_model(self):
+        from contextlib import nullcontext
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        from selenium_pipeline import series_gemini
+        from selenium_pipeline.gemini_response_recovery import (
+            MAX_LATE_OWNED_OBSERVATION_SECONDS, poll_existing_owned_response,
+        )
+        driver = FakeDriver(response="", generating=True)
+        result_json = '{"probe":"late_answer"}'
+        calls = {"send": 0, "shutdown": 0, "late_grace": None}
+        client = SimpleNamespace(
+            driver=driver, _automation_tab="owned_tab",
+            start=lambda **kw: None, open_clean_gemini_chat=lambda: None,
+            type_prompt_text=lambda *args, **kw: True,
+            upload_files=lambda files: None,
+            shutdown=lambda: calls.__setitem__("shutdown", calls["shutdown"] + 1),
+        )
+        vendor = SimpleNamespace(
+            Config=lambda **kw: SimpleNamespace(**kw),
+            GeminiSeleniumClient=lambda cfg: client,
+            capture_gemini_response_like_manual_copy=lambda *args, **kw:
+                (_ for _ in ()).throw(TimeoutError("Late Gemini response")),
+            _copy_via_toolbar_copy_button=lambda *_: "",
+        )
+        def one_send(*args, **kw):
+            calls["send"] += 1
+            return True
+        def late_observer(read_snapshot, *, accept_fn, wait_s, poll_s,
+                          verified_new_turn=False):
+            calls["late_grace"] = wait_s
+            self.assertTrue(verified_new_turn)
+            # Historical failure: the same owned model DOM first had zero
+            # characters, then became complete without another Send.
+            driver.response = result_json
+            driver.generating = False
+            return poll_existing_owned_response(
+                read_snapshot, accept_fn=accept_fn,
+                wait_s=wait_s, poll_s=poll_s,
+                verified_new_turn=verified_new_turn,
+                clock=lambda: 0, sleep=lambda _: None,
+            )
+        with (tempfile.TemporaryDirectory() as temp,
+            patch.object(series_gemini, "_vendor_module", return_value=vendor),
+            patch("selenium_pipeline.three_pc_worker.LocalInstanceLock",
+                  side_effect=lambda *args, **kw: nullcontext()),
+            patch("selenium_pipeline.gemini_model.ensure_mode",
+                  return_value="Open mode picker, currently Flash"),
+            patch("selenium_pipeline.gemini_model.assert_owned_gemini_mode",
+                  return_value="Open mode picker, currently Flash"),
+            patch("selenium_pipeline.gemini_thinking.select_owned_gemini_thinking_level",
+                  return_value="medium"),
+            patch("selenium_pipeline.gemini_thinking.assert_owned_gemini_thinking_level",
+                  return_value="medium"),
+            patch("selenium_pipeline.gemini_response_recovery.await_owned_gemini_send_visible",
+                  return_value=True),
+            patch("selenium_pipeline.gemini_selenium_only_policy.owned_gemini_send_baseline",
+                  return_value={"users": 0, "models": 0, "editor_length": 50, "route": "/app"}),
+            patch("selenium_pipeline.gemini_selenium_only_policy.click_one_owned_gemini_send",
+                  side_effect=one_send),
+            patch("selenium_pipeline.gemini_selenium_only_policy.observe_gemini_send_registration",
+                  return_value={"status": "NEW_USER_TURN_AND_COMPOSER_CLEARED",
+                                "registered": True}),
+            patch("selenium_pipeline.gemini_response_recovery.poll_existing_owned_response",
+                  side_effect=late_observer),
+            patch.dict("os.environ", {"LOCALAPPDATA": temp}),
+        ):
+            answer = series_gemini._browser_request(
+                "Fresh source-free synthetic request", [],
+                port=9222, wait_cap_s=20, min_chars=8,
+                accept_fn=lambda raw: json.loads(raw) == {"probe": "late_answer"},
+            )
+            self.assertEqual(answer, result_json)
+            self.assertEqual(calls["send"], 1)
+            self.assertEqual(calls["shutdown"], 1)
+            self.assertEqual(calls["late_grace"], MAX_LATE_OWNED_OBSERVATION_SECONDS)
+            self.assertEqual(list((Path(temp) / "Microvid" / "gemini_quarantine").glob("*.raw.txt")), [])
 
 if __name__ == "__main__":
     unittest.main()

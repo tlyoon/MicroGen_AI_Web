@@ -35,6 +35,22 @@ def best_pages(text:str,original:list[str])->list[dict]:
         if score>0:scored.append({"source_page":k,"word_overlap":round(score,3)})
     return sorted(scored,key=lambda a:(-a["word_overlap"],a["source_page"]))[:3]
 
+def visible_multi_panel_labels(text_blocks:list[str])->list[str]:
+    """Conservative evidence of captioned subpanels, independent of image aspect.
+
+    A text block explicitly naming (a) and (b), etc., is enough to REQUIRE
+    panel review for images on that slide. It never certifies image panels,
+    their identities or source meaning. A single '(a)' is not evidence.
+    """
+    for text in text_blocks:
+        labels=re.findall(r"(?<![A-Za-z0-9])\(([a-d])\)(?![A-Za-z0-9])",
+                          str(text),flags=re.IGNORECASE)
+        distinct=sorted({s.lower() for s in labels})
+        if len(distinct)>=2:
+            return distinct
+    return []
+
+
 def draft(source:Path,slides:Path)->dict:
     if not source.is_file() or not slides.is_file():
         raise FileNotFoundError("A readable source.pdf and slides.pdf are required")
@@ -77,6 +93,14 @@ def draft(source:Path,slides:Path)->dict:
             # than forcing the narrator to focus on a random fraction piece.
             from .sourcebound_multiblock_text_focus import discover_groups
             targets.extend(discover_groups(page,i,targets))
+            # Genuine PDF math formulas may be split into 4-8 horizontally
+            # overlapping numerator/denominator glyph blocks. Never guess
+            # their semantics; make one independently rechecked visual region.
+            from .sourcebound_math_row_focus import discover_math_rows
+            targets.extend(discover_math_rows(page,i,targets))
+            # A portrait/square montage may contain (a), (b), (c). Aspect
+            # ratio alone cannot detect this ordinary multi-panel figure.
+            panel_labels=visible_multi_panel_labels(body)
             xref_image_regions=[]
             for j,image in enumerate(page.get_images(full=True)):
                 rects=page.get_image_rects(image[0])
@@ -93,7 +117,9 @@ def draft(source:Path,slides:Path)->dict:
                     "type":"image_whole",
                     "anchor":{"type":"image_whole","index":j},
                     "rect_pt":[round(x,2) for x in r],
-                    "suspected_multipart":bool(r.width>200 and r.width/r.height>2.5),
+                    "suspected_multipart":bool(
+                        panel_labels or (r.width>200 and r.width/r.height>2.5)),
+                    "visible_caption_subpanel_labels_unverified":panel_labels,
                     "actual_panel_count_unverified":True,
                     "image_xref":image[0],
                     "proposed_spoken_text":None,
@@ -126,7 +152,8 @@ def draft(source:Path,slides:Path)->dict:
                               "index":j,"digest_sha256":digest},
                     "rect_pt":[round(x,2) for x in r],
                     "suspected_multipart":bool(
-                        r.width>200 and r.width/r.height>2.5),
+                        panel_labels or (r.width>200 and r.width/r.height>2.5)),
+                    "visible_caption_subpanel_labels_unverified":panel_labels,
                     "actual_panel_count_unverified":True,
                     "image_sha256":digest,
                     "proposed_spoken_text":None,

@@ -108,6 +108,9 @@ class WindowsSourceProgressionTests(unittest.TestCase):
         state = self.plan()
         self.assertEqual(state["status"], "NEXT_SOURCE_STAGE_READY_EXPLICIT_ONE_SHOT_ONLY")
         self.assertEqual(state["next_stage"], "figures")
+        self.assertEqual(state["source_stage_attempts_per_operator_invocation_limit"], 1)
+        self.assertTrue(state["individual_model_send_count_must_be_verified_from_stage_log"])
+        self.assertNotIn("model_requests_per_operator_invocation_limit", state)
         self.assertFalse(any(self.trial.iterdir()))
         self.assertFalse(state["new_model_or_tts_calls"])
         self.assertFalse(state["student_publication_authorized"])
@@ -132,6 +135,88 @@ class WindowsSourceProgressionTests(unittest.TestCase):
         self.assertFalse(state["reviewed_tts_or_video_generated"])
         self.assertFalse(state["student_publication_authorized"])
         self.assertEqual(len(state["required_following_steps"]), 6)
+
+    def model_violation_log(self, *, stage: str):
+        file = ("figures_stage_stdout.raw.log" if stage == "figures"
+                else f"stage_{stage}_stdout.raw.log")
+        (self.trial / file).write_text(
+            "[microgen] browser UI model: flash\n"
+            "[2026-11-11 11:43:23] [INFO] Selected Gemini tab via mode "
+            "picker: Open mode picker, currently Flash-Lite (phase=development)\n"
+            "[2026-11-11 11:43:27] [INFO] Gemini submission registered via "
+            "new-user-turn+composer-cleared.\n", encoding="utf8")
+
+    def test_prior_figures_success_with_wrong_owned_mode_cannot_advance_slides(self):
+        self.figures_ready(success=True)
+        self.model_violation_log(stage="figures")
+        result=self.plan()
+        self.assertEqual(result["status"],
+                         "HALTED_FIGURES_WRONG_UI_MODEL_FAMILY_NO_RESEND")
+        self.assertIsNone(result["next_stage"])
+        self.assertFalse(result["original_figures_resubmission_authorized"])
+        blocked=advance_one(
+            source_root=self.source_root,section="77.9",
+            trial_dir=self.trial,execute_next=True,
+            technical_check=self.check,provider_inspect=self.health,
+            stage_runner=Mock(side_effect=AssertionError("unapproved Send")))
+        self.assertEqual(blocked["status"],
+                         "HALTED_FIGURES_WRONG_UI_MODEL_FAMILY_NO_RESEND")
+        self.assertFalse((self.trial / "stage_slides_started.json").exists())
+
+    def test_prior_slides_success_with_wrong_owned_mode_cannot_advance_narration(self):
+        self.figures_ready()
+        self.stage_pass("slides")
+        self.model_violation_log(stage="slides")
+        result=self.plan()
+        self.assertEqual(result["status"],
+                         "HALTED_ACCEPTED_STAGE_WRONG_UI_MODEL_FAMILY_NO_RESEND")
+        self.assertEqual(result["halted_stage"],"slides")
+        self.assertFalse(result["original_stage_resubmission_authorized"])
+        self.assertFalse((self.trial / "stage_narration_started.json").exists())
+
+    def test_tampered_sha_locked_figures_log_is_never_trusted_for_progress(self):
+        self.figures_ready()
+        self.model_violation_log(stage="figures")
+        from selenium_pipeline.windows_gemini_stage_transport_triage import (
+            persist_terminal_triage)
+        persist_terminal_triage(trial_dir=self.trial,stage="figures")
+        original=(self.trial/"figures_stage_stdout.raw.log")
+        original.write_text(original.read_text()+"log altered",encoding="utf8")
+        with self.assertRaises(CampaignRecoveryBlocked):
+            self.plan()
+
+    def test_medium_contract_must_be_proven_for_new_original_figures(self):
+        self.figures_ready()
+        (self.trial/"figures_stage_stdout.raw.log").write_text(
+            "[microgen] browser UI model: flash\n"
+            "[microgen] browser thinking level: medium\n"
+            "[2026-11-11 13:45:00] [INFO] Selected Gemini tab via mode "
+            "picker: Open mode picker, currently Flash Medium "
+            "(phase=development)\n"
+            "[2026-11-11 13:45:02] [INFO] Gemini submission registered via "
+            "new-user-turn+composer-cleared.\n", encoding="utf8")
+        verdict=self.plan()
+        self.assertEqual(verdict["status"],
+                         "HALTED_FIGURES_THINKING_LEVEL_UNVERIFIED_NO_RESEND")
+        self.assertFalse(verdict["original_figures_resubmission_authorized"])
+        self.assertFalse((self.trial/"stage_slides_started.json").exists())
+
+    def test_medium_contract_must_be_proven_for_accepted_slides(self):
+        self.figures_ready()
+        self.stage_pass("slides")
+        (self.trial/"stage_slides_stdout.raw.log").write_text(
+            "[microgen] browser UI model: flash\n"
+            "[microgen] browser thinking level: medium\n"
+            "[2026-11-11 13:45:00] [INFO] Selected Gemini tab via mode "
+            "picker: Open mode picker, currently Flash Medium "
+            "(phase=development)\n"
+            "[2026-11-11 13:45:02] [INFO] Gemini submission registered via "
+            "new-user-turn+composer-cleared.\n", encoding="utf8")
+        verdict=self.plan()
+        self.assertEqual(verdict["status"],
+                         "HALTED_ACCEPTED_STAGE_THINKING_LEVEL_UNVERIFIED_NO_RESEND")
+        self.assertEqual(verdict["halted_stage"],"slides")
+        self.assertFalse((self.trial/"stage_narration_started.json").exists())
 
     def test_historical_figures_claim_without_result_quarantined(self):
         self.figures_ready(success=None)

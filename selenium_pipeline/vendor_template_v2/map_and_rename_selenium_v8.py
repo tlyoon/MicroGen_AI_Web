@@ -214,6 +214,59 @@ def parse_mapping_lines(text: str) -> List[Tuple[str, str, str]]:
     return triples
 
 
+def reconcile_surplus_duplicate_mappings(
+    parsed: List[Tuple[str, str, str]], fig_files: List[Path]
+) -> tuple[List[Tuple[str, str, str]], bool]:
+    """Drop demonstrably redundant Gemini mapping rows, without another Send.
+
+    This narrow repair is for a completed SAME-page response with surplus
+    repeated caption+destination rows. Each retained first occurrence must
+    independently identify its corresponding local crop (exact basename or
+    basename plus a short hex upload suffix), in the declared crop order.
+    Conflicts, genuine repeated captions, extra figures and missing crops
+    remain unresolved, never assigned by truncating arbitrary model output.
+    The regular source/composite/non-overwrite checks still run afterwards.
+    """
+    n = len(fig_files)
+    if n < 2 or len(parsed) <= n or len(parsed) > 2 * n:
+        return parsed, False
+    all_local = {p.name.casefold() for p in fig_files}
+    unique: List[Tuple[str, str, str]] = []
+    distinct = {}
+    for crop, label, target in parsed:
+        label_key = " ".join(label.split()).casefold()
+        target_key = target.strip().casefold()
+        if not label_key or not target_key.endswith(".png"):
+            return parsed, False
+        # A duplicate caption with a different target, or vice versa,
+        # is a scientifically ambiguous image assignment, not duplication.
+        key = (label_key, target_key)
+        if key in distinct:
+            first = distinct[key]
+            if crop.casefold() in all_local and crop.casefold() != first.casefold():
+                return parsed, False
+            continue
+        distinct[key] = crop
+        unique.append((crop, label, target))
+    if len(unique) != n:
+        return parsed, False
+    if len({" ".join(label.split()).casefold() for _, label, _ in unique}) != n:
+        return parsed, False
+    if len({target.casefold() for _, _, target in unique}) != n:
+        return parsed, False
+    for (returned, label, target), actual in zip(unique, fig_files):
+        # These narrow anchors accept an uploaded 'fig_4_75e426.png' but not
+        # an ungrounded or reordered crop identity.
+        if not re.fullmatch(
+            re.escape(actual.stem) + r"(?:_[0-9a-f]{6,12})?\.png",
+            returned, flags=re.IGNORECASE
+        ):
+            return parsed, False
+        if " ".join(label.split()).casefold() != Path(target).stem.casefold():
+            return parsed, False
+    return unique, True
+
+
 # -------- Merge helpers --------
 try:
     from PIL import Image
@@ -556,7 +609,10 @@ def wait_for_mapping_response_ready(client, baseline_text: str = "", timeout: fl
         # never resubmit the already registered request. The shared guard
         # checks the exact response in the MicroGen-owned tab, not generic
         # page text, clipboard data or someone else's browser conversation.
-        if cur and _looks_like_gemini_failure_text(cur) and not generating:
+        if cur and not generating:
+            # Classify all completed owned responses through ONE strict
+            # shared model-error contract. Do not maintain a second
+            # brittle substring list that misses new Gemini UI variants.
             from selenium_pipeline.gemini_provider_ui_terminal_error import (
                 GeminiOwnedVisibleTerminalError, require_no_owned_terminal_error,
             )
@@ -585,6 +641,20 @@ def wait_for_mapping_response_ready(client, baseline_text: str = "", timeout: fl
         else:
             stall_started = None
 
+        if (cur == "MAPPING_REVIEW_REQUIRED" and not generating
+                and model_count > 0 and cur != baseline_text):
+            # A stable owned model REFUSAL is a completed answer, not a
+            # reason to wait 90s or send again. Its source-only recovery
+            # requires independent original PDF evidence downstream.
+            if cur == last:
+                stable += 1
+            else:
+                last, stable = cur, 0
+            if stable >= 2:
+                log("[GEMINI-RESPONSE] MAPPING_REVIEW_REQUIRED "
+                    "stable completed owned response; original source-only "
+                    "uncaptioned check next, no second Send")
+                return cur
         if cur:
             parsed = parse_mapping_lines(cur)
             if parsed:
@@ -1592,6 +1662,7 @@ def map_and_rename_single_step(
                              max(1, int(os.getenv("GEMINI_OUTPUT_ATTEMPTS", "3"))))
         parsed: List[Tuple[str, str, str]] = []
         txt = ""
+        original_surplus_response = None
 
         for response_attempt in range(1, response_attempts + 1):
             t_step = _ts_now()
@@ -1609,13 +1680,29 @@ def map_and_rename_single_step(
 
             parsed = parse_mapping_lines(txt or "")
             explicit_error = _looks_like_gemini_failure_text(txt)
+            if not explicit_error and len(parsed) > len(fig_files):
+                # Use only a complete model reply with exactly parseable
+                # mapping lines: no JSON repair, prompt replay or hidden rows.
+                lines = [line for line in txt.splitlines() if line.strip()]
+                if len(lines) == len(parsed):
+                    deduped, proven_duplicate = reconcile_surplus_duplicate_mappings(
+                        parsed, fig_files)
+                    if proven_duplicate:
+                        original_surplus_response = txt
+                        parsed = deduped
+                        log(f"[RECONCILE] {page_png.name}: "
+                            "exact duplicate caption+target row removed using "
+                            "the existing owned response, no additional Send")
             exact_count = len(parsed) == len(fig_files)
             log(
                 f"[PARSE] {page_png.name}: parsed {len(parsed)} mapping line(s); "
                 f"expected {len(fig_files)}; explicit_error={explicit_error}."
             )
 
-            if exact_count and not explicit_error:
+            if (exact_count and not explicit_error) or txt == "MAPPING_REVIEW_REQUIRED":
+                # The exact review marker can be reconciled ONLY from the
+                # original source's uncaptained-crop evidence, after Send.
+                # Do not consume another model request to guess a caption.
                 break
 
             if response_attempt < response_attempts:
@@ -1638,6 +1725,29 @@ def map_and_rename_single_step(
 
     mapping_txt = page_png.with_name(page_png.stem + "_mapping.txt")
 
+    uncaptioned_witness = None
+    original_uncaptioned_response = None
+    if (txt == "MAPPING_REVIEW_REQUIRED" and not parsed and len(fig_files) == 1):
+        # A source graphic can genuinely have NO printed Figure caption.
+        # A model's refusal never licenses invention: the sole safe
+        # resolution is to prove original PDF text density, absence of
+        # ANY numbered figure reference on this page, and the exact
+        # one-crop SHA/geometry identity. Otherwise retain this rejection.
+        from selenium_pipeline.figure_uncaptioned_source_recovery import (
+            recover_source_uncaptioned_crop, UncaptionedSourceNotProven)
+        source_pdf = CFG.root / "source.pdf"
+        geometry = crops_dir / (page_png.stem + "_crop_geometry.json")
+        try:
+            parsed, uncaptioned_witness = recover_source_uncaptioned_crop(
+                response=txt, source_pdf=source_pdf, page_png=page_png,
+                crops_dir=crops_dir, geometry_manifest=geometry)
+            original_uncaptioned_response = txt
+            log(f"[UNCAPTIONED SOURCE] {page_png.name}: exact original PDF "
+                "proves one unnumbered source graphic; no model retry or "
+                "invented printed caption")
+        except UncaptionedSourceNotProven as exc:
+            log(f"[UNCAPTIONED SOURCE] {page_png.name}: source evidence "
+                f"insufficient ({exc}); fail closed, no provider retry", "WARN")
     if len(parsed) != len(fig_files) or _looks_like_gemini_failure_text(txt):
         mapping_txt.write_text((txt or "").strip() + "\n", encoding="utf-8")
         log(
@@ -1648,6 +1758,39 @@ def map_and_rename_single_step(
         raise RuntimeError(
             f"Unverified figure mapping for {page_png.name}; retained {mapping_txt.name}"
         )
+
+    if backend != "api" and original_surplus_response is not None:
+        # Preserve the original anomalous model reply as separate evidence;
+        # the regular mapping checkpoint continues to use normalized rows.
+        untrusted = page_png.with_name(page_png.stem + "_surplus_mapping_untrusted.txt")
+        with untrusted.open("x", encoding="utf-8") as f:
+            f.write(original_surplus_response.rstrip() + "\n")
+            f.flush()
+            os.fsync(f.fileno())
+        # Separate source-locked provenance, never a scientific approval.
+        import hashlib
+        witness = {
+            "schema_version": 1,
+            "status": "STRUCTURAL_DUPLICATE_MAPPING_RECONCILED_NOT_ACADEMIC_QA",
+            "original_model_response_sha256": hashlib.sha256(
+                untrusted.read_bytes()).hexdigest(),
+            "page_image_sha256": hashlib.sha256(page_png.read_bytes()).hexdigest(),
+            "local_crop_sha256": {
+                source.name: hashlib.sha256(source.read_bytes()).hexdigest()
+                for source in fig_files
+            },
+            "original_parsed_lines": len(parse_mapping_lines(original_surplus_response)),
+            "structurally_resolved_lines": len(parsed),
+            "new_provider_requests_for_reconciliation": False,
+            "independent_figure_caption_semantics_verified": False,
+            "student_publication_authorized": False,
+        }
+        receipt = page_png.with_name(page_png.stem + "_surplus_mapping_evidence.json")
+        with receipt.open("x", encoding="utf-8") as f:
+            json.dump(witness, f, ensure_ascii=False, sort_keys=True, indent=2)
+            f.write("\n")
+            f.flush()
+            os.fsync(f.fileno())
 
     # Keep only as many mappings as local crops available
     usable_count = min(len(parsed), len(fig_files))
@@ -1672,11 +1815,88 @@ def map_and_rename_single_step(
         FigureCompositeReviewRequired, validate_and_prepare_mappings,
         require_non_destructive_destination,
     )
+    from selenium_pipeline.figure_crop_source_provenance import (
+        inspect_source_locked_composite_candidates,
+    )
+    # The source crop worker records bounded Docling candidate geometry.
+    # Verify every original crop SHA before using even a candidate rectangle;
+    # a missing legacy manifest is unknown, never assumed to be geometry.
+    geometry_candidate = None
+    geometry_manifest = crops_dir / (page_png.stem + "_crop_geometry.json")
+    source_pdf = CFG.root / "source.pdf"
+    if not source_pdf.is_file():
+        source_pdf = CFG.root / "problems.pdf"
+    if geometry_manifest.exists() or geometry_manifest.is_symlink():
+        geometry_candidate = inspect_source_locked_composite_candidates(
+            manifest=geometry_manifest, source_pdf=source_pdf,
+            page_png=page_png, crops_dir=crops_dir, mappings=resolved_triples,
+        )
+    # Model text may quote only the parent printed caption while proposing
+    # original source panel filenames: "Figure N.M" vs "Figure N.M(a).png".
+    # Reconcile only when SHA-bound source PDF TEXT, caption block and a
+    # UNIQUE bottom-left panel marker in EACH original crop independently
+    # corroborate the panel names. This is NOT arbitrary panel stitching.
+    from selenium_pipeline.figure_source_panel_caption import (
+        reconcile_parent_caption_panels, SourcePanelEvidenceError)
+    panel_source_witness = None
+    if geometry_candidate is not None:
+        try:
+            resolved_triples, panel_source_witness = reconcile_parent_caption_panels(
+                mappings=resolved_triples, source_pdf=source_pdf,
+                page_png=page_png, crops_dir=crops_dir,
+                geometry_manifest=geometry_manifest)
+        except SourcePanelEvidenceError as exc:
+            # An ambiguous marker or source citation is NOT a reason to
+            # override the existing figure-composite fail-closed review.
+            # No model retry; the original response and caption labels stay.
+            log(f"[FIGURE PANEL] Source-only corroboration unavailable: {exc}",
+                "WARN")
     try:
         resolved_triples = validate_and_prepare_mappings(resolved_triples)
         # Preflight *all* original crops and destinations before first copy.
         for crop_name, _label, target in resolved_triples:
             require_non_destructive_destination(crops_dir / crop_name, crops_dir / target)
+        if uncaptioned_witness is not None:
+            # Preserve the actual model refusal and source-only resolution
+            # side by side, without rewriting any claimed prior stage.
+            # This is structural extraction completeness, NOT scientific QA.
+            refusal_path = page_png.with_name(
+                page_png.stem + "_uncaptioned_model_reply.raw.txt")
+            with refusal_path.open("x", encoding="utf-8") as f:
+                f.write(original_uncaptioned_response + "\n")
+                f.flush()
+                os.fsync(f.fileno())
+            # The evidence hash commits to the exact raw file including LF.
+            import hashlib
+            uncaptioned_witness["saved_model_reply_sha256"] = hashlib.sha256(
+                refusal_path.read_bytes()).hexdigest()
+            proof_path = page_png.with_name(
+                page_png.stem + "_uncaptioned_source_evidence.json")
+            with proof_path.open("x", encoding="utf-8") as f:
+                json.dump(uncaptioned_witness, f, sort_keys=True,
+                          indent=2, ensure_ascii=False)
+                f.write("\n")
+                f.flush()
+                os.fsync(f.fileno())
+            log(f"[UNCAPTIONED SOURCE] Source-only refusal and SHA-bound "
+                f"generic identity preserved in {proof_path.name}")
+        if panel_source_witness is not None:
+            # New-file-only, fsync'd provenance BEFORE any mapped figure copy.
+            # It records the original model response and independent source
+            # evidence without granting scientific QA or publication approval.
+            import hashlib
+            panel_source_witness["original_model_response_sha256"] = hashlib.sha256(
+                (txt or "").encode("utf-8")).hexdigest()
+            path = page_png.with_name(
+                page_png.stem + "_source_panel_caption_evidence.json")
+            encoded = (json.dumps(panel_source_witness, sort_keys=True,
+                                  indent=2, ensure_ascii=False) + "\n").encode("utf-8")
+            with path.open("xb") as handle:
+                handle.write(encoded)
+                handle.flush()
+                os.fsync(handle.fileno())
+            log(f"[FIGURE PANEL] Source-only SHA-bound panel-caption "
+                f"corroboration persisted: {path.name}; not academic QA")
     except FigureCompositeReviewRequired as exc:
         import hashlib
         evidence = {
@@ -1689,6 +1909,12 @@ def map_and_rename_single_step(
                 for p in fig_files if p.is_file()
             ],
             "issues": exc.issues,
+            # Strictly diagnostic. Even non-overlapping source rectangles do
+            # not prove panel membership, caption semantics, or authorize
+            # automatic concatenation/publication.
+            "source_declared_crop_geometry": geometry_candidate,
+            "figure_composite_semantics_verified": False,
+            "automatic_merge_authorized": False,
         }
         source_pdf = CFG.root / "source.pdf"
         if source_pdf.is_file():

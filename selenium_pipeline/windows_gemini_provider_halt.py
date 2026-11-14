@@ -34,8 +34,9 @@ FAILED = frozenset(("FIGURES_ATTEMPT_FAILED_NO_AUTO_RETRY",
 # matching on a user prompt, response, or a generic timeout is not reliable.
 _SEND_PROOF = re.compile(
     r"(?m)^\s*(?:\[[^\r\n]+\]\s*)?\[INFO\]\s+"
-    r"(?:Gemini submission registered via new-user-turn\+composer-cleared\.|"
-    r"\[SEND-VERIFY\] exact DOM Send message click registered\.)"
+    r"(?:Gemini submission registered via (?:new-user-turn|new-model-response|new-conversation-route)\+composer-cleared\.|"
+    r"\[SEND-VERIFY\] exact DOM Send message click registered\.|"
+    r"\[TIMING\] attempt [0-9]+ verified send: [0-9.]+s\s*\|\s*registered=True)"
 )
 
 

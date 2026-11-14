@@ -56,11 +56,11 @@ class WindowsProviderRoutePreflightTests(unittest.TestCase):
         r = self.recommend()
         self.assertEqual(
             r["suggested_new_unsent_job_route"],
-            "GEMINI_API_METADATA_REACHABLE_COST_APPROVAL_REQUIRED")
+            "GEMINI_SELENIUM_TEMPORARY_FAILURE_STOP")
         self.assertTrue(r["prior_source_free_browser_canary_unverified"])
         self.assertTrue(r["owned_gemini_ui_error_sha_verified"])
         self.assertTrue(r["gemini_browser_auto_selection_suppressed_by_prior_evidence"])
-        self.assertTrue(r["api_distinct_new_source_candidate_with_separate_cost_authorization"])
+        self.assertFalse(r["api_distinct_new_source_candidate_with_separate_cost_authorization"])
         self.assertFalse(r["gemini_api_content_generation_proven_healthy"])
         self.assertFalse(r["automatic_browser_to_api_fallback_authorized"])
         self.assertFalse(r["old_uncertain_lecture_retry_authorized"])
@@ -68,15 +68,53 @@ class WindowsProviderRoutePreflightTests(unittest.TestCase):
         self.assertFalse(r["new_model_or_tts_calls"])
         self.assertFalse(r["student_publication_authorized"])
 
-    def test_authenticated_chatgpt_can_be_selected_only_for_distinct_new_job(self):
+    def test_authenticated_chatgpt_is_never_selected_even_for_distinct_new_job(self):
         alt = dict(self.chatgpt, status="AUTHENTICATED_COMPOSER_READY",
                    authenticated_ui_ready=True)
         r = self.recommend(chatgpt_browser=alt)
         self.assertEqual(
             r["suggested_new_unsent_job_route"],
-            "CHATGPT_BROWSER_AVAILABLE_FOR_A_DISTINCT_NEW_JOB_ONLY")
+            "GEMINI_SELENIUM_TEMPORARY_FAILURE_STOP")
         self.assertFalse(r["automatic_browser_to_api_fallback_authorized"])
         self.assertFalse(r["old_uncertain_lecture_retry_authorized"])
+
+    def test_sha_verified_chatgpt_editor_failure_suppresses_fallback_route(self):
+        authenticated = dict(
+            self.chatgpt, status="AUTHENTICATED_COMPOSER_READY",
+            authenticated_ui_ready=True)
+        previous = {
+            "status": "CHATGPT_OWNED_EDITOR_INPUT_NOT_VERIFIED_NO_SEND",
+            "pre_send_editor_failure_independently_verified": True,
+            "browser_submission_proven_successful": False,
+            "new_model_or_tts_calls": False,
+            "old_source_retry_authorized": False,
+            "student_publication_authorized": False,
+        }
+        result = self.recommend(
+            chatgpt_browser=authenticated, chatgpt_canary=previous,
+            api_preflight=dict(self.api, api_key_count_nonsecret=0))
+        self.assertTrue(result["chatgpt_browser_authenticated"])
+        self.assertTrue(
+            result["chatgpt_browser_editor_unverified_by_sha_bound_canary"])
+        self.assertEqual(
+            result["suggested_new_unsent_job_route"],
+            "GEMINI_SELENIUM_TEMPORARY_FAILURE_STOP")
+        self.assertFalse(result["automatic_new_model_generation_authorized"])
+        self.assertFalse(result["old_uncertain_lecture_retry_authorized"])
+        self.assertFalse(result["paid_api_generation_authorized"])
+        # Forged/incomplete evidence without an actual validated pre-click
+        # report can never supersede live login evidence.
+        for changed in (
+            {**previous, "pre_send_editor_failure_independently_verified": False},
+            {**previous, "new_model_or_tts_calls": True},
+            {**previous, "status": "UNCONFIRMED_PRE_SEND_FAILURE"},
+        ):
+            other = self.recommend(
+                chatgpt_browser=authenticated, chatgpt_canary=changed)
+            self.assertFalse(
+                other["chatgpt_browser_editor_unverified_by_sha_bound_canary"])
+            self.assertEqual(other["suggested_new_unsent_job_route"],
+                             "GEMINI_SELENIUM_TEMPORARY_FAILURE_STOP")
 
     def test_guest_chatgpt_composer_never_counted_as_authentication(self):
         guest = dict(self.chatgpt, status="LOGIN_REQUIRED",
@@ -100,18 +138,18 @@ class WindowsProviderRoutePreflightTests(unittest.TestCase):
             chatgpt_browser=self.chatgpt)
         self.assertEqual(
             r["suggested_new_unsent_job_route"],
-            "NO_GENERATION_TRANSPORT_CERTIFIED_FOR_AUTOMATIC_DISPATCH")
+            "GEMINI_SELENIUM_TEMPORARY_FAILURE_STOP")
         self.assertFalse(
             r["api_distinct_new_source_candidate_with_separate_cost_authorization"])
 
-    def test_browser_halt_stops_new_automatic_gemini_browser(self):
+    def test_browser_halt_stops_generation_without_api_fallback(self):
         r = self.recommend(
             browser_canary=None, owned_ui_error=None,
             browser_halt={"new_generation_dispatch_allowed_by_health_policy": False})
         self.assertTrue(r["gemini_browser_auto_selection_suppressed_by_prior_evidence"])
         self.assertEqual(
             r["suggested_new_unsent_job_route"],
-            "GEMINI_API_METADATA_REACHABLE_COST_APPROVAL_REQUIRED")
+            "GEMINI_SELENIUM_TEMPORARY_FAILURE_STOP")
 
     def test_verified_capacity_halt_stops_api_candidate_too(self):
         r = self.recommend(
@@ -119,7 +157,7 @@ class WindowsProviderRoutePreflightTests(unittest.TestCase):
             browser_halt={"new_generation_dispatch_allowed_by_health_policy": False})
         self.assertEqual(
             r["suggested_new_unsent_job_route"],
-            "NO_GENERATION_TRANSPORT_CERTIFIED_FOR_AUTOMATIC_DISPATCH")
+            "GEMINI_SELENIUM_TEMPORARY_FAILURE_STOP")
         self.assertFalse(
             r["api_distinct_new_source_candidate_with_separate_cost_authorization"])
 
@@ -129,7 +167,7 @@ class WindowsProviderRoutePreflightTests(unittest.TestCase):
         self.assertFalse(r["owned_gemini_ui_error_sha_verified"])
         self.assertFalse(r["gemini_browser_auto_selection_suppressed_by_prior_evidence"])
 
-    def test_second_key_metadata_can_qualify_new_route_when_first_key_fails(self):
+    def test_second_api_key_metadata_never_qualifies_fallback_route(self):
         broken_first = dict(self.api, api_model_metadata="API_METADATA_LOOKUP_FAILED")
         verified_pool = {
             "status": "KEY_POOL_METADATA_CHECKED_AT_LEAST_ONE_REACHABLE",
@@ -142,7 +180,7 @@ class WindowsProviderRoutePreflightTests(unittest.TestCase):
             api_key_pool=verified_pool)
         self.assertEqual(
             r["suggested_new_unsent_job_route"],
-            "GEMINI_API_METADATA_REACHABLE_COST_APPROVAL_REQUIRED")
+            "GEMINI_SELENIUM_TEMPORARY_FAILURE_STOP")
         self.assertEqual(r["api_key_pool_metadata_verified_candidate_ordinals"], [2])
         self.assertFalse(r["gemini_api_content_generation_proven_healthy"])
         self.assertFalse(r["automatic_browser_to_api_fallback_authorized"])
@@ -159,7 +197,82 @@ class WindowsProviderRoutePreflightTests(unittest.TestCase):
         self.assertEqual(r["api_key_pool_metadata_verified_candidate_ordinals"], [])
         self.assertEqual(
             r["suggested_new_unsent_job_route"],
-            "NO_GENERATION_TRANSPORT_CERTIFIED_FOR_AUTOMATIC_DISPATCH")
+            "GEMINI_SELENIUM_TEMPORARY_FAILURE_STOP")
+
+    def test_verified_short_browser_canary_is_positive_but_not_long_form(self):
+        prior = {
+            "schema_version": 1, "backend": "browser",
+            "outcome": "VALID_CANARY_RESPONSE",
+            "status": "GENERIC_CANARY_TERMINAL",
+            "response_character_count": 33,
+            "new_model_generation_calls": 1,
+            "paid_api_content_may_have_occurred": False,
+            "source_pdf_transmitted": False,
+            "student_publication_authorized": False,
+        }
+        result = self.recommend(browser_canary=prior, owned_ui_error=None)
+        self.assertTrue(result["prior_short_browser_generation_success_recorded"])
+        self.assertTrue(result["prior_short_success_never_certifies_current_long_form"])
+        self.assertEqual(
+            result["suggested_new_unsent_job_route"],
+            "GEMINI_BROWSER_PRIOR_SHORT_CANARY_OK_LONG_FORM_UNTESTED")
+        self.assertFalse(result["gemini_browser_generation_proven_healthy"])
+        self.assertFalse(result["automatic_new_model_generation_authorized"])
+        self.assertFalse(result["old_uncertain_lecture_retry_authorized"])
+        self.assertFalse(result["paid_api_generation_authorized"])
+        self.assertFalse(result["student_publication_authorized"])
+
+        # Historical UI-error evidence remains a safe override. The prior
+        # canary cannot erase a newer source-bound error or permit resends.
+        blocked = self.recommend(browser_canary=prior)
+        self.assertTrue(blocked["prior_short_browser_generation_success_recorded"])
+        self.assertTrue(blocked["gemini_browser_auto_selection_suppressed_by_prior_evidence"])
+        self.assertNotEqual(
+            blocked["suggested_new_unsent_job_route"],
+            "GEMINI_BROWSER_PRIOR_SHORT_CANARY_OK_LONG_FORM_UNTESTED")
+
+        untrusted = dict(prior, source_pdf_transmitted=True)
+        self.assertFalse(self.recommend(
+            browser_canary=untrusted, owned_ui_error=None
+        )["prior_short_browser_generation_success_recorded"])
+
+    def test_source_sized_synthetic_canary_is_not_misreported_as_short_or_lecture(self):
+        evidence = {
+            "schema_version": 1, "backend": "browser",
+            "outcome": "VALID_CANARY_RESPONSE",
+            "status": "GENERIC_CANARY_TERMINAL",
+            "probe_profile": "source_sized",
+            "prompt_characters": 1535,
+            "response_character_count": 39,
+            "new_model_generation_calls": 1,
+            "paid_api_content_may_have_occurred": False,
+            "source_pdf_transmitted": False,
+            "student_publication_authorized": False,
+        }
+        result = self.recommend(browser_canary=evidence, owned_ui_error=None)
+        self.assertEqual(result["suggested_new_unsent_job_route"],
+                         "GEMINI_BROWSER_PRIOR_SOURCE_SIZED_INPUT_OK_FULL_LESSON_UNTESTED")
+        self.assertTrue(result["prior_source_sized_text_input_success_recorded"])
+        self.assertFalse(result["prior_short_browser_generation_success_recorded"])
+        self.assertTrue(result["prior_source_sized_input_never_certifies_full_lecture"])
+        self.assertFalse(result["gemini_browser_generation_proven_healthy"])
+        self.assertFalse(result["automatic_new_model_generation_authorized"])
+        self.assertFalse(result["student_publication_authorized"])
+        for changed in (
+            {**evidence, "prompt_characters": 3001},
+            {**evidence, "outcome": "NO_VERIFIED_RESPONSE"},
+            {**evidence, "source_pdf_transmitted": True},
+        ):
+            self.assertFalse(self.recommend(
+                browser_canary=changed, owned_ui_error=None
+            )["prior_source_sized_text_input_success_recorded"])
+        # An independently verified prior source-bound terminal UI error
+        # always takes precedence over a positive source-free canary.
+        blocked = self.recommend(browser_canary=evidence)
+        self.assertTrue(blocked["gemini_browser_auto_selection_suppressed_by_prior_evidence"])
+        self.assertNotEqual(
+            blocked["suggested_new_unsent_job_route"],
+            "GEMINI_BROWSER_PRIOR_SOURCE_SIZED_INPUT_OK_FULL_LESSON_UNTESTED")
 
     def test_preflight_invokes_no_model_transport_or_source_operations(self):
         with patch(
@@ -176,8 +289,8 @@ class WindowsProviderRoutePreflightTests(unittest.TestCase):
         ) as halts:
             report = inspect(
                 inspect_browsers=True, check_api_metadata=True)
-        self.assertEqual(browsers.call_count, 2)
-        api.assert_called_once_with(metadata_probe=True)
+        browsers.assert_called_once_with("gemini")
+        api.assert_called_once_with(metadata_probe=False)
         self.assertEqual(halts.call_count, 2)
         self.assertFalse(report["new_model_or_tts_calls"])
         self.assertFalse(report["student_publication_authorized"])

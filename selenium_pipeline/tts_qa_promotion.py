@@ -50,8 +50,14 @@ def _read_json(folder: Path, name: str) -> tuple[dict, bytes]:
     return result, raw
 
 
-def audit(source: Path, review: Path) -> dict:
-    """Verify original and reviewed audio plus full QA report; NO filesystem writes."""
+def audit(source: Path, review: Path, *,
+          allow_original_pcm_repair: bool = False) -> dict:
+    """Verify original and reviewed audio plus full QA report; NO filesystem writes.
+
+    Only the internal autonomous repair installer may use the optional
+    defective-original exception. An unchanged externally reviewed/exported
+    audio set still requires every original PCM to be structurally valid.
+    """
     if source.is_symlink() or review.is_symlink():
         raise AudioPromotionBlocked("Source and review directories cannot be symlinks")
     try:
@@ -155,6 +161,21 @@ def audit(source: Path, review: Path) -> dict:
         review_wav = _read_file(rev, name)
         try:
             verify_pcm(source_wav, label=f"original {name}")
+        except TTSPCMContractError as exc:
+            if not allow_original_pcm_repair or number not in changed:
+                raise AudioPromotionBlocked(str(exc)) from exc
+            # The one allowed non-PCM original MUST actually be damaged,
+            # explicitly selected for regeneration, and tied to an unchanged
+            # source SHA below. Never accept an invalid *replacement* WAV.
+            from .pcm_signal_integrity import inspect_pcm_signal
+            try:
+                inspect_pcm_signal(source_wav, label=f"defective original {name}")
+            except (ValueError, TTSPCMContractError):
+                pass
+            else:
+                raise AudioPromotionBlocked(
+                    "A healthy original cannot bypass normal PCM verification")
+        try:
             verify_pcm(review_wav, label=f"reviewed {name}")
         except TTSPCMContractError as exc:
             raise AudioPromotionBlocked(str(exc)) from exc

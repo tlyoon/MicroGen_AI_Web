@@ -15,7 +15,14 @@ class PipelineTests(unittest.TestCase):
     def test_development_model_policy(self):
         self.assertEqual(MODEL_PHASE, "development")
         self.assertEqual(DEFAULT_BROWSER_UI_MODE, "flash")
-        self.assertEqual(DEFAULT_CAPTION_MODEL, "gemini-3.8-flash")
+        # Figure caption extraction no longer needs the lecture-writing
+        # Flash/Medium model. Only figures use Flash-Lite/no Thinking menu.
+        from selenium_pipeline.gemini_stage_policy import stage_ui_contract
+        self.assertEqual(DEFAULT_CAPTION_MODEL, "gemini-3.5-flash-lite")
+        self.assertEqual(stage_ui_contract("figures")["ui_mode"], "flash-lite")
+        self.assertFalse(stage_ui_contract("figures")["thinking_required"])
+        self.assertEqual(stage_ui_contract("slides")["ui_mode"], "flash")
+        self.assertTrue(stage_ui_contract("slides")["thinking_required"])
         self.assertEqual(DEFAULT_SLIDE_MODEL, "gemini-3.8-flash")
         self.assertEqual(DEFAULT_NARRATION_MODEL, "gemini-3.8-flash")
         self.assertEqual(CAPTION_BENCHMARK_MODEL, "gemini-3.8-flash")

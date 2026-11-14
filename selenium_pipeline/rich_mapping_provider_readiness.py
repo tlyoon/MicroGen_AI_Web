@@ -125,21 +125,31 @@ def choose_provider(statuses:list[dict],*,model_submission_uncertain:bool=False)
         "paid_tts_authorized":False,
         "automatic_duplicate_submission_authorized":False,
     }
+    # Owner contract: Gemini via authenticated Selenium ONLY. ChatGPT and
+    # Gemini content API are not fallbacks, even when their sessions are ready.
     if model_submission_uncertain:
-        result["status"]="RECONCILE_EXISTING_PROVIDER_BEFORE_FALLBACK"
+        result["status"]="RECONCILE_EXISTING_GEMINI_SEND_NO_RETRY"
+        result["reminder"] = (
+            "Gemini Selenium temporary failure: an earlier Send may have "
+            "occurred. Preserve the original response evidence; stop without "
+            "resubmitting or switching providers.")
         return result
     by_name={x.get("provider"):x for x in statuses}
     require(len(by_name)==len(statuses)
             and set(by_name).issubset(DEFAULT_PORTS),
             "Unexpected/duplicate provider readiness")
-    for name in ("gemini","chatgpt"):
-        if (name in by_name and
-                by_name[name].get("status")=="AUTHENTICATED_COMPOSER_READY"
-                and by_name[name].get("authenticated_ui_ready") is True
-                and by_name[name].get("model_submission_performed") is False):
-            result["status"]="READY_TO_CLAIM_ONE_UNSENT_MODEL_JOB"
-            result["chosen_provider"]=name
-            break
+    candidate=by_name.get("gemini",{})
+    if (candidate.get("status")=="AUTHENTICATED_COMPOSER_READY"
+            and candidate.get("authenticated_ui_ready") is True
+            and candidate.get("model_submission_performed") is False):
+        result["status"]="READY_TO_CLAIM_ONE_UNSENT_GEMINI_SELENIUM_JOB"
+        result["chosen_provider"]="gemini"
+    else:
+        result["status"]="GEMINI_SELENIUM_TEMPORARY_FAILURE_STOP"
+        result["reminder"]=(
+            "Gemini Selenium temporary failure: authenticated browser not "
+            "ready. The procedure has stopped after bounded local recovery. "
+            "No ChatGPT or Gemini API fallback will be used.")
     return result
 
 def main(argv=None):

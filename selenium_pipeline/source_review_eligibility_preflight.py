@@ -1,7 +1,11 @@
-"""Non-dispatching, source-bound scope planner for original textbook AI review.
+"""Non-dispatching, source-bound QA planner for the standing autonomous workflow.
 
-Read-only evidence cannot authorize an academic model request. Historical
-failure receipts are not proof a provider never received an earlier send.
+Routine internal, no-new-cost Gemini Selenium scientific reviews are already
+within the owner's MicroGen_AI_Web development authority. Do not reinterpret
+this read-only planner's absence of a *per-slide* consent receipt as a request
+for human intervention. It still never sends a model request, changes assets
+or grants paid TTS/API, provider challenge bypass or publication permission.
+An ambiguous historical send or changed source remains terminal.
 """
 from __future__ import annotations
 
@@ -57,12 +61,16 @@ def inspect_original_review_eligibility(*, folder: Path, queue_root: Path,
                  == "ALREADY_COMPLETED_NO_RESUBMISSION"
                  else "INITIAL_REVIEW")
     observed = modes[next_mode]
-    if observed["recorded_status"] == "NEW_ATTEMPT_REQUIRES_EXPLICIT_REQUEST":
-        state = "NO_PENDING_RECEIPT_BUT_SCOPED_CONSENT_NOT_PROVEN"
+    if (observed["recorded_status"] == "NEW_ATTEMPT_REQUIRES_EXPLICIT_REQUEST"
+        and observed["observed_attempts"] == 0):
+        state = "FRESH_INTERNAL_SELENIUM_QA_READY_UNDER_STANDING_CONTRACT"
     elif observed["recorded_status"] == "ALREADY_COMPLETED_NO_RESUBMISSION":
         state = "EXISTING_PASS_MUST_NOT_BE_REPEATED"
     elif observed["recorded_status"] == "MAX_THREE_ATTEMPTS_EXHAUSTED":
         state = "EXHAUSTED_NO_MORE_REQUESTS"
+    elif (observed["recorded_status"] ==
+          "BLOCKED_INVALID_SOURCE_EVIDENCE_NO_SILENT_RETRY"):
+        state = "SOURCE_MATH_QUOTE_EVIDENCE_REJECTED_NO_SAME_REQUEST_REPEAT"
     else:
         state = "RECONCILE_OLD_PROVIDER_ATTEMPTS_BEFORE_ANY_SEND"
     if (original_hashes !=
@@ -80,7 +88,15 @@ def inspect_original_review_eligibility(*, folder: Path, queue_root: Path,
         "original_utterance_count_on_slide": job["utterance_count"],
         "review_stages": modes,
         "suggested_next_stage": next_mode,
-        "new_slide_specific_consent_verified": False,
+        # The owner already authorized autonomous internal academic QA:
+        # a new per-slide human consent is neither a product requirement nor
+        # a legitimate blocker. Never confuse this with permission for a
+        # different machine, paid API, retry, unknown Send or publication.
+        "standing_autonomous_internal_qa_scope_applies": True,
+        "separate_per_slide_owner_approval_required": False,
+        "fresh_claimed_internal_selenium_review_ready": (
+            state == "FRESH_INTERNAL_SELENIUM_QA_READY_UNDER_STANDING_CONTRACT"),
+        "live_browser_ownership_must_be_verified_at_dispatch": True,
         "historical_slide1_special_window_reusable": False,
         "independent_source_mathematics_approved": False,
         "browser_worker_ownership_verified": False,

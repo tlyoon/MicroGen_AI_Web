@@ -32,6 +32,20 @@ class ManualRetry(unittest.TestCase):
             "status":"FAILED_GEMINI_REVIEW_ATTEMPT_QUARANTINED","slide":1,
             "mode":"INITIAL_REVIEW","attempt":2}))
         with self.assertRaises(ValueError):plan_manual_review_attempt(q,slide=1,mode="INITIAL_REVIEW")
+ def test_returned_invalid_source_math_is_not_mislabeled_as_provider_outage(self):
+    with tempfile.TemporaryDirectory() as d:
+        q=self.make(d)
+        (q/"slide_001_initial_review_attempt_01.json").write_text(json.dumps({
+            "status":"FAILED_GEMINI_REVIEW_ATTEMPT_QUARANTINED",
+            "slide":1,"mode":"INITIAL_REVIEW","attempt":1,
+            "provider_submission_state":"RETURNED_RESPONSE_INVALID",
+            "manual_retry_eligible":False}))
+        result=plan_manual_review_attempt(q,slide=1,mode="INITIAL_REVIEW")
+        self.assertEqual(result["status"],
+                         "BLOCKED_INVALID_SOURCE_EVIDENCE_NO_SILENT_RETRY")
+        self.assertIsNone(result["next_possible_attempt"])
+        self.assertFalse(result["dispatch_authorized"])
+
  def test_challenge_requires_real_first_pass(self):
     with tempfile.TemporaryDirectory() as d:
         q=self.make(d)

@@ -16,6 +16,7 @@ class ModelSelectorTests(unittest.TestCase):
     def setup_driver(self, label="Open mode picker, currently Gemini Flash", items=None):
         driver = MagicMock()
         driver.window_handles = ["gemini"]
+        driver.current_window_handle = "gemini"
         driver.current_url = "https://gemini.google.com/app"
         picker = MagicMock()
         picker.is_displayed.return_value = True
@@ -60,10 +61,11 @@ class ModelSelectorTests(unittest.TestCase):
         driver, picker = self.setup_driver(
             "Open mode picker, currently Gemini Pro", items=[item]
         )
-        picker.get_attribute.side_effect = [
-            "Open mode picker, currently Gemini Pro",
-            "Open mode picker, currently Gemini Flash",
-        ]
+        model_state = {"name": "Gemini Pro"}
+        item.click.side_effect = lambda: model_state.update(name="Gemini Flash")
+        picker.get_attribute.side_effect = lambda key: (
+            "Open mode picker, currently " + model_state["name"]
+            if key == "aria-label" else None)
         chrome.return_value = driver
         self.assertIn("Flash", ensure_mode(mode="flash"))
         item.click.assert_called_once()
@@ -87,10 +89,11 @@ class ModelSelectorTests(unittest.TestCase):
         right.get_attribute.return_value="false"
         driver,picker=self.setup_driver(
             "Open mode picker, currently Flash-Lite",items=[wrong,right])
-        picker.get_attribute.side_effect=[
-            "Open mode picker, currently Flash-Lite",
-            "Open mode picker, currently Flash High",
-        ]
+        model_state = {"name": "Flash-Lite"}
+        right.click.side_effect = lambda: model_state.update(name="Flash High")
+        picker.get_attribute.side_effect = lambda key: (
+            "Open mode picker, currently " + model_state["name"]
+            if key == "aria-label" else None)
         chrome.return_value=driver
         observed=ensure_mode(mode="flash",timeout=2)
         self.assertEqual(observed,"Open mode picker, currently Flash High")

@@ -18,6 +18,11 @@ SINGLE_DOTTED_LETTER = re.compile(r"(?<![A-Za-z])([A-Za-z])\.(?![A-Za-z])")
 STANDALONE_LETTER = re.compile(r"(?<![A-Za-z0-9\'])(([A-Za-z]))(?![A-Za-z0-9\'])")
 RAW_MATH = re.compile(r"[\\^_]|[±×÷√ΔσΩπ]|(?<=\w)/(?=\w)")
 ALL_CAPS = re.compile(r"\b[A-Z]{2,6}\b")
+# A capital scientific symbol introduced by an explicit role is no longer
+# confused with a mid-sentence English article later in the same lecture.
+# The final A is deliberately case-sensitive; "area a" is not proof.
+CAPITAL_A_DEFINITION = re.compile(
+    r"\b(?i:area|amplitude|coefficient|parameter|variable|constant)\s+A\b")
 
 
 def parse_blocks(text: str) -> list[tuple[int, str]]:
@@ -41,7 +46,8 @@ def _sentence_start(text: str, pos: int) -> bool:
     return not before or before[-1] in ".!?:;"
 
 
-def collect_tts_risks(text: str, *, slide: int | None = None) -> list[dict[str, Any]]:
+def collect_tts_risks(text: str, *, slide: int | None = None,
+                      known_capital_a_definition: bool = False) -> list[dict[str, Any]]:
     findings: list[dict[str, Any]] = []
     # Historical Google Cloud TTS trouble tokens are evidence for what the
     # acoustic QA should inspect, not proof that Gemini Flash Lite TTS will
@@ -125,7 +131,11 @@ def collect_tts_risks(text: str, *, slide: int | None = None) -> list[dict[str, 
         # the article "a" or the letter name "A". Keep unexplained cases
         # blocking, but treat clearly labelled scientific variables as warnings
         # for acoustic verification rather than regeneration blockers.
-        if token == "A" and not explicit_context:
+        a_role_explicitly_defined = (
+            known_capital_a_definition
+            or CAPITAL_A_DEFINITION.search(text, 0, pos) is not None
+        )
+        if token == "A" and not explicit_context and not a_role_explicitly_defined:
             next_word = re.match(r"\s+([A-Za-z][A-Za-z'-]*)", tail_raw)
             if next_word:
                 add(
@@ -178,8 +188,13 @@ def analyze_script_text(text: str) -> dict[str, Any]:
     slides = parse_blocks(text)
     findings: list[dict[str, Any]] = []
     if slides:
+        known_a_role = False
         for number, body in slides:
-            findings.extend(collect_tts_risks(body, slide=number))
+            findings.extend(collect_tts_risks(
+                body, slide=number,
+                known_capital_a_definition=known_a_role))
+            known_a_role = known_a_role or (
+                CAPITAL_A_DEFINITION.search(body) is not None)
     else:
         findings.extend(collect_tts_risks(text, slide=None))
 

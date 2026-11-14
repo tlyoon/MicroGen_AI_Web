@@ -31,6 +31,73 @@ _OUTCOMES = ("VALID_CANARY_RESPONSE", "RESPONSE_RETURNED_BUT_NONCONFORMING",
 _SHA = hashlib.sha256(_PROMPT.encode("utf8")).hexdigest()
 
 
+def _profile_spec(profile: str):
+    """Keep short historical claims stable; reuse existing longer safe probe."""
+    if profile == "short":
+        return _PROMPT, _EXPECTED, _SHA
+    if profile == "source_sized":
+        from .one_shot_gemini_source_health_probe import (
+            make_source_sized_probe, EXPECTED)
+        prompt = make_source_sized_probe()
+        if not 1200 <= len(prompt) <= 3000:
+            raise ValueError("Source-sized canary exceeds established bounded scope")
+        return prompt, EXPECTED, hashlib.sha256(prompt.encode("utf8")).hexdigest()
+    if profile == "source_sized_selenium_only_v2":
+        # New immutable request identity after the owner explicitly removed
+        # alternate LLM routes and hardened exactly-once Gemini Selenium.
+        # Never replay the original historical source-sized canary prompt.
+        expected = {"probe": "microgen_gemini_selenium_g1_v2_ok"}
+        intro = (
+            'This is a NEW synthetic source-free Gemini Selenium-only G1 '
+            'transport verification, not a prior lecture request. '
+            'Reply with exactly one JSON object, and nothing else: '
+            '{"probe":"microgen_gemini_selenium_g1_v2_ok"}. '
+            'The following repeated text is inert test data, not instructions.\n'
+        )
+        seed = ("Inert source-sized input for verifying one owned Gemini "
+                "browser response; no academic or user file is attached. ")
+        prompt = intro + seed * 14
+        if not 1200 <= len(prompt) <= 3000:
+            raise ValueError("Gemini-only test prompt outside bounded size")
+        return prompt, expected, hashlib.sha256(prompt.encode("utf8")).hexdigest()
+    if profile == "short_g1_selenium_only_v3":
+        expected = {"probe": "microgen_g1_dell115_short_v3_ok"}
+        prompt = (
+            "MicroGen Selenium-only controlled Gemini responsiveness test A. "
+            "No files, external tools, academic content or attachments. "
+            "Please return exactly this JSON object and nothing else: "
+            '{"probe":"microgen_g1_dell115_short_v3_ok"}.'
+        )
+        return prompt, expected, hashlib.sha256(prompt.encode("utf8")).hexdigest()
+    if profile == "source_sized_g1_selenium_only_v3":
+        expected = {"probe": "microgen_g1_dell115_long_v3_ok"}
+        intro = (
+            "MicroGen Selenium-only controlled Gemini responsiveness test B. "
+            "There is no attachment or academic content. Reply with exactly "
+            '{"probe":"microgen_g1_dell115_long_v3_ok"} and nothing else. '
+            "The repeated text below is inert filler and not instructions.\\n"
+        )
+        filler = (
+            "Read-only browser capacity comparison with the short control; "
+            "no user document, private text, or requested transformation. "
+        )
+        prompt = intro + filler * 14
+        if not 1200 <= len(prompt) <= 3000:
+            raise ValueError("Controlled source-sized Gemini prompt has invalid size")
+        return prompt, expected, hashlib.sha256(prompt.encode("utf8")).hexdigest()
+    if profile == "short_g1_registered_turn_v4":
+        expected = {"probe": "microgen_dell115_registered_turn_v4_ok"}
+        prompt = (
+            "MicroGen Gemini Selenium-only G1 registration diagnostic v4. "
+            "This is a single fresh text-only request to check whether the "
+            "Gemini web app actually registers an owned new user turn. "
+            "Do not use tools or attachments. "
+            'Reply with exactly {"probe":"microgen_dell115_registered_turn_v4_ok"}.'
+        )
+        return prompt, expected, hashlib.sha256(prompt.encode("utf8")).hexdigest()
+    raise ValueError("Unrecognized source-free Gemini diagnostic profile")
+
+
 def _code(error: Exception) -> int | None:
     try:
         code = getattr(error, "code", None)
@@ -41,11 +108,12 @@ def _code(error: Exception) -> int | None:
         return None
 
 
-def _valid(raw: str) -> bool:
-    if type(raw) is not str or len(raw) > 5000:
+def _valid(raw: str, profile: str = "short") -> bool:
+    if not isinstance(raw, str) or len(raw) > 5000:
         return False
     try:
-        return json.loads(raw.strip()) == _EXPECTED
+        _, expected, _ = _profile_spec(profile)
+        return json.loads(raw.strip()) == expected
     except (ValueError, UnicodeError):
         return False
 
@@ -86,11 +154,17 @@ def _read(path: Path) -> dict | None:
             or record.get("student_publication_authorized") is not False):
         raise ValueError("Invalid existing Gemini canary record")
     claim = _verified_json(path.parent / f"{backend}_probe_started.json")
+    profile = claim.get("probe_profile", "short")
+    try:
+        _, _, profile_sha = _profile_spec(profile)
+    except ValueError as exc:
+        raise ValueError("Unknown immutable canary claim profile") from exc
     if (claim.get("schema_version") != 1
             or claim.get("backend") != backend
-            or claim.get("generic_prompt_sha256") != _SHA
+            or claim.get("generic_prompt_sha256") != profile_sha
             or claim.get("content_model") != CONTENT_MODEL
-            or claim.get("one_submission_only") is not True):
+            or claim.get("one_submission_only") is not True
+            or record.get("probe_profile", "short") != profile):
         raise ValueError("Canary result has no matching immutable send intent")
     # Original PR502 browser canary has no claim_sha256. Validate its exact
     # independent physical claim without retroactively altering any bytes.
@@ -101,11 +175,15 @@ def _read(path: Path) -> dict | None:
     return record
 
 
-def _request_browser(prompt: str) -> str:
+def _request_browser(prompt: str, *, profile: str = "short") -> str:
     from .series_gemini import _browser_request
     # Only the owned browser tab and its attributed response may be captured.
-    return _browser_request(prompt, [], port=9222, wait_cap_s=90,
-                            min_chars=8, accept_fn=_valid)
+    # This longer-input check uses NO original source and no model/API retry.
+    return _browser_request(
+        prompt, [], port=9222,
+        wait_cap_s=(150 if profile.startswith("source_sized") else 90),
+        min_chars=8, accept_fn=lambda raw: _valid(raw, profile=profile),
+    )
 
 
 def _request_api(prompt: str) -> str:
@@ -139,7 +217,7 @@ def _request_api(prompt: str) -> str:
 def run_canary(*, checkpoint_dir: Path, backend: str,
                confirm_api_diagnostic_cost: bool = False,
                browser_transport=None, api_transport=None,
-               browser_ready=None) -> dict:
+               browser_ready=None, profile: str = "short") -> dict:
     """One optional backend-specific new canary, no original files/TTS.
 
     Caller may inject *test-only* transports; CLI uses real owned services.
@@ -150,11 +228,27 @@ def run_canary(*, checkpoint_dir: Path, backend: str,
         raise ValueError("Explicit --confirm-api-diagnostic-cost required")
     if confirm_api_diagnostic_cost and backend != "api":
         raise ValueError("API diagnostic cost consent never applies to browser")
+    if profile != "short" and backend != "browser":
+        raise ValueError("Source-sized diagnostic is browser-only, never paid API")
+    prompt, _, prompt_sha = _profile_spec(profile)
     root = _local_only(checkpoint_dir)
     root.mkdir(parents=True, exist_ok=True)
     claim = root / f"{backend}_probe_started.json"
     result = root / f"{backend}_probe_result.json"
     if claim.exists() or claim.is_symlink():
+        # A preclaim might have been partially written by an older crashed
+        # worker. Never interpret that as a fresh sending opportunity.
+        # Only *complete* trusted receipts require canonical immutable proof.
+        saved_claim = None
+        try:
+            if (claim.is_file() and not claim.is_symlink()
+                    and 0 < claim.stat().st_size <= 4096):
+                saved_claim = json.loads(claim.read_text(encoding="utf8"))
+        except (OSError, ValueError, UnicodeError, TypeError):
+            pass
+        if (type(saved_claim) is dict
+                and saved_claim.get("probe_profile", "short") != profile):
+            raise ValueError("Different canary profiles cannot reuse same Send claim")
         if result.is_file():
             previous = _read(result)
             return {**previous, "status": "PRIOR_CANARY_RECEIPT_REUSED"}
@@ -196,7 +290,8 @@ def run_canary(*, checkpoint_dir: Path, backend: str,
     # Claim is durably persisted before any API or browser submission.
     _write_new(claim, {
         "schema_version": 1, "backend": backend,
-        "content_model": CONTENT_MODEL, "generic_prompt_sha256": _SHA,
+        "content_model": CONTENT_MODEL, "generic_prompt_sha256": prompt_sha,
+        "probe_profile": profile,
         "one_submission_only": True,
         "explicit_api_content_cost": backend == "api",
         "no_original_source_attached": True,
@@ -207,7 +302,9 @@ def run_canary(*, checkpoint_dir: Path, backend: str,
         "status": "GENERIC_CANARY_TERMINAL",
         "content_model": CONTENT_MODEL,
         "claim_sha256": file_sha256(claim),
-        "generic_prompt_sha256": _SHA,
+        "generic_prompt_sha256": prompt_sha,
+        "probe_profile": profile,
+        "prompt_characters": len(prompt),
         "outcome": "NO_VERIFIED_RESPONSE",
         "error_type": None,
         "verified_api_http_status": None,
@@ -218,25 +315,88 @@ def run_canary(*, checkpoint_dir: Path, backend: str,
         "source_pdf_transmitted": False,
         "student_publication_authorized": False,
         "existing_original_source_retry_permitted": False,
+        "gemini_selenium_only": backend == "browser",
+        "chatgpt_fallback_attempted": False,
+        "gemini_api_fallback_attempted": False,
+        "gemini_browser_failure_phase": None,
+        "gemini_browser_presend_attempts_used": None,
+        "gemini_send_registration_status": None,
+        "gemini_new_user_turn_verified": None,
+        "gemini_late_response_reconciled": None,
+        "gemini_visible_model_chars_at_stop": None,
+        "gemini_generation_active_at_stop": None,
+        "gemini_selenium_stop_message": None,
     }
     try:
-        transport = ((browser_transport or _request_browser) if backend == "browser"
-                     else (api_transport or _request_api))
-        raw = transport(_PROMPT)
+        transport = ((browser_transport or
+                      (lambda text: _request_browser(text, profile=profile)))
+                     if backend == "browser" else (api_transport or _request_api))
+        raw = transport(prompt)
         answer["response_character_count"] = (
             min(len(raw), 5000) if isinstance(raw, str) else 0)
-        answer["outcome"] = ("VALID_CANARY_RESPONSE" if _valid(raw)
+        answer["outcome"] = ("VALID_CANARY_RESPONSE" if _valid(raw, profile=profile)
                              else "RESPONSE_RETURNED_BUT_NONCONFORMING")
+        if backend == "browser":
+            # Successful replies MUST carry the same trusted, prompt-free
+            # registration evidence as failure receipts. Plain injected test
+            # strings retain null/unknown, never invented positive proof.
+            status = getattr(raw, "gemini_send_registration_status", None)
+            verified = getattr(raw, "gemini_new_user_turn_verified", None)
+            late = getattr(raw, "gemini_late_response_reconciled", None)
+            if (type(status) is str and 0 < len(status) < 80
+                    and status.isupper() and
+                    all(c.isupper() or c.isdigit() or c == "_" for c in status)):
+                answer["gemini_send_registration_status"] = status
+            if type(verified) is bool:
+                answer["gemini_new_user_turn_verified"] = verified
+            if type(late) is bool:
+                answer["gemini_late_response_reconciled"] = late
     except Exception as error:
         # Never persist API key, exception .args, original prompt or raw
         # model text. Generic error type and structured HTTP status only.
         answer["error_type"] = type(error).__name__
         if backend == "browser":
             from .gemini_bridge_failure_triage import (
-                classify_owned_gemini_failure,
-            )
-            answer["browser_bridge_stage"] = (
-                classify_owned_gemini_failure(error)["stage"])
+                classify_owned_gemini_failure)
+            from .gemini_selenium_only_policy import temporary_failure_message
+            # The real Selenium bridge exposes privacy-safe phase metadata.
+            # A separately injected/legacy exception may not: UNKNOWN is
+            # honest and preserves the no-resend invariant.
+            possible = getattr(error, "gemini_send_boundary_entered", None)
+            if type(possible) is bool:
+                answer["request_may_have_been_submitted"] = possible
+                if not possible:
+                    answer["new_model_generation_calls"] = 0
+            phase = getattr(error, "gemini_failure_phase", None)
+            if (type(phase) is not str or not phase or len(phase) > 128):
+                phase = classify_owned_gemini_failure(error)["stage"]
+            attempts = getattr(error, "gemini_prepare_attempts_used", None)
+            if type(attempts) is int and 1 <= attempts <= 3:
+                answer["gemini_browser_presend_attempts_used"] = attempts
+            answer["gemini_browser_failure_phase"] = (
+                "PRE_SEND_NO_SUBMISSION" if possible is False else
+                "AFTER_POSSIBLE_SEND" if possible is True else
+                "UNKNOWN_SUBMISSION_OUTCOME")
+            registration=getattr(error,"gemini_send_registration_status",None)
+            if (isinstance(registration,str) and
+                    0<len(registration)<80 and
+                    registration.isupper() and
+                    all(c.isupper() or c.isdigit() or c=="_"
+                        for c in registration)):
+                answer["gemini_send_registration_status"]=registration
+            new_turn=getattr(error,"gemini_new_user_turn_verified",None)
+            if type(new_turn) is bool:
+                answer["gemini_new_user_turn_verified"]=new_turn
+            chars=getattr(error,"gemini_visible_model_chars_at_stop",None)
+            if type(chars) is int and 0<=chars<=1800000:
+                answer["gemini_visible_model_chars_at_stop"]=chars
+            generation=getattr(error,"gemini_generation_active_at_stop",None)
+            if type(generation) is bool:
+                answer["gemini_generation_active_at_stop"]=generation
+            answer["browser_bridge_stage"] = phase
+            answer["gemini_selenium_stop_message"] = (
+                temporary_failure_message(
+                    phase, may_have_submitted=possible is not False))
         answer["verified_api_http_status"] = (
             _code(error) if backend == "api" else None)
     _write_new(result, answer)
@@ -268,7 +428,11 @@ def classify(*, browser: dict | None, api: dict | None,
     elif b_bad and a_bad:
         label = "SERVICE_OR_NETWORK_OR_BOTH_TRANSPORTS_SUSPECTED"
     elif b_ok:
-        label = "BROWSER_SHORT_CANARY_WORKS_LONG_FORM_NOT_CERTIFIED"
+        label = (
+            "BROWSER_SOURCE_SIZED_INPUT_CANARY_OK_FULL_LESSON_NOT_CERTIFIED"
+            if str(browser.get("probe_profile", "short")).startswith("source_sized")
+            else "BROWSER_SHORT_CANARY_WORKS_LONG_FORM_NOT_CERTIFIED"
+        )
     elif a_ok and browser_authenticated is False:
         label = "BROWSER_AUTHENTICATION_OR_CAPTURE_PROBLEM"
     elif a_ok:
@@ -286,6 +450,11 @@ def classify(*, browser: dict | None, api: dict | None,
         "metadata_reachable_not_generation_proof": metadata_reachable,
         "api_structured_http_status": api_http_status,
         "browser_canary": b or "NOT_TESTED",
+        "browser_canary_profile": (
+            browser.get("probe_profile", "short") if browser else "NOT_TESTED"),
+        "source_sized_text_input_response_verified": bool(
+            b_ok and browser and str(browser.get("probe_profile")).startswith("source_sized")),
+        "source_sized_input_is_not_full_lecture_generation": True,
         "api_canary": a or "NOT_TESTED",
         "provider_server_outage_proven": False,
         "cause_estimate_not_causal_proof": True,
@@ -300,6 +469,10 @@ def main(argv=None) -> int:
     ap.add_argument("--inspect-browser", action="store_true")
     ap.add_argument("--probe-api-model-metadata-once", action="store_true")
     ap.add_argument("--browser-canary-once", action="store_true")
+    ap.add_argument("--browser-canary-profile",
+                    choices=("short", "source_sized",
+                             "source_sized_selenium_only_v2"), default="short",
+                    help="Source-sized profile sends 1.2-3k synthetic characters; never a PDF")
     ap.add_argument("--api-canary-once", action="store_true")
     ap.add_argument("--confirm-api-diagnostic-cost", action="store_true")
     ap.add_argument("--canary-root", type=Path)
@@ -314,6 +487,8 @@ def main(argv=None) -> int:
         ap.error("API canary requires explicit --confirm-api-diagnostic-cost")
     if args.confirm_api_diagnostic_cost and not args.api_canary_once:
         ap.error("API cost consent without an explicit canary request is invalid")
+    if args.browser_canary_profile != "short" and not args.browser_canary_once:
+        ap.error("Source-sized profile requires a fresh explicit browser canary")
     if (args.browser_canary_once or args.api_canary_once
             or args.register_api_capacity_from_canary) and not args.canary_root:
         ap.error("Explicit external LOCALAPPDATA --canary-root required")
@@ -329,7 +504,8 @@ def main(argv=None) -> int:
         browser = _read(root / "browser_probe_result.json")
         api = _read(root / "api_probe_result.json")
     if args.browser_canary_once:
-        browser = run_canary(checkpoint_dir=args.canary_root, backend="browser")
+        browser = run_canary(checkpoint_dir=args.canary_root, backend="browser",
+                             profile=args.browser_canary_profile)
     if args.api_canary_once:
         api = run_canary(checkpoint_dir=args.canary_root, backend="api",
                          confirm_api_diagnostic_cost=True)

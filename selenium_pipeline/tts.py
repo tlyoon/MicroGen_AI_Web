@@ -453,6 +453,14 @@ def _configure_cloud_adc_from_microvid() -> Path | None:
     return None
 
 
+def _preflight_cloud_voice(voice: str) -> dict:
+    """Verify the exact live Cloud voice before initiating metered synthesis."""
+    from google.cloud import texttospeech
+    from .cloud_voice_preflight import verify_catalogue_voice
+    _configure_cloud_adc_from_microvid()
+    return verify_catalogue_voice(texttospeech.TextToSpeechClient(), voice)
+
+
 def _chirp_say(client, text: str, voice: str) -> bytes:
     from google.cloud import texttospeech
     # Default to a genuine Chirp 3 HD voice, configurable by name.
@@ -466,6 +474,10 @@ def _chirp_say(client, text: str, voice: str) -> bytes:
         ),
     )
     return response.audio_content
+
+
+class _PreviouslyObservedTransientTTSFailure(TimeoutError):
+    """Trusted hash-linked prior failure, not a new provider call or new timeout."""
 
 
 def _is_transient_tts_failure(exc: BaseException) -> bool:
@@ -859,6 +871,8 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
         # including conditional fallback on slower Dell-115 and Yoga6. Never
         # launch a Cloud API request in the coordinator process directly.
         chirp_voice = voice if "Chirp3-HD" in voice else f"en-US-Chirp3-HD-{_named_voice(voice)}"
+        _preflight_cloud_voice(chirp_voice)
+        print(f"[tts] read-only catalogue confirmed Cloud voice {chirp_voice}", flush=True)
         def say(narration: str, number: int, *, final_round: bool = False) -> bytes:
             return _chirp_say_with_watchdog(narration, number, chirp_voice)
     else:
@@ -904,10 +918,59 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
     primary_spec = {"provider": provider, "model": model, "voice": voice}
     slide_provenance: dict[int, dict[str, object]] = {}
 
+    # Production resume must honor the ORIGINAL source- and script-hash-locked
+    # attempt journal. No process restart resets the three observed call budget.
+    # Saved success is usable only with an independently verified exact WAV.
+    prior_verified_exhaustion = False
+    if attempt_evidence is not None and provider == "gemini":
+        previous = attempt_evidence.read()
+        histories: dict[int, list[dict]] = {}
+        for event in previous:
+            if event["provider"] == provider and event["model"] == model:
+                histories.setdefault(event["slide"], []).append(event)
+        for number, history in histories.items():
+            dest = candidate / f"slide{number}.wav"
+            outcomes = [event["outcome"] for event in history]
+            if "permanent_failure" in outcomes:
+                raise RuntimeError(
+                    f"Recorded permanent error for slide{number}; "
+                    "no automatic retry or higher-cost fallback")
+            if "success" in outcomes:
+                if (outcomes.count("success") != 1
+                        or outcomes[-1] != "success"
+                        or not dest.is_file() or dest.is_symlink()):
+                    raise RuntimeError(
+                        f"Recorded success for slide{number} lacks matching "
+                        "verified candidate WAV; no new provider request")
+                verify_one(candidate, dest.name, candidate_identity)
+                slide_provenance[number] = {
+                    **primary_spec, "fallback_used": False}
+                continue
+            if dest.exists() or dest.is_symlink():
+                raise RuntimeError(
+                    f"Previously failed slide{number} has unaccounted WAV; stop")
+            if outcomes and all(x == "transient_failure" for x in outcomes):
+                attempts_by_slide[number] = len(outcomes)
+                last_failures[number] = _PreviouslyObservedTransientTTSFailure(
+                    f"slide{number}: {len(outcomes)} verified prior "
+                    "transient provider failures in immutable journal")
+        prior_verified_exhaustion = any(
+            count >= queue_rounds and
+            not (candidate / f"slide{number}.wav").exists()
+            for number, count in attempts_by_slide.items())
+        if prior_verified_exhaustion:
+            attempt_evidence.verify_exhausted(model, minimum_attempts=3)
+            print(
+                "[tts] original journal proves exhausted requests; "
+                "skipping old model Sends and using authorized whole-batch "
+                "fallback when available", flush=True)
+
     # Do not hammer one slide repeatedly during a transient provider outage.
     # Each slide gets one request per round. Transient failures move to the end
     # of the queue so later slides can make progress and successful WAVs survive.
     for round_number in range(1, queue_rounds + 1):
+        if prior_verified_exhaustion:
+            break
         if not pending:
             break
         next_pending: list[tuple[int, str]] = []
@@ -936,6 +999,12 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
                       flush=True)
                 continue
 
+            if attempts_by_slide.get(number, 0) >= round_number:
+                # Previous immutable observation already consumed this round.
+                # Never turn an old failed call into an extra paid request.
+                if round_number < queue_rounds:
+                    next_pending.append((number, narration))
+                continue
             print(f"[tts] requesting slide{number} ({len(narration)} chars)", flush=True)
             try:
                 attempts_by_slide[number] = attempts_by_slide.get(number, 0) + 1
@@ -943,7 +1012,8 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
                 payload = say(
                     narration,
                     number,
-                    final_round=(round_number == queue_rounds),
+                    final_round=(round_number == queue_rounds
+                                 and consecutive_transient_failures == 0),
                 )
                 if not payload.startswith((b"RIFF", b"RF64")):
                     raise RuntimeError(f"slide{number}: TTS did not return a WAV file")
@@ -1005,6 +1075,12 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
                     f"{type(exc).__name__}: {exc}",
                     flush=True,
                 )
+                if provider == "chirp3":
+                    # One permanent Cloud error must not trigger metered calls
+                    # on every remaining slide in the same failed provider batch.
+                    print("[tts] permanent Cloud failure: opening batch circuit; "
+                          "remaining slides not submitted", flush=True)
+                    break
 
         if not next_pending:
             pending = []

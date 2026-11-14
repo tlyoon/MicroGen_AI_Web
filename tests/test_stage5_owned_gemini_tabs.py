@@ -10,6 +10,7 @@ import sys
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 SOURCE = Path(__file__).resolve().parents[1] / "selenium_pipeline" / "vendor_template_v2" / "selenium.py"
 
@@ -23,6 +24,9 @@ def load_client():
 
 
 class FakePicker:
+    id = "owned-verified-gemini-picker"
+    text = "Flash High"
+
     def is_displayed(self):
         return True
 
@@ -80,7 +84,11 @@ class FakeDriver:
         raise AssertionError("Unexpected Selenium script")
 
     def find_elements(self, by, selector):
-        if 'Open mode picker' in selector:
+        # Model picker is a single identified control; unrelated selectors
+        # must never return it (a behavior required by adaptive lookup).
+        if selector in (
+            'button[aria-label^="Open mode picker"]',
+            '[data-test-id="bard-mode-menu-button"]'):
             return [FakePicker()] if self.mode_picker else []
         if 'Send' in selector and "button" in selector:
             return [SimpleNamespace(is_enabled=lambda: True)]
@@ -104,6 +112,13 @@ class OwnedGeminiTabTests(unittest.TestCase):
         self.client.driver = FakeDriver()
         self.client.ensure_driver_is_alive = lambda: None
         self.client._clear_prompt_safely = lambda: None
+        # This historical test covers borrowed/owned tab isolation.
+        # Thinking radio state is tested in the dedicated adaptive UI suite.
+        thinking = patch(
+            "selenium_pipeline.gemini_thinking.select_owned_gemini_thinking_level",
+            return_value="medium")
+        thinking.start()
+        self.addCleanup(thinking.stop)
 
     def test_new_request_uses_fresh_owned_tab_and_never_borrows_user_chat(self):
         self.client.open_clean_gemini_chat()

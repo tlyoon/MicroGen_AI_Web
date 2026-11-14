@@ -83,6 +83,52 @@ def _candidate(root: Path,page: int,*,copy_to_root: bool) -> dict:
         raise ValueError("Unsafe multipart target mapping") from exc
     if [t[0] for t in triples]!=[p.name for p in crops]:
         raise ValueError("Mapping order does not match original numbered crops")
+    # A generic uncaptioned label MUST carry independently re-verifiable
+    # original PDF evidence and the untouched, explicitly REFUSING model
+    # answer. Otherwise a manually renamed unknown figure could pass
+    # structural checkpointing and later be treated as a textbook figure.
+    generic=[x for x in triples if x[1]=="Unlabeled source graphic"]
+    if generic:
+        if len(generic)!=1 or len(triples)!=1:
+            raise ValueError("Uncaptioned source recovery requires one unique crop")
+        raw=page_png.with_name(page_png.stem+"_uncaptioned_model_reply.raw.txt")
+        proof=page_png.with_name(page_png.stem+"_uncaptioned_source_evidence.json")
+        if not _regular(raw) or not _regular(proof):
+            raise ValueError("Original uncaptioned refusal/evidence was not preserved")
+        if raw.read_bytes() not in (b"MAPPING_REVIEW_REQUIRED\n", b"MAPPING_REVIEW_REQUIRED\r\n"):
+            raise ValueError("Uncaptioned model refusal is not exact/immutable")
+        from .figure_uncaptioned_source_recovery import (
+            recover_source_uncaptioned_crop, UncaptionedSourceNotProven)
+        geometry=folder/(page_png.stem+"_crop_geometry.json")
+        try:
+            expected_rows, expected_proof=recover_source_uncaptioned_crop(
+                response="MAPPING_REVIEW_REQUIRED",source_pdf=source,
+                page_png=page_png,crops_dir=folder,geometry_manifest=geometry)
+        except UncaptionedSourceNotProven as exc:
+            raise ValueError("Uncaptioned original source not corroborated") from exc
+        expected_proof["saved_model_reply_sha256"]=_sha(raw)
+        if (triples!=expected_rows
+                or json.loads(proof.read_text(encoding="utf8"))!=expected_proof):
+            raise ValueError("Uncaptioned source identity/evidence not reproducible")
+
+    # Geometry provenance is optional for historical checkpoints, but a
+    # newly declared source manifest becomes mandatory, hash-bound replay
+    # evidence. Never silently discard it or accept a changed copy.
+    crop_geometry=folder/f"page_{page}_crop_geometry.json"
+    source_geometry=page_png.parent/f"page_{page}_crop_geometry.json"
+    geometry_observed=(crop_geometry.exists() or source_geometry.exists()
+                       or crop_geometry.is_symlink() or source_geometry.is_symlink())
+    geometry_sha=None
+    if geometry_observed:
+        if (not _regular(crop_geometry) or not _regular(source_geometry)
+                or _sha(crop_geometry)!=_sha(source_geometry)):
+            raise ValueError("Source geometry manifest is missing, changed or untrusted")
+        from .figure_crop_source_provenance import (
+            inspect_source_locked_composite_candidates)
+        inspect_source_locked_composite_candidates(
+            manifest=crop_geometry, source_pdf=source,
+            page_png=page_png, crops_dir=folder, mappings=triples)
+        geometry_sha=_sha(crop_geometry)
 
     mapped=[]
     for name,label,target in triples:
@@ -101,7 +147,7 @@ def _candidate(root: Path,page: int,*,copy_to_root: bool) -> dict:
             "crop":name,"caption":label,"target":target,
             "sha256":digest,
         })
-    return {
+    result={
         "schema_version":CHECKPOINT_VERSION,
         "status":"validated_source_mapping_not_visual_approval",
         "page":page,"source_pdf_sha256":_sha(source),
@@ -111,6 +157,9 @@ def _candidate(root: Path,page: int,*,copy_to_root: bool) -> dict:
         "copy_to_root":bool(copy_to_root),
         "mapped":mapped,
     }
+    if geometry_sha is not None:
+        result["source_geometry_manifest_sha256"]=geometry_sha
+    return result
 
 
 def _path(root:Path,page:int)->Path:

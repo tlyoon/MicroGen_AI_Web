@@ -15,7 +15,9 @@ def candidate_map(*,folder:Path, queue:dict|None=None)->dict:
     folder=Path(folder).absolute()
     record=queue if queue is not None else inspect_folder(folder)
     slides=folder/"slides.pdf"
-    require(record.get("status")=="INCREMENTAL_NARRATION_ELEMENT_EXECUTION_QUEUE_REVIEW_ONLY"
+    require(record.get("status") in (
+                "INCREMENTAL_NARRATION_ELEMENT_EXECUTION_QUEUE_REVIEW_ONLY",
+                "PRE_TTS_SOURCE_ONLY_ELEMENT_QUEUE_REVIEW_ONLY")
             and record.get("slides_sha256")==_sha(slides)
             and record.get("source_sha256")==_sha(folder/"source.pdf")
             and record.get("script_sha256")==_sha(folder/"script.txt"),
@@ -41,6 +43,23 @@ def candidate_map(*,folder:Path, queue:dict|None=None)->dict:
                     "panel_identity_review_required":False,
                     "anchor":{"type":"text_block","index":source_block_index},
                 })
+            # The historic mapper exposed ONLY text blocks, so figure/panel
+            # utterances had no physical visual target to select even when
+            # a real image was present. Add physically witnessed candidates,
+            # not semantic approval, before the model's source review.
+            from .verified_slide_visual_candidates import (
+                registered_raster_targets, composite_math_targets)
+            targets.extend(registered_raster_targets(page, index))
+            targets.extend(composite_math_targets(page, index, targets))
+            # Recycle the source-caption/panel-marker and dual-detector
+            # correspondence evidence on-the-fly. The returned targets carry
+            # exact caption meaning and independent PDF/image provenance,
+            # NEVER automatic mathematical or acoustic approval.
+            if any(t["kind"]=="image_whole" for t in targets):
+                from .captioned_panel_target_router import panel_targets_for_slide
+                targets.extend(panel_targets_for_slide(
+                    source=folder/"source.pdf",slides=slides,
+                    slide_number=index,rendered_text=page.get_text()))
             refs=[]
             for utterance in row["original_verbatim_utterances"]:
                 candidates=stable_recommendations(
@@ -85,5 +104,6 @@ def candidate_map(*,folder:Path, queue:dict|None=None)->dict:
             "utterance_count":sum(len(x["original_utterance_candidates"]) for x in results),
             "slides":results,
             "ready_for_paid_element_tts":False,
+            "source_only_pre_tts_review": record.get("source_only_pre_tts_review") is True,
             "spoken_element_timing_verified":False,
             "student_publication_authorized":False}

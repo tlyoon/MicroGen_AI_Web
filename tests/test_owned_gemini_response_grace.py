@@ -61,10 +61,27 @@ class OwnedResponseGrace(unittest.TestCase):
         self.assertIsNone(got)
 
     def test_unbounded_or_non_callable_parameters_rejected(self):
-        for seconds in (0,91):
+        for seconds in (0, 91):
             with self.assertRaises(ValueError):
                 poll_existing_owned_response(lambda: snap(),
-                    accept_fn=lambda _:True,wait_s=seconds)
+                    accept_fn=lambda _: True, wait_s=seconds)
+
+    def test_extended_grace_only_when_new_turn_is_explicitly_verified(self):
+        # Preserve the historical 90-second contract for all other callers.
+        complete = lambda: snap('{"probe":"late"}', False, "visible_model_response")
+        with self.assertRaises(ValueError):
+            poll_existing_owned_response(complete, accept_fn=lambda _: True,
+                                         wait_s=180)
+        accepted, _ = poll_existing_owned_response(
+            complete, accept_fn=lambda raw: raw == '{"probe":"late"}',
+            wait_s=180, verified_new_turn=True)
+        self.assertEqual(accepted, '{"probe":"late"}')
+        with self.assertRaises(ValueError):
+            poll_existing_owned_response(complete, accept_fn=lambda _: True,
+                                         wait_s=181, verified_new_turn=True)
+        with self.assertRaises(ValueError):
+            poll_existing_owned_response(complete, accept_fn=lambda _: True,
+                                         wait_s=90, verified_new_turn=1)
 
 
 if __name__ == "__main__":

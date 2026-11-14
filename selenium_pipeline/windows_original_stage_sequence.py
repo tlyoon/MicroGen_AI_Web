@@ -83,20 +83,29 @@ def run_stage(*, trial_dir: Path, stage: str, timeout_seconds: int = 480,
             "Original source/staged hierarchy changed")
     from .runner import check_valid
     if stage == "slides":
-        predecessor = trial_dir / "figures_attempt_result.json"
-        source_proof = _verified_json(predecessor)
-        require(source_proof.get("status") ==
-                "FIGURES_STAGE_RETURNED_SUCCESS_NOT_FULL_LECTURE"
-                and source_proof.get("figure_stage_exit_code") == 0
-                and source_proof.get("original_source_sha256") ==
-                contract["source_sha256"]
-                and source_proof.get("staged_original_sha256") ==
-                contract["source_sha256"]
-                and source_proof.get("new_video_rendered") is False
-                and source_proof.get("student_publication_authorized") is False,
-                "Cannot generate slides from failed or ambiguous figure mapping")
-        require(check_valid("figures", workspace),
-                "Figure stage receipt exists but real source-map artifacts are invalid")
+        local_rescue = trial_dir / "figures_source_only_local_recovery.json"
+        if local_rescue.exists() or local_rescue.is_symlink():
+            from .figures_failed_source_only_resume import verify_recovery_receipt
+            predecessor = verify_recovery_receipt(trial_dir)
+            # The old provider result remains FAILED in the other trial.
+            # Only independently reproduced source-crop mapping is accepted.
+            require(check_valid("figures", workspace),
+                    "Source-only figure map changed after local recovery")
+        else:
+            predecessor = trial_dir / "figures_attempt_result.json"
+            source_proof = _verified_json(predecessor)
+            require(source_proof.get("status") ==
+                    "FIGURES_STAGE_RETURNED_SUCCESS_NOT_FULL_LECTURE"
+                    and source_proof.get("figure_stage_exit_code") == 0
+                    and source_proof.get("original_source_sha256") ==
+                    contract["source_sha256"]
+                    and source_proof.get("staged_original_sha256") ==
+                    contract["source_sha256"]
+                    and source_proof.get("new_video_rendered") is False
+                    and source_proof.get("student_publication_authorized") is False,
+                    "Cannot generate slides from failed or ambiguous figure mapping")
+            require(check_valid("figures", workspace),
+                    "Figure stage receipt exists but real source-map artifacts are invalid")
     else:
         previous = _ORDER[_ORDER.index(stage)-1]
         predecessor = trial_dir / ("stage_" + previous + "_result.json")

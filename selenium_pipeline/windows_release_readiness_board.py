@@ -81,6 +81,27 @@ def inspect_worker_install(*, repo: Path,
             "tooling_only_not_video_acceptance": True}
 
 
+def _autonomous_qa_matches_distinct_second_source(
+    autonomous_qa: dict, second_candidate: dict,
+) -> bool:
+    """Never transfer AI evidence to a different source or publish a pilot."""
+    return bool(
+        type(autonomous_qa) is dict
+        and type(second_candidate) is dict
+        and autonomous_qa.get("status") ==
+            "AI_SOURCE_SPEECH_AND_SYNC_MEDIA_TECHNICAL_QA_VERIFIED"
+        and autonomous_qa.get("autonomous_scoped_technical_qa_accepted") is True
+        and autonomous_qa.get("student_publication_authorized") is False
+        and second_candidate.get(
+            "technical_second_source_candidate_ready_for_academic_review") is True
+        and second_candidate.get("distinct_original_source_sha256_verified") is True
+        and autonomous_qa.get("source_sha256") ==
+            second_candidate.get("candidate_source_sha256")
+        and second_candidate.get("historical_source_sha256")
+            != second_candidate.get("candidate_source_sha256")
+    )
+
+
 def inspect_release(*, repo: Path, jobs_dir: Path,
                     fresh_trial_dir: Path,
                     worker_python: Path | None = None,
@@ -89,7 +110,8 @@ def inspect_release(*, repo: Path, jobs_dir: Path,
                     include_stack_batches: bool = False,
                     verify_exact_head_ci_online: bool = False,
                     github_repository: str = "tlyoon/MicroGen_AI_Web",
-                    audit_open_pr_stack_online: bool = False) -> dict:
+                    audit_open_pr_stack_online: bool = False,
+                    autonomous_qa_inputs: dict | None = None) -> dict:
     require(os.name == "nt", "Native Windows-only release readiness")
     repo = Path(repo).absolute()
     require(repo.is_dir() and (repo / ".git").exists(),
@@ -138,6 +160,32 @@ def inspect_release(*, repo: Path, jobs_dir: Path,
     from .windows_second_source_candidate import compare_source_provenance
     second_candidate = compare_source_provenance(
         historic=prior_reference, candidate=media)
+    # The owner's current contract uses autonomous AI source/audio/video QA.
+    # This separate read-only path revalidates real source, AI review, ASR
+    # receipts and pixel-verified MP4; never fabricates human approval.
+    autonomous_qa = {
+        "status": "AUTONOMOUS_AI_SOURCE_SPEECH_MEDIA_QA_NOT_REQUESTED",
+        "autonomous_scoped_technical_qa_accepted": False,
+        "student_publication_authorized": False,
+    }
+    if autonomous_qa_inputs is not None:
+        from .windows_autonomous_lecture_qa import inspect as inspect_ai
+        try:
+            autonomous_qa = inspect_ai(**autonomous_qa_inputs)
+        except (CampaignRecoveryBlocked, OSError, ValueError, TypeError,
+                KeyError, json.JSONDecodeError) as error:
+            autonomous_qa = {
+                "status": "AUTONOMOUS_AI_SOURCE_SPEECH_MEDIA_QA_BLOCKED",
+                "reason_type": type(error).__name__,
+                "autonomous_scoped_technical_qa_accepted": False,
+                "student_publication_authorized": False,
+            }
+    # Technical AI evidence applies only to the exact independently
+    # media-verified SHA-distinct second original. It does not independently
+    # prove voice identity, diagram semantics or student-release consent.
+    ai_candidate_match = _autonomous_qa_matches_distinct_second_source(
+        autonomous_qa, second_candidate,
+    )
     stack_plan = {
         "status": "NO_BOUNDED_STACK_REVIEW_REQUESTED",
         "historical_stack_review_completed": False,
@@ -187,6 +235,8 @@ def inspect_release(*, repo: Path, jobs_dir: Path,
         "bounded_historical_stack_review_plan_available":
             stack_plan["status"] ==
             "HISTORICAL_STACK_READ_ONLY_BATCH_PLAN_AVAILABLE",
+        "source_distinct_autonomous_ai_science_speech_media_technical_qa_verified":
+            ai_candidate_match,
         # A batch PLAN is not independent PR review, merge approval or release.
         # Technical distinctness never grants any academic or voice signoff.
         "second_distinct_new_original_full_lecture_accepted": False,
@@ -221,6 +271,7 @@ def inspect_release(*, repo: Path, jobs_dir: Path,
         "prior_scoped_original_acceptance": prior_reference,
         "reviewed_sourcebound_mp4_evidence": media,
         "second_independent_original_candidate": second_candidate,
+        "autonomous_original_lecture_qa": autonomous_qa,
         "historical_stack_review_batch_plan": stack_plan,
         "github_open_pr_dependency_catalog_read_only": open_pr_catalog,
         "exact_head_github_windows_ci_evidence": github_ci,
@@ -254,7 +305,7 @@ def inspect_release(*, repo: Path, jobs_dir: Path,
             "Existing PR362 one-source accepted evidence is reusable only at matching SHA",
             "Recheck an exact SHA-bound reviewed MP4 using --reviewed-media-dir without encoding",
             "Compare a SHA-distinct second original-source technical candidate with the historical accepted reference",
-            "Obtain independent scientific, figure, voice and synchronized media acceptance for that new source",
+            "Collect verified two-pass AI scientific and independent model audio QA, original figure-diagram semantics, and synchronized media evidence; do not require manual academic signoff",
             "Qualify a DISTINCT new original-source full synchronized multimedia lecture",
             f"Review stacked draft dependencies in safe batches; never merge {ahead} commits blindly",
             "Clean Windows installation smoke and separate explicit student release authorization",
@@ -281,7 +332,21 @@ def main(argv=None) -> int:
                    help="Only GitHub owner/repo exact CI source")
     p.add_argument("--audit-open-pr-stack-online", action="store_true",
                    help="Read-only GitHub open PR base/head dependency catalog; never merge")
+    for key in ("autonomous-qa-folder", "autonomous-qa-queue-root",
+                "autonomous-qa-plan", "autonomous-qa-audio",
+                "autonomous-qa-asr-dir"):
+        p.add_argument("--" + key, type=Path,
+                       help="Existing independent AI/ASR/media evidence; all five required")
     a = p.parse_args(argv)
+    values = (a.autonomous_qa_folder, a.autonomous_qa_queue_root,
+              a.autonomous_qa_plan, a.autonomous_qa_audio,
+              a.autonomous_qa_asr_dir)
+    if any(v is not None for v in values) and not all(v is not None for v in values):
+        p.error("Autonomous QA needs all five existing source-bound inputs")
+    ai_inputs = (
+        dict(zip(("folder", "queue_root", "plan", "audio", "asr_dir"), values))
+        if all(v is not None for v in values) else None
+    )
     try:
         result = inspect_release(repo=a.repo, jobs_dir=a.jobs_dir,
                                  fresh_trial_dir=a.fresh_trial_dir,
@@ -291,7 +356,8 @@ def main(argv=None) -> int:
                                  include_stack_batches=a.include_stack_batches,
                                  verify_exact_head_ci_online=a.verify_exact_head_ci_online,
                                  github_repository=a.github_repository,
-                                 audit_open_pr_stack_online=a.audit_open_pr_stack_online)
+                                 audit_open_pr_stack_online=a.audit_open_pr_stack_online,
+                                 autonomous_qa_inputs=ai_inputs)
     except (CampaignRecoveryBlocked, OSError, ValueError, subprocess.TimeoutExpired) as exc:
         print(json.dumps({"status": "WINDOWS_RELEASE_BOARD_REJECTED",
                           "reason": str(exc),

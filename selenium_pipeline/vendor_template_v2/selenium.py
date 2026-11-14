@@ -1316,16 +1316,27 @@ class GeminiSeleniumClient:
         assert self.driver is not None
         phase = os.getenv("MICROGEN_MODEL_PHASE", "development").strip().lower()
 
-        # Flash remains the default in every phase.
-        # Pro requires an explicit override.
+        # The normal runner scopes Flash-Lite to figure caption mapping only.
+        # Lecture stages retain Flash with verified Thinking level.
         target_mode = (
             os.getenv("MICROGEN_GEMINI_UI_MODE", "flash").strip().lower()
             or "flash"
         )
-        if target_mode not in {"flash", "pro"}:
+        from selenium_pipeline.gemini_stage_policy import browser_stage_needs_thinking
+        # Adaptation is stage-scoped, never an arbitrary source-review or
+        # TTS provider substitution. Strict original academic preflights
+        # retain their exact-family gate. The *rich_mapping* proposal route
+        # has a separate source-global/academic-unit once-only ledger and
+        # may choose a visibly available full Pro + verified Medium when
+        # standard Flash is absent. Never substitute Flash-Lite for this
+        # academic-semantic mapping stage, or bypass an owned-tab check.
+        active_stage=os.getenv("MICROGEN_ACTIVE_GENERATION_STAGE","").strip().lower()
+        adaptive_allowed=(active_stage in {"figures","slides","narration",
+                                           "rich_mapping"}
+                          and os.getenv("MICROGEN_DISABLE_ADAPTIVE_MODEL_FALLBACK")!="1")
+        requires_thinking = browser_stage_needs_thinking(mode=target_mode)
+        if target_mode not in {"flash-lite", "flash", "pro"}:
             raise RuntimeError(f"Unsupported MICROGEN_GEMINI_UI_MODE={target_mode!r}")
-        target_prefix = "Flash" if target_mode == "flash" else "3.1 Pro"
-
         # Every mapping page gets a browser tab owned by this MicroGen instance.
         # Reusing an arbitrary authenticated user tab left stale image chips,
         # nonreactive Send buttons and even another conversation's prompt history.
@@ -1333,6 +1344,7 @@ class GeminiSeleniumClient:
         previous = self._automation_tab
         self._automation_tab = _rotate_owned_gemini_tab(self.driver, previous)
         self._owned_tab_focus_emulated = False
+        self._microgen_presend_stage = "OWNED_NAVIGATE"
         self.driver.get(self.cfg.gemini_url)
         visibility_status = self._ensure_owned_tab_visible()
         log(f"Gemini owned tab lifecycle: {visibility_status}", "INFO")
@@ -1342,6 +1354,7 @@ class GeminiSeleniumClient:
         selected = False
         selected_mode = ""
         picker = None
+        from selenium_pipeline.gemini_model import _owned_picker
         # A persistent Chrome tab can take >12 seconds to hydrate on slower
         # Windows hosts (notably Dell-115), despite an authenticated session.
         # Wait for the actual picker in our *owned* tab; never borrow an
@@ -1349,6 +1362,7 @@ class GeminiSeleniumClient:
         picker_wait = max(12.0, min(90.0, float(os.getenv(
             "MICROGEN_GEMINI_PICKER_WAIT_SECONDS", "45"
         ))))
+        self._microgen_presend_stage = "FIRST_OWNED_PICKER_HYDRATION"
         select_deadline = time.time() + picker_wait
         while time.time() < select_deadline and not selected:
             for handle in (self._automation_tab,):
@@ -1356,13 +1370,9 @@ class GeminiSeleniumClient:
                     self.driver.switch_to.window(handle)
                     if not self.driver.current_url.startswith("https://gemini.google.com/"):
                         continue
-                    pickers = self.driver.find_elements(By.CSS_SELECTOR, 'button[aria-label^="Open mode picker"]')
-                    for candidate in pickers:
-                        if candidate.is_displayed():
-                            picker = candidate
-                            selected = True
-                            selected_mode = candidate.get_attribute("aria-label") or ""
-                            break
+                    picker = _owned_picker(self.driver, handle)
+                    selected = True
+                    selected_mode = picker.get_attribute("aria-label") or ""
                     if selected:
                         break
                 except Exception:
@@ -1375,76 +1385,28 @@ class GeminiSeleniumClient:
                 "refusing to use an unknown fallback tab."
             )
 
-        def _mode_matches(label: str) -> bool:
-            label_l = (label or "").lower()
-            return "currently" in label_l and target_mode in label_l
-
-        if not _mode_matches(selected_mode):
-            try:
-                picker.click()
-            except Exception:
-                self.driver.execute_script("arguments[0].click();", picker)
-
-            target = None
-            mode_deadline = time.time() + 8.0
-            while time.time() < mode_deadline and target is None:
-                for selector in ('[role="menuitem"]', 'gem-menu-item[role="menuitem"]'):
-                    try:
-                        items = self.driver.find_elements(By.CSS_SELECTOR, selector)
-                    except Exception:
-                        items = []
-                    for item in items:
-                        try:
-                            label = (item.text or "").strip().lower()
-                            if item.is_displayed() and (
-                                (
-                                    target_mode == "flash"
-                                    and "flash" in label
-                                    and "pro" not in label
-                                )
-                                or (
-                                    target_mode == "pro"
-                                    and label.startswith(target_prefix.lower())
-                                )
-                            ):
-                                target = item
-                                break
-                        except Exception:
-                            continue
-                    if target is not None:
-                        break
-                if target is None:
-                    time.sleep(0.20)
-            if target is None:
-                raise RuntimeError(f"Gemini {target_prefix} option was not available.")
-            try:
-                target.click()
-            except Exception:
-                self.driver.execute_script("arguments[0].click();", target)
-
-            confirm_deadline = time.time() + 8.0
-            while time.time() < confirm_deadline:
-                try:
-                    found = self.driver.find_elements(By.CSS_SELECTOR, 'button[aria-label^="Open mode picker"]')
-                    for candidate in found:
-                        if not candidate.is_displayed():
-                            continue
-                        selected_mode = candidate.get_attribute("aria-label") or ""
-                        if _mode_matches(selected_mode):
-                            picker = candidate
-                            break
-                    if _mode_matches(selected_mode):
-                        break
-                except Exception:
-                    pass
-                time.sleep(0.20)
-            if not _mode_matches(selected_mode):
-                raise RuntimeError(
-                    f"Gemini {target_prefix} selection was not confirmed; UI reports {selected_mode!r}."
-                )
-
+        # One canonical model selector for parent and ALL owned workers.
+        # "Flash-Lite" is NOT Flash. Reject mixed/ambiguous menu entries
+        # before the job has uploaded a source or made any Gemini Send.
+        from selenium_pipeline.gemini_model import select_owned_gemini_with_recovery
+        self._microgen_presend_stage = "FIRST_OWNED_MODEL_SELECTION"
+        selected_mode = select_owned_gemini_with_recovery(
+            self.driver, self._automation_tab, mode=target_mode, timeout=20,
+            stage=active_stage,allow_fallback=adaptive_allowed)
+        # The verified fallback is now this worker's exact contract for its
+        # whole request (including New chat, uploads and final one-Send).
+        target_mode=os.getenv("MICROGEN_GEMINI_UI_MODE",target_mode).strip().lower()
+        requires_thinking=browser_stage_needs_thinking(mode=target_mode)
+        route_reason=os.getenv("MICROGEN_MODEL_ROUTE_REASON","")
+        if route_reason:
+            requested=os.getenv("MICROGEN_MODEL_ROUTE_REQUESTED","")
+            offered=os.getenv("MICROGEN_MODEL_ROUTE_OFFERED","")
+            log("[GEMINI-MODE] ADAPTIVE_VERIFIED_FALLBACK "
+                f"requested={requested} selected={target_mode} "
+                f"offered={offered} reason={route_reason}")
         log(f"Selected Gemini tab via mode picker: {selected_mode} (phase={phase})")
 
+        self._microgen_presend_stage = "OWNED_NEW_CHAT_RESET"
         # Start a genuinely fresh conversation through Gemini's own New chat
         # control. Re-navigating to /app can reuse Angular conversation state
         # across pages even though the URL looks clean.
@@ -1516,6 +1478,49 @@ class GeminiSeleniumClient:
         # placeholder/wrapper for the actual editable or mutate innerHTML
         # behind Angular/Quill's state. A failed clear must remain fatal.
         self._clear_prompt_safely()
+        # Clicking New chat can reset the model to Flash-Lite even if the
+        # parent runner and first owned-tab picker both showed Flash.
+        # CRITICAL historical recovery: New chat can finish creating its
+        # editor LONG BEFORE the Angular model picker exists on Dell-115.
+        # Reuse the same exact owned-tab, bounded picker hydration check
+        # BEFORE the second selection; never borrow a parent tab, guess
+        # model status from the editor, or continue to a model Send.
+        from selenium_pipeline.gemini_model import wait_owned_gemini_picker
+        self._microgen_presend_stage = "SECOND_OWNED_PICKER_HYDRATION"
+        wait_owned_gemini_picker(
+            self.driver, self._automation_tab,
+            timeout_seconds=max(12.0,min(45.0,picker_wait)))
+        # Re-select strictly here BEFORE uploads or any registered Send.
+        self._microgen_presend_stage = "SECOND_OWNED_MODEL_SELECTION"
+        selected_mode = select_owned_gemini_with_recovery(
+            self.driver, self._automation_tab, mode=target_mode, timeout=20,
+            stage=active_stage,allow_fallback=False)
+        # The selected thinking effort belongs to the same owned tab.
+        # Gemini may reset this when New chat is clicked, just like its model.
+        log(f"[GEMINI-MODE] OWNED_FAMILY_VERIFIED_AFTER_NEW_CHAT {selected_mode}")
+        if requires_thinking:
+            self._microgen_presend_stage = "OWNED_MEDIUM_THINKING_SELECTION"
+            from selenium_pipeline.gemini_thinking import (
+                configured_thinking_level,
+                select_owned_gemini_thinking_with_recovery)
+            target_thinking = configured_thinking_level()
+            verified_thinking = select_owned_gemini_thinking_with_recovery(
+                self.driver, self._automation_tab,
+                level=target_thinking, timeout=20,stage=active_stage,
+                allow_fallback=adaptive_allowed)
+            log(f"[GEMINI-THINKING] OWNED_LEVEL_VERIFIED_AFTER_NEW_CHAT {verified_thinking}")
+            thinking_reason=os.getenv("MICROGEN_THINKING_ROUTE_REASON","")
+            if thinking_reason:
+                requested_level=os.getenv("MICROGEN_THINKING_ROUTE_REQUESTED","")
+                offered_levels=os.getenv("MICROGEN_THINKING_ROUTE_OFFERED","")
+                log("[GEMINI-THINKING] ADAPTIVE_VERIFIED_EFFORT "
+                    f"requested={requested_level} selected={verified_thinking} "
+                    f"offered={offered_levels} reason={thinking_reason}")
+        else:
+            # Flash-Lite's caption task needs no Thinking submenu, avoiding
+            # the non-interactable Medium expander seen in Serway 7.8.
+            log("[GEMINI-THINKING] FIGURES_FLASH_LITE_NOT_REQUIRED")
+        self._microgen_presend_stage = "OWNED_MODEL_THINKING_READY"
         log("Opened Gemini")
 
     @staticmethod
@@ -1712,8 +1717,78 @@ class GeminiSeleniumClient:
         return blocked()
 
     def click_send_with_fallbacks(self, retries: int = 3) -> bool:
-        """Submit only when Gemini shows positive evidence of a new user turn."""
+        """Gemini UI submission; production single-provider jobs allow ONE click."""
         assert self.driver is not None
+        if os.getenv("MICROGEN_SINGLE_PROVIDER_SEND") == "1":
+            # The source-claimed production pipeline may NEVER try XPath,
+            # then CDP Enter, then native Enter after a potentially accepted
+            # first click. Preserve old legacy helper only for non-production
+            # compatibility; the real runner sets this policy unconditionally.
+            from selenium_pipeline.gemini_selenium_only_policy import (
+                click_one_owned_gemini_send,
+                owned_gemini_send_baseline,
+                observe_gemini_send_registration,
+            )
+            owned = getattr(self, "_automation_tab", None)
+            # Mandatory read-only last-moment gate: UI model may change after
+            # selecting Flash or while uploading source attachments. Never
+            # click Send to Flash-Lite/Pro under a Flash source claim.
+            from selenium_pipeline.gemini_model import assert_owned_gemini_mode
+            selected_mode = assert_owned_gemini_mode(
+                self.driver, owned,
+                mode=(os.getenv("MICROGEN_GEMINI_UI_MODE", "flash").strip().lower()
+                      or "flash"), wait_seconds=4)
+            log(f"[GEMINI-MODE] PRE_SEND_OWNED_FAMILY_VERIFIED {selected_mode}")
+            from selenium_pipeline.gemini_stage_policy import browser_stage_needs_thinking
+            if browser_stage_needs_thinking(
+                    mode=(os.getenv("MICROGEN_GEMINI_UI_MODE", "flash").strip().lower()
+                          or "flash")):
+                from selenium_pipeline.gemini_thinking import (
+                    configured_thinking_level, assert_owned_gemini_thinking_level)
+                verified_thinking = assert_owned_gemini_thinking_level(
+                    self.driver, owned, level=configured_thinking_level())
+                log(f"[GEMINI-THINKING] PRE_SEND_OWNED_LEVEL_VERIFIED {verified_thinking}")
+            else:
+                log("[GEMINI-THINKING] PRE_SEND_FIGURES_FLASH_LITE_NOT_REQUIRED")
+            # Reverify the model in the same owned tab just before the one Send.
+            selected_mode = assert_owned_gemini_mode(
+                self.driver, owned,
+                mode=(os.getenv("MICROGEN_GEMINI_UI_MODE", "flash").strip().lower()
+                      or "flash"), wait_seconds=4)
+            log(f"[GEMINI-MODE] POST_THINKING_OWNED_FAMILY_REVERIFIED {selected_mode}")
+            # Shared evidence path for figures, slides and narration. A Send
+            # click is NOT proof of registration. Capture a prompt-free
+            # baseline, click at most once, then inspect only the owned tab.
+            # Never resubmit even if the click's exception is ambiguous.
+            baseline = None
+            try:
+                baseline = owned_gemini_send_baseline(self.driver, owned)
+            except Exception:
+                log("[SEND-VERIFY] owned-tab baseline unavailable; "
+                    "registration unverified; never resend this claim.", "WARN")
+            clicked = click_one_owned_gemini_send(self.driver, owned)
+            observed = {"registered": False, "status": "NO_BASELINE"}
+            if baseline is not None:
+                try:
+                    observed = observe_gemini_send_registration(
+                        self.driver, owned, baseline)
+                except Exception:
+                    observed = {"registered": False,
+                                "status": "OBSERVATION_UNAVAILABLE"}
+            if observed.get("registered") is True:
+                mapping = {
+                    "NEW_USER_TURN_AND_COMPOSER_CLEARED": "new-user-turn",
+                    "NEW_MODEL_RESPONSE_AND_COMPOSER_CLEARED": "new-model-response",
+                    "NEW_CONVERSATION_ROUTE_AND_COMPOSER_CLEARED": "new-conversation-route",
+                }
+                kind = mapping.get(observed.get("status"))
+                if kind:
+                    log(f"Gemini submission registered via {kind}"
+                        "+composer-cleared.", "INFO")
+            else:
+                log("[SEND-VERIFY] no independently verified new Gemini "
+                    "turn; possible Send remains uncertain. NO resend.", "WARN")
+            return bool(clicked or observed.get("registered") is True)
         if self._hidden_send_button_preflight():
             log(
                 "[SEND-VERIFY] Gemini editor contains text but every exact "

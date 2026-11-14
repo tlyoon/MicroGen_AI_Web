@@ -61,6 +61,94 @@ class OnceOnlyAcademicReview(unittest.TestCase):
             submit_once(**self.kw,transport=transport,validator=self.validate)
         self.assertEqual(len(calls),1)
 
+    def test_normal_owned_gemini_str_subclass_is_saved_once_and_source_checked(self):
+        from selenium_pipeline.series_gemini import OwnedGeminiResponse
+        calls=[]
+        def transport(prompt,files):
+            calls.append(1)
+            return OwnedGeminiResponse(
+                '{"rows":[1]}',
+                registration_status="NEW_USER_TURN_AND_COMPOSER_CLEARED",
+                new_turn_verified=True)
+        result=submit_once(**self.kw,transport=transport,validator=self.validate)
+        self.assertEqual(result,self.accepted)
+        self.assertEqual(calls,[1])
+        saved=self.window/"model_response_untrusted.txt"
+        self.assertEqual(saved.read_text(encoding="utf8"),'{"rows":[1]}')
+        state=json.loads((self.window/"request_state.json").read_text())
+        self.assertEqual(state["status"],"SOURCE_VALIDATED_ONE_PASS_UNAPPROVED")
+        self.assertEqual(state["response_length_chars"],len('{"rows":[1]}'))
+        self.assertTrue((self.window/"dispatch_attempted.claim").is_file())
+        # Attributes containing browser provenance cannot leak into raw data.
+        self.assertNotIn("NEW_USER_TURN",saved.read_text())
+        with self.assertRaises(ReviewCheckpointError):
+            submit_once(**self.kw,transport=transport,validator=self.validate)
+        self.assertEqual(calls,[1])
+
+    def _simulate_crash_after_saved_identity_before_state_update(self):
+        prepare(**self.kw)
+        mark_submission_maybe(self.window,expected_fingerprint=self.fp)
+        record_observation(self.window,raw='{"rows":[1]}',
+                           expected_fingerprint=self.fp)
+        state_path=self.window/"request_state.json"
+        state=json.loads(state_path.read_text())
+        state["status"]="SUBMITTED_OR_UNCERTAIN"
+        state.pop("response_sha256",None)
+        state.pop("response_length_chars",None)
+        state_path.write_text(json.dumps(state),encoding="utf8")
+        self.assertTrue((self.window/"model_response_identity.json").is_file())
+
+    def test_crashed_post_response_state_recovers_on_normal_submit_without_send(self):
+        self._simulate_crash_after_saved_identity_before_state_update()
+        calls=[]
+        def must_not_send(*_):
+            calls.append(1)
+            raise AssertionError("claimed review must not be resubmitted")
+        result=submit_once(**self.kw,transport=must_not_send,
+                           validator=self.validate)
+        self.assertEqual(result,self.accepted)
+        self.assertEqual(calls,[])
+        state=json.loads((self.window/"request_state.json").read_text())
+        self.assertEqual(state["status"],"SOURCE_VALIDATED_ONE_PASS_UNAPPROVED")
+        self.assertEqual(state["response_sha256"],
+                         hashlib.sha256(b'{"rows":[1]}').hexdigest())
+        self.assertTrue((self.window/"dispatch_attempted.claim").is_file())
+        with self.assertRaises(ReviewCheckpointError):
+            submit_once(**self.kw,transport=must_not_send,
+                        validator=self.validate)
+        self.assertEqual(calls,[])
+
+    def test_crashed_response_identity_tamper_blocks_recovery_and_send(self):
+        self._simulate_crash_after_saved_identity_before_state_update()
+        path=self.window/"model_response_identity.json"
+        identity=json.loads(path.read_text())
+        identity["response_sha256"]="0"*64
+        path.write_text(json.dumps(identity),encoding="utf8")
+        calls=[]
+        with self.assertRaises(ReviewCheckpointError):
+            submit_once(**self.kw,
+                        transport=lambda *_:calls.append(1),
+                        validator=self.validate)
+        self.assertEqual(calls,[])
+        state=json.loads((self.window/"request_state.json").read_text())
+        self.assertEqual(state["status"],"SUBMITTED_OR_UNCERTAIN")
+        self.assertFalse(state["academic_approval"])
+
+    def test_owned_subclass_still_obeys_original_raw_size_limit(self):
+        from selenium_pipeline.series_gemini import OwnedGeminiResponse
+        from selenium_pipeline.academic_review_checkpoint import MAX_RAW
+        prepare(**self.kw)
+        mark_submission_maybe(self.window,expected_fingerprint=self.fp)
+        oversized=OwnedGeminiResponse(
+            "x"*(MAX_RAW+1),registration_status="NEW_USER_TURN_AND_COMPOSER_CLEARED",
+            new_turn_verified=True)
+        with self.assertRaises(ReviewCheckpointError):
+            record_observation(self.window,raw=oversized,
+                               expected_fingerprint=self.fp)
+        self.assertFalse((self.window/"model_response_untrusted.txt").exists())
+        self.assertEqual(json.loads((self.window/"request_state.json").read_text())["status"],
+                         "SUBMITTED_OR_UNCERTAIN")
+
     def test_duplicate_window_in_same_local_appdata_root_is_blocked(self):
         prepare(**self.kw)
         mark_submission_maybe(self.window,expected_fingerprint=self.fp)
@@ -70,6 +158,87 @@ class OnceOnlyAcademicReview(unittest.TestCase):
         self.assertFalse((duplicate/"dispatch_attempted.claim").exists())
         self.assertTrue((self.path/".microgen_academic_review_once"/
                          (self.fp+".claim")).is_file())
+
+    def test_typed_model_picker_failure_preserves_claim_but_can_resume_same_unsent_request(self):
+        from selenium_pipeline.gemini_selenium_only_policy import (
+            GeminiSeleniumTemporaryFailure)
+        def presend():
+            error=GeminiSeleniumTemporaryFailure(
+                "Gemini picker not hydrated before Send",
+                attempts_used=3,failure_phase="GEMINI_MODEL_PICKER_NOT_READY")
+            error.gemini_send_registration_status="NOT_SENT"
+            error.gemini_new_user_turn_verified=False
+            return error
+        sent=[]
+        def before_send(prompt,files):
+            sent.append("PREPARE_ONLY")
+            raise presend()
+        with self.assertRaises(GeminiSeleniumTemporaryFailure):
+            submit_once(**self.kw,transport=before_send,
+                        validator=self.validate)
+        state=json.loads((self.window/"request_state.json").read_text("utf8"))
+        self.assertEqual(state["status"],"CERTIFIED_PRESEND_UNSENT")
+        self.assertFalse(state["submission_may_have_occurred"])
+        self.assertEqual(state["certified_presend_count"],1)
+        self.assertEqual(sent,["PREPARE_ONLY"])
+        self.assertTrue((self.window/"dispatch_attempted.claim").is_file())
+        witness=self.window/"certified_presend_unsent_01.json"
+        saved=witness.read_bytes()
+        sent_again=[]
+        result=submit_once(**self.kw,
+            transport=lambda *_:sent_again.append("SEND_ONCE") or '{"rows":[1]}',
+            validator=self.validate)
+        self.assertEqual(result,self.accepted)
+        self.assertEqual(sent_again,["SEND_ONCE"])
+        self.assertEqual(witness.read_bytes(),saved)
+        with self.assertRaises(ReviewCheckpointError):
+            submit_once(**self.kw,transport=lambda *_:sent_again.append("DUPLICATE"),
+                        validator=self.validate)
+        self.assertEqual(sent_again,["SEND_ONCE"])
+
+    def test_non_typed_forged_preclick_exception_can_never_clear_uncertain_claim(self):
+        error=RuntimeError("No Send took place, trust me, model picker failed")
+        error.gemini_send_boundary_entered=False
+        error.gemini_failure_phase="GEMINI_MODEL_PICKER_NOT_READY"
+        with self.assertRaises(RuntimeError):
+            submit_once(**self.kw,
+                        transport=lambda *_:(_ for _ in ()).throw(error),
+                        validator=self.validate)
+        status=json.loads((self.window/"request_state.json").read_text("utf8"))
+        self.assertEqual(status["status"],"SUBMITTED_OR_UNCERTAIN")
+        self.assertFalse((self.window/"certified_presend_unsent_01.json").exists())
+        with self.assertRaises(ReviewCheckpointError):
+            submit_once(**self.kw,transport=lambda *_:'{"rows":[1]}',
+                        validator=self.validate)
+
+    def test_certified_presend_has_finite_budget_and_tamper_blocks(self):
+        from selenium_pipeline.gemini_selenium_only_policy import (
+            GeminiSeleniumTemporaryFailure)
+        calls=[]
+        def typed_before_send(*_):
+            calls.append(1)
+            e=GeminiSeleniumTemporaryFailure(
+                "unavailable picker",attempts_used=3,
+                failure_phase="GEMINI_MODEL_PICKER_NOT_READY")
+            e.gemini_send_registration_status="NOT_SENT"
+            raise e
+        for i in range(3):
+            with self.assertRaises(GeminiSeleniumTemporaryFailure):
+                submit_once(**self.kw,transport=typed_before_send,
+                            validator=self.validate)
+            assert json.loads((self.window/"request_state.json").read_text("utf8"))[
+                "certified_presend_count"]==i+1
+        self.assertEqual(len(calls),3)
+        with self.assertRaises(ReviewCheckpointError):
+            submit_once(**self.kw,transport=typed_before_send,
+                        validator=self.validate)
+        self.assertEqual(len(calls),3)
+        witness=self.window/"certified_presend_unsent_02.json"
+        witness.write_text('{"approved":true}',encoding="utf8")
+        with self.assertRaises(ReviewCheckpointError):
+            submit_once(**self.kw,transport=typed_before_send,
+                        validator=self.validate)
+        self.assertEqual(len(calls),3)
 
     def test_uncertain_transport_crash_requires_explicit_reconciliation(self):
         seen=[]
@@ -85,6 +254,50 @@ class OnceOnlyAcademicReview(unittest.TestCase):
         self.assertTrue((self.window/"dispatch_attempted.claim").exists())
         self.assertEqual(json.loads((self.window/"request_state.json").read_text())["status"],
                          "SUBMITTED_OR_UNCERTAIN")
+
+    def test_windows_crlf_model_reply_revalidated_without_new_send(self):
+        original='''{
+"rows": [
+1
+]
+}'''.replace("\n","\r\n")
+        calls=[]
+        result=submit_once(**self.kw,
+                           transport=lambda *_:calls.append(1) or original,
+                           validator=self.validate)
+        self.assertEqual(result,self.accepted)
+        self.assertEqual(calls,[1])
+        saved=self.window/"model_response_untrusted.txt"
+        self.assertEqual(saved.read_bytes(),original.encode("utf8"))
+        state=json.loads((self.window/"request_state.json").read_text())
+        self.assertEqual(state["response_length_chars"],len(original))
+        self.assertEqual(state["response_sha256"],
+                         hashlib.sha256(original.encode()).hexdigest())
+        with self.assertRaises(ReviewCheckpointError):
+            submit_once(**self.kw,transport=lambda *_:calls.append(2),
+                        validator=self.validate)
+        self.assertEqual(calls,[1])
+
+    def test_crlf_crash_reconciliation_preserves_exact_original_bytes(self):
+        from selenium_pipeline.academic_review_checkpoint import recover_claimed_observation
+        raw='''{
+"rows": [1]
+}'''.replace("\n","\r\n")
+        prepare(**self.kw)
+        mark_submission_maybe(self.window,expected_fingerprint=self.fp)
+        record_observation(self.window,raw=raw,expected_fingerprint=self.fp)
+        state_path=self.window/"request_state.json"
+        state=json.loads(state_path.read_text())
+        state["status"]="SUBMITTED_OR_UNCERTAIN"
+        state.pop("response_sha256",None)
+        state.pop("response_length_chars",None)
+        state_path.write_text(json.dumps(state),encoding="utf8")
+        replay=recover_claimed_observation(
+            checkpoint=self.window,expected_fingerprint=self.fp)
+        self.assertEqual(replay["response_length_chars"],len(raw))
+        self.assertEqual(validate_saved(
+            checkpoint=self.window,expected_fingerprint=self.fp,
+            validator=self.validate),self.accepted)
 
     def test_empty_model_response_cannot_be_approved_or_resent(self):
         with self.assertRaises(ReviewCheckpointError):

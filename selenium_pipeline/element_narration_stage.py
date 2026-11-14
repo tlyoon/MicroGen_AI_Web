@@ -71,6 +71,14 @@ def rectangle(page, anchor: dict):
             raise ElementStageError(
                 "Original authored grouped math/text anchor is invalid") from exc
         category="text"
+    elif anchor.get("type")=="math_row_group":
+        from .sourcebound_math_row_focus import math_row_rect
+        try:
+            rect=math_row_rect(page,anchor)
+        except ValueError as exc:
+            raise ElementStageError(
+                "Original authored mathematical row is invalid") from exc
+        category="text"
     elif anchor.get("type")=="image_whole":
         index=anchor.get("index")
         images=page.get_images(full=True)

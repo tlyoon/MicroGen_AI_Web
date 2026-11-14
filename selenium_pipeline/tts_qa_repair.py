@@ -116,8 +116,20 @@ def _new_review_snapshot(
 
 
 def repair(folder: Path, *, model: str, threshold: float, provider: str,
-           tts_model: str, voice: str, max_repairs: int = 2) -> dict:
-    """Propose repairs for review; never auto-promote or overwrite original WAVs."""
+           tts_model: str, voice: str, max_repairs: int = 2,
+           auto_integrate_technical: bool = False) -> dict:
+    """Legacy isolated review, or explicit autonomous *internal* runner repair.
+
+    The auto mode uses the existing selective TTS/QA provider contracts,
+    preserves immutable originals, revalidates signal/phonetics, and
+    continues normal pipeline only after its source-bound handoff.
+    It cannot authorize academic approval, YouTube upload or publication.
+    """
+    if auto_integrate_technical:
+        from .tts_qa_autonomous_recovery import recover
+        return recover(folder=folder, model=model, threshold=threshold,
+                       provider=provider, tts_model=tts_model, voice=voice,
+                       max_repairs=max_repairs)
     if max_repairs < 0:
         raise ValueError("max_repairs must be nonnegative")
     narrations = dict(blocks((folder / "script.txt").read_text(encoding="utf-8")))
@@ -239,6 +251,9 @@ def main(argv=None) -> int:
     parser.add_argument("--tts-model", required=True)
     parser.add_argument("--voice", required=True)
     parser.add_argument("--max-repairs", type=int, default=2)
+    parser.add_argument("--auto-integrate-technical-repair", action="store_true",
+                        help="Normal runner only: complete audited internal WAV handoff "
+                             "and resume automatically; never student release")
     parser.add_argument("--confirm-gemini-api-cost", action="store_true")
     parser.add_argument("--confirm-google-cloud-tts-cost", action="store_true")
     parser.add_argument("--routine-production-gemini", action="store_true",
@@ -275,7 +290,8 @@ def main(argv=None) -> int:
     load_microvid_env()
     repair(args.folder, model=args.model, threshold=args.threshold,
            provider=args.provider, tts_model=args.tts_model, voice=args.voice,
-           max_repairs=args.max_repairs)
+           max_repairs=args.max_repairs,
+           auto_integrate_technical=args.auto_integrate_technical_repair)
     return 0
 
 

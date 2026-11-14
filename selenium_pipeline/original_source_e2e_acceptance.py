@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import wave
 from pathlib import Path
 
 from .evidence_reuse_contract import file_sha256
@@ -100,6 +101,50 @@ def inspect_source_e2e(*,lecture:Path,checkpoint:Path|None=None,
         require(not p.is_symlink(),
                 "Source-bound element narration/PCM cannot be symlinks")
     has_element_audio=all(partial)
+    verified_audio=None
+    if has_element_audio:
+        # A *complete-looking* trio of paths is NOT evidence of authentic
+        # source-tied element speech. The producer already has a shared,
+        # physical verification route: adopt the SAME verifier here BEFORE
+        # reporting render readiness, including if semantic review is still
+        # incomplete. Otherwise an empty plan, empty WAV directory and '{}'
+        # manifest misleadingly become "READY" whenever prose review passes.
+        # Neither check generates audio, calls Gemini nor authorizes release.
+        require(targets[0].is_file() and targets[1].is_dir()
+                and targets[2].is_file(),
+                "Element plan/WAV folder/producer manifest have wrong types")
+        from .sourcebound_production_video import verify_element_tts_batch
+        from .element_highlight_workflow import source_bound_plan
+        try:
+            attested=verify_element_tts_batch(
+                source=lecture/"source.pdf",slides=lecture/"slides.pdf",
+                authored=targets[0],audio=targets[1])
+            physical=source_bound_plan(
+                source=lecture/"source.pdf",slides=lecture/"slides.pdf",
+                plan=targets[0],audio=targets[1])
+            require(attested["element_count"]==physical["elements"]
+                    and physical["slides"]==
+                        manifest["original_slides"]
+                    and physical["status"]=="review_only_preflight_complete",
+                    "Element PCM provenance and original PDF coverage disagree")
+        except (ValueError, OSError, KeyError, TypeError, wave.Error) as exc:
+            raise SourceReleaseBlocked(
+                "Existing element PCM lacks verified source/plan, producer "
+                "identity, complete original WAVs or measured timings; "
+                "preserve originals without re-TTS") from exc
+        verified_audio={
+            "status":"EXISTING_SOURCE_BOUND_ELEMENT_PCM_TECHNICALLY_VERIFIED",
+            "element_count":physical["elements"],
+            "source_slide_count":physical["slides"],
+            "part_count":physical["parts"],
+            "part_audio_seconds":physical["part_audio_s"],
+            "producer_manifest_sha256":attested["manifest_sha256"],
+            "source_hash_bound":True,
+            "verified_audio_words_match_script":False,
+            "independent_acoustic_listening_pass":False,
+            "element_visual_semantics_approved":False,
+            "student_publication_authorized":False,
+        }
     status="BLOCKED_UNRESOLVED_SOURCE_VISUAL_NARRATION"
     if not remaining and review_ready and has_element_audio:
         status="READY_FOR_STRICT_RECORDED_AUDIO_MULTIPART_RENDER"
@@ -116,7 +161,9 @@ def inspect_source_e2e(*,lecture:Path,checkpoint:Path|None=None,
         "unresolved_source_element_mappings":remaining,
         "full_semantic_source_review_ready":review_ready,
         "full_semantic_source_review_reason":review_reason,
-        "existing_per_element_recorded_audio_available":has_element_audio,
+        "existing_per_element_recorded_audio_available":bool(verified_audio),
+        "existing_element_pcm_technical_proof":verified_audio,
+        "actual_audio_text_fidelity_independently_verified":False,
         "execution_allowed_without_new_paid_or_model_calls":
             status=="READY_FOR_STRICT_RECORDED_AUDIO_MULTIPART_RENDER",
         "dry_run_proves_entire_lecture_ready":False,

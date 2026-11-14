@@ -141,5 +141,95 @@ class IndependentNewOriginalSourceInventoryTests(unittest.TestCase):
                 publisher_root=self.publisher, trial_registry_root=self.publisher)
 
 
+
+    def test_uncontracted_figures_send_intent_excludes_original(self):
+        # A pre-Send attempt can outlive its trial contract. Never queue it
+        # as a distinct original simply because the contract is missing.
+        folder = self.registry / "orphan_figures"
+        folder.mkdir()
+        receipt = folder / "figures_attempt_started.json"
+        _new_atomic(receipt, {
+            "schema_version": 1, "stage": "figures",
+            "source_sha256": file_sha256(self.two),
+            "single_provider_attempt_only": True,
+        })
+        before = receipt.read_bytes()
+        result = self.inspect()
+        self.assertEqual(result["known_trial_contracts_examined"], 0)
+        self.assertEqual(result["known_send_intent_receipts_examined"], 1)
+        self.assertEqual(result["known_distinct_send_intent_sources"], 1)
+        self.assertEqual({x["section"] for x in result["potential_new_candidates"]},
+                         {"77.9", "79.4"})
+        self.assertEqual(
+            [x["reason"] for x in result["excluded_source_summaries"]],
+            ["SAME_PDF_ALREADY_PRESENT_IN_PROVIDED_SEND_INTENT_LEDGER"])
+        self.assertFalse(result["registry_scope_covers_all_historical_attempts"])
+        self.assertFalse(result["automatic_model_generation_allowed"])
+        self.assertEqual(before, receipt.read_bytes())
+
+    def test_historical_narration_send_intent_excludes_original(self):
+        folder = self.registry / "orphan_narration"
+        folder.mkdir()
+        _new_atomic(folder / "stage_narration_started.json", {
+            "schema_version": 1, "stage": "narration",
+            "source_sha256": file_sha256(self.two),
+            "single_attempt_no_provider_resend": True,
+        })
+        result = self.inspect()
+        self.assertEqual({x["section"] for x in result["potential_new_candidates"]},
+                         {"77.9", "79.4"})
+
+    def test_contract_and_intent_same_source_count_once(self):
+        self.ledger(self.two, name="attempt_with_contract")
+        _new_atomic(self.registry / "attempt_with_contract" /
+                    "figures_attempt_started.json", {
+            "schema_version": 1, "stage": "figures",
+            "source_sha256": file_sha256(self.two),
+            "single_provider_attempt_only": True,
+        })
+        result = self.inspect()
+        self.assertEqual(result["known_trial_contracts_examined"], 1)
+        self.assertEqual(result["known_send_intent_receipts_examined"], 1)
+        self.assertEqual(len(result["excluded_source_summaries"]), 1)
+        self.assertEqual(result["excluded_source_summaries"][0][
+            "number_of_known_send_intents"], 1)
+
+    def test_untrusted_or_forged_send_intent_fails_closed(self):
+        folder = self.registry / "bad"
+        folder.mkdir()
+        path = folder / "figures_attempt_started.json"
+        _new_atomic(path, {
+            "schema_version": 1, "stage": "slides",
+            "source_sha256": file_sha256(self.two),
+            "single_provider_attempt_only": True,
+        })
+        with self.assertRaisesRegex(CampaignRecoveryBlocked,
+                                    "Untrusted source-bound pre-Send"):
+            self.inspect()
+        path.unlink()
+        _new_atomic(path, {
+            "schema_version": 1, "stage": "figures",
+            "source_sha256": file_sha256(self.two),
+            "single_provider_attempt_only": False,
+        })
+        with self.assertRaises(CampaignRecoveryBlocked):
+            self.inspect()
+
+    def test_send_intent_counts_respect_total_registry_limit(self):
+        folder = self.registry / "two_receipts"
+        folder.mkdir()
+        self.ledger(self.two)
+        _new_atomic(folder / "figures_attempt_started.json", {
+            "schema_version": 1, "stage": "figures",
+            "source_sha256": file_sha256(self.two),
+            "single_provider_attempt_only": True,
+        })
+        with self.assertRaises(CampaignRecoveryBlocked):
+            find_candidates(
+                publisher_root=self.publisher,
+                trial_registry_root=self.registry,
+                max_trial_receipts=1)
+
+
 if __name__ == "__main__":
     unittest.main()

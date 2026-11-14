@@ -38,6 +38,10 @@ def _sha(path: Path) -> str:
 FILES = ("full_deck_gap_diagnostic.json", "element_mapping_candidates.json",
          "element_mapping_worklist.md")
 
+# Cache and request identity MUST change when a safety-critical detector
+# changes: older immutable model worklists must not silently lose panel flags.
+MAPPING_DETECTOR_REVISION = 5  # Recheck existing math rows + captioned panels in rich worklist
+
 
 def _source_hashes(source: Path, slides: Path, script: Path) -> dict:
     return {"source.pdf": _sha(source), "slides.pdf": _sha(slides),
@@ -55,6 +59,7 @@ def _receipt(cache: Path, input_hashes: dict) -> dict:
         raise ElementMappingCheckpointBlocked(
             "Cached rich-element mapping receipt cannot be decoded") from exc
     _require(value.get("schema_version") == 1
+             and value.get("mapping_detector_revision") == MAPPING_DETECTOR_REVISION
              and value.get("status") ==
                   "SOURCEBOUND_RICH_ELEMENT_MAPPING_REVIEW_REQUIRED"
              and value.get("source_inputs_sha256") == input_hashes
@@ -90,7 +95,9 @@ def require_automatic_mapping_or_checkpoint(*, source: Path, slides: Path,
              "Mapping checkpoints must be outside source and author assets")
     before = _source_hashes(source, slides, script)
     fingerprint = hashlib.sha256(json.dumps(
-        before, sort_keys=True).encode("utf8")).hexdigest()[:24]
+        {"source_inputs_sha256": before,
+         "mapping_detector_revision": MAPPING_DETECTOR_REVISION},
+        sort_keys=True).encode("utf8")).hexdigest()[:24]
     cache = root / ("rich_element_map_" + fingerprint)
     if cache.exists() or cache.is_symlink():
         _require(cache.is_dir() and not cache.is_symlink(),
@@ -141,6 +148,7 @@ def require_automatic_mapping_or_checkpoint(*, source: Path, slides: Path,
                 (temp / name).write_text(payload, encoding="utf8")
             summary = {
                 "schema_version": 1,
+                "mapping_detector_revision": MAPPING_DETECTOR_REVISION,
                 "status": "SOURCEBOUND_RICH_ELEMENT_MAPPING_REVIEW_REQUIRED",
                 "source_inputs_sha256": before,
                 "artifact_sha256": {name: _sha(temp / name) for name in FILES},

@@ -84,6 +84,91 @@ class DifferentialCanaryTests(unittest.TestCase):
         self.assertFalse((self.place / "browser_probe_started.json").exists())
         send.assert_not_called()
 
+    @patch("selenium_pipeline.windows_gemini_differential_probe.sys.platform", "win32")
+    def test_source_sized_synthetic_browser_probe_one_send_and_sha_bound(self):
+        send = Mock(return_value='{"probe":"microgen_source_transport_ok"}')
+        ready = lambda: {"authenticated_ui_ready": True}
+        first = run_canary(
+            checkpoint_dir=self.place, backend="browser",
+            browser_transport=send, browser_ready=ready, profile="source_sized")
+        self.assertEqual(first["outcome"], "VALID_CANARY_RESPONSE")
+        self.assertEqual(first["probe_profile"], "source_sized")
+        self.assertGreaterEqual(first["prompt_characters"], 1200)
+        self.assertLessEqual(first["prompt_characters"], 3000)
+        self.assertEqual(send.call_count, 1)
+        prompt = send.call_args.args[0]
+        self.assertNotIn("source.pdf", prompt)
+        self.assertIn("inert test data", prompt)
+        again = run_canary(
+            checkpoint_dir=self.place, backend="browser",
+            browser_transport=send, browser_ready=ready, profile="source_sized")
+        self.assertEqual(again["status"], "PRIOR_CANARY_RECEIPT_REUSED")
+        self.assertEqual(send.call_count, 1)
+        result = classify(browser=again, api=None)
+        self.assertEqual(
+            result["status"],
+            "BROWSER_SOURCE_SIZED_INPUT_CANARY_OK_FULL_LESSON_NOT_CERTIFIED")
+        self.assertTrue(result["source_sized_text_input_response_verified"])
+        self.assertFalse(result["new_api_content_cost_authorized"])
+        self.assertFalse(result["provider_server_outage_proven"])
+
+    @patch("selenium_pipeline.windows_gemini_differential_probe.sys.platform", "win32")
+    def test_source_sized_claim_cannot_be_reused_as_short_or_as_api(self):
+        send = Mock(return_value='{"probe":"microgen_source_transport_ok"}')
+        ready = lambda: {"authenticated_ui_ready": True}
+        run_canary(checkpoint_dir=self.place, backend="browser",
+                   browser_transport=send, browser_ready=ready,
+                   profile="source_sized")
+        with self.assertRaisesRegex(ValueError, "Different canary profiles"):
+            run_canary(checkpoint_dir=self.place, backend="browser",
+                       browser_transport=send, browser_ready=ready,
+                       profile="short")
+        with self.assertRaisesRegex(ValueError, "browser-only"):
+            run_canary(checkpoint_dir=self.place, backend="api",
+                       confirm_api_diagnostic_cost=True,
+                       api_transport=send, profile="source_sized")
+        self.assertEqual(send.call_count, 1)
+        self.assertFalse((self.place / "api_probe_started.json").exists())
+
+    @patch("selenium_pipeline.windows_gemini_differential_probe.sys.platform", "win32")
+    def test_source_sized_wrong_reply_and_uncertain_claim_never_resend(self):
+        send = Mock(return_value='{"microgen_transport_probe":"ok"}')
+        ready = lambda: {"authenticated_ui_ready": True}
+        first = run_canary(checkpoint_dir=self.place, backend="browser",
+                           browser_transport=send, browser_ready=ready,
+                           profile="source_sized")
+        self.assertEqual(first["outcome"], "RESPONSE_RETURNED_BUT_NONCONFORMING")
+        again = run_canary(checkpoint_dir=self.place, backend="browser",
+                           browser_transport=send, browser_ready=ready,
+                           profile="source_sized")
+        self.assertEqual(again["status"], "PRIOR_CANARY_RECEIPT_REUSED")
+        self.assertEqual(send.call_count, 1)
+        failed = classify(browser=first, api=None)
+        self.assertEqual(
+            failed["status"],
+            "INCONCLUSIVE_BROWSER_FAILURE_METADATA_NOT_GENERATION_PROOF")
+        self.assertFalse(failed["source_sized_text_input_response_verified"])
+
+    @patch("selenium_pipeline.windows_gemini_differential_probe.sys.platform", "win32")
+    def test_source_sized_post_claim_crash_is_non_retryable(self):
+        from selenium_pipeline.windows_gemini_differential_probe import _profile_spec
+        import json
+        self.place.mkdir()
+        prompt, _, sha = _profile_spec("source_sized")
+        (self.place / "browser_probe_started.json").write_text(
+            json.dumps({
+                "schema_version": 1, "backend": "browser",
+                "content_model": "gemini-3.8-flash",
+                "generic_prompt_sha256": sha,
+                "probe_profile": "source_sized",
+                "one_submission_only": True,
+            }), encoding="utf8")
+        send = Mock(side_effect=AssertionError("duplicate browser Send"))
+        result = run_canary(checkpoint_dir=self.place, backend="browser",
+                            browser_transport=send, profile="source_sized")
+        self.assertEqual(result["status"], "PRIOR_CANARY_MAY_HAVE_SUBMITTED_NO_RESEND")
+        send.assert_not_called()
+
     def test_differential_conclusions_do_not_overclaim(self):
         a = {"outcome": "VALID_CANARY_RESPONSE"}
         b = {"outcome": "NO_VERIFIED_RESPONSE"}
@@ -144,6 +229,21 @@ class CrossTaskGeminiHaltTests(unittest.TestCase):
             "new-user-turn+composer-cleared.\n" if send else
             "[INFO] No Gemini response received pre-submit\n", encoding="utf8")
         return root
+
+    def test_real_vendor_timing_send_marker_drives_health_classification(self):
+        trial = self.receipt("14", "figures", False, send=False)
+        (trial / "figures_stage_stdout.raw.log").write_text(
+            "[2026-11-10 13:33:14] [INFO] [TIMING] "
+            "attempt 1 verified send: 0.052s | registered=True\n",
+            encoding="utf8")
+        event = record_stage(trial_dir=trial, stage="figures",
+                             folder=self.health, now=1000)
+        self.assertEqual(event["outcome"], "SENT_BUT_NOT_ACCEPTED")
+        recorded = list((self.health / "events").glob("*.json"))
+        self.assertEqual(len(recorded), 1)
+        import json
+        self.assertTrue(json.loads(recorded[0].read_text(
+            encoding="utf8"))["owned_browser_send_registered"])
 
     def test_two_distinct_failed_browser_sends_pause_new_tasks(self):
         a = self.receipt("01", "figures", False)

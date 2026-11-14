@@ -33,13 +33,34 @@ def source_evidence_worklist(*,folder:Path,candidates:dict|None=None)->dict:
             require(type(n) is int and 1<=n<=len(deck),"Invalid original slide number")
             raw=deck[n-1].get_text("blocks")
             ids={}
+            # Verify the newly registered panel set ONE time per slide,
+            # against the unchanged original source and the actual slide
+            # bitmap. A cached/forged image-panel rectangle is not evidence.
+            verified_panels=None
             for elem in slide["candidate_visual_targets"]:
-                index=elem["anchor"]["index"]
-                require(type(index) is int and 0<=index<len(raw)
-                        and raw[index][4].strip()==elem["visible_text"]
-                        and all(abs(float(a)-float(b))<=.002
-                                for a,b in zip(raw[index][:4],elem["bbox_pdf_pt"])),
-                        "Candidate element no longer matches actual visible PDF block")
+                kind=elem.get("kind")
+                if kind=="text_block":
+                    index=elem["anchor"]["index"]
+                    require(type(index) is int and 0<=index<len(raw)
+                            and raw[index][4].strip()==elem["visible_text"]
+                            and all(abs(float(a)-float(b))<=.002
+                                    for a,b in zip(raw[index][:4],elem["bbox_pdf_pt"])),
+                            "Candidate text block no longer matches actual PDF")
+                elif kind in ("image_whole","math_row_group"):
+                    from .verified_slide_visual_candidates import verify_visual_target
+                    verify_visual_target(deck[n-1],n,elem)
+                elif kind=="image_caption_panel":
+                    if verified_panels is None:
+                        from .captioned_panel_target_router import panel_targets_for_slide
+                        verified_panels={
+                            p["draft_element_id"]:p for p in panel_targets_for_slide(
+                                source=folder/"source.pdf",
+                                slides=folder/"slides.pdf",slide_number=n)}
+                    require(elem["draft_element_id"] in verified_panels
+                            and elem==verified_panels[elem["draft_element_id"]],
+                            "Source caption/panel visual geometry or semantics altered")
+                else:
+                    require(False,"Unrecognized or forged visual target kind")
                 ids[elem["draft_element_id"]]=elem
             for unit in slide["original_utterance_candidates"]:
                 uid=unit["utterance_id"]
@@ -67,6 +88,8 @@ def source_evidence_worklist(*,folder:Path,candidates:dict|None=None)->dict:
                                     "source_pages_with_lexical_overlap":matches[:20],
                                     "source_page_hits_truncated":len(matches)>20,
                                     "lexical_overlap_is_semantic_proof":False,
+                                    "physical_visual_anchor_reverified":True,
+                                    "figure_panel_or_math_semantics_verified":False,
                                     "requires_human_math_review":True})
                 rows.append({"utterance_id":uid,
                              "spoken_text_sha256":unit["original_text_sha256"],

@@ -32,13 +32,56 @@ def _report(*, status: str, source_sha256: str, section: str,
         "source_sha256": source_sha256,
         "section": section,
         "next_stage": next_stage,
-        "model_requests_per_operator_invocation_limit": 1,
+        # The coordinator dispatches ONE bounded source stage, not one
+        # individual Gemini Send. A figure stage may process multiple pages;
+        # each owned browser request retains its own no-duplicate-Send guard.
+        "source_stage_attempts_per_operator_invocation_limit": 1,
+        "individual_model_send_count_must_be_verified_from_stage_log": True,
         "new_model_or_tts_calls": False,
         "automatic_retry_or_fallback": False,
         "reviewed_tts_or_video_generated": False,
         "student_publication_authorized": False,
         **extra,
     }
+
+
+def _source_locked_ui_contract_breach(trial_dir: Path, stage: str) -> str | None:
+    """Audit immutable stage log before accepting a previously claimed result.
+
+    Existing source claims remain untouched; a real source success with
+    Flash-Lite where Flash was requested must never authorize slides or media.
+    Historical test fixtures with no original log have no positive wrong-model
+    observation; missing scientific QA remains a separate release gate.
+    """
+    if stage not in ("figures", "slides", "narration"):
+        return False
+    log = trial_dir / (
+        "figures_stage_stdout.raw.log" if stage == "figures"
+        else f"stage_{stage}_stdout.raw.log")
+    if not log.exists() and not log.is_symlink():
+        return False
+    require(log.is_file() and not log.is_symlink()
+            and log.stat().st_size <= 4_000_000,
+            "Unsafe original owned-model stage log")
+    saved = trial_dir / (
+        "figures_transport_triage.json" if stage == "figures"
+        else f"stage_{stage}_transport_triage.json")
+    if saved.exists() or saved.is_symlink():
+        prior = _verified_json(saved)
+        receipt = trial_dir / (
+            "figures_attempt_result.json" if stage == "figures"
+            else f"stage_{stage}_result.json")
+        require(
+            prior.get("terminal_log_sha256") == file_sha256(log)
+            and prior.get("terminal_result_sha256") == file_sha256(receipt),
+            "Previously SHA-bound model/response evidence has changed")
+    from .windows_gemini_stage_transport_triage import diagnose
+    verdict = diagnose(trial_dir=trial_dir, stage=stage)
+    if verdict.get("owned_worker_wrong_ui_family_observed") is True:
+        return "MODEL_FAMILY"
+    if verdict.get("owned_worker_thinking_contract_breach_observed") is True:
+        return "THINKING_LEVEL"
+    return None
 
 
 def inspect_progress(*, source_root: Path, section: str, trial_dir: Path,
@@ -80,6 +123,15 @@ def inspect_progress(*, source_root: Path, section: str, trial_dir: Path,
             "Immutable original-source contract or staged PDF changed")
         started = trial_dir / "figures_attempt_started.json"
         result = trial_dir / "figures_attempt_result.json"
+        rescue = trial_dir / "figures_source_only_local_recovery.json"
+        is_recovery = rescue.exists() or rescue.is_symlink()
+        if is_recovery:
+            require(not started.exists() and not started.is_symlink()
+                    and not result.exists() and not result.is_symlink(),
+                    "Source-only recovery cannot disguise earlier local sends")
+            from .figures_failed_source_only_resume import verify_recovery_receipt
+            verify_recovery_receipt(trial_dir)
+            result = rescue
         if started.exists() or started.is_symlink():
             intent = _verified_json(started)
             require(intent.get("schema_version") == 1
@@ -92,7 +144,7 @@ def inspect_progress(*, source_root: Path, section: str, trial_dir: Path,
                     status="HALTED_PRIOR_FIGURES_SEND_UNRESOLVED",
                     source_sha256=sha, section=section,
                     reason="Pre-send claim exists; never send this stage again")
-        elif result.exists() or result.is_symlink():
+        elif (result.exists() or result.is_symlink()) and not is_recovery:
             raise CampaignRecoveryBlocked("Figure result without original send intent")
         if not result.exists():
             require(not any(trial_dir.glob("stage_*_started.json"))
@@ -103,17 +155,43 @@ def inspect_progress(*, source_root: Path, section: str, trial_dir: Path,
             next_stage = "figures"
         else:
             data = _verified_json(result)
-            require(data.get("original_source_sha256") == sha
-                    and data.get("staged_original_sha256") == sha
-                    and data.get("student_publication_authorized") is False,
-                    "Figure stage SHA or publication guard changed")
-            if (data.get("status") != "FIGURES_STAGE_RETURNED_SUCCESS_NOT_FULL_LECTURE"
-                    or data.get("figure_stage_exit_code") != 0
-                    or data.get("new_video_rendered") is not False):
+            if is_recovery:
+                # The old provider FIGURES_ATTEMPT_FAILED result belongs to
+                # a different immutable trial, and is never relabeled PASS.
+                # This separate source-only recovery is rechecked above.
+                require(data.get("source_sha256") == sha
+                        and data.get("student_publication_authorized") is False
+                        and data.get("new_provider_sends") == 0,
+                        "Source-only figure recovery is not source locked")
+            else:
+                require(data.get("original_source_sha256") == sha
+                        and data.get("staged_original_sha256") == sha
+                        and data.get("student_publication_authorized") is False,
+                        "Figure stage SHA or publication guard changed")
+                if (data.get("status") != "FIGURES_STAGE_RETURNED_SUCCESS_NOT_FULL_LECTURE"
+                        or data.get("figure_stage_exit_code") != 0
+                        or data.get("new_video_rendered") is not False):
+                    return _report(
+                        status="HALTED_PREVIOUS_FIGURES_FAILED_NO_RESEND",
+                        source_sha256=sha, section=section,
+                        prior_status=data.get("status"))
+            ui_breach = (
+                _source_locked_ui_contract_breach(trial_dir, "figures")
+                if communication_mode == "selenium" and not is_recovery
+                else None)
+            if ui_breach:
                 return _report(
-                    status="HALTED_PREVIOUS_FIGURES_FAILED_NO_RESEND",
+                    status=(
+                        "HALTED_FIGURES_WRONG_UI_MODEL_FAMILY_NO_RESEND"
+                        if ui_breach == "MODEL_FAMILY" else
+                        "HALTED_FIGURES_THINKING_LEVEL_UNVERIFIED_NO_RESEND"),
                     source_sha256=sha, section=section,
-                    prior_status=data.get("status"))
+                    model_contract_breach=(
+                        "FLASH_REQUEST_ROUTED_TO_FLASH_LITE"
+                        if ui_breach == "MODEL_FAMILY" else
+                        "CONFIGURED_THINKING_LEVEL_MISSING_OR_MISMATCHED"),
+                    academic_or_release_approval=False,
+                    original_figures_resubmission_authorized=False)
             lecture = expected.parent
             workspace = lecture / ".microgen_work"
             require(workspace.is_dir() and not workspace.is_symlink()
@@ -168,6 +246,19 @@ def inspect_progress(*, source_root: Path, section: str, trial_dir: Path,
                         source_sha256=sha, section=section,
                         halted_stage=stage,
                         prior_status=receipt.get("status"))
+                ui_breach = (
+                    _source_locked_ui_contract_breach(trial_dir, stage)
+                    if communication_mode == "selenium"
+                    and stage in ("slides", "narration") else None)
+                if ui_breach:
+                    return _report(
+                        status=(
+                            "HALTED_ACCEPTED_STAGE_WRONG_UI_MODEL_FAMILY_NO_RESEND"
+                            if ui_breach == "MODEL_FAMILY" else
+                            "HALTED_ACCEPTED_STAGE_THINKING_LEVEL_UNVERIFIED_NO_RESEND"),
+                        source_sha256=sha, section=section, halted_stage=stage,
+                        academic_or_release_approval=False,
+                        original_stage_resubmission_authorized=False)
                 outputs = receipt.get("output_sha256")
                 require(type(outputs) is dict,
                         "Accepted original stage has no immutable output hashes")

@@ -1,3 +1,1631 @@
+# 14 Nov 2026 — Gemini rich-mapping model/Thinking normal-path recovery and concurrency stress
+
+**Scope and source integrity:** Dell-115 isolated PR #528 branch, Windows/Selenium-only MicroGen_AI_Web. Original Serway 6.4 rich queue remains 67 unresolved, of which 39 are held by verified source-global academic claims and only 28 are fresh candidates; no consumed original utterances, PDF, source script or previous model claims were resubmitted. This increment repairs only the shared Gemini rich-mapping *selection and stage-environment* code. An offline engineering pass is NOT scientific, acoustic or video acceptance and does not make a provider-service outage disappear.
+
+**Permanent ordinary-path fix:** The actual `rich_mapping_provider_dispatch._real_transport` now always starts this stage from Flash-first and Medium thinking, explicitly clearing stale Flash-Lite, Pro, Low and previous route evidence; the existing owned-tab adaptive menu may switch to positively observed Pro when Flash is genuinely absent and to positively verified High only when Medium is not available. Shared `gemini_ui_adaptive_protocol`, `gemini_stage_policy`, `vendor_template_v2/selenium.py` and `series_gemini._browser_request` admit this rich-mapping path and require pre-Send exact owned-tab family+Thinking verification. A process-local re-entrant lock protects stage environment configuration and restoration across concurrent rich jobs, including failures; verified model-family/effort metadata is attached only after a positively registered new user turn. Existing source-global one-Send claim, immutable academic claim exclusion, response quarantine, no unknown post-Send retry and independent physics/source audit remain mandatory.
+
+**Verified stress and limits:** Native Dell-115 offline expanded Gemini UI/Thinking, rich queue, source geometry and provider-recovery regression: **87 passed, 1 Windows symlink-fixture skipped**. The rich route's automated thread stress exercised 64 concurrent synthetic calls from eight workers, including inherited stale Flash-Lite/Low preferences, verified simulated Pro/High picker results, no selection leakage, and exact environment restoration. `compileall` and `git diff --check` passed. No paid provider, live Gemini Send, TTS, video generation or public release was included in these tests. Hosted Windows exact-head CI must still be verified after push; a newer genuine source-free Gemini canary with verified user-turn ownership is required before risking a fresh real source request. PR #529's distinct fresh-source browser-admission remedy remains separate, draft/unmerged.
+
+**Next:** Recheck pushed exact SHA and two hosted Windows workflows; only then mark this engineering recovery scoped PASS. Continue with the 28 eligible G2 original units only if independent owned-tab/route readiness is positive; otherwise preserve all claims and stop safely rather than consume a one-Send claim to retest Gemini. G2 scientific rich mapping, per-element PCM/phonetic QA and decoded synchronized MP4 acceptance remain OPEN.
+
+---
+
+# 13 Nov 2026 — G2 cross-pipeline consumed academic claims excluded; 28 genuinely fresh rich units eligible
+
+**Substantive correction to repeated G2 loops:** Latest genuine original Serway 6.4 frozen rich queue holds 14 slides, 74 spoken units, 7 independently verified prose-only original textbook→author PDF links, 67 rich semantic mappings unresolved. The global independent academic source-review ledger for exact original publisher SHA `64b748468e6bdb12ddb127f1d8bea90a7f3f63d270fbb5378ba1d3ddeeb955fd` contains 7 immutable claim records covering **41 original utterance IDs**, of which **39 overlap the 67 rich-mapping UNRESOLVED units**, while two are already safely text matched. Previously rich-map dispatcher guarded only its OWN global rich claims, inadvertently permitting another academic review of those 39 consumed units under a new route, undermining the standing no-resend contract. The actually unclaimed G2 candidate frontier is **28 original units**, not all 67 and not zero. This audit originates from unchanged original PDF/slide/script and both actual claimed and unclaimed global SHA receipts on Dell-115.
+
+**Baked into both normal paths:** Extracted a SINGLE `academic_source_microbatch.claimed_original_source_units` for physically validating canonical `%LOCALAPPDATA%\\MicroGen_AI_Web_Checkpoints\\.microgen_academic_source_once\\<source_sha>` historical claims. The academic `unclaimed_microbatch_plan` now uses it directly, and normal `rich_mapping_provider_dispatch.dispatch_one` reads it BEFORE authenticated Gemini UI readiness and source-global rich one-Send. For any slide, old consumed IDs never appear in the new scoped model prompt. New requests carry immutable original parent request SHA and a freshly scoped SHA, and any response is checked against exact still-unclaimed IDs. Before applying the existing physical source/author geometry and math-audit `rich_unresolved_model_queue.merge_response`, all previously academically claimed IDs are explicitly restored as NULL / `needs_review=true` so they remain unresolved and cannot be falsely promoted. If entire slide was already claimed, no Send or new claim. Academic ledger is rechecked immediately before rich Send claim to prevent stale eligibility after Gemini preflight; invalid global records fail closed. The already implemented source-global rich once-only claim and unknown post-Send quarantine remain binding. **No old 41 academic original IDs have been resent by this correction.**
+
+**Real eligibility partition:** Slides 2, 13, 14 have zero academically-unclaimed pending units and must not Send. Slides 3–12 except none have at least one fresh unit: slide 3=2, 4=4, 5=4, 6=2, 7=2, 8=2, 9=1, 10=5, 11=5, 12=1, total **28** (other 39 remain held). Authenticated Gemini composer read-only healthy at Dell-115 port 9222; no previous rich slide-3 single-claim receipt found in prior checkpoint tree. The unclaimed 28 may be reviewed **only once** each on their source-SHA-bound scope, with full independent post-response physics and geometry audits; no source claim may be requeued just because Gemini was slow.
+
+**Regression and acceptance state:** `tests.test_rich_mapping_provider_dispatch` contains new source-academic claim exclusion, mixed one-new/one-consumed synthetic original PDF test, explicitly held consumed unit, untrusted or midflight new academic claim, source-global no-Send and concurrent job protections, and genuine Dell-only source-unit partition audit. Existing `academic_source_microbatch` tests also run. **75 locally PASSED, 1 Windows symlink-fixture SKIPPED**; exact new PR-head hosted Windows reliability and source-adjacent runs still required to mark cross-ledger engineering code closed. This step does NOT resolve any scientific mapping solely from prompt eligibility, does NOT approve paid TTS/phonetics/MP4, and does NOT complete G2. Unrelated local `tests/test_tts_interactions_sdk_wire.py` changes stay excluded.
+
+---
+
+# 13 Nov 2026 — G2 rich visual mapping global one-Send claim; cross-session duplicate prevention
+
+**Current engineering scope:** The shared rich visual semantic model dispatcher `selenium_pipeline.rich_mapping_provider_dispatch.dispatch_one` previously enforced "exactly once" only within a caller-chosen `--attempt-root`. This local-only guard was vulnerable to a new session/attempt folder, permitting repeat Gemini Send against the same original source/slide unresolved mapping worklist. The academic changed-source review had ALREADY solved this class of issue with a global original-unit claim index. **Now baked into the NORMAL rich mapping dispatcher**, not a test harness or one-off Serway workaround: `_global_slide_claim` uses source PDF SHA and original slide number under canonical `%LOCALAPPDATA%\\MicroGen_AI_Web_Checkpoints\\.microgen_rich_mapping_once\\<source_sha256>\\slide_NNN.once.json`. Check across all attempt folders BEFORE authenticated Gemini UI preflight; write the global claim atomically and durably with exclusive `open('x')` BEFORE any browser Send/local receipt. After valid response, update immutable source, request and review evidence in BOTH local and source-global receipts. Unknown post-Send outcome must stay claimed; a different attempt root, provider, account or later session cannot reset it. Concurrent callers racing different folders have only one exclusive winner. No actual model calls for this remediation.
+
+**Source-preserving real test:** Ordinary `dispatch_one` on genuine Serway §6.4 14-slide frozen mapping queue, slide 14, with injected offline Gemini provider readiness, returned `GEMINI_SELENIUM_TEMPORARY_FAILURE_STOP`, **0 submissions, 0 local claims, 0 global claims**; publisher PDF/slides/script hashes unchanged, original 41 academic claims frozen. This shows a genuinely *unsent* eligible rich mapping job is not spuriously consumed by provider unavailability. The global guard is conservative by publisher SHA: source-identical script changes cannot trigger automatic retransmission without new-source scope. Previously submitted unknown historic attempts located outside the new global ledger cannot be assumed recovered retroactively.
+
+**Regression:** Existing `tests/test_rich_mapping_provider_dispatch.py` (already present in the normal Windows reliability job) now proves successful response cannot replay from new attempt root; uncertain post-Send timeout cannot replay; two simultaneous attempt roots cause exactly ONE model transport call; no claim on unavailable provider; different source SHA yields separate claim namespace; forged symlinked global root blocks (Windows permission may skip fixture). Targeted **14 passed, 1 skipped**; wider source/academic/visual replay and E2E regression suite **70 passed, 1 skipped** on Dell-115. Exact-head hosted full Windows CI and source-adjacent workflow required for scoped engineering closure. Entry `MG-G2-RICH-MAPPING-SOURCE-GLOBAL-ONCE-V1` added to ordinary failure-to-fix ledger. The code does NOT make Gemini UI functional, does NOT reduce 67 unresolved visual mappings or 41 academic claims, does NOT synthesize PCM or authorize G2/G3/student output.
+
+---
+
+# 13 Nov 2026 — G2 physical element PCM acceptance preflight repair; no fake ready state
+
+**New substantive normal-path blocker and resolution:** The original source E2E acceptance preflight had a *technical false-ready* condition: the mere presence of three nominal element-audio output paths (`element_narration_plan.json`, `element_wav/`, `element_tts_manifest.json`) could be treated as full recorded-audio evidence, even if those files were empty `{}` placeholders and the WAV directory had no clips. That could allow the E2E gate to advertise rendering readiness based on a complete prose-source association while the downstream real production renderer necessarily rejected the absent PCM. This is a recurring-failure prevention point **before** media creation, not a Serway-specific retry.
+
+**Bake verified remedy into shared production caller:** `selenium_pipeline.original_source_e2e_acceptance.inspect_source_e2e` now invokes the same two physical validators already used by the producer/rendering pipeline whenever all three outputs exist: (1) `sourcebound_production_video.verify_element_tts_batch` for actual source+author+plan SHA, original words, producer-model/voice, fallback journal and per-element WAV SHA; (2) `element_highlight_workflow.source_bound_plan` for original slide coverage, unique WAVs, actual mono 16-bit PCM frames, measured duration, and under-590-second parts. Compare this coverage against the SHA-frozen original 14-slide review queue before ever setting `READY_FOR_STRICT_RECORDED_AUDIO_MULTIPART_RENDER`. Malformed/missing/symlinked/fake audio stops the normal E2E entrypoint with `SourceReleaseBlocked` and **no paid TTS, Gemini, FFmpeg or original-file modification**. Existing accepted final multipart still fast-path reuses its separate independent physical series verifier. A technical audio-carrier pass never means spoken words, teacher-voice identity or original mathematical semantics are independently verified.
+
+**Regression evidence:** Existing normal Windows CI suite `tests.test_original_source_e2e_acceptance` was expanded with negative empty JSON/WAV fixtures, valid synthetic source-bound PCM carrier with genuine producer structural receipts, missing WAV and forged SHA, invalid RIFF WAV with matching forged metadata (still fails physical decode), no unwanted render call, preserved original PDF/script bytes, and a real Dell-only Serway 6.4 14-slide frozen checkpoint test. Targeted **11 passed** on Dell-115. Real Serway original SHA `64b748468e6bdb12ddb127f1d8bea90a7f3f63d270fbb5378ba1d3ddeeb955fd`, 7 previously safe prose links, 67 unresolved original utterance mappings, **no source-verified separately recorded element PCM**; true status `BLOCKED_UNRESOLVED_SOURCE_VISUAL_NARRATION`, zero media permission/paid calls. Its 41 consumed original academic claims remain unchanged. Extend with wider sourcebound/highlight regression and verify both new exact-head Windows workflows before scoped engineering acceptance.
+
+**Still open:** G2 scientific figure/mathematical glyph and utterance mapping acceptance is NOT COMPLETE, a structural PCM receipt is not pronunciation/content evidence, and final decoded video element-sync QA is absent. No G3/release authorization, no fabricated source model replay and PR #528 remains draft/unmerged. Unrelated preexisting local SDK-wire test modification is excluded.
+
+---
+
+# 13 Nov 2026 — G2 independent conditional physics v2, automatic immutable cached-stage proof
+
+**Progress beyond the exact-head accepted v7 source citation engine:** Under the standing contract to generalize each recurring blocker, the normal source mathematical inspector now proves 13 additional condition-dependent model identities directly with SymPy, on top of the prior 10 exact laws. The two original Serway §6.4 slide-14 unresolved questions are represented only as conditional mathematical results, not retroactive reviewer acceptance: for linear drag at common positive b, doubling mass doubles vT and tau; for quadratic drag when coefficient k instantaneously rises to (1+q)k (q>0) at the old downward terminal speed, velocity stays downward immediately, net force/acceleration point upward, and the new terminal speed is lower, with drag decreasing as speed decreases. No physical object-specific force coefficient or independently correct original narration was assumed. The original author source and source quote literal bytes remain unchanged. No repeat Gemini Send is permitted for the 41 globally claimed original units.
+
+**Baked into runtime, not script-specific:** `selenium_pipeline/source_physics_drag_symbolic_qa.py` supplies `prove_conditional_drag_challenges_v2` via the already attached `inspect` to the standard `automatic_math_semantic_qa` script-QA entrypoint. More importantly the **cached** old-stage recovery path and direct media handoff already call `independent_math_checkpoint.ensure`, now engine revision **2** and new write-once `source_math_symbolic_proof_v2.json` sidecar, keyed by original source/script SHA + engine revision. Existing v1 cached stage and proof receipts are never changed or re-run. Forged approval or corrupt v2 evidence fails closed, same original v2 reused on subsequent on-flight run; unrelated textbooks are NOT_APPLICABLE rather than an assumed physics proof. Regression `tests/test_source_drag_conditional_v2.py` with genuine original Serway, synthetic sources, v1 preservation and no-model/mock paid-TTS blocks is in the ordinary Windows historical/fault-injection CI matrix alongside original math checkpoint and physics QA tests.
+
+**Real Dell-115 measurements:** Original source `64b748468e6bdb12ddb127f1d8bea90a7f3f63d270fbb5378ba1d3ddeeb955fd`, script `7806b3e006b6727cec1acf9a0c9aeda2318c6e50f6821269fbae5c440223ee59`. Normal source math v2 sidecar was **created then reused**, with the genuine v1 historical receipt SHA preserved. Normal script-QA CLI created new immutable output `%LOCALAPPDATA%\\MicroGen_AI_Web_Checkpoints\\20261113_G2_SERWAY64_CONDITIONAL_DRAG_SCRIPT_QA_V2.json` reporting 0 known-rule domain/sign hits and 23 math model identities (10 older, 13 new), **G2_approved=false, TTS=false**. Targeted local group: 29 passed, 2 skipped (environment/fixture-specific); complete both exact-head hosted Windows CI after commit before calling this new **engineering** gate `PASS_VERIFIED`.
+
+**Open scientific/media gates:** Source citation candidates and conditional analytical theorems do not establish 44 unresolved/2 invalid original academic citations, equation glyph transcription, 41 original narration→visual ambiguity judgments, actual utterance/word-level acoustic evidence, or fully decoded sample-accurate element highlight MP4. Original 41 model source review claims globally consumed; do not use new quote engine or math proof as a pretext to resend. G2 `NOT_COMPLETE_WITH_NAMED_BLOCKERS`; PR #528 remains draft and unmerged; G3/release/student publication not authorized. Unrelated local `tests/test_tts_interactions_sdk_wire.py` edit stays untouched and excluded.
+
+---
+
+# 13 Nov 2026 — G2 source-citation retrieval bridge v7; real 74-unit physical proof of candidates
+
+**Latest scoped improvement:** In the existing Windows-only `MicroGen_AI_Web` branch `feature/pr528-autonomous-ai-lecture-acceptance`, correct the ordinary physics-source-citation ranker rather than paying for another request from old consumed Gemini claims. A genuine review on Serway 6.4 slide 14 showed that the authored question uses plural `terminal speeds/time constants` while the publisher source uses singular `terminal speed/time constant`, so raw token and phrase-pair search previously chose irrelevant table/exercises. The live reviewer had already returned UNRESOLVED with no trusted source quote. The fix in `source_verified_quote_candidates.py` canonicalizes simple English plural inflections **only for lexical candidate search and phrase ranking**, never source text, PDF pixels, mathematical meaning, utterance SHA or AI approval. Original source section/Example 6.8 and 6.9 boundaries and the prior verified quote witness remain binding; valid quote evidence is never silently treated as accepted mathematical proof.
+
+**Real source-only witness:** `build_review_job` on the unchanged real slide 14 now returns page **3** for the linear-drag time-constant question `s014.utterance.003` and page **5** for the parachute question `s014.utterance.004`. The **normal** `source_citation_batch_planner.save_jobs(max_batch=4)` staged 4 bounded jobs covering all 14 slides and all 74 author speech units with no unresolved quotation-planning gaps. All **90** physical quotation alternatives were independently rechecked against literal original source PDF bytes, slide/source SHA, exact page and quote proof by `prove_source_quote_occurrence`. Stored at `%LOCALAPPDATA%\\MicroGen_AI_Web_Checkpoints\\20261113_G2_SERWAY64_CITATION_INFLECTION_V7_ALL14`. No Gemini, paid TTS, audio, student output or browser Send. No academic review consensus or utterance/visual ambiguity was claimed resolved.
+
+**Regression and permanence:** `tests/test_source_quote_inflection_retrieval_v7.py` includes synthetic source/distraction page proofs and Dell-only genuine source/slide tests, including spoofed quote rejection; new and preceding figure-panel cross-entrypoint tests are now explicitly in the normal `.github/workflows/microgen-reliability-tests.yml` historical guard list. Focused retrieval baseline: **18 passed** on Dell-115. A broader quote/citation regression campaign and both exact-head hosted Windows CI gates must pass before final engineering closure. Permanent failure-to-fix ID `MG-SOURCE-CITATION-INFLECTION-V7` entered ledger. Strict G2 semantic, independent acoustic/utterance PCM, and actual decoded synchronized element-video QA remain `NOT_COMPLETE_WITH_NAMED_BLOCKERS`; PR #528 stays draft, no automatic academic/student release.
+
+**Owner's standing principle remains binding:** automatic reuse of this fix must happen in the ordinary pipeline, not via a repeated owner request or a one-off Serway script. Previous 41 consumed source academic claim attempts are frozen; do not submit a new Gemini review simply because this engine improved citation evidence. PR's previous accepted SHA `0b7c8f1` (source panel) remains frozen history; the new exact-head code SHA and real Windows CI outcomes must be verified independently.
+
+---
+
+# 13 Nov 2026 — G2 rich-panel bridge normal-path recovery; source-grounded prose evidence staged
+
+**Scope:** MicroGen_AI_Web, Dell-115-only, draft PR #528. Previous frozen `e88e744` had both Windows CI workflows `PASS_VERIFIED`; the new bridge requires its own exact-head hosted Windows CI before engineering acceptance. Preserve all immutable original SHA-bound source review claims: the Serway 6.4 change-evidence review has **41 consumed, 0 unclaimed** and must NOT be resent. Unrelated preexisting local `tests/test_tts_interactions_sdk_wire.py` modification remains uncommitted/unmodified by this milestone.
+
+**Reproduced root defect:** Original source/author-rich mapping checkpoint v5 physically contained 12 math row candidates, 3 actual raster images, 3 independently source-caption registered Figure 6.12 panels and 102 ordinary authored PDF text/text-group anchors. The shared `rich_element_model_alignment.request_for_slide` incorrectly treated registered caption-panel provenance anchors as stale because it called an older generic rectangle helper that did not understand `original_pdf_panel_visual_provenance`. This blocked the ordinary, zero-model, safe-prose verifier before it could process the full lecture. **Remedy integrated into the shared normal rich mapping request function:** verify caption-panel identity, source image registration, source/slide SHA and canonical rectangle via existing `captioned_panel_target_router.panel_targets_for_slide`; verify legacy math row/image/text anchor geometry using existing strict `element_narration_stage.rectangle` and frozen original PDF block hashes; compare to checkpoint-rendered two-decimal bounding boxes with only bounded 0.012pt quantization tolerance. No new heuristic figure math meaning, inferred audio cue, LLM repair request or paid TTS.
+
+**Real read-only independent results:** Normal `rich_element_safe_prose_fallback.stage_section` against the original Serway 6.4 source+V5 checkpoint created external write-once `%LOCALAPPDATA%\\MicroGen_AI_Web_Checkpoints\\20261113_G2_SERWAY64_SAFE_PROSE_VERIFIED_7OF74_V1`: 14 slide responses and SHA-bound manifest; 7 of 74 prose-to-author visible text source links independently source/slide verified, **67 unresolved**. Second existing `rich_unresolved_model_queue.verified_fallback` entrypoint independently revalidated all 14 receipts and original SHA. Those 7 were among the already nonambiguous utterances: **none of the 41 previously ambiguous visual semantic mappings was cleared**. All 74 source narrations, existing academic review verdicts, real WAVs and original source/author PDF bytes preserved; **0 new Gemini, API/TTS or media calls**. No math, figure semantics, independent acoustic/utterance PCM or encoded synchronized video accepted. G2 remains `NOT_COMPLETE_WITH_NAMED_BLOCKERS`.
+
+**Recurrence and tests:** New `tests/test_rich_mapping_anchor_recovery_v6.py` covers two independent normal entrypoints and old/new physical anchor schemas; adversarial missing/forged panel, altered math row fragment hash, shifted figure rectangle and unsupported visual kinds all stop before acceptance. Authentic Dell-only test verifies all 14 source slides and prohibits Gemini or TTS calls. Existing mapping, caption, physical math row, independent safe prose, unresolved-only queue and rich model dispatcher tests together **59 PASSED** locally; no failures. A failure-to-fix entry `MG-RICH-PANEL-REVIEW-BRIDGE-V6` is in the shared ledger for future source-agnostic automatic recovery.
+
+**Closure rule:** An exact-head GitHub Windows reliability and source-adjacent CI PASS is necessary to mark the *bridge engineering blocker only* `PASS_VERIFIED`. Strong original math/citation consensus, 41 semantic ambiguities, genuine utterance-level recorded PCM/phonetic QA and decoded video/pixel sample sync still block G2. Continue only by introducing distinct independent evidence; do not reinterpret a 7-source-prose-link baseline as a publication-ready lecture. PR stays draft and unmerged.
+
+---
+
+# 13 Nov 2026 — scoped G2 engineering closure: permanent quote-recovery and all-claimed stop
+
+**Exact-head acceptance for earlier iteration:** `d15f580d7518b91850cf5718776c89ff2dbdeeb1` in draft PR #528 passed BOTH hosted GitHub Windows workflows, reliability `43376168081` (full offline + historical regressions) and source-adjacent `43376168131`. That head proved the normal microbatch v3 source quotation refresh for long (more-than-two) original jobs. The underlying science G2 did not close.
+
+**Additional recurring entrypoint bypass reproduced before broader acceptance:** the actual `academic_review_model_failover.run` short-original-source path previously skipped `ensure_microbatch_dispatch` when original jobs contained only one or two units. Consequently the old frozen quote packet could survive even with the current source extractor implemented. Fixed in **the same shared normal campaign**: recognize any original v1/v2 source plan (not just large plans), verify its global source-SHA once-only ledger **before** accessing the Gemini UI, stop automatically with `ALL_ORIGINAL_SOURCE_REVIEW_UNITS_ALREADY_CLAIMED_NO_SEND` if no unclaimed units remain, otherwise produce a refreshed SHA-locked immutable microbatch v3 source packet using the existing current physically witnessed citation builder. Already refreshed v3 plans are left untouched. No separate one-off recovery script or source-specific special case is involved.
+
+**Strong local proof:** The actual Dell-115 normal source-review CLI on the original Serway 6.4 plan and immutable global claim index returned `previous_consumed_units_excluded=41`, `remaining_original_unclaimed_units=0`, `new_requests_attempted=0`, `G2_approved=false`, without any model preflight, original upload or Send. Cross-entrypoint source-free regressions additionally run the normal failover wrapper on a real synthetic source PDF with a stale one-unit quote packet, demand refreshed current source-witnessed content and verify it still stops before browser preflight when the same unit is globally claimed. Other no-resend, PDF SHA and academic model checks remain required. The unrelated, pre-existing uncommitted local `tests/test_tts_interactions_sdk_wire.py` modification is explicitly preserved and not included in this milestone.
+
+**Decision boundary:** Engineering closure for the quote-recovery family is `PASS_VERIFIED` at a **new frozen commit only after both exact-head hosted Windows workflows pass**; the old head `d15f580` success does not transfer to the additional short-entrypoint patch. A test pass does not authorize G2 content, pilot or release. G2 has zero legitimate unclaimed original review requests and retains `NOT_COMPLETE_WITH_NAMED_BLOCKERS`: unresolved original source academic reviews, remaining visual semantics/figure-to-target mapping ambiguity, missing independently accepted per-utterance acoustic/PCM cue evidence and verified decoded synchronized video. Do not repeat consumed original-source model calls, merge the draft PR, or publish content to learners.
+
+**Always-on developer rule:** automatic recovery must be part of normal pipeline execution, not depend on the owner repeatedly asking to fix the next blocker. The normal source-academic UI/campaign/code tests, old claim ledger and first-class failure-to-fix records are the permanent recurrence detector and remedy; no future prompt/manual diagnosis is necessary to invoke them.
+
+---
+
+# 13 Nov 2026 — v5.0 acceptance-and-closure checkpoint: stale source-quote plan repair
+
+**Project:** `tlyoon/MicroGen_AI_Web`, Windows/Selenium, Dell-115 only; draft [PR #528](https://github.com/tlyoon/MicroGen_AI_Web/pull/528), still open, unmerged. Apply `auto_cont_dev_prompt_v5.0.md`: acceptance and recurrence prevention before additional attempts. The prior PR head `afc82109194d5d6f7a9cf31481a27cf10516f437` has successful Windows reliability and publication CI; local Dell-115 additionally holds commit `0c609036b5fa303e93ebc09cdd498e5818dd3507` plus a pre-existing uncommitted SDK wire-test edit. Do not overwrite the latter. The new work will need **its own exact-head** CI before it may inherit any PASS.
+
+## Frozen G2 closure snapshot (original Serway 6.4)
+
+| Existing required gate | Status before new fix | Strongest independent evidence | Smallest legal next step / stop |
+| --- | --- | --- | --- |
+| Windows engineering regression baseline | `PASS_VERIFIED` at `afc8210`; new quote integration `NOT_VERIFIED` until exact-head CI | Both hosted Windows workflows complete/success at the older code head; microbatch quote recovery locally source-verified and regression-tested only | Run full exact-head Windows CI for the new revision; never transfer older-head success |
+| Academic/source mathematical acceptance | `FAIL_REPRODUCED` for last two, other unresolved units remain | 41 distinct changed-evidence original utterance claims consumed; last legitimate Gemini Pro/Medium two-unit response **0 SUPPORTED / 2 UNRESOLVED**; earlier 10 narrow drag-law equations individually proof-checked, not entire narration | **No further original changed-evidence model Send**: zero original IDs remain unclaimed. New evidence may be assembled read-only, but cannot convert old model findings into support without the project's independent source/science acceptance |
+| Accurate source citation packet delivered by normal short-job planner | `FAIL_REPRODUCED` at old v2 derived plan; new v3 remedy pending exact-head CI | Real read-only same source/slides/script SHA: old page-4 parachute citations differ from current extractor's source-witnessed page-5 evidence; shared `academic_source_microbatch` previously skipped fresh quote extraction | Verify v3 rebind in full CI and on genuine *future unclaimed* material only; do not rerun already consumed utterances |
+| Figure-to-source and element visual semantics | `NOT_VERIFIED` for complete series | 41 previously reported mapping ambiguities; verified physical figure panels and math rows cover only scoped regions | Independently resolve remaining semantic ambiguity without fabricated target IDs or pretending visual similarity equals academic proof |
+| Utterance-accurate audio and source-synchronized video | `NOT_VERIFIED` | 14 original slide PCM WAVs, 833.471 s total, have integrity checks; no independently accepted per-element alignment, phonetic QA or full decoded highlight/MP4 synchronization | Real utterance-bound PCM, independent acoustic and decoded AV evidence only after source gate; no paid TTS or video generation on unresolved science |
+| G3 merge, release, learner publication | `NOT_AUTHORIZED` | Draft PR #528 unmerged; no completed original lecture or student publication receipt | Do not merge, publish or bypass separate final authorization |
+
+**Root incident and mandatory normal-path recurrence cure:** `MG-G2-STALE-QUOTE-PACKET-20261113`. The most recent authentic original source review actually returned a coherent full Gemini reply, but the archived microbatch prompt used **outdated source-quote candidates** despite a newer source-verified extractor already existing. This is a *wiring defect*, not another provider outage or scientific acceptance failure. `academic_source_microbatch.unclaimed_microbatch_plan` now rebuilds current original-SHA-locked candidates only for globally unclaimed units, replaces only the derived unsent quote packet, and writes a v3 immutable prompt plus before/after quote hashes. `source_review_autonomous_campaign._assert_job` still checks exact original source, slide, script and prompt SHA; global source-claim enumeration runs **before** any candidate refresh. The source-specific review result, old frozen plan, and original files are never rewritten. The generic `ai_academic_web_review.build_review_job` path already uses the same shared current extractor. The repair is integrated in the *actual* `academic_review_model_failover -> ensure_microbatch_dispatch -> source_review_autonomous_campaign` route, not a diagnostic-only script.
+
+**Independent fault injection:** a synthetic real PDF with a valid but unhelpful frozen quote must acquire the current physically witnessed relevant passage through **the normal versioned microbatch entrypoint**, while preserving all original bytes and SHA; pre-consumed unit claims skip quote rebuilding completely; changed source files and forged rebuilt source identity stop before any dispatch. The earlier model/response-health circuitry and no-resend limits are preserved. **No acceptance verdict or publication permission is granted by a better quote.**
+
+**Next eligible operation:** complete exact-head CI for the integrated engineering repair and freeze the engineering-scope result. After that, source-related content evidence may be inspected offline without replaying consumed original jobs. Once no further legal scientific evidence can advance G2, report `NOT_COMPLETE_WITH_NAMED_BLOCKERS` (or `BLOCKED_EXTERNAL` where applicable) instead of generating redundant tasks.
+
+---
+
+# 13 Nov 2026 — G2 response-health latching and automatic source-free requalification (Dell-115)
+
+**Owner rule remains binding:** "automatic recovery must be part of normal pipeline execution, not depend on you repeatedly asking me to fix the next blocker." The update belongs to the actual source-academic `source_review_autonomous_campaign -> academic_review_model_failover.run -> academic_review_transport_circuit.inspect` execution path, not a demonstration-only utility.
+
+**Historical recurring bug and verified fix:** Two original, immutable Serway 6.4 source review Pro/Medium Sends remained `SUBMITTED_OR_UNCERTAIN` without accepted full replies. The previous finite transport circuit forgot their existence after 3600 seconds and reopened source requests on a clock alone. The new `academic_review_transport_circuit` retains SHA-proved original failures across sessions; it blocks new source Sends until independently verified response evidence after the latest failure. After the finite cooldown, it automatically runs exactly one new source-free model/Medium nonce probe via `academic_provider_requalification.probe_once`, claims its own prompt SHA before sending, validates a registered owned Gemini response with strict duplicate-key-free JSON, and caches the verified proof in an immutable source/model/day ledger. Missing/uncertain synthetic replies cannot trigger another model Send that day; original source claims remain non-replayable.
+
+**Genuine Dell-115 live evidence at 13:06 Malaysia time:** exact owned Gemini `Pro / Medium` preflight PASS, one synthetic (NO textbook, no attachments or TTS) new user-turn registered, complete source-free JSON reply matched the original daily nonce, and the circuit progressed from `ACADEMIC_GEMINI_SOURCE_FREE_REQUALIFICATION_REQUIRED` to `ACADEMIC_GEMINI_REQUALIFIED_NEW_SOURCE_SEND_ALLOWED`. The original two no-accepted-response receipts remained present; `old_request_retry_authorized=false`, `G2_approved=false`. External receipts under `%LOCALAPPDATA%\\MicroGen_AI_Web_Checkpoints\\.microgen_academic_response_requalification\\<source SHA>\\pro\\20261113`, plus `20261113_G2_SOURCE_FREE_REQUALIFICATION_ONE_SHOT_V1.json`. This proves an attributable *short synthetic* Gemini reply, **not** source-sized long original academic review capability.
+
+**Current original source queue:** 39 original Serway 6.4 changed-evidence utterances were already claimed; exactly two untouched original IDs remain: `s014.utterance.003` and `s014.utterance.004`. The normal recovered campaign caps all subsequent invocations to **one** original source job, even when a CLI budget requests more, and does not re-use previously attempted units. New genuine original source review may only run after actual strong source SHA/quote validator gates; it is not an automatic G2 success. Historical 28 initial supported, 44 unresolved and 2 invalid citations and 41 visual ambiguities remain not fully accepted.
+
+**Evidence and next milestone:** 70 local regression tests passed across new health, existing source review, model-selection and one-Send suites. The previous PR #528 exact-head `19bd0bb` has BOTH hosted Windows CI workflows successful. New health code is pending a new exact-head commit and hosted CI at the time this checkpoint was written; update after committing. Complete G2 independent source/math, per-utterance PCM/acoustic and sample-synchronized decoded MP4 gates remain blocked. No source PDF/audio/video edits, protected merge, API provider fallback, or student YouTube release.
+
+**Development deliverables:** `selenium_pipeline/academic_provider_requalification.py`, revised `academic_review_transport_circuit.py`, `academic_review_model_failover.py`, tests `test_academic_provider_requalification.py` and `test_academic_requalification_normal_pipeline.py`, updated transport circuit tests, `docs/G2_SOURCE_FREE_AUTOMATIC_GEMINI_RESPONSE_REQUALIFICATION_20261113.md`, and `docs/FAILURE_TO_FIX_LEDGER_LATEST.md`. Reuse them automatically in all future response-health-blocked source campaigns instead of waiting for owner instructions.
+
+---
+
+# 13 Nov 2026 — Full historical Windows CI reconciliation after adaptive Gemini selector (Dell-115)
+
+**Reference branch:** `feature/pr528-autonomous-ai-lecture-acceptance`, draft PR #528. Last fetched failing commit `11671d430fc862a3b9b64a58fee5c264ac4d04fa` (the new commit is always resolved from `git rev-parse HEAD`; never infer it from this historical heading). Publication regression CI `43364764906` PASS; exact-head full Windows reliability CI `43364764915` FAIL at its first test after 449 PASS/20 skips. The older `1fd2099` Windows reliability CI `43360528743` also failed after 827 PASS. **Neither failed workflow may be reported as successful.**
+
+**Reusable fix and evidence:** The latest owner's normal-pipeline adaptive UI protocol correctly makes Lite->full Flash/Pro figure fallback require verified Thinking; the obsolete November 11 `test_figure_caption_flash_lite_policy` expected outright refusal and is updated to the binding v4.1 semantics. The old synthetic G1 transport mock expected a raw `GeminiModelError`, but real current `prepare_with_bounded_retries` uses a typed `GeminiSeleniumTemporaryFailure` with the wrong-family raw error preserved as `__cause__`, zero provider Send and at most three discarded pre-Send windows. That fixture now asserts the true normal-path outcome. Dell-115's non-isolated Python has legacy `google-genai 1.4.0`; two tests of independent watchdog/client-constructor behavior now stub only their modern-SDK entrypoint/types, rather than lowering the actual `google-genai >=2.25,<3` production TTS gate or altering host SDK installation. All four amended modules **39 tests passed**. The complete Dell-115 suite previously stopped after 1,227 passed on the second host-only SDK fixture; subsequent exact-head full Windows CI (modern pinned SDK) is the acceptance authority and must be verified.
+
+**Generalization:** The full historical and Stage 3 Windows test suite must be reviewed after changing stage contract, model/effort controls, or typed Selenium exception recovery. Previously accepted test expectations are not authoritative over a later binding owner amendment; update historical assertions to test actual new invariant, without weakening source, thinking, immutable one-Send, acoustic or release checks. Document CI failure classification and reuse in `docs/FAILURE_TO_FIX_LEDGER_LATEST.md`. No model request/old Serway source claim/API TTS/video regeneration in this remediation.
+
+**G2 status:** Not closed. Existing source-academic provider-health circuit and all original attempted-unit claims remain unchanged. Remaining original utterance source review, unresolved figure/element mapping, independently checked utterance PCM/audio and source-synchronized decoded MP4 are not approved. PR still draft; no protected merge or student publication.
+
+---
+
+# 13 Nov 2026 — Gemini UI adaptive model/effort protocol v2, normal-path recovery and binding contract v4.1 (Dell-115)
+
+**Goal, permanent owner instruction:** "automatic recovery must be part of normal pipeline execution, not depend on you repeatedly asking me to fix the next blocker." The exact statement is now a top-level binding condition in `docs/BINDING_CLOSURE_FIRST_DEVELOPMENT_CONTRACT_20261107.md` version 4.1, `docs/AUTONOMOUS_DEVELOPMENT_PROTOCOL_20261018.md` and the shared UI contract. A one-off script/manual model click does NOT count as future code-development completion; every repeated blocker requires a source-wide reusable normal runner/worker remedy, regression, real runtime witness when possible and immutable failure-to-fix ledger entry.
+
+**Histories reused:** The existing atomic owned-picker snapshot, checked Thinking radio, Flash-Lite figure/no-effort distinction, Flash/Medium lecture preference, Pro/Medium source-academic fallback, one-Send source claim and post-Send provider circuit. Dell-115 remains the sole machine authorized for this MicroGen_AI_Web implementation.
+
+**New implementation:** `selenium_pipeline/gemini_ui_adaptive_protocol.py` decides stage-aware compatible family and non-downgrading level only from actual visible named options. `selenium_pipeline/gemini_ui_semantic_controls.py` snapshots accessible controls once, including open Shadow DOM, with selected/disabled state and no page body/editor content. The shared `gemini_model` and `gemini_thinking` expose canonical bounded pre-Send recovery wrappers, called by normal `vendor_template_v2/selenium.py::open_clean_gemini_chat` both before/after New chat, then checked before exact one-Send in `series_gemini._browser_request`. Full Flash remains preferred for slides/narration/academic; figure caption preferred Lite remains, with Flash or verified Pro if missing, the latter requiring verified Medium or non-downgraded High. Unknown Hydrogen/Argon/Carbon, mixed labels, ambiguous/foreign tabs, disabled/unknown options or missing checked Thinking may never silently pass. An explicitly requested Pro benchmark is not silently substituted. `windows_gemini_stage_transport_triage` now recognizes a genuine fallback only with timestamped worker model-offered/selected and effort-offered/selected proof via `gemini_ui_stage_route_witness`, guarding against false wrong-model classification of an otherwise authenticated Pro fallback.
+
+**Genuine current UI evidence:** Real owned Gemini no-Send trial on Dell-115 attached to 9222 under authenticated existing account. The default requested Flash was absent in the current menu; the normal vendor selected Pro, verified Medium after fresh chat and returned `EXACT_OWNED_MODEL_AND_EFFORT_READY_NO_SEND`. No prompts, source files, generation Send, API, TTS or student releases; this is a picker/effect acceptance only, NOT independent full lecture/G2 academic scientific acceptance. Evidence: `%LOCALAPPDATA%\\MicroGen_AI_Web_Checkpoints\\20261113_GEMINI_UI_ADAPTIVE_V2_NO_SEND_result.json`. New source-free regression fixtures: `tests/test_gemini_ui_protocol_v2.py` and `tests/test_gemini_ui_stage_route_witness_v2.py`. Full targeted Dell test run: **160 passed**, zero failures; Python compilation/`git diff --check` passed (preexisting vendor invalid-escape warning only).
+
+**Next legitimate steps:** Save changes on draft PR #528 with exact new commit and hosted Windows CI; do not merge/proclaim G2 on CI alone. The existing source academic Pro provider health circuit was previously suspended after two separate no-accepted-response Sends; never repeat those consumed original prompts. No accepted source-bound per-utterance speech or full decoded synchronized video yet. Proceed with independent unaffected code-development milestones, not a Serway per-PDF loop.
+
+---
+
+# 13 Nov 2026 — G2 academic-model removal, owned-tab recovery, immutable short jobs and transport-health suspension (Dell-115)
+
+**Source/repository identity:** `tlyoon/MicroGen_AI_Web`, stacked draft PR #528, original Serway 6.4 source SHA `64b748468e6bdb12ddb127f1d8bea90a7f3f63d270fbb5378ba1d3ddeeb955fd`. Dell-115 only. All original textbook and accepted author PDFs/scripts, 14 slide WAVs and old challenge replies remain unchanged. No merge, public/student media or new audio/video has been authorized.
+
+**Verified recurring failure and reusable code correction:** Both authenticated Gemini account A (9222) and existing B (9225) offered no Flash family. `academic_gemini_presend_preflight` detected the concrete absent UI capability before Send. A new `academic_review_model_failover` route permits only source-academic Pro+Medium on the exact owned tab, with source-locked immutable route receipts and restored stage-model environment. The normal `series_gemini._browser_request` no longer calls parent-tab `ensure_mode` after establishing an owned chat, and does not falsely compare Pro to the Flash default model-ID. The original `source_review_autonomous_campaign` CLI uses this normal-path recovery. `academic_review_checkpoint` recognizes typed, durable `CERTIFIED_PRESEND_UNSENT` only, with bounded recovery and intact original source claims; uncertain post-Send requests remain permanently consumed.
+
+**Real generation and exception evidence:** One previously unattempted nine-unit Serway slide11–13 Pro+Medium job initially certified no-Send on picker failure. After the shared transport fix, the SAME request window verified the model, uploaded both source PDFs and registered one user turn; Gemini returned only one of nine required JSON review rows (UNRESOLVED). Raw untrusted partial reply SHA `f946bce5ea814caf6837f538023c9fa12d0d68c7572bbe04a182de0468190f37` was quarantined, never accepted or resent. Reusing the historical six-job plan with new two-unit prompts initially surfaced the actual v1 sorted-key serialization defect before Send; the v2 `academic_source_microbatch` rebuilds source/target/quote-bound <=2-unit jobs from only globally unclaimed original IDs, writes immutable new plans without key reordering, and rechecks exact request SHA AFTER disk reload. One real v2 two-unit slide14 Pro+Medium request uploaded both original PDFs, registered one user turn, then yielded no owned attributable model response; it was preserved as `SUBMITTED_OR_UNCERTAIN` without retry. Exactly **39 of 41** changed-source units are now claimed (NOT 39 academically approved), and **2** remain unattempted.
+
+**Automatic recurrence prevention:** `academic_review_transport_circuit` independently rechecks source SHA, model route, two distinct original request claim files and unchanged failed-response states. After two recent no-accepted-reply attempts, the ordinary academic CLI returned `ACADEMIC_GEMINI_RESPONSES_TEMPORARILY_SUSPENDED` with exactly 0 new Sends and no browser contact. This is a finite source/model-specific halt, **not** proof of Gemini server outage; it does not override original academic approval. The previous long source-review jobs, old no-repeat claims and rejected v1 plan are frozen.
+
+**Tests and gates:** Dell-115 targeted regressions **105 passed, 2 skipped**, including actual shared transport ownership, atomic picker, short source claims, no-duplicate model requests, source quotation, independent mathematical and true element synchronization guards. No reported G2 pass: the original 28 initial AI-supported / 44 unresolved / 2 invalid-citation review baseline is not replaced; 41 mapping ambiguities and no accepted source-bound per-utterance PCM, independent acoustic verification or decoded synchronous video remain. G2/G3, model-produced content acceptance and student/public release remain blocked. Detail: `docs/G2_SCOPED_GEMINI_MODEL_FAILOVER_AND_MICROBATCH_20261113.md`; real external evidence under `%LOCALAPPDATA%\\MicroGen_AI_Web_Checkpoints`. The new commit and exact-head hosted CI must be established before declaring the engineering changes merged.
+
+**Next legitimate work:** After a later independently healthy provider route, only the two still-unattempted slide14 units are eligible for a new review, with circuit and source/claim checks. Recover accepted original model replies without Send, reconcile mathematical/figure mappings, obtain real per-utterance source-bound speech/audio, and verify decoded sample-synchronized highlighted MP4 parts (<600s) before G2. No PDF-perfection loop.
+
+---
+
+# 13 Nov 2026 — G2 normal-pipeline cached-math upgrade and original equation-row reuse (Dell-115)
+
+**Exact recurring defect:** The previous automatic SymPy source checker ran only when `script_qa` executed afresh. Completed lecture trees already had accepted SHA-bound legacy `math_semantic_report.json` and model-stamped `script_qa` checkpoints, so on ordinary resume the runner skipped the improved proof forever; rerunning that old stage risked overwriting accepted QA and regenerating expensive downstream audio. The historical `element_plan_autodraft` also listed 12 physical equation-group targets but did not consume their existing independent source-byte verification. An initial naive addition of the 11 verifiable groups caused duplicate target identities and raised ambiguity 41→42, reproduced and permanently fixed.
+
+**Committed generalizable resolution:** The reusable `independent_math_checkpoint.ensure` is executed by **normal `runner._execute_unlocked` for all script_qa, TTS and TTS-QA attempts** (including previously accepted cached stages) and by **`full_pipeline_video_handoff.complete_from_published`** for direct new/previous element-audio video resumes when the original script exists. It version-binds source.pdf and script.txt SHA-256 to one append-only, source-external proof checkpoint under `%LOCALAPPDATA%\\MicroGen_AI_Web_Checkpoints\\_source_math_gate`. It independently rechecks source identity, local 10-law positive-domain SymPy proof when applicable, persisted proof SHA, manifest revision and explicit false publication/audio approval bits; never touches accepted old QA reports or source files, never opens a browser, never dispatches TTS. A corrupt prior proof is quarantined/fail-closed, a changed source creates a distinct new fingerprint; an invalid checkpoint destination is rejected *before* mkdir; a competing worker cannot claim it created another worker's proof. Unrelated textbook topics get a nonapplicable receipt instead of an invented physics assessment.
+
+The historical rich visual planner now enriches **existing** math-row IDs using `verified_slide_visual_candidates.composite_math_targets` and exact original glyph hashes; it does NOT append duplicate rows. The `stable_recommendations` ranking excludes mathematical groups without verified source fragment hashes, excludes any group with false proof/approval, and deduplicates a group when its matching evidence is already represented by a constituent visible text block. Verified math-row candidates are **review hints only**, never proof of original-textbook equation glyph semantics or permission for paid TTS. `MAPPING_DETECTOR_REVISION=5`, so the old v4 saved worklist remains untouched but a source-hash pinned v5 candidate inventory is built exactly once and reused without repeats.
+
+**Real original Serway 6.4 results:** All 3 of the latest hosted Windows jobs passed on preceding HEAD `17abdc8`; new exact-HEAD CI is required separately. An isolated *real native* `runner._execute_unlocked` on full copied original Serway 6.4 `source.pdf`, `slides.pdf`, `script.txt`, accepted math QA and original source stage-state successfully reused cached `script_qa` twice; output said `REUSED_IMMUTABLE_SOURCE_MATH_PROOF`, and verified 12 frozen original author assets unchanged. A separate first-run proof created `source_math_bfb8d8da3993f6c7bc8c94a0db18` and the second call reused the identical proof SHA `4f7b76b65458dff6ffb3556f8a3ab21d80f7837ba665439897a11cc4107bf159`; original source/math old report/state files remained byte-identical. Source math is **10 independently proven analytically valid drag laws, not blanket textbook/narration approval**. The upgraded v5 complete-deck rich mapping offers **74 original utterances, 120 distinct targets, 12 physical math row candidates, 11 independently source-verified rows, 3 genuinely captioned slide-6 panels, 41 residual review ambiguities**, and retains the one unsupported physical row as unapproved. Running v5 twice demonstrated exact SHA-identical recovery of all existing checkpoint files, zero Gemini or TTS calls, and the original PDF/script/QA unchanged. Real report root: `%LOCALAPPDATA%\\MicroGen_AI_Web_Checkpoints\\20261113_G2_RICH_MATH_RECOVERY_CHECKPOINT_V5`; isolated full native runner evidence: `...\\20261113_G2_NATIVE_SCRIPT_QA_RESUME_V1`.
+
+**Downstream independently checked:** All 14 original routine slide WAVs passed signal/PCM QA, 833.471 s total, but this **does not establish independent phonetic listening, precise word/utterance boundaries or element-linked audio**. The frozen original scientific source ledger still has 28 initial model-supported / 44 unresolved after second review / 2 originally invalid citation rows; genuine later two third-pass batches (2 + 10 units) returned unresolved. `element_tts_safe_handoff.preflight` remains `ELEMENT_TTS_BLOCKED_SOURCE_MAPPING_UNVERIFIED`, and `true_element_sync_release_gate.inspect` remains `ELEMENT_SYNC_RELEASE_BLOCKED_NO_SOURCE_BOUND_AUDIO` for 74 utterances. G2/G3/student publication remain **not authorized**; no unsupported 'successful' math, acoustic or visual-semantic judgement, synthesized WAV, generated MP4, model send, upload or merge.
+
+**Verification:** Focused integration **25/25** passed, including source tamper, script change, exact cached native runner reuse, independent video-only route, corrupt-proof rejection, unsafe-path/no mkdir and original Serway. Broad cross-path set before equation enrichment **115 passed / 2 skipped / 10 subtests**. Updated equation enrichment source/old QA regressions **54/54 passed**, followed by real dual run v5 checkpoint. The new final exact-head hosted Windows CI will be reported only when actual checks pass.
+
+---
+
+# Prior G2 on-flight source panel and mathematical recovery, Dell-115
+
+The **normal** pipeline now reuses previous source-geometry, ORB/AKAZE detector, rendered-bitmap and source-caption safeguards for figures with clearly printed original panel marker boxes and separate caption meanings. The general `source_caption_panel_registration` engine requires a unique publisher Figure caption with consecutive (a)/(b)/(c), unique printed vector box+rule markers, one actual registered slide bitmap, unobscured learner-visible image pixels, two independent agreeing registration transforms, inlier support for **every** panel, and observed pixel correspondence in each panel. It reports unambiguous caption meaning and original source/slide PDF panel rectangles only. Other figure layouts remain unresolved rather than assigned guessed equal-width bins. The `captioned_panel_target_router` is connected to BOTH the normal `incremental_element_candidate_map` + its `source_grounded_element_hints` re-verification and the historical `element_plan_autodraft.propose` rich element review worklist. `stable_recommendations` can rank explicitly named panels from original narration against only those SHA-bound candidates, without granting academic or acoustic approval. Existing rich-source mapping checkpoint detector version advanced to **4**, automatically superseding legacy v3 worklists for the same inputs. Repeated v4 invocations reuse the exact immutable worklist, not regenerate it. All source hashes/slide image MD5/actual pixel overlays are independently rechecked; injection tests show that a visible white overlay is rejected.
+
+The *real* original Serway 6.4 source PDF page 2, lecture slide 6 and original narration were used: **Figure 6.12 (a) sphere falling in liquid; (b) motion diagram with red velocity and purple acceleration vectors; (c) speed-time graph.** The three captions were independently read from the original publisher PDF. ORB: **241 source-to-slide RANSAC inliers**, AKAZE: **112 inliers**, RGB-within-12 agreement **0.96635**, each panel independently matched and ordered. Original slide bitmap is compared to separately rendered unobscured image-only reference. All 74 original utterances and 3 new selectable source-verified panel candidates pass the ordinary source-grounded worklist; legacy rich proposal has 120 targets and **41 lexical/semantic ambiguities remain**. Panel evidence is **not** broad academic physics approval or TTS/video permission. Frozen real evidence in `%LOCALAPPDATA%\\MicroGen_AI_Web_Checkpoints\\20261113_G2_RICH_SOURCE_PANEL_CHECKPOINT_V4`.
+
+The **normal runner `script_qa`** invokes `automatic_math_semantic_qa` which now calls `source_physics_drag_symbolic_qa` against the immutable original source and narration. This recycles SymPy to prove **10 exact linear/quadratic drag analytical identities** under positive parameter conditions and computes independent examples: oil `tau = 0.005102040816 s`, `t90 = 0.01174788313 s`, `1-exp(-1) = 0.63212056`, and 145g baseball drag `1.241964759 N`. An unrelated source returns not-applicable. These checks are strictly a narrow analytical *witness*; they cannot replace original PDF formula glyph, entire narration academic review or LLM claim approval.
+
+**Verified automatic blockers:** `automatic_element_narration.inspect_text_only` correctly denies this rich lecture because it has actual graphics, and the normal `true_element_sync_release_gate` reports `ELEMENT_SYNC_RELEASE_BLOCKED_NO_SOURCE_BOUND_AUDIO` for all **74** original utterances. Historical per-slide WAVs do not establish real utterance WAVs or independent acoustic fidelity. The new machine evidence automatically advances panel/algorithmic math selection but cannot safely create 74 sample clocks or certify spoken-element timing. No new paid TTS, local model, ASR, published MP4 or G2 approval was invented. Historical audio recovery path remains available for defective verified PCM when genuinely dispatched through existing TTS QA; generation of distinct element WAVs remains dependent on a complete independently supported speech-to-visible-anchor plan.
+
+**Regression evidence:** 71 passed / 2 skipped in Dell-115 focused panel, academic target, historical rich mapper, mathematical QA, audio-preflight and element-sync-gate tests. New source-real and adversarial tests include missing publisher caption/labels, forged panel source MD5, slide raster overlay, no panels on unrelated slides, exact caption semantics, distinct physical region registration and symbolic analytic identities. The code is implemented in normal-path source modules, not only in an acceptance report. Publish/G3 remain blocked until source science, genuine element PCM and encoded synchronized highlights pass independently.
+
+---
+
+# Latest G2 advancement — source-section/exemplar retrieval + self-resuming, one-send academic review campaign (12 Nov 2026, Dell-115)
+
+**Verified recurring root causes and permanent source recovery:** A real 2-utterance owned Gemini Flash Medium review at `%LOCALAPPDATA%\\MicroGen_AI_Web_Checkpoints\\20261112_SERWAY64_G2_SOURCE_VISUAL_REVIEW_JOB02_ONCE` had correctly returned **2 UNRESOLVED** because its physically witnessed citation candidates used the wrong PDF passages (Example 6.10 baseball and introduction to `dv/dt`) rather than the actual release-from-rest and terminal-speed derivation. The shared `source_verified_quote_candidates` now uses **actual numbered Model-1/2 physical textbook headings**, claim-token and ordered-phrase coverage, two spatially diversified verified excerpts (with original one-region shorter-quote compatibility), and **physical numbered Example 6.8/6.9/6.10 boundaries** from original PDF headings whenever unambiguous. No user PDF or narration is altered and no quotation is rewritten, invented, or auto-approved. Exact original-PDF quote SHA/page proofs remain mandatory. Verified original Serway 6.4 source contains Model 1 from PDF page 2 to page 4 before Model 2, and Example 6.8 from PDF page 3 into page 4 before Example 6.9 begins on page 5. The formerly unsupported `s005.utterance.001` now has a literal source-page-3 description of initial acceleration equal to `g`, and `s005.utterance.003` has the literal source-page-3 instruction to set `dv/dt=0`. Slide 7 Example 6.8 calculations now cite only source PDF pages **3 or 4**, never the unrelated skysurfer Example 6.9 on page 5. These are **retrieval corrections, not source claim proof**.
+
+**Next priority implemented inside ordinary academic-review path:** `g2_changed_evidence_review` is an input-SHA and both prior owned-model-replies-locked planner selecting **only** currently unresolved utterances whose physically witnessed citation or PDF target evidence changed. `source_review_autonomous_campaign` reconnects this to the existing `academic_review_checkpoint.prepare/submit_once` and **normal** `ai_academic_web_review.run_web_review`. The runner validates original source/slide/script hashes, exact intended request SHA, entire original unit inventory and source quote whitelist; atomically journals source-bound unit claims before any browser Send; runs only the configured bounded jobs; persists validated Gemini replies; resumes from previously stored exact model bytes after a crash with **no duplicate Send**; imports earlier genuine owned model replies across Windows checkpoint migrations; skips already attempted/uncertain/rejected source unit IDs; and proceeds to the next still-eligible academic job without ever granting G2/G3, academic certainty, element TTS, or public release. Configurable max new jobs is **0–6**, default 2. A malformed quote or uncertain browser response must **stop without a repeated paid/browser request**. This does NOT pretend the AI can resolve every scientifically ambiguous figure, source contradiction or element timing by retry.
+
+**Real acceptance/campaign evidence:** Full original 74-utterance source review and second completed Gemini challenge remain immutable (**28 model-supported, 44 unresolved, 2 invalid source citations**). Changed-source+real-target planner rebuilt all six jobs on Dell-115, with exactly 44 physically changed eligible original unresolved claims before no-repeat filtering. A third-pass real two-unit job originally returned **0 supported / 2 unresolved**, and its original raw Gemini reply was successfully imported into the new campaign's **no-repeat unit ledger**. A *different*, unattempted slide 6–7 10-unit job was then genuinely dispatched to an authenticated Gemini Flash Medium tab using the verified `source.pdf` and `slides.pdf`, and its captured response passed the exact source-identity and JSON validator: **0 supported / 10 unresolved**. For Figure 6.12 panel (a/b/c), the model explicitly refused to infer precise internal panel geometry from the registered whole image; for Example 6.8, it identified old source candidates erroneously selected from the skysurfer Example 6.9. This was the evidence driving the new generic numbered-example retrieval safeguard, **not** a justification to replay the consumed job. New campaign root: `%LOCALAPPDATA%\\MicroGen_AI_Web_Checkpoints\\20261112_SERWAY64_G2_AUTONOMOUS_SOURCE_CAMPAIGN_V2`; its `job_03_checkpoint` status is `SOURCE_VALIDATED_ONE_PASS_UNAPPROVED` and its SHA-locked validated `job_03_result.json` has 10 `UNRESOLVED` rows.
+
+**Cross-session anti-repeat hardening:** All original-utterance claims are additionally written *before Send* to `%LOCALAPPDATA%\\MicroGen_AI_Web_Checkpoints\\.microgen_academic_source_once\\<source SHA256>` (when the work root is in the checkpoint directory). Both the shared source index and per-run root are reverified; another chat, different filename, or new review folder cannot re-submit any claimed original utterance. A process crash between shared and local claims can automatically roll forward only if the exact same owned academic checkpoint proves `PREPARED_NOT_SENT`; uncertain and rejected replies remain no-resend. The two-claim prior Gemini review and ten-claim new Serway slide6/7 review were independently validated and backfilled into the global index (**12 consumed original units**). A read-only rehearsal then automatically skipped the old two-claim request and recovered the 10-claim saved result without a model call. No source/slide/script/WAV modification.
+
+**Tests:** 40/40 local new-source, no-repeat campaign, PDF quote witness, longstanding academic two-pass consensus and physical visual-target tests passed; subsequently 8/8 focused shared-global/no-repeat/crash recovery tests passed, including newly created checkpoint folders. Additional automatic-campaign regression exercises successful fake owned Gemini response, exact SHA revalidation with no second Send, ambiguous timeout with no resend, rejected fabricated math quotation with no reattempt, a migrated/previous real-format reviewed source claim, original source drift, changed-prompt forgery. Source-span regression proves genuine Serway 6.4 Model 1 and Example 6.8 source pages, verifies the exact 0.632/terminal reasoning citation candidates, and protects legacy source quote subspan compatibility. Hosted full Windows CI at final commit remains necessary.
+
+**G2 closeout remains BLOCKED:** The new full original source campaign is NOT mathematically or academically accepted, individual Figure 6.12 panel meanings/bboxes are not automatically verified, no source-bound genuine utterance WAV chunks exist, independent speech/voice recognition and sample-accurate element highlighting remain incomplete. The old 14 slide WAVs pass technical signal QA but are NOT element WAVs; no merge, public student release, YouTube upload or G3.
+
+---
+
+# Prior G2 unblocker — registered figure and composite equation choices in *normal academic review* (12 Nov 2026, Dell-115)
+
+**Cross-workflow defect:** `incremental_element_candidate_map.candidate_map` historically returned **only physical text blocks** even when original slides displayed real embedded illustration rasters or mathematical equations split across multiple Beamer text objects. The normal academic reviewer (`ai_academic_web_review.build_review_job`) therefore had **no selectable physical figure target for Figure 6.12 on slide 6**, and old saved answers commonly had `target_id=null` for multi-panel and math utterances. Merely expanding source citations or repeating Gemini cannot fix a target that is absent from the request.
+
+**Reusable implementation:** Added `selenium_pipeline.verified_slide_visual_candidates`: physical, directly reverified `registered_raster_targets` (genuine one-placement unmasked PDF images with exact xref, MD5 decoded-image digest, native dimensions, actual slide bbox) and `composite_math_targets` (existing source-byte-locked 2–8 Beamer text-block mathematical row geometry). The **ordinary** `candidate_map` adds them while preserving existing text IDs and conservative lexical target ranking. The **ordinary** `source_grounded_element_hints.source_evidence_worklist` now independently recomputes and rejects forged image hash, bbox, type, changed visible text, false figure approval flag and original math-row anchor. No raster OCR, panel-boundary guessing, lexical-as-semantic acceptance or automatic TTS authorization is introduced.
+
+**Real Dell acceptance:** All **74** original Serway 6.4 utterances survive candidate and source-grounded worklist reconstruction; normal review now sees **106 source-bound text targets + 11 grouped mathematical-expression targets + 3 real figure-image targets**, with figure regions physically present on slides **6, 9 and 11**. A newly reconstructed slide-6/7 academic job has **14 utterances**, now lists `s006.figure.001` and two anchored slide-7 math rows, and remains **one-pass unapproved**. This fixes the root missing-visual-choice issue, **not** the semantic identity of panel (a)/(b)/(c). External QA inventory from the previous G2 closeout still reports **44 unresolved academic claims, 2 invalid citations, no accepted element PCM or aligned production review**, and zero additional model/TTS calls for this engineering step.
+
+**Verification:** New `tests/test_verified_slide_visual_candidates.py` covers true image registration, immutable/source-shaped physical geometry, rejected fake MD5/bbox/semantic flag, empty-image case and genuine Serway review/hint reconstruction. Existing cross-path source and prior-content regression tests are retained. Fresh exact-head hosted Windows CI must pass before claiming engineering closure. Original source PDFs, source scripts, WAVs and old frozen model review receipts were not edited.
+
+**G2 disposition: STILL BLOCKED** until a genuinely new and independently source-validated semantic review checks those formerly unavailable visible candidates, full scientific and figure/panel truth is established, and real per-element source-bound TTS with sample-level speech-to-highlight synchronization is independently accepted. No merge, student publication or G3.
+
+---
+
+# Prior G2 acceptance advancement — source-section carryover suppression and extended physical proof (12 Nov 2026, Dell-115)
+
+**Real diagnosis and structural remedy:** The genuine Serway 6.4 first source PDF page carries **unrelated Section 6.3 smartphone/teacup text above the actual 6.4 heading at y=509.4 pt**. The old physically source-verified citation selector sometimes chose these unrelated lines. It also surfaced publisher website/assessment navigation instead of physics. A second independent challenge therefore reported many source-grounding claims as `UNRESOLVED` despite genuine source content elsewhere. **The common mechanism is fixed at source retrieval, not by re-sending previously completed Gemini prompts or loosening mathematical approval.** `source_verified_quote_candidates._section_scope_first_page` uses the exact numeric subchapter identity **only when it matches a physically present, unambiguous first-page section heading**; it then excludes preceding-section carryover from the *retrieval catalog* (not from the original PDF). Non-numeric source folder or ambiguous/missing section title preserves the original full-page behavior. Generic assessment/navigation boilerplate is not ranked as scientific content. Exact PDF-page+text quote witness and per-source file SHA remain mandatory. Physical source lines may now be grouped into **contiguous 2–5-line same-text-block, bounded 460-character alternatives** so claims spanning several sentence lines have a chance at real source context. No quote or physical section extraction alone certifies mathematical correctness.
+
+**Measured original G2 source evidence:** Full immutable original 74-unit Serway6.4 six-job campaign was rescanned against the new shared normal-path extraction. A new **source-external, write-once** receipt and six complete source-hash-bound quote packets are under `%LOCALAPPDATA%\\MicroGen_AI_Web_Checkpoints\\20261112_SERWAY64_SOURCE_SCOPE_WITNESS_G2_V3`. **144/144 selected quotations were independently re-witnessed on their exact original PDF pages**, across all **74 original utterances**. **61/74** units received at least one different physically witnessed source candidate relative to the *second* campaign; **28** selected alternatives exceed the previous 200-character limit and are a genuinely longer contiguous physical paragraph span. In the **42 units still UNRESOLVED after the second Gemini challenge**, **33** now have materially different possible citations, **9** do not, and **12** have null/unsupported actual visible text targets. These categories can overlap and do not include the 2 first-pass unresolved units with no second challenge or the 2 original invalid citations. All old model prompts/replies/ledger statuses remain immutable: **28 source-supported model assessments / 44 source-unresolved / 2 invalid citations**, independent academic/math QA **NOT PASSED**. This step used **zero new Gemini/TTS calls**. Do not count a more relevant quotation as academic support or re-send any unchanged model request.
+
+**G2 technical gate reality:** The 14 actual original slide-WAVs pass the independent *PCM integrity* gate (833.471 s), but no source-bound per-utterance / per-element WAV timing evidence exists; the slide-level MP4 previews cannot certify synchronized active-element highlighting. Semantic multi-panel figure identity, 44 unresolved and 2 invalid source-review rows, per-element audio and independently verified pronunciation/voice remain mandatory before **G2 acceptance**. Readiness **NOT COMPLETE**, no merge, student release or YouTube upload. This source retrieval repair advances future material source-evidence challenges without repeating prior per-PDF fixes.
+
+**Regression:** `tests/test_source_quote_section_scope.py` proves a synthetic prior-section carryover is excluded only with an exact physical target section heading, generic publisher navigation is excluded, long 3–5-line source passages remain physically verifiable, and a genuine Dell Serway PDF drops the pre-section smartphone material. Existing adaptive quote/targeted review, untouched two-pass consensus and saved-Gemini academic review tests must continue passing. Hosted Windows CI must verify the latest exact SHA after commit.
+
+---
+
+# Historical structural integration — autonomous selective slide-TTS recovery and continuation (12 Nov 2026, Dell-115)
+
+**Historical root cause / reuse:** This failure type had already been tackled on 17 Oct (`1a50c74`, bounded whole-batch provider fallback), 27 Oct (`7cc5ac5`, relaxed source-bound phonetic TTS QA in the ordinary runner), 29 Oct (`9b4b5c9`, bounded TTS outage/WAV-reuse recovery) and 9 Nov (`27430f2`, observed retry-journal restart recovery). `selenium_pipeline.tts_qa_repair` already regenerated only failed slides, with an isolated review snapshot, existing source/voice/attempt provenance and 2-round ceiling, **but always deliberately raised after a passing candidate**. The PCM integrity detector from `be95300` also only *rejected* damaged WAVs. The missing shared edge was **detector -> finite selective repair -> actual PCM + source-aware phonetic recheck -> auditable installed workspace candidate -> next runner stage**. This was an orchestration/contract integration omission, not a new TTS model limitation. The old review-only behavior remains the default outside normal runner.
+
+**Now normal pipeline:** `runner._execute_unlocked` explicitly passes `--auto-integrate-technical-repair` when invoking its **existing** `tts_qa_repair` stage. `tts_qa_autonomous_recovery.recover` first checks every real original WAV for objectively unusable sample audio; if healthy, the pre-existing phonetic listener/QA chooses failures. It only re-synthesizes defective slides via the existing `tts._gemini_say_with_watchdog` or authorized Chirp3 fallback, in the effective verified provider+voice, with a strict **0–3 stage repair ceiling (default 2)** and one bounded provider attempt per round. It keeps rejected attempts as evidence instead of accepting them. Correct WAVs and previously SHA-locked Gemini listener/cache results are reused. Bad original PCM is rejected **before** wasting paid model listening; a successful candidate is not installed until **all slides** pass the existing source+script+phonetic TTS QA (including C-as-circa and material math errors), actual PCM waveform health and existing `tts_qa_promotion.audit`. If all pass, control returns normally to `runner`, which validates, refreshes the original TTS artifact evidence, publishes verified stage outputs, and advances to the next eligible stage automatically. The independent scientific/element highlight gates still apply.
+
+**Crash/no-repeat:** Each auto-review snapshot records its unique source/script/manifest/WAV/QA policy identity before Send. An identical unfinished, uncertain model attempt is **NOT re-sent**; a completed previously accepted review candidate is audited and reused **without new provider calls**; an unchanged exhausted per-slide budget is not restarted. The shared `tts_auto_recovery_install` validates all original/unchanged WAVs, locks source/script/manifest/effective voice and both QA reports, and stores **byte-identical original WAV backups plus repaired candidates** in an immutable-by-contract `.tts_automatic_recovery/<full SHA>` journal before any workspace installation. SHA-authorized individual file replaces and QA-report installation can **roll forward after an abrupt process stop without another TTS request**. Unknown file mutation, unverified voice/provider, mismatched QA threshold, missing audio, invalid evidence or no passing phonetic QA **stop, preserving evidence**. This technical handoff is not human approval, source PDF editing, figure/element synchronization acceptance, YouTube permission or public release.
+
+**Actual verification and limits:** Offline genuine-code workflow exercised silent original -> **one-slide-only replacement** -> real PCM integrity -> previous source-locked QA receipt audit -> internal workspace install -> positive existing `runner.valid('tts_qa')`; initial waveform/replacement/readback SHA unchanged on unrelated slides. Also tested malformed original RIFF, wrong spoken-meaning/phonetic QA, invalid replacement followed by a valid one, exhausted attempts, source manifest mutation before spend, cached unaffected slide QA, crash after partial install with zero additional TTS calls, already accepted candidate checkpoint replay without duplicate provider call, and exact unchanged exhaustion no-repeat. Historical standalone review-only remains supported. Expanded source/QA/PCM tests: **80 passed and 10 parameterized subtests on Dell-115** before final hosted CI. These are adversarial **simulated provider responses with real PCM bytes and actual strict audit**, **not** a claim that fresh real Gemini calls were made or that a defective Serway 6.4 WAV was encountered. The 14 existing Serway WAVs passed waveform health unchanged in the prior milestone; no regeneration was needed or justified. Hosted Windows exact-head CI must be checked before declaring code fully regression-closed.
+
+**G2 status:** This closes the recurring structural auto-recovery integration defect on the ordinary *TTS QA* stage in code and tests, but NOT the independent scientific/source, semantic panel mapping, per-utterance waveform synchronization or public release gates. All **44 unresolved + 2 invalid** source-review items remain exactly as before. No merge, YouTube upload or production publication.
+
+---
+
+# Historical G2 engineering milestone — automatic objective WAV signal integrity (12 Nov 2026, Dell-115)
+
+**Specific closure:** The ordinary real-TTS audio-review path previously checked RIFF/PCM format, duration, source SHA, provider fallback identity, and WAV count, but did not inspect the actual sample waveform for silent files, near-inaudibility, persistent near-rail clipping, DC offset, or six-second and longer dropouts (interior **or** leading/trailing). A valid PCM container can therefore pass despite obvious unusable signal. This is a generalized technical failure type, not a Serway-only anomaly.
+
+**Baked into the normal pipeline:** New `selenium_pipeline.pcm_signal_integrity.inspect_pcm_signal` applies fail-closed, strictly bounded **24 kHz mono PCM16** sample-level signal checks without libraries/models/network/ASR. `windows_slide_audio_timing_review.inspect` now applies it automatically to **every original WAV** before a candidate MP4 review can be rendered, while retaining the existing provider/voice-identity and source SHA contracts. Each audio evidence row includes the physical WAV SHA, measured RMS, peak, DC, clipped sample count/fraction, active 100-ms fraction and longest silent gaps. If bad, the normal stage refuses to proceed; this does not change source WAVs or synthesize replacements. The approved waveform technical flag is **only** `objective_pcm_signal_integrity_verified`; `audio_pronunciation_independently_verified`, `independent_voice_listening_verified`, `per_element_sync_verified` and `student_publication_authorized` remain **false**.
+
+**Authentic Dell-115 acceptance:** Reused the unmodified genuine Serway 6.4 source and existing complete 14-WAV provider-fallback batch. The normal source/audio review passed with **14/14 objectively healthy WAVs**, total **833.471 seconds**, correctly planned as **2 under-600-second review parts**. Worst observed interior quiet gap **1.2 s**, leading quiet **0.7 s**, trailing quiet **0.4 s**. All source, script, slide and WAV SHA-256 rechecked unchanged. Full original-byte and detector-code-hash-bound receipt saved outside the source tree at `%LOCALAPPDATA%\\MicroGen_AI_Web_Checkpoints\\20261112_SERWAY64_SUPPLEMENTAL_SOURCE_EVIDENCE_V2\\objective_pcm_signal_integrity_g2_v2.json`. There were **zero Gemini, ASR, TTS or video requests** in this measurement. The MP4 previews and all prior source-review evidence are preserved unchanged.
+
+**Regression:** `tests/test_pcm_signal_integrity.py` verifies healthy audio, silence, near silence, saturation, DC, 7 s interior dropout, excessive leading/trailing silence, safe shorter pauses, WAV integrity and no writes. `tests/test_pcm_signal_normal_review_integration.py` verifies that the **ordinary source-bound audio review entry point** actually calls this gate and refuses a silent source-bounded WAV before video staging. An expanded cross-entrypoint campaign found that an existing FFmpeg/odd-raster review test erroneously used **all-zero audio as its successful-video fixture**. Preserved production audio rejection; replaced **only that fixture** with non-silent deterministic PCM and added an explicit negative silent-WAV normal-path test. Re-ran the audio-normal review, actual FFmpeg staging, original TTS QA promotion/repair, source-bound element compatibility and new signal-integrity tests: **71/71 passed and 8 parameterized test cases** on Dell-115. Exact-head Windows hosted CI must also pass before merging.
+
+**Remaining G2 gates:** The 44 source-unresolved and 2 invalid-citation utterances from the previous milestone are unchanged. Scientific source equivalence, ambiguous element-to-utterance targets, exact per-element speech/PCM timing, and independently audible pronunciation/voice assessment remain unverified. Sample-level technical signal integrity does **not** prove a word was uttered or where it occurs. Therefore **G2 NOT COMPLETE**, no publication/merge/YouTube upload. No additional per-source model retries are justified by this signal-only milestone.
+
+---
+
+# Historical v5.0 G2 blocker remediation — adaptive original-source citation evidence (12 Nov 2026, Dell-115)
+
+**Scope:** 49 original source-review `UNRESOLVED` utterances were traced largely to a frozen input whitelist with just **two short physical PDF lines per utterance**; numbers spoken as words and equations/table glyphs split across PDF lines often defeated relevance ranking. Old Gemini replies are immutable, as are their original reviewed verdicts. No claim that new quote availability is academic correctness.
+
+**Shared ordinary-path fix:** `source_verified_quote_candidates._line_catalog` now assembles **bounded same-PDF-block adjacent two-line windows**, each independently tested by `prove_source_quote_occurrence` for exact physical source occurrence and spatial continuity before it can enter an allowed citation list. `build_verified_source_candidates` uses the original narration AND physically visible slide text as *search hints*, including literal numeric tokens that narration may spell out. It rejects exact duplicate quotations while retaining both independently physically witnessed long and short source spans as **alternate exact citation choices**; containment never counts as independent scholarly corroboration. This specifically preserves the existing two-pass academic challenge contract that allows "A visible equation" and "visible equation" as distinct physically provable exact quotations. Original per-utterance source SHA, spoken SHA and citation whitelist checks remain mandatory. A deterministic optional-second-quote budget keeps the existing **13,000-character bounded evidence packet**; when even one citation per utterance cannot fit it **fails closed** and requires a smaller batch rather than truncating source text. Evidence scoring never marks mathematics verified, changes narrated words, or authorizes release.
+
+**Actual end-to-end Dell acceptance:** Against the SIX unchanged first-pass Serway 6.4 jobs, bounded new independent citation packets all completed; 74 original units preserved; **47 of the 49 originally `UNRESOLVED` units obtained a materially new, physically source-witnessed quote candidate**. New packet/receipt artifacts are stored outside the original lecture at `%LOCALAPPDATA%\\MicroGen_AI_Web_Checkpoints\\20261112_SERWAY64_SUPPLEMENTAL_SOURCE_EVIDENCE_V2`, each original job and owned model response SHA-256 retained. These are **source-evidence candidates**, NOT revised original model responses or passes. The other 2 unresolved units remain without new quotation candidates.
+
+**Normal crash-safe new-evidence challenge only:** New `selenium_pipeline.source_citation_targeted_challenge` validates a previously claimed original Gemini reply, exact request fingerprint, unmodified original job/source PDF/slides/script and new independently witnessed quotes. Only original `UNRESOLVED` utterances with materially **different** proven citation choices enter a distinct `INDEPENDENT_CHALLENGE` job; already supported/incorrect/unchanged units are excluded; old claims never reset. The existing `academic_review_checkpoint.submit_once` maintains one-Send, owned-tab identity, exact Flash/Medium UI verification, original source+slides PDF attachments, durable response SHA and no-repeat on timeout. The six actually executed, distinct new-evidence Gemini Flash Medium challenges all returned independently source-validated full responses: **47/47 eligible previously unresolved utterances reassessed**, **5 new model `SUPPORTED`**, **42 remain `UNRESOLVED`** in these challenges. The two old unresolved units without new physically witnessed source quotes were not resent. Every challenge used exact original source+slide PDFs, one-Send crash-safe checkpoints and retained SHA-bound raw owned replies; none failed transport. **Independent mathematical/academic approval remains false**. All six results and the exact manifest are saved in the supplemental evidence directory.
+
+**Read-only generic G2 reconciliation:** New `selenium_pipeline.source_citation_challenge_reconciler` takes an explicit source-review evidence manifest (no textbook-specific source paths or batch count). It independently reconstructs each exact challenge request and source, rechecks original Send and raw Gemini response SHA, uses the normal academic PDF source validator again, denies forged model verdicts/duplicate units, and preserves invalid rows. Authentic receipts `challenge_reconciliation_manifest_v1.json` and `source_review_reconciliation_v4_generic.json` confirm 74 utterances: original immutable 23 model `SUPPORTED`, 49 `UNRESOLVED`, 2 invalid; updated evidence accounting **28 model `SUPPORTED`, 44 `UNRESOLVED`, 2 invalid, 0 `INCORRECT`**. All categories explicitly remain non-academic, non-release. Cross-workflow regression suite `tests/test_source_challenge_reconciler.py`, `test_source_quote_adaptive_windows.py`, `test_source_citation_targeted_challenge.py`, and existing quote/ledger/partial-rescue tests now **27 passed with 2 additional source subtests**. The first hosted CI exposed an integration regression in the **pre-existing** `test_ai_academic_review_consensus.py::test_real_original_pdf_differing_valid_quotes_both_count_as_evidence`: overzealous nested-quote suppression excluded the independently physically verifiable shorter citation. Restored legitimate shorter quote alternatives without weakening source hashes, source occurrence proofs or mathematical QA. Cross-path replay including that consensus test now **29 passed and 2 source subtests** on Dell-115; the corrected exact-head hosted CI must be checked separately before declaring all green.
+
+**G2 status:** Source/geometry retrieval, durable one-shot second review and generic post-provider reconciliation were completed and rechecked, but **44 unresolved + 2 invalid** academic source units persist even after second-model review. Five newly source-cited model-supported units do **not** establish independent mathematical proof. Scientific narration/visual semantics, 45 ambiguous lexical element links, individual panel identity, actual 14 whole-slide WAV-to-word timing, independent acoustic listening and student/release acceptance remain unverified. Do not repeat already-consumed model replies or source-analysis passes. G2 remains `NOT_COMPLETE_WITH_NAMED_BLOCKERS`; no merge, release, or YouTube upload.
+
+---
+
+# Historical v5.0 engineering milestone — full-width math-row candidate recovery (12 Nov 2026, Dell-115)
+
+**Scope:** The ordinary source→slide→utterance candidate extractor previously excluded short glyph blocks (fractions, radicals, standalone numerators/denominators) and grouped only two or three normally visible text blocks, leaving authentic multi-part authored equations without one reliable highlight region. The fix is source-bound, reusable across textbooks, and review-only; it is **not** approval of equation meaning or audio timing.
+
+**Shared normal-path change:** New `selenium_pipeline.sourcebound_math_row_focus` inspects **all** original author PDF text blocks, including short glyphs excluded from plain paragraph targets. It assembles only contiguous horizontally progressing equation rows, 2–8 original blocks, using conservative geometry bounds; stores the exact SHA-256 of every original PDF glyph block, revalidates all original geometry via `element_narration_stage.rectangle`, rejects crossed columns/oversized regions/altered glyphs, and only emits maximal bounded rows. `scene_candidate_authoring.draft` incorporates these `math_row_group` targets automatically; `element_plan_autodraft.propose` and `rich_element_model_alignment.request_for_slide` carry the same verified physical target identity. The auditor may treat it as an actual text region but still refuses independent mathematical approval or final publication. The **frozen original lexical ranking remains unchanged**, because one trial of automatic group score-ranking increased ambiguity from 45 to 58 and was reverted immediately.
+
+**Stale checkpoint protection:** Increased `rich_element_mapping_checkpoint.MAPPING_DETECTOR_REVISION` to **3** so the original SHA-bound V1 and corrected V2 worklists cannot silently mask the newly addressable equation regions. A new immutable V3 worklist `%LOCALAPPDATA%\\MicroGen_Independent_Element_Reviews\\rich_element_map_3f3d005783af78fcb92a3b16` was actually generated using the **normal** preflight on Dell-115; no Gemini/model or TTS request was made.
+
+**Genuine Serway 6.4 result:** Identical unmodified source/slides/script SHA `64b748468e6bdb12ddb127f1d8bea90a7f3f63d270fbb5378ba1d3ddeeb955fd`/`814fdbe054f09a3073e3d7c82bd5929d48c46a18255fdd5aeac3f7adcd4d1e72`/`7806b3e006b6727cec1acf9a0c9aeda2318c6e50f6821269fbae5c440223ee59`. **117 original physically bounded candidate targets** versus prior 105, including slide 7 **two math rows** (4-source-block first time-constant equation), slide 8 **two math rows** (2-block drag formula and 4-block force equation), slide 9 **one 5-block math row**, and slide 12 **three groups**, including a source-byte-verified **8-block** drag-law derivation and 3-block numerical evaluation. All 74 narration utterances retained unchanged; **45 lexical ambiguities remain** (not falsely cleared). Existing G2 scientific/element sync/acoustic blockers remain.
+
+**Regression evidence:** `tests/test_sourcebound_math_row_recovery.py` exercises the genuine 8-fragment geometry pattern with precise block hashes, negative changed-glyph/cross-column/distant-formula cases, normal PDF scene extraction, normal preflight+AI-input propagation, and fail-closed release/paid-audio flags. Focused cross-workflow tests: **36/36 passed** (plus existing math/group tests). Exact-head hosted CI status must be verified after this change is committed; this statement does not claim a CI run that has not occurred.
+
+**Disposition:** `PASS_VERIFIED` for reusable physical multi-block math focus candidates and immutable auto-recovery; **G2 NOT COMPLETE**: no source-semantic equation equivalence, per-panel proof, real word-to-WAV cue timing, or independent acoustic audit. No repeated Gemini, TTS provider or Serway source generation; no PR merge or release.
+
+---
+
+# Historical v5.0 engineering milestone — automatic multi-panel element safety (12 Nov 2026, Dell-115)
+
+**Closure claim / disposition:** Repair a reproducible missing shared detector in the ordinary source→slide→utterance element mapping pipeline. **PASS_VERIFIED for automatically flagging and retaining multi-panel review guards; NOT_VERIFIED for semantic per-panel focus or time-aligned speech.** This is one critical-path safety prerequisite, not full G2/G3 completion.
+
+**Frozen representative source:** Original Serway 6.4 source PDF, slides PDF and narration unchanged at hashes `64b748468e6bdb12ddb127f1d8bea90a7f3f63d270fbb5378ba1d3ddeeb955fd`, `814fdbe054f09a3073e3d7c82bd5929d48c46a18255fdd5aeac3f7adcd4d1e72`, and `7806b3e006b6727cec1acf9a0c9aeda2318c6e50f6821269fbae5c440223ee59` respectively. 14 slides, 105 visual target candidates and 74 verbatim utterance units; original loose ranking still has 45 ambiguous candidate links. Strict unique-verbatim source mapping independently had **0/74** eligible, so no confidence threshold was lowered and no model-generated semantics were declared verified.
+
+**Reproduced cross-workflow recurrence:** Original `scene_candidate_authoring.draft` labeled Serway slides **6 and 9** as containing **zero multi-panel images needing review**, despite slide 6 showing a single compact image and a visible caption explicitly identifying panels `(a)`, `(b)`, `(c)`. Its prior detector considered only images wider than 200 pt and with aspect ratio above 2.5, missing genuine compact montages. These false negatives propagated via `element_plan_autodraft.propose` into `rich_element_model_alignment.request_for_slide`, where an untrusted candidate was misleadingly marked `figure_panel_review_required:false`. This was not a Gemini outage.
+
+**Reusable normal-path repair:** `scene_candidate_authoring.visible_multi_panel_labels` conservatively detects **two or more distinct explicitly visible lettered panel labels within the same PDF text block**. For any figure on such a slide, ordinary extraction now sets `suspected_multipart:true`, with the original panel labels recorded only as **unverified hints**. Normal script mapper and rich AI request automatically carry `panel_identity_review_required:true`; the model auditor refuses to treat whole-image selection as verified per-panel meaning, even with a source quote. A single label or no panel evidence does not trigger this detector. No source, OCR, hidden external call, model request, TTS or video production is required for the remedy.
+
+**Immutable stale-checkpoint protection:** `rich_element_mapping_checkpoint.MAPPING_DETECTOR_REVISION = 2` is included in ordinary source-bound cache identity and receipt, and validated before an old checkpoint can be used by `rich_element_model_alignment` or the selection compiler. Historic source-bound checkpoint `rich_element_map_102267201bea7a95d7b65d18` was preserved but **rejected** as stale. The ordinary preflight created distinct immutable `rich_element_map_098defe0c21a3fc8e7e0dc76` under `%LOCALAPPDATA%\\MicroGen_Independent_Element_Reviews`, verified that both slide 6 and slide 9 figure targets now require panel-identity review, and left provider requests at **zero**. The source/slide/script originals were neither changed nor re-generated.
+
+**Regression and stop conditions:** Dedicated real PyMuPDF PNG/figure/caption tests cover compact (1.73 aspect ratio) three-panel montage, absence of any panel labels, one-label negative case, automated scene→draft propagation, ordinary checkpoint→model-request propagation, audit rejection of unsupported whole-figure semantics, and stale V1 receipt denial. 51 focused Windows tests passed. The next exact-head hosted CI results must be recorded separately; a passing test is not the same as deployed production. No merge or publication.
+
+**Remaining gates:** Strict source-grounded semantic identification of individual figure panels and equations, 49 AI-review `UNRESOLVED` utterances plus 2 invalid citations, actual narration-to-word/element timing for the 14 already generated whole-slide WAVs, independent acoustic findings, and G2/G3/pilot/publication acceptance. **Do not** repurpose the 833.471 seconds of whole-slide WAVs as independently verified utterance timings. For these unresolved cases the correct automatic behavior is explicit stop/diagnostic, not speculative highlighting. No reset of six prior Gemini scientific-review batches or provider retry budgets.
+
+---
+
+# Historical v5.0 closure checkpoint — Serway 6.4, 12 November 2026 (Dell-115)
+
+**Active workstream:** MicroGen_AI_Web, PR #528, branch `feature/pr528-autonomous-ai-lecture-acceptance`, Windows Dell-115 only. The entry head `b795ef4` passed all three hosted Windows CI checks. A later head containing the following H.264 recurrence fix requires its **own** exact-head CI confirmation. Neither PR merge nor public/student publication is authorized or claimed.
+
+**Frozen original candidate:** Serway 6.4 PDF SHA-256 `64b748468e6bdb12ddb127f1d8bea90a7f3f63d270fbb5378ba1d3ddeeb955fd`, slide PDF `814fdbe054f09a3073e3d7c82bd5929d48c46a18255fdd5aeac3f7adcd4d1e72`, narration `7806b3e006b6727cec1acf9a0c9aeda2318c6e50f6821269fbae5c440223ee59`. Original source and all prior failure receipts unchanged; no source/model resubmissions in this v5 invocation.
+
+## Frozen acceptance charter and verified gate movement
+
+| Gate | Classification/status | Real evidence and remaining requirement |
+|---|---|---|
+| Source-to-slide technical assets | `PASS_VERIFIED` (structural only) | 14-slide original-source PDF, matching 14-block script and deterministic script/math-risk gates in the existing V7 trial |
+| Source-bound TTS PCM batch and provider reconciliation | `PASS_VERIFIED` for technical audio integrity only | Existing one-shot fallback completed 14/14 WAVs and `tts_input_manifest.json` on Dell-115 at 13:36:55, 12 Nov 2026; manifest SHA `9937956d4f9d3028a8bde9742860956a5538d7863f87cb4d3426440651d8e966`; real provider **Chirp3-HD / en-US-Chirp3-HD-Kore**, NOT a successful Gemini voice batch; 24kHz mono PCM16, 833.471s combined. Existing failed Gemini attempts preserved and provider journal independently verified |
+| Representative real slide-level video encoding (diagnostic, not production media) | `PASS_VERIFIED` after reproduced failure and shared fix | Failed V1 review on **545x409-pixel** real PDF frames; V2 review recorded actual FFmpeg video+audio with padded H.264 **546x410** frames, source SHA and PCM checks; two MP4s 527.15s (slides 1–9) and 306.32s (slides 10–14), each strictly below 600s. Receipt `%LOCALAPPDATA%\\MicroGen_AI_Web_Checkpoints\\20261112_SERWAY64_REAL_AUDIO_TECH_REVIEW_V2\\audio_timing_review_receipt.json` explicitly marks release/element-sync **false** |
+| Academic source meaning | `NOT_VERIFIED` for independent domain acceptance | Frozen 74-unit source-citation ledger: 23 supported, 49 unresolved, 2 cross-utterance citation rejects, 0 missing review. These cannot be silently approved |
+| Accurate narrated element/panel highlighting | `FAIL_REPRODUCED` in existing autodraft | 45/74 visual-to-narration target links ambiguous; slide-level timing preview does NOT satisfy actual active-element highlights |
+| Listening fidelity and independent acoustic review | `NOT_VERIFIED` | Formal voice/pronunciation and spoken-math review absent; Chirp3-HD/Kore identity proven, voice quality/equivalence NOT proven |
+| G2/G3 learner pilot, production lecture release and publication | `NOT_VERIFIED` / `NOT_AUTHORIZED` | Must first resolve true element sync and academic/acoustic validity, then obtain existing contract's release permission. No merge or upload |
+
+## v5.0 permanent-learning record: repeated H.264 odd-raster failure
+
+- **Root-cause signature:** actual original Beamer PDF at 1.5x raster yielded odd 545×409 pixel PNGs; `libx264` + `yuv420p` rejected the video input before EOF, producing a zero-byte MP4. This is a normal-input renderer defect, not Gemini nor source-PDF semantics.
+- **Previously available remedy and missing dispatch:** `selenium_pipeline.highlight_video_preview` already applied `pad=ceil(iw/2)*2:ceil(ih/2)*2`, but the newer normal `windows_slide_audio_timing_review.render` encoder omitted the established filter. Synthetic even-size fixtures did not detect that integration gap.
+- **Shared automatic remedy:** canonical constant `H264_EVEN_DIMENSION_PAD_FILTER` now in `highlight_video_preview.py`, consumed by **both normal video-preview and slide-audio review encoder entrypoints**. FFmpeg automatically pads each odd dimension by at most one pixel; no source crop, rescaling, rerendering, model call or manual setting. Completed output is independently probed for audio/video streams, duration, source SHA, and no-overwrite rules.
+- **Actual trigger and postcondition:** V1 failed exactly with odd original frames; revised **normal** `python -m selenium_pipeline.windows_slide_audio_timing_review` invocation against the SAME SHA-locked candidate automatically generated two duration-verified MP4s in a new V2 destination (old V1 failure preserved). Cross-path regressions: `tests/test_windows_slide_audio_timing_review_source_contract.py` now forces an odd raster and real libx264 encoding; `tests/test_highlight_video_preview.py` covers the original highlighted-video path. Fail-closed no-overwrite/source/tamper tests remain enabled. A repair is not marked deployed beyond this branch without exact-head CI.
+- **Disposition:** technical audio and limited *slide-level* review encoding accepted; **G2/G3 remains NOT COMPLETE WITH NAMED BLOCKERS**, no approval inferred from diagnostic review media. The next eligible milestone is the original-source, scientifically defensible per-element mapping/sync gate; do not repeat the now closed TTS/FFmpeg generation or reset old Gemini attempts.
+
+The historical notes below describe earlier attempts and should not supersede this new v5 checkpoint.
+
+---
+
+# Historical continuation: 12 November 2026 — Serway 6.4 source review and audio fallback
+
+**Development branch:** `feature/pr528-autonomous-ai-lecture-acceptance` on Dell-115, PR #528. Verified clean commit `edb90ef` passed all three hosted Windows checks, then additional general-purpose source-review recovery/ledger and fallback-audio-review hardening were implemented locally and remain to be committed at the active checkpoint.
+
+**Completed source artifacts:** The original Serway 6.4 source PDF remains unchanged. Its page-6 uncaptioned diagram is preserved as an explicitly source-only graphic; 14-slide PDF and 14-block script passed source-locked deterministic local QA. Final V7 trial: `20261112_PR528_G2_SERWAY6_4_NARRATION_SOURCE_REUSE_V7`. See [SERWAY6_4_SOURCE_RECOVERY_20261112.md](SERWAY6_4_SOURCE_RECOVERY_20261112.md).
+
+**Actual AI academic review campaign:** Six distinct source-citation batches were each submitted at most once using Selenium Gemini Flash Medium with immutable claimed-response evidence. Source-citation CRLF newline handling and partial row salvage prevent duplicate Sends. Source review ledger `%LOCALAPPDATA%\\MicroGen_AI_Web_Checkpoints\\20261112_SERWAY64_SOURCE_REVIEW_COVERAGE_LEDGER_V2.json` confirms exactly **74** original narration units: **72** individually source-validated, of which **23** supported, **49** unresolved, **0** incorrect; **2** invalid/cross-utterance source citations explicitly quarantined; **0** not reviewed. This is not independent full science acceptance. The exact source quote evidence must not be invented, weakened or treated as G2/G3 release proof. Generalized modules: `source_citation_batch_planner.py`, `source_citation_review_dispatch.py`, `source_citation_partial_rescue.py`, `source_review_coverage_ledger.py`.
+
+**Actual audio pilot:** Routine approved Gemini 3.8 Flash-Lite TTS/Kore produced 13 genuine source-bound WAV candidates but slide 13 exhausted even the bounded shorter-chunk retries. The automatic finite single-engine **Gemini Flash TTS/Kore whole-batch fallback** subsequently generated a genuine slide-13 candidate; slide 14 remains provider-timeout/retry pending in the existing one-shot queue at last observation. Staging folder: `%LOCALAPPDATA%\\MicroGen_AI_Web_Checkpoints\\20261112_SERWAY64_ROUTINE_GEMINI_AUDIO_CANDIDATE_V1`. Do **not** restart the existing provider queue or claim a complete WAV manifest unless the original process succeeds. Exact fallback provider identity must have independently verified failed-attempt evidence. No acoustic QA approval or production MP4 yet.
+
+**Media:** New `windows_slide_audio_timing_review.py` is a non-destructive, SHA-bound, fully real FFmpeg decoder/encoder and measured PCM duration **slide-level timing preview only**; it is not source-verified per-element highlights nor an academic/public release. Real FFmpeg smoke and synthetic end-to-end no-overwrite/PCM/source-binding tests passed. 14 slides, **74** original utterance units, and **45** currently ambiguous visual-target links remain a structural G2/G3 video blocker.
+
+Full source and Windows tests: [G2_SERWAY64_AUDIO_REVIEW_RECOVERY_20261112.md](G2_SERWAY64_AUDIO_REVIEW_RECOVERY_20261112.md). **Next:** finish observing the already running finite slide14 fallback, verify final 14 WAVs/manifest and pronunciation acoustically if complete, and render ONLY properly labeled review MP4. Keep G2/G3 incomplete until actual scientific and per-element synchronized evidence exists. No per-PDF perfection loop or repeat Gemini Send.
+
+---
+
+# 12 November 2026 - Auto-recover Gemini caption refusal for truly uncaptioned PDF graphic
+
+**Actual original failure / no same-source replay:** Dell-115 source-locked
+Serway 6.4 SHA `64b748468e6bdb12ddb127f1d8bea90a7f3f63d270fbb5378ba1d3ddeeb955fd`
+processed six original pages. Figure 6.12 (page 2), 6.13 (page 4)
+and 6.14 (page 5) independently passed and were checkpointed.
+Page 6 original owned Flash-Lite Send returned exactly
+`MAPPING_REVIEW_REQUIRED` after a 90s parseable-line timeout; stage
+remains `FIGURES_ATTEMPT_FAILED_NO_AUTO_RETRY`. No inference that Gemini
+service was down, or that the crop had a missing printed Figure 6.15.
+
+**Identified source family:** Original PDF page 6 is a Summary with an
+uncaptioned compact diagram. Read-only source validation found **687**
+selectable PDF words, only **6** intersecting the exact Docling crop
+rect (top-left PDF points `[485.77542,478.89688,571.19025,557.77301]`),
+no numbered Figure on this page, correct page/image/crop manifest SHA
+`c2e523278415330d7fe94fb34ff2b838905807ced7f308d47dc4efb9573c8954`.
+A read-only Dell-115 original fixture returned
+`UNCAPTIONED_SOURCE_CROP_VERIFIED_NOT_SEMANTIC_QA`, generic
+`Unlabeled source graphic page_6 fig_1.png`, **0 new model Sends**,
+and no source-file mutation. Existing failed receipts remain untouched.
+
+**Reusable production remedy:** New
+`selenium_pipeline.figure_uncaptioned_source_recovery` and normal
+`vendor_template_v2.map_and_rename_selenium_v8` catch only the exact
+owned refusal; independently SHA-verify a single original crop, page,
+PDF and geometry, require dense original selectable text but no numbered
+Figure on that page, reject a prose/math-heavy or multiple-crop case.
+They produce an explicitly unnumbered generic source identity and
+new-file-only refusal/word-geometry evidence; do not invent graphic
+content or physics meaning. `wait_for_mapping_response_ready` now
+recognizes a stable completed owned refusal promptly rather than
+waiting the full 90 seconds; no new Send is allowed for it.
+`figure_mapping_checkpoints` redoes the PDF proof and checks exact
+CRLF/LF refusal bytes on every resume; `runner.valid('figures')`
+fails closed when that checkpoint/witness is missing or tampered.
+The actual normal worker, actual checkpoint and refusal-watcher
+functions are covered by positive/adversarial source-free tests.
+
+**Evidence level:** original 6.4 source-only proof positive,
+focused 60 tests PASS; commit, exact-head hosted Windows CI and a
+DIFFERENT unclaimed real-source stage still needed for full closure.
+Do not reinterpret old Serway 6.4 original failed stage as accepted,
+resend page 6, certify source pixel diagram meaning, skip scientific
+acoustic or media gates or publish. G2/G3 remain unverified.
+
+---
+
+# 11 November 2026 - Source-only figure-panel caption reconciliation in normal worker
+
+**Trigger:** Serway 7.9 distinct original source SHA
+`76a1771932abcbf85cdc721d03b5e9a612e8922b88824a1259b25a63ba662d59`;
+page 1 Flash-Lite owned Gemini browser Send registered, three correct-length
+mapping rows returned after ~12 seconds. `Figure 7.21` parent labels
+conflicted with `Figure 7.21(a).png` and `Figure 7.21(b).png` target
+filenames. Existing `FigureCompositeReviewRequired:
+panel_identifier_mismatch` correctly stopped all publication.
+Original terminal status `FIGURES_ATTEMPT_FAILED_NO_AUTO_RETRY`, no G2 PASS.
+
+**Independent read-only original evidence:** physical source page text block
+for `Figure 7.21` explicitly describes (a) and (b); source PDF letters
+`a` and `b` lie near the bottom-left of the independently SHA-recorded
+Docling crop rectangles. New shared
+`selenium_pipeline.figure_source_panel_caption.reconcile_parent_caption_panels`
+requires matching source/crop/page hashes, strict crop inventory, unique
+printed caption and local letter for every proposed panel. Integrated into
+the genuine vendor `map_and_rename_selenium_v8.py` **before**
+`validate_and_prepare_mappings`; creates a new-file-only source-word
+SHA evidence record prior to any accepted copied crop, never claims
+semantic/full source crop pixel proof or academic/release approval.
+No provider Send to reconcile. Ambiguous cases remain blocked.
+
+**Tests:** positive and adversarial synthetic PDF/real normal vendor
+worker with one mocked historical Gemini response, and a read-only
+original 7.9 reconciliation probe. Focused figure group: 46 passed.
+A new exact-head CI and genuinely unclaimed original-source stage must
+establish runtime acceptance. Source 7.9 may not be resent; G2/G3 remain
+unverified until actual downstream technical/scientific/audio/video gates.
+
+---
+
+# 11 November 2026 - Owner figure-caption Flash-Lite model / no Thinking mandate
+
+**What was proven by a genuine source:** Serway 7.8 figures on Dell-115,
+immutable SHA `f41ee09c32133b6c6ef7f7fc9830f0d2758c0e14e8259255d71b2c53ee72a5c6`,
+successfully mapped source figure 7.20 on page 1 with Gemini Flash/Medium,
+but page 3 encountered `ElementNotInteractableException` while reopening
+the Thinking submenu *before* another Send. Two original registered Sends
+belong to earlier page work; stage terminal receipt is
+`FIGURES_ATTEMPT_FAILED_NO_AUTO_RETRY`. Do not resubmit this source.
+
+**New binding supersession:** Figure page/crop caption identification
+automatically selects the lighter `flash-lite` browser model, identifies the
+exact selected family and **never invokes the Thinking-level selector**.
+Slides and narration continue to use Flash with Medium thinking (or a
+separately authorized benchmark setting). This is centrally encoded in
+`selenium_pipeline/gemini_stage_policy.py`, passed to the actual copied
+vendor figure worker by the normal `runner`, and checked before one Send
+by both vendor/direct Selenium entrypoints. `gemini_model.py` handles exact
+`Flash-Lite` without confusing it with full Flash. Original-stage triage
+accepts figure evidence only with `browser UI model: flash-lite`, explicit
+`thinking level: not_required` and a pre-Send marker; no fake Medium
+evidence or release bypass. See binding closure-first and adaptive UI
+contracts and `tests/test_figure_caption_flash_lite_policy.py`.
+
+**Real source-free preflight:** Dell-115 authenticated fresh owned Gemini tab
+successfully selected `Open mode picker, currently Flash-Lite Medium`,
+uploaded two synthetic pictures, entered a long synthetic prompt, and
+rechecked exact Flash-Lite in that same tab. No Thinking submenu interaction,
+Gemini Send, model output, API, original source, TTS or publication.
+The visible picker still contains a Medium label; this new contract does
+**not** assert that Google's internal thinking is disabled. It avoids
+needing or verifying the separate Thinking menu for this simple caption task.
+Genuine new-source G2 figures/media acceptance and G3 remain unverified.
+
+---
+
+# 11 November 2026 - Real G2 long-prompt Selenium picker failure: atomic selector recovery
+
+**Device/PR:** Dell-115 Windows-only, `MicroGen_AI_Web` draft PR #528, isolated worktree `%LOCALAPPDATA%\\MicroGen_PR528_20261106`. Pre-attempt head `2ce0224` passed all THREE exact-head hosted Windows CI jobs; clean tree. Distinct **Serway 7.7** original source SHA-256 `b76058276d551f4feec5cac4034b35d5f5d1bd22a9ddfacaf13f0079921d68c8`, isolated original trial `%LOCALAPPDATA%\\MicroGen_AI_Web_Checkpoints\\20261111_PR528_G2_SERWAY7_7_DISTINCT_SOURCE_V1`. Native one-shot figures stage ran, extracted three source pages and one crop each, opened an owned verified Gemini Flash/Medium fresh chat and uploaded page+figure. It halted *before* Selenium Send at `PRE_SEND_MODE_PICKER_NOT_UNIQUE_OR_MISSING`; SHA-locked original result `FIGURES_ATTEMPT_FAILED_NO_AUTO_RETRY`, **zero REGISTERED model Sends**, original claim/log/triage remain untouched, no old stage repeat. G2/G3 still NOT VERIFIED.
+
+**Source-free reproduction:** Separate disposable Gemini tab, two synthetic PNGs and short prompt gave a valid picker. Entering a long synthetic prompt reproduced the same old Selenium predicate error while one synchronous read-only DOM snapshot still saw exactly one visible `Open mode picker, currently Flash Medium`. No provider Send/API, original source retry, TTS, audio, media, publication or borrowed-user-tab edits. The precise underlying Angular timing/element-ID mechanism is not independently established.
+
+**General production correction:** Shared `gemini_model._owned_picker` now deduplicates all semantic model-control candidates within ONE atomic read-only JS DOM snapshot, avoiding inconsistent multi-selector Selenium WebElement IDs; only a unique visible named model control is accepted. Pre-Send model guards in both genuine vendored and direct G1/G2 owned-Send entrypoints now allow a bounded 4-second no-interaction recheck for transient missing/ambiguous/stale picker while rejecting wrong model, wrong tab, ambiguous real duplicates and any replay. A second **live source-free no-Send** test with two synthetic uploads and a long composer now returns the correct owned Flash Medium picker. New stateful tests: `tests/test_gemini_model_atomic_picker.py`.
+
+**Baked-in triage:** Recognize a trusted original local traceback of `GeminiModelError: PRE_SEND_MODE_PICKER_NOT_UNIQUE_OR_MISSING` with verified zero Send as `GEMINI_UI_PICKER_UNVERIFIED_BEFORE_SEND_NO_RESEND`, distinct from Gemini outage and with automatic remedy route `ATOMIC_OWNED_PICKER_SNAPSHOT_AND_BOUNDED_PRE_SEND_RECHECK`. Existing historic SHA-bound triage remains byte-for-byte identical; compatibility reports the corrected diagnosis read-only, never creates a Send. Offline fresh-source and negative-spoof regression added to `test_windows_gemini_stage_transport_triage.py`.
+
+**Closure status:** focused tests/CI for the new exact commit and a DIFFERENT unclaimed original-source G2 acceptance still required. Never retry historical Serway 7.7 merely to prove a fix. No automatic G3 release or audio/media claims.
+
+---
+
+# 11 November 2026 - Adaptive picker CI fixture: real fresh-tab state retained
+
+**Exact-head GitHub Windows CI after commit b3ff2ca:** Full offline and historical regression suites stopped at the same pre-existing October fresh-tab recovery mock `tests/test_gemini_mode_recovery.py`. The fake `Picker` had no WebElement ID or dedicated test-id, and `Browser.find_elements` returned the same picker for *every* unrelated CSS selector. The new single semantic picker resolver correctly requires real element identity and uniquely attributable model controls, so that old mock was no longer representative of authenticated Gemini. Corrected **only the source-free test fixture** to expose a stable unique ID, owned model-label/test-id attributes, and a picker only for appropriate selectors. Preserved the test's original acceptance: a new authenticated tab recovers Flash without modifying the old draft, and failure closes only the disposable tab. No production fallback weakening or model Send replay.
+
+**Validation:** Exact affected historical, Medium/adaptive, source-stage G2 matrix PASS 79/79; original synthetic 149 focused test suite passed at the preceding head. Hosted Windows CI must run again against this new fixture version. Original Serway 7.6 receipt, all registered Send claims, SHA lineage and G2/G3 release guard remain untouched.
+
+---
+
+# 11 November 2026 - General Gemini UI resilience and Medium thinking: baked into G2 normal pipeline
+
+**User request and scope:** Do not repeat per-PC/per-PDF Gemini Selenium compatibility fixes. Geminis's role, aria-label, selected-mode wording, menu order, model versions and thinking-level descriptions may change independently. The normal Dell-115 source-to-lecture workflow must automatically adapt **before a model Send**, but cannot safely guess when Gemini stops exposing verifiable identity/selection evidence. Single provider Selenium UI only; no paid API, local model, new manual academic approval or automatic Send replay.
+
+**Actual live UI evidence:** Dell-115 Gemini model menu now contains `menuitemradio` 3.5 Flash-Lite / 3.8 Flash / 3.1 Pro; nested `Thinking level` contains selected-state radios `Low`, `Medium`, `High`. Disposable-tab probing selected and verified Medium by `aria-checked="true"` without a prompt. A real complete vendor `GeminiSeleniumClient.open_clean_gemini_chat()` run on Dell-115 returned `PRODUCTION_VENDOR_FLASH_AND_MEDIUM_VERIFIED`, owned picker `Open mode picker, currently Flash Medium`, source-free/no upload/no Send/no TTS. The model remains a UI family claim, not a verified Google backend model ID.
+
+**Implemented shared compatibility layer:** `selenium_pipeline/gemini_model.py` now uses one owned-tab semantic picker discovery across mode/test-id/accessibility roles, adapts to version/description/option ordering, recognizes exact `Gemini Flash` and `Flash Medium`, rejects mixed Flash-Lite/Pro/Argon/Carbon, and does not borrow a foreign tab. `selenium_pipeline/gemini_thinking.py` supports configurable `MICROGEN_GEMINI_THINKING_LEVEL` (default **medium**, explicit low/high overrides), dynamically discovers the nested Thinking/Reasoning menu using multiple role/name strategies, chooses and verifies the requested Medium radio, tolerates benign hydration delay and aria-checked/aria-selected variations, and rejects missing/ambiguous/foreign state. Both copied vendor lecture workers and the direct shared `series_gemini._browser_request` enforce model/Medium after New chat and before the single Send, rechecking Flash after opening the Thinking menu. All such selection/recovery work is strictly pre-Send and bounded.
+
+**Acceptance/remedy durability:** `runner.py` emits the requested thinking level, the actual vendor records timestamped `[GEMINI-THINKING] PRE_SEND_OWNED_LEVEL_VERIFIED medium`. `windows_gemini_stage_transport_triage.py` examines original log plus registered Send evidence and reports missing or mismatched Medium independently of Gemini outage. `windows_lecture_progression_coordinator.py` now blocks an accepted source stage if its own original log declares Medium but lacks verified pre-Send Medium evidence; existing immutable SHA-bound receipts and no-resend policy remain unchanged, as do independent physics/figure/voice QA and G3 gates. Full design/limitations and future adaptation matrix: `docs/GEMINI_UI_ADAPTIVE_RECOVERY_CONTRACT.md`. New stateful UI drift regressions `tests/test_gemini_adaptive_ui_thinking.py`; updated original source, copying/one-Send and model tests. **149 source-free focused tests PASS** on Dell-115; compileall and git diff --check PASS. Exact new-head hosted Windows CI and fresh distinct-source G2 final acceptance still needed; Serway 7.6 original registered Sends are NOT repeated, and 7.7 still no-Send staged only.
+
+---
+
+# 11 November 2026 - Hosted full-CI short Copy recovery fixture updated for exact owned Flash check
+
+**New exact-head hosted CI finding:** At commit 37ef8a73691f705d784b6a31f3b1a9cf135c65c9 the Windows publication and offline regressions PASSED; full historical suite stopped after 1,825 passes at `tests/test_short_verified_gemini_copy.py::GeminiShortVerifiedCopy::test_real_bridge_recovers_own_short_canary_without_second_send`. The test's minimal FakeDriver intentionally only models a Gemini model-response and scoped Copy button. The newly required `series_gemini._browser_request` last-moment exact Flash owned-picker check cannot obtain `find_elements` on this mock, so the production pre-Send guard halted before the historical Copy recovery assertion. This is a stale mock contract, NOT a reason to relax the production guard or replay any original model Send.
+
+**Generalized remedy in tests:** The short Copy recovery fixture now independently mocks a successful exact-Flash *owned-tab picker verification* before entering the one-click Send boundary; existing checked one-Send-only and short verified Copy acceptance assertions are unaltered. Full textual search of all direct `series_gemini._browser_request` test call sites found 5 and all now explicitly model success or failure of the last-moment model guard. Combined affected historical/G2 regression tests PASS 47/47. Original Serway 7.6 immutable failure, source and all previous Send claims remain untouched. Exact newly committed head hosted Windows CI is needed. Original Serway 7.7 still source-only prepared/no Send; full G2 and G3 NOT VERIFIED.
+
+---
+
+# 11 November 2026 - All direct Gemini Selenium Send entrypoints enforce the same exact owned Flash-family guard
+
+**Generalization following G2 wrong-model fix:** A second real code path, `selenium_pipeline.series_gemini._browser_request`, called the lower-level `click_one_owned_gemini_send` directly rather than `GeminiSeleniumClient.click_send_with_fallbacks`. While its pre-Send preparation used the shared strict model selector, its own final click boundary could otherwise escape a last-moment model reset to Flash-Lite after upload/editor preparation. That bypass has now been closed **before** the source/model request: `assert_owned_gemini_mode(client.driver, owned_handle, mode=configured_ui_mode())` must pass at the actual direct one-click Send boundary. The guard makes no browser Send, creates no tabs, reads no prompt or private response, and cannot restart any old source. If the wrong family is present, it fails as an explicitly pre-Send model picker blocker and never reaches the click.
+
+**Regression evidence:** Real `series_gemini._browser_request` offline reproduction with an intentionally failing Flash-Lite family assertion proves **zero** click attempts, one normal owned-client shutdown, and `gemini_send_boundary_entered=False`. Three earlier mock-response-recovery tests were updated to simulate an independently verified correct owned Flash mode before their existing one-Send/late-response checks; none of their one-click, recovery, or quarantine behavior was weakened. Targeted combined G1/G2 response tests PASS 29/29, compile/diff checks pending exact new-head CI. Original Serway 7.6 SHA and failed Send claims remain immutable. Original Serway 7.7 is prepared as a distinct no-Send seven-stage dry run only; live G2 figures/slides are NOT yet accepted. G3 release NOT VERIFIED.
+
+---
+
+# 11 November 2026 - Hosted exact-head G2 Flash selector test-fixture adaptation
+
+**Detected by exact-head Windows CI:** Commit e809b5d11ccfb92b68bc728d74d1d708ff626bec passed unittest and offline-regressions but the hosted full historical suite failed at test `tests/test_gemini_selenium_only_policy.py::GeminiSeleniumOnlyPolicyTests::test_vendored_missing_registration_never_fakes_proof_or_resends`. The old `MockDriver.find_elements()` returned only `MockButton` (Send button) for all selectors, with no model-picker `get_attribute()`. The new real production one-click Send guard correctly inspects a distinct, Flash-verified owned model picker *before* Send, so the old mock shape became invalid and raised AttributeError instead of reaching the test's send-registration assertions. This is a **test-fixture mismatch**, not evidence for weakening the production exact Flash guard or another original-source Gemini retry.
+
+**Reusable test remedy:** `MockDriver` now models separate `button[aria-label^="Open mode picker"]` with a read-only `MockModePicker` exposing `Open mode picker, currently Flash`. The Send-button mock, original one-click and uncertain-registration assertions are unchanged: no second click, no fabricated provider registration, and no real Chrome/model requests. The targeted current+historical set PASSED 28/28; full historical source-free suite started on Dell-115. Exact newly pushed head hosted Windows CI required after this adjustment. The actual Serway 7.6 prior claimed failure remains untouched and fail-closed. G2 full scientific/media and G3 release NOT VERIFIED.
+
+---
+
+# 11 November 2026 - G2 wrong Flash-Lite model family and changed Gemini menu: source-locked general correction
+
+**Actual historical failure diagnosis, no speculative provider-outage blame:** Original distinct Serway 7.6 stage (source SHA 6b5aae8351e8646cf15aad77c625834a7d6c0658974b8fe25868c7816c06c049) completed original figures mapping technically, but both its figures and slides vendor workers recorded `Selected Gemini tab via mode picker: Open mode picker, currently Flash-Lite`, despite the runner/parent recording explicitly requested `flash`. Slides recorded one registered Send, 212 seconds with zero attributed model-response chars, then `POST_SUBMIT_NO_ATTRIBUTED_RESPONSE_NO_RESEND`; no slide artifact accepted. Wrong model-family selection is **proven**; actual cause of Gemini's empty reply is **not proven** (could be provider output or capture). Historical figure success does NOT meet agreed Flash-family model provenance; all original SHA-bound claims and raw logs unchanged and no old Send may be repeated.
+
+**Source-independent root cause:** The vendored `GeminiSeleniumClient.open_clean_gemini_chat` used a lax substring test (`"flash" in label`) for picker and menu, allowing `Flash-Lite` to masquerade as Flash, including after the parent already selected Flash. On 11 Nov a live **read-only new owned tab** exposed a SECOND current-UI incompatibility: the model entries live under `gem-menu-item role=menuitemradio` and have a two-line descriptor, e.g. `All-around help / 3.8 Flash`; older code searched only `role=menuitem` and first-line Flash. Live menu also displayed `Quick answers / 3.5 Flash-Lite` and `Detailed research / 3.1 Pro`. Those are alternative models, not proof of correct Flash.
+
+**Reusable remedy implemented in the actual shared production path:** `gemini_model.select_owned_gemini_mode` now recognizes both exact role=menuitemradio with multiline model sublabels and older role=menuitem. It only chooses an unambiguous, exact requested model family within the MicroGen-owned tab; Flash-Lite and mixed/Pro never match Flash. The parent `ensure_mode` and copied vendor's initial and post-New-chat checks now use this **same** canonical selector, avoiding independent divergent logic. A separate **read-only last-moment pre-Send check** `assert_owned_gemini_mode` in the actual production `GeminiSeleniumClient.click_send_with_fallbacks` refuses any wrong-model/foreign-tab/ambiguous picker before a request can be submitted. It does NOT introduce a new retry, API/local-model fallback or manual academic review.
+
+**Historical evidence preservation and release safety:** A new source-log-only `audit_original_stage_model_family` recognizes exact owned vendor timestamped picker labels together with requested Flash and independently registered Send; it exposes `owned_worker_wrong_ui_family_observed` while explicitly keeping provider-caused-blank-response unproven. Existing triage receipts remain immutable; read-only same-SHA reclassification can report model-contract breach with zero model calls. The existing normal `windows_lecture_progression_coordinator.inspect_progress` now halts progression from a source stage that technically succeeded using a wrong model, preserving old source claims and blocking downstream slides/narration/MP4 without resubmission. Live read-only original Serway 7.6 inspection correctly returns `HALTED_FIGURES_WRONG_UI_MODEL_FAMILY_NO_RESEND`. Tampered SHA-locked original logs are rejected.
+
+**Validation and scope:** Real Dell-115 Chrome picker inspection confirmed the new radio/multiline option structure; another disposable-tab-only test confirmed current Flash family with `OWNED_FLASH_VERIFIED_WITHOUT_SEND`, no prompt, uploads, Gemini Send, or user-tab closure. Offline production vendor/client tests exercise Flash-Lite->Flash correction, post-New-chat reset correction, pre-Send refusal, wrong/mixed menu rejection, old/new menu layout, parent-child selection parity, original file SHA tampering, and failure triage. 69 focused tests passed before latest parent-parity addition; latest model selector test 14/14 PASS. Exact new-head hosted Windows CI remains to be checked after commit. This correction fixes wrong-family submission and stale menu compatibility, NOT proof that Gemini can now generate the full source-sized Beamer reply. A single distinct-source G2 trial, independent academic/figural QA, voice/acoustics, element highlighting, <600-second MP4 and G3 release remain pending.
+
+---
+
+# 11 November 2026 - G2 isolated worker import fixed at production subprocess boundary
+
+**Actual distinct-source failure:** On Dell-115 PR528 head 782e27da5f25588c91eb68562dbc968659918a65 (all three exact-head Windows CI PASS), genuinely source-only Serway 7.5 source SHA aee981e7d26bd78ffec9dacd5b2553e80bc0cf993c7d75fc6a70de43bd3ddb79 passed no-Send seven-stage dry-run. Its one bounded native figures stage in immutable %LOCALAPPDATA%\\MicroGen_AI_Web_Checkpoints\\20261111_PR528_G2_SERWAY7_5_DISTINCT_SOURCE_V1 FAILED before local crop/any Gemini Send. The real isolated Docling worker launched copied vendor crop_figs_v3.py from .microgen_work, could not import selenium_pipeline.figure_crop_source_provenance because the checked-out package root was missing from the alternate Python subprocess import path. Exact stderr: ModuleNotFoundError: No module named 'selenium_pipeline'. Gemini browser UI was attached by parent preflight but individual registered browser Sends were ZERO; treat as local interpreter isolation bug, not service outage. The original source, one-stage failed claim and raw immutable diagnostic remain intact; do not resend the historical 7.5 stage even though no Send is evident.
+
+**General reusable normal pipeline fix:** runner.source_locked_worker_pythonpath() resolves and verifies this exact isolated checked-out repo's selenium_pipeline package, prepends it before any inherited Python path (without duplication), and injects PYTHONPATH into the normal subprocess environment used by **all** copied vendor stage scripts. This fixes Python module discovery for Docling workers and future shared package imports, not a 7.5 hardcoded workaround. A real isolated native Dell-115 conda interpreter C:\\Users\\tlyoon\\.conda\\envs\\docling_dell\\python.exe successfully imported both new provenance module and runner while working from a separate synthetic scratch directory, using exactly the helper-derived subprocess env: DOCLING_ISOLATED_WORKER_PACKAGE_IMPORT_PASS, exit 0. No Gemini, TTS, APIs or original source files used.
+
+**Normal evidence and supervisor classification:** windows_gemini_stage_transport_triage now recognizes a trusted standalone ModuleNotFoundError Python traceback with no registered Send as ISOLATED_WINDOWS_WORKER_IMPORT_FAILED_BEFORE_MODEL_SEND, reports INCLUDE_CHECKED_OUT_REPO_IN_ISOLATED_WORKER_PYTHONPATH as a reusable remedy and never treats the failure as a Gemini outage or retry permission. When an old generic SHA-bound triage already exists, it is preserved byte-for-byte and newly surfaced classification is read-only, provided original result/log SHA records still match. It does not authorize any old claim resend.
+
+**Verification:** 54 targeted Windows/Dell-115 tests PASS for real isolated (current interpreter) subprocess module import, root precedence, invalid root rejection, historical triage reuse, no model-text spoofed local import failure, no Send, existing geometry extraction, source hashes, source-only checkpoints; compileall and git diff --check PASS. Real alternate conda isolated-worker launch PASS. Exact-new-head hosted CI needed after committing. Historic 7.2/7.3/7.4/7.5 claims preserved. The next new original-source candidate is Serway 7.6 (read-only inventory lists it outside the *scoped* known trial ledger, never-before-run globally NOT proved), requiring its own new isolated dry-run and a ONE-stage figure attempt only after exact-head CI PASS. G1 prior PASS; G2 full original lecture, academic/scientific QA, TTS/highlighted <600s media and G3 NOT VERIFIED; no merge, publication or paid APIs.
+
+---
+
+# 11 November 2026 - Reusable source-space crop provenance integrated across extraction, mapping and checkpoint resume
+
+**Recovered development point:** Dell-115 exclusive device, isolated PR #528 worktree, predecessor head e159998972e655355a15914cbd58e908b6a34a34 with all three hosted Windows jobs PASS (full suite 7m37s, offline regressions 3m11s, publication test 16s). Old Serway 7.2 uncertain review claims and 7.3/7.4 attempted figure-stage claims remain preserved and MUST NOT be resent. No TTS, MP4, API, publication, or unattended academic approval authorized.
+
+**General root-cause improvement to original pipeline:** Original vendored Docling crop stage wrote figure PNGs but discarded Docling's declared source-page PictureItem bounding boxes; the mapping stage consequently had no page-space evidence to distinguish adjacent source crops from accidental duplicate targets. New selenium_pipeline/figure_crop_source_provenance.py extracts only single-page source-declared bounding rectangles (top-left PDF coordinates), binds each crop to original source PDF, full-page PNG and crop SHA-256, and writes a candidate-only, exclusive-create, fsync'd manifest. The real normal crop_figs_v3 worker copies this manifest to the exact crops directory used by the Gemini mapper. Any failure collecting/saving evidence now causes an explicit local-stage failure rather than silently printing successful extraction. A strictly identical pre-Send local reentry reuses the existing immutable manifest byte-for-byte rather than raising a new avoidable blocker; a changed manifest fails without overwrite and does not authorize any second Gemini Send. This is no new Gemini request.
+
+**Normal-path reuse and fail-closed safeguards:** map_and_rename_selenium_v8 verifies every declared source/crop SHA and filename against the original page before attempting to publish mapped figure copies. If two distinct crops are assigned the same target, it retains the existing FigureCompositeReviewRequired guard but attaches an independently source-bound diagnostic packet (declared rectangles, overlap status, original crop hashes) to the immutable composite review; neither disjoint boxes nor a matching Gemini caption certify figure completeness, membership or correctness. A missing legacy manifest does not fabricate coordinates. Newly recorded manifests become a mandatory part of source_bound_mapping_checkpoint identity; the existing checkpoint cannot resume if either page/crop manifest is missing, changed, or its source/crop bytes no longer match. Legacy checkpoints with no declared geometry retain original no-repeat behavior.
+
+**Verification to date:** 62 focused Dell-115 tests PASS across new source geometry, fake normal two-page Docling extraction, actual production figure mapper on source-mismatched and colliding crop sets, mapping checkpoint SHA replay protection and existing Windows transport triage. Local py_compile/compileall and diff checks PASS. Negative cases cover changed crop/source hashes, duplicate names, untrusted bbox, mutated provenance, no panel semantic authority, absent copy, replay after manifest mutation, conflicting figure labels and no unsafe merge. One isolated *synthetic* picture-to-Docling provenance probe COMPLETED successfully in the native docling_dell Python environment (82.01 seconds) under %LOCALAPPDATA%\\MicroGen_AI_Web_Checkpoints\\20261111_GEOMETRY_SYNTHETIC_PROBE: it produced one PictureItem with exactly one provenance record, page_no=1 and actual CoordOrigin.BOTTOMLEFT, and the new normalizer returned bounded source PDF rectangle [80.29087, 134.29729, 528.38818, 368.38153]. It made NO model requests and touched NO historical source trial files. This proves compatibility with one real Docling PictureItem, not page/figure semantic completeness or full G2 release acceptance.
+
+**Gate and next work:** This fixes future loss of source-geometry evidence and automates evidence collection/classification; it does NOT yet resolve Serway 7.4's historically absent coordinate manifest, nor prove panel completeness and independent scientific QA for a whole original lecture. Exact new-head hosted Windows CI and a new, never-claimed original-source candidate run are still required before G2 could pass. Distinguish recoverable structural faults from truly unrecoverable old responses, and don't retry any old/ambiguous Send or loop on one PDF. G1 previously PASS, G2 and G3 NOT VERIFIED.
+
+---
+
+# 11 November 2026 - Source-geometry figure blocker routed by normal immutable stage triage
+
+**Continuity and accepted baseline:** MicroGen_AI_Web PR #528, isolated Dell-115 Windows/Selenium worktree. Head f7b1da55034155ce5768cbd91dea4dcba9d3c9f1 exact-head hosted reliability full suite PASS (7m27s), offline regressions PASS (3m7s), publication regression PASS. Original Serway 7.2 academic claim and 7.3 mapping claim remain untouched/no retry. G1 source-sized Gemini generation transport historically PASS, G2 full science/media acceptance NOT_VERIFIED, G3 unmerged/unreleased.
+
+**New independent G2 stage:** Source-only original Serway section 7.4 at SHA-256 b1a723d12a2c612337cec2cfbebdcb371ea7be6f8b90624e80ec646ddcb6b254. Fresh isolated %LOCALAPPDATA%\\MicroGen_AI_Web_Checkpoints\\20261110_PR528_G2_SERWAY7_4_DISTINCT_SOURCE_V1, seven-stage dry-run and read-only source coordinator both PASS. Standing-authorized one-shot figures stage returned FIGURES_ATTEMPT_FAILED_NO_AUTO_RETRY, 143s, 6 pages locally processed, Gemini Flash UI authenticated and independently registered model Send(s). Page 2 received exactly THREE mappings for THREE real original crops, but TWO DIFFERENT crops were both assigned the same Figure 7.7 destination, and third crop Figure 7.8. The existing figure_composites non-destructive source geometry gate correctly blocked ambiguous_duplicate_target_no_layout_provenance. Neither crop was silently merged/overwritten, no figure stage acceptance, no audio/video/TTS or release, and no Send or source attempt was repeated. This is an unknown scientific/panel layout relationship, **not** a Gemini connectivity or duplicate-text-row problem.
+
+**Reusable normal-path correction:** Extended windows_gemini_stage_transport_triage.diagnose and automatically invoked persist_terminal_triage. It classifies the exact trusted local FIGURE REVIEW marker in a SHA-locked figure stage log plus independently confirmed registered Send as SOURCE_FIGURE_DUPLICATE_TARGET_GEOMETRY_REQUIRED_NO_RESEND (or conservative composite-provenance subtype). Reports source_figure_geometry_blocker and exact safe_recovery_route=INDEPENDENT_SOURCE_SPACE_GEOMETRY_EVIDENCE_NO_MODEL_RESEND. Prevents users/automated supervisors interpreting this as provider outage, browser error or retry permission. Missing trusted local marker, spoofed generic model wording and unrelated slides/narration do not trigger geometry certification. Existing immutable diagnostic receipt remains byte-for-byte unchanged: compatible new classification is exposed read-only only after verifying same exact result/log hashes. Original source remains untouched; no new model requests.
+
+**Evidence:** 71 Dell-115 focused regression tests passed for normal source-stage triage, old SHA-bound immutability, source-free figure worker and academic-queue guards, plus compileall and diff check. Real original 7.4 read-only CLI correctly reports SOURCE_FIGURE_DUPLICATE_TARGET_GEOMETRY_REQUIRED_NO_RESEND, two registered Send markers and NO provider-outage proof. Existing 7.4 persisted triage returns PRIOR_SHA_BOUND_TRIAGE_REUSED_NO_SEND with new_readonly_classification matching geometry blocker and zero new model requests; no receipt overwritten. New exact-head hosted CI required after commit. This remedies misclassification and reroute/retry recurrence, **not** the absent source-space panel geometry itself.
+
+**Next safe and general G2 priority:** Build/route independent source-space geometry evidence for multiple crops assigned one source figure before any automatic whole-figure reconstruction. Existing figure_panel_geometry and related modules are read-only/candidate-only and do not certify arbitrary Docling crop concatenation. Stop repeated source/PDF experiments and preserve 7.2/7.3/7.4 immutable claims; source-grounded composite verification is required before G2 can legitimately pass. Never relax figure_composites safeguard, claim automatic academic QA without evidence, use paid API fallback, re-send claimed jobs, or publish teaching media.
+
+---
+
+# 10 November 2026 - General Gemini figure surplus mapping repair after distinct-source G2 stage
+
+**Latest exact-head acceptance entry:** GitHub PR #528 Dell-115 SHA 7b00042a38a1bb942821907bec41a8943df56dff, clean Windows-only checkout; hosted full Windows/Python 3.12 suite and offline reliability suite both PASS in run 42844670010, publication unittest PASS in run 42844669949. G1 transport PASS_VERIFIED but G2 complete original lecture and G3 remain NOT_VERIFIED.
+
+**Distinct new-original-source campaign:** Source-only publisher Serway 7.3 original file SHA-256 1d0945c379000d65eb898860272f228adb303cb3036badf954dde6286ecbad91 (410108 bytes). Scoped read-only 46-source/10-contract/18-Send-ledger inventory classified 7.3 absent from the **scoped** prior-claim registry; never-attempted history globally is not proven. Created fresh immutable isolated trial in %LOCALAPPDATA%\\MicroGen_AI_Web_Checkpoints\\20261110_PR528_G2_SERWAY7_3_DISTINCT_SOURCE_V1. Native seven-stage no-Send dry-run PASS, then one standing-authorized figures-stage coordinator invocation with Gemini Selenium only; generated no audio/video/TTS and made no API calls.
+
+**Actual failure and decisive diagnosis:** Figures stage ran local 3-page crop extraction successfully, confirmed Gemini login/Flash UI and registered at least one real Send. Owned model return for page 1 comprised three parseable lines for two crop files: exact Figure 7.5 duplicated under a malformed composite returned name, and a distinct Figure 7.6 named with an upload suffix. Shared terminal triage reports REGISTERED_BROWSER_SEND_BUT_NO_ACCEPTED_STAGE (two registered Send markers in stage log) and exit 1: FIGURES_ATTEMPT_FAILED_NO_AUTO_RETRY. No mapping was accepted and no source or prior claimed unit was re-submitted. A model-response FORMAT/COUNT defect, not demonstrated Gemini connectivity failure, caused this stage stop. All trial claims/logs are retained untouched; NEVER retry section 7.3 figures merely to prove this fix.
+
+**Reusable remedy in actual normal figure worker:** Add source-independent strict reconcile_surplus_duplicate_mappings to vendor_template_v2/map_and_rename_selenium_v8.py. After the existing owned-response capture and parse, at most one finite structural pass deduplicates caption-and-target identical surplus rows only if the distinct target count exactly matches local crops, first crop name or verified short hex upload-suffix still anchors each crop in original order, all target names agree with label names, and no duplicate row presents a conflicting exact local crop name. Preserve full original model reply and immutable source-page/crop SHA-bound reconciliation evidence. Ambiguous labels, conflicting targets, extra real figures, panel uncertainty, reordered/unknown crop names, unparseable extra lines and provider UI errors retain existing no-resend failure. Existing figure_composites and source/non-overwrite QA still operate; this is not independent figure semantic or student publication approval. No paid model fallback, no extra Send.
+
+**Offline evidence:** 77 Dell-115 tests PASS across normal vendor figure mappings and neighboring G2 source-locked review/claim paths; compileall and git diff --check PASS. New injected failure cases include the original three-vs-two response shape and negative cases (conflicting captions, duplicate of a distinct exact crop, reversed order, missing identity, malformed suffix, excessive rows, two genuine same-caption crops). An additional end-to-end offline execution of the ACTUAL normal vendor map_and_rename_single_step with the observed three-row model response produced two precise original-crop copies with a single captured reply and saved SHA-bound evidence, while its conflicting variant stopped without publishing any mapping. This is normal-path fault-injection, not proof of source-caption semantics. Live post-fix recovery on a new and separately authorized original-source job remains NOT_VERIFIED until explicitly observed. Exact new-head Windows CI is required after commit/push; no implied successful full lecture.
+
+**G2 next progress:** Preserve Serway 7.2 historically uncertain slides 1 and 2 (no raw reply to reconstruct), and preserve Serway 7.3 claimed failed figure stage (no retry). After exact-head Windows CI passes, use separate genuinely new-source job and source-claim/rights checks to exercise the revised normal mapping, not a per-PDF perfection loop. Only source-witnessed AI academic consensus and separately authorized existing TTS/PCM synchronization/media quality gates can advance complete G2 to accepted. No merge, public release or G3 acceptance is claimed.
+
+---
+
+# 10 November 2026 - G2 saved-reply recovery integrated into normal review gateway
+
+**Project and entry evidence:** MicroGen_AI_Web, Dell-115 only, PR #528 branch; entry SHA ab4aa99cf84cd831705d655db213f395f8097260 with all three exact-head Windows checks passing. Scope remains Gemini Selenium only, no ChatGPT/Gemini generation API fallback, no local models, no alternate accounts, no paid TTS, no publication or historic claim resend. G1 operational source-sized transport PASS_VERIFIED. Preserve original Serway 7.2 G2 source SHA-256 7cc5c12eb5f81bc6b180f24e66ac3077f15fddf59fab035c261c8723d449daba.
+
+**Actual reusable blocker:** The normal queue contained a saved-response reconciliation branch, but the planner rejected a previously failed attempt *before* checking for its saved source-bound response; executor also refused to write anything if the old immutable failure receipt existed. An interrupted checkpoint could leave the response bytes on disk with request_state still SUBMITTED_OR_UNCERTAIN and no safe automatic restoration. These are general pipeline defects, not defects in one PDF.
+
+**Permanent normal-path remedy candidate:** academic_review_checkpoint now fsyncs the exact untrusted response bytes, then fsyncs a separate immutable source/prompt/review-fingerprint and response-hash identity before transitioning request_state. On crash after that durable receipt, the existing submit_once and normal ai_academic_review_queue driver can recover the exact matching bytes without dispatch, require the original source and source-validating reviewer, and preserve single-pass non-approval. The shared planner now prioritizes no-Send reconciliation even with an old failed review receipt; executor writes a distinct immutable reconciliation record without altering the earlier claim or failure. Tampered/missing raw text, mismatched hashes/source, repeat reconciliation, injected transport against a prior claim and rejected source evidence fail closed. A failed reconciliation defers subsequent slides rather than shifting a new Send forward; CLI communicates the block to supervisors.
+
+**Verification:** 55 focused source-independent Windows/Dell-115 tests PASS, plus compileall and git diff --check PASS. Simulations cover real normal queue/CLI entrypoints, a pre-existing quarantined Send with safely saved reply, crash between response identity and state update, strict source validation, immutable failure receipt preservation, no extra Send, oversize rejection, tampered response and direct injected transport bypass. These are offline integration tests, not proof that a real historical missing response was recovered. Exact new commit and hosted Windows CI still required before engineering acceptance.
+
+**Real original-source inspection:** Read-only --auto-next --auto-batch 3 on the untouched Serway 7.2 queue still correctly reports DEFERRED_REPEATED_UNATTRIBUTED_BROWSER_SEND for prior slides [1,2], and source.pdf SHA is unchanged. Slide-2 request directory contains only dispatch_attempted.claim and request_state.json, **no saved reply or identity**. The existing response cannot be invented from the new code. No fresh Gemini Sends occurred; G2 academic consensus, PCM/WAV, highlighted MP4 parts <600 s, and G3 remain NOT_VERIFIED. The safe immediate priority is exact-head Windows CI and independent attributed evidence or a separately eligible new G2 original-source pilot consistent with the no-per-PDF-perfection rule, never an old claimed resend.
+
+---
+
+# 10 November 2026 - Reusable owned-response checkpoint compatibility hardening
+
+**Recovered authority and checkpoint:** Dell-115 only, MicroGen_AI_Web draft PR #528, source-locked Serway 7.2 G2 academic review pending. At entry, branch 79640e80459078496dfaa1e5e3643d91ce7da7bd and all three hosted Windows checks passed. The separate old G:\\My Drive\\Projects\\MicroGen_AI_Web checkout is behind and has unrelated uncommitted changes: do not edit it. The actual PR #528 isolated worktree contained a small, already uncommitted shared-path bug fix and tests; they were inspected rather than overwritten.
+
+**General fix in normal production gateway:** selenium_pipeline/academic_review_checkpoint.record_observation now accepts the evidence-bearing OwnedGeminiResponse str subclass returned by regular Selenium, canonicalizes it to a plain str for source-locked immutable storage, and retains original length limit, request-state, dispatch-claim, and no-resend protections. This closes the remaining exact-type rejection at the shared checkpoint boundary; the normal academic review queue had already been hardened similarly. No provider change, extra Send, new PDF processing or bypass is involved.
+
+**Direct evidence:** Dell-115 pytest passed 34 focused tests spanning academic review checkpoint, queue, auto-next, CLI and claim recovery; compileall ran, git diff --check produced no error. Newly added tests verify successful exactly-once source validation and immutable raw-text storage for OwnedGeminiResponse, duplicate prevention, and oversized response rejection before raw file creation. These are offline integration/regression checks, not a live provider recurrence proof. Exact new-head Windows hosted CI remains required before live new review.
+
+**Gate:** G1 source-sized Gemini Selenium PASS_VERIFIED (historical), G2 source-grounded review incomplete, G3 incomplete/unreleased. The historical Serway 7.2 slide-1 request has SUBMITTED_OR_UNCERTAIN claim and MUST NOT be resent. Only after exact-head CI verifies this change may the original read-only queue/preflight select a genuinely new, independently eligible review unit; at most one real fresh review attempt should be made for post-fix transport assessment. If the provider again fails or Send is ambiguous, persist evidence and STOP rather than moving to further slides to evade a known failure. No paid API, alternate Gemini account, ChatGPT fallback, TTS or publication.
+
+---
+
+# 10 November 2026 - G2 live slide-2 response-save failure: shared checkpoint fix and fail-closed automation
+
+**Contract:** The owner reaffirmed that every reproducible blocker remedy must be installed in the normal shared code path, exercised by source-independent regression, and selected automatically when its preconditions recur. Automatically advance only independently eligible units; no routine manual approvals, duplicate model Send, provider/account switch to bypass an uncertain claim, paid TTS or unapproved publication.
+
+**Frozen initial state and CI:** Dell-115 only, PR #528 branch at SHA 79640e80459078496dfaa1e5e3643d91ce7da7bd (clean before live run), exact-head hosted Windows reliability #712 and source-adjacent #133 both PASS. Serway 7.2 original source SHA-256 7cc5c12eb5f81bc6b180f24e66ac3077f15fddf59fab035c261c8723d449daba unchanged. Previously accepted figures, slides, narration and limited script QA reused; slide-1 academic claim already SUBMITTED_OR_UNCERTAIN and never resubmitted.
+
+**Live normal-path advancement and distinct blocker:** One bounded normal `ai_academic_review_cli --auto-next --auto-batch 2 --execute-gemini-web` invocation selected genuinely unattempted slide 2 INITIAL_REVIEW. Original source.pdf and slides.pdf uploaded and ready. The shared Selenium Send was independently registered `NEW_USER_TURN_AND_COMPOSER_CLEARED (clicked=True)`. The batch immediately stopped after one request with `BOUNDED_REVIEW_STOPPED_AFTER_UNACCEPTED_UNIT`: its review returned FAILED_GEMINI_REVIEW_ATTEMPT_QUARANTINED, `ReviewCheckpointError: Oversized or missing owned response`. No second Send. Old slide-2 request state remains SUBMITTED_OR_UNCERTAIN, global dispatch claim retained, no model_response_untrusted.txt saved, no academic acceptance. Actual CLI exit was incorrectly 0 despite this failure.
+
+**Root cause and reusable shared code correction:** `series_gemini._browser_request` returns verified response text as `OwnedGeminiResponse(str)`; `academic_review_checkpoint.record_observation` previously required `type(raw) is str`, wrongly rejecting that subclass before writing the exact returned text. Change to `isinstance(raw,str)` with canonical `str(raw)` persistence, preserving MAX_RAW cap, immutable hashes, per-fingerprint global one-Send claim and independent source validator. Second observed automation bug: `ai_academic_review_cli.main` returned exit code 0 even on BOUNDED_REVIEW_STOPPED_AFTER_UNACCEPTED_UNIT. Correct to exit code 2 for failed/quarantined batches and non-completed blocked execution, leaving 0 for valid batch limit/completion and read-only plan. Source-independent regression tests on real normal queue path cover OwnedGeminiResponse accepted/saved once, no source/self-approval bypass, oversized response rejection, CLI failure propagation and automatic batch stop. **61 focused tests PASS**. This is shared code remediation; do not claim live post-fix proof before later genuine unattempted attributed response and exact-head CI.
+
+**Read-only recovery and anti-stall:** Post-failure inspected currently retained Gemini tabs without sending; both were blank, with no attributable saved response to recover. The immutable slide-2 response bytes cannot be reconstructed and are NOT to be fabricated. Read-only queue selector reports `DEFERRED_REPEATED_UNATTRIBUTED_BROWSER_SEND`, blocked slide-1 and slide-2 INITIAL_REVIEW, resume condition NEW_INDEPENDENT_TRANSPORT_EVIDENCE_OR_SAVED_REPLY; slide 3 MUST NOT be sent to evade this safety gate. Neither historical attempt can be resubmitted. Future code may recover an exact saved response through existing validate_saved only when provenance and original prompt/source hashes are established; here no such bytes exist.
+
+**Next legitimate development work:** Commit, push and validate this shared checkpoint/exit-status fix with exact-head Windows and source-adjacent CI. Continue reusable provenance/claim reconciliation, independent failure classification or other unblocked source-independent engineering priorities; do not loop to regenerate Serway 7.2 or bypass the anti-stall rule. G1 PASS_VERIFIED. G2 academic/mathematical source review and audio/MP4 acceptance NOT_VERIFIED, TTS and public release not authorized. No paid APIs, TTS, video or publication occurred.
+
+---
+# 10 November 2026 - Bounded autonomous academic review advancement in normal CLI
+
+**Standing owner requirement:** All recurrent/general blocker remedies must be integrated into the normal shared runtime, automatically selected by verified failure preconditions, and protected by regression and cross-entrypoint tests; a one-off diagnostic or checkpoint narrative is not a permanent fix. Progression must proceed between independently accepted eligible units without routine per-slide or per-milestone approval, retaining finite limits, source identity, conservative no-resend, rights/cost and release controls. Do not promise unbounded background execution. See v5.0 and binding section 4b.
+
+**Actual preexisting critical-path evidence:** G1 source-sized Selenium transport PASS_VERIFIED. G2 Serway section 7.2 source SHA256 7cc5c12eb5f81bc6b180f24e66ac3077f15fddf59fab035c261c8723d449daba, 15 source-bound slides, 49 narration utterances, figures/slides/narration/script-qa technical stages PASS. The independent academic review queue exists and original slide-1 initial-review attempt was FAILED_GEMINI_REVIEW_ATTEMPT_QUARANTINED with request_state SUBMITTED_OR_UNCERTAIN and a persistent dispatch_attempted.claim. Never change, reclassify or resend that old claim. Last deployed shared readiness improvement was f57e552 -> 241ccbf; hosted Windows reliability #711 and source-adjacent #132 PASS on 241ccbf. Real provider recovery of the original failure remains NOT_VERIFIED.
+
+**Shared normal-path advancement implemented (this revision):** Extend existing ai_academic_review_queue with advance_bounded_safe_reviews (not a parallel recovery framework), and wire ai_academic_review_cli --auto-next --auto-batch N (1<=N<=3), optionally --execute-gemini-web. Default --auto-next legacy one-unit behavior remains. Read-only mode never calls the model. Execute mode invokes the original advance_one_safe_review selector/claim/validation gateway for EACH eligible unit; verifies each source-bound immutable accepted review receipt before proceeding; stops on first failed/quarantined/ambiguous request, at the three-unit invocation limit, or on rights/queue/source/permission gates. Does not authorize TTS, API, publication, retries or alternative provider. Existing one-Send claim remains authoritative. This removes routine manual per-unit continuation without changing the one-stage-per-command safety rule.
+
+**Evidence-class compatibility fix:** ai_academic_review_queue.witness_model_return accepts isinstance(raw,str), including the normal evidence-bearing OwnedGeminiResponse subclass. Former exact type(raw) is str could misclassify a model response as absent if strict source validation rejected the reply. Existing real claimed browser Send rule still forbids automatic retry. No stale success is invented.
+
+**Tests and real read-only integration:** 48 focused offline tests passed, covering normal CLI gateway, three source-verified consecutive units, resume after two accepted receipts, skip previous ambiguous slide without new Send, fail-closed on unaccepted responses, bounds and read-only no-dispatch, and evidence-bearing string returns. On the REAL original Serway 7.2 queue, read-only CLI --auto-next --auto-batch 3 selected fresh slide 2 INITIAL_REVIEW attempt 1 while preserving blocked slide-1 claim; zero new provider requests. After commit require hosted Windows CI on the exact new head. Until then status CODE_INTEGRATED / OFFLINE_TESTED, not AUTO_RECOVERY_VERIFIED or G2 accepted.
+
+**Next lawful trigger:** Once exact-head CI is green, run at most one genuinely new review unit on the existing frozen source through the bounded normal driver to test the fixed pre-Send readiness; stop if provider again fails/Send remains uncertain. Never use a new slide to bypass repeat provider denial, anti-stall threshold or a known uncertain same job. Full AI source review, element mapping, authorized no-new-cost audio handoff, synchronous highlighted MP4 parts strictly under 600s, and independent domain checks remain G2 NOT_VERIFIED; no new paid TTS and no public release.
+
+---
+# 10 November 2026 - G2 autonomous academic review queue, bounded pre-Send failure and shared Quill readiness fix
+
+**Binding scope and frozen work:** v5.0 applied on Dell-115 only to MicroGen_AI_Web PR #528. Entry SHA f57e552177783aeef9e285cdbd2a4c031cc8450b, clean checkout; hosted Windows reliability CI #710 and source-adjacent tests #131 PASS at that entry SHA. G1 PASS_VERIFIED. Serway 7.2 source.pdf original SHA-256 7cc5c12eb5f81bc6b180f24e66ac3077f15fddf59fab035c261c8723d449daba unchanged; prior figures, slides, narration and limited script QA remain source-bound and untouched. No TTS or MP4 was authorized or generated, no publication or merge.
+
+**New accepted prerequisite:** Existing normal source-bound AI review queue prepared under the existing immutable trial at academic_review_queue_v1, for all 15 real slides and 49 exact narration utterances. Source PDF, slides PDF and script SHA identities validated. Its standing-authorized select_next_safe_review chose slide 1 INITIAL_REVIEW attempt 1, per_slide_approval_required=false. This is review-queue initialization, not mathematical correctness or academic acceptance.
+
+**Live reviewed-model attempt, finite stop:** Ran ONE academic review attempt through ai_academic_review_cli --auto-next --execute-gemini-web. The source PDF and slide PDF were uploaded, but the shared series_gemini Selenium pre-Send preparation failed with GEMINI_COMPOSER_OR_SEND_CONTROL_NOT_READY after all three allowed preparation attempts. The queue wrote a durable dispatch_attempted.claim and slide_001_initial_review_attempt_01.json with FAILED_GEMINI_REVIEW_ATTEMPT_QUARANTINED and provider_submission_state=UNKNOWN_AFTER_POSSIBLE_SUBMISSION; request_state.json remains SUBMITTED_OR_UNCERTAIN. The transport expressly observed no established model Send, but the conservative outer checkpoint cannot independently exclude one: preserve the original ambiguous receipt. NEVER replay this attempt, change its status, use a different account to evade the claim, or invent source/mathematical approval. No first-pass academic review was accepted.
+
+**General recurrence candidate and shared code correction:** Existing shared await_owned_gemini_send_visible checked only a role=textbox editor, although the real Gemini Quill composer may instead be div.ql-editor[contenteditable=true]. It also immediately failed during async control rendering when composer/send_count was temporarily absent. Corrected normal selenium_pipeline/gemini_response_recovery.py shared pre-Send readiness metadata to detect the same Quill/editor selectors as the trusted owned Send baseline; count only unique eligible visible/enabled Send controls; wait up to the already established finite deadline for late rendering; fail closed on wrong ownership, invisible document, duplicated Send controls and exceptions. This helper is called by production series_gemini._browser_request, including the academic queue. No new Send, force click, Enter or provider fallback was introduced. Focused regressions: 66 PASS, including new late Quill/control appearance and multi-control failure tests. This is CODE_INTEGRATED / OFFLINE_TESTED only after push; real independent recurrence recovery has NOT been demonstrated. Do not claim RESOLVED_PERMANENTLY before normal-path live proof and exact-head hosted CI.
+
+**Next legal trigger:** Freeze the focused fix and exact SHA, verify hosted Windows CI. For the review campaign, preserve already claimed slide-1 attempt as terminal/uncertain. Continue only with the existing queue's *independently fresh and authorized* unattempted reviewer unit after the corrected selector and provider readiness have independent evidence, obeying the campaign anti-stall and no-duplicate restrictions. Do not select a new slide solely as a workaround for the unchanged provider failure. The script QA still says all_mathematics_verified=false and independent_source_math_ai_review_approved=false; reviewed element plan, exact PCM WAV/TTS and highlighted MP4<600s are NOT_VERIFIED and release NOT_AUTHORIZED.
+
+---
+# 10 November 2026 - G2 narration and script QA progressed; shared Send-proof generalization
+
+**Confirmed scope and progression:** Under uploaded v5.0 standing authority on Dell-115, publisher and staged Serway 7.2 source.pdf retained SHA-256 7cc5c12eb5f81bc6b180f24e66ac3077f15fddf59fab035c261c8723d449daba. Reused accepted figures and slides without model resend; executed two separately preflight-gated, each one-stage native coordinator commands. Narration: STAGE_COMPLETED_AND_SOURCE_SHA_BOUND, exit 0, 15 slide pages, Gemini returned 6,798 characters, produced validated script.txt SHA-256 f167e3d8ee8576320b617437e475e8fca94682a4fb733bb6525f15ec23fd875b. Script QA: STAGE_COMPLETED_AND_SOURCE_SHA_BOUND, exit 0, source-bound script_risk_report.json (1 warning, 0 blocking) and math_semantic_report.json (0 known sign hazards under limited ruleset). All immutable claims/results retained in the existing 20261110_PR528_G2_SERWAY7_2_DISTINCT_SOURCE_V1 checkpoint; no TTS, audio, MP4 or publication.
+
+**Root cause of recurrent Send-proof gap:** The earlier figure-stage marker-detection remedy was baked into the normal terminal triage, but successful slides and narration logs did not emit a verified marker. The shared vendored production GeminiSeleniumClient.click_send_with_fallbacks returned only click status and skipped the existing trusted post-Send observer. Shared correction now automatically obtains the prompt-free owned-tab baseline, clicks no more than ONCE, observes only the owned tab, and emits one of three independently verified registration markers; absent proof emits an unverified no-resend warning. The shared windows_gemini_provider_halt._SEND_PROOF recognizes all three true marker forms, reused by production health and terminal triage. This is general code, not a source-specific repair. Focused offline regressions: 64 passed, including shared-call and cross-stage positive/negative proof. The change is NOT YET live-provider-verified on a subsequent new request; old logs and triage receipts remain immutable and cannot be upgraded retroactively.
+
+**Autonomy boundary:** The coordinator's one-source-stage-per-command rule prevents accidental retries and does not require manual user approval for each safe separately verified stage. The assistant corrected its premature stopping by issuing two independently gated stage commands in this authorized conversation. However, a durable unattended multi-stage scheduler is NOT implemented, and the coordinator's safety no-auto-chain flag has not been changed. Do not claim continuous background work.
+
+**Remaining gate:** A read-only coordinator inspection now returns REVIEWED_AUDIO_HANDOFF_REQUIRED_NO_AUTOMATIC_TTS. Math semantic report expressly says all_mathematics_verified=false, independent_source_math_ai_review_approved=false, automatic_tts_authorized=false. Do not claim complete autonomous academic approval or launch paid audio/TTS. Next eligible development is the source-bound autonomous AI scientific/element-plan review and authorized audio handoff, respecting existing rights/cost/voice limits. G2 FULL_ORIGINAL_ACCEPTED and G3 release remain NOT_VERIFIED / NOT_AUTHORIZED. Latest shared-fix commit/CI pending verification before RESOLVED_PERMANENTLY.
+
+---
+# 10 November 2026 - G2 Serway 7.2 slides stage accepted once on Dell-115
+
+**Contract and frozen candidate:** Invoked uploaded `auto_cont_dev_prompt_v5.0.md` in closure mode. Verified Dell-115 alone; existing PR #528 `feature/pr528-autonomous-ai-lecture-acceptance` at `ab5174dccb065638b65953bd3242e72a16e7bad3`, clean before/after execution. Exact-head Windows reliability CI #708 and source-adjacent tests #129 both PASS. G1 remains PASS_VERIFIED; G2 not complete; G3 release not authorized. Original section 7.2 source `G:\\My Drive\\Serway\\Serway_1_7\\7\\7.2\\source.pdf` and staged copy both retain SHA-256 `7cc5c12eb5f81bc6b180f24e66ac3077f15fddf59fab035c261c8723d449daba`. Previously completed figures claim and receipt reused unchanged; no figures rerun.
+
+**One authorized native G2 stage:** Read-only `windows_lecture_progression_coordinator` preflight returned `NEXT_SOURCE_STAGE_READY_EXPLICIT_ONE_SHOT_ONLY`, `next_stage=slides`. Invoked its existing `--execute-next-one-stage --communication-mode selenium` ONCE, bound to the existing immutable trial `%LOCALAPPDATA%\\MicroGen_AI_Web_Checkpoints\\20261110_PR528_G2_SERWAY7_2_DISTINCT_SOURCE_V1`. Coordinator reported `EXACTLY_ONE_SOURCE_STAGE_ATTEMPT_FINISHED_NO_AUTO_CHAIN`, `attempted_stage=slides`, `attempted_stage_status=STAGE_COMPLETED_AND_SOURCE_SHA_BOUND`, exit code 0 (~64 s), and no TTS/video generation or publication. Native log verified three inputs uploaded (`source.pdf`, rendered slide prompt, PNG dimensions), accepted Beamer stack written, LaTeX compiled without repair, and source/citation artifact gate passed. SHA-256 `slides.tex=8871fa42cb1ce92a6af1bb4395a46c2720747a0d12b39e3008d0438b573d5c51`; `slides.pdf=049dc9c4c0461ccdbe60d44297971f1ff737781857dc38d672764129664f9b77`. Both output hashes independently rechecked. No retries or alternate provider/account.
+
+**Attribution limitation retained:** Slides transport log has no independently registered Send marker, and its triage legitimately records `owned_browser_send_registered=false` / count 0. Unlike the earlier figures stage, this is *not* evidence that the current marker detector failed to match a present positive log line. Do not fabricate registered Sends, change old triage receipts, or rerun slides to improve log attribution. Positive slides artifacts and compiled source-bound stage receipts support the technical stage pass, not independent exact Send registration or scientific correctness. Future cross-entrypoint attribution improvements require an independently reproduced shared defect and a tested real remedy, not speculative patches.
+
+**Read-only continuation gate:** Coordinator on unchanged code/source now reports `NEXT_SOURCE_STAGE_READY_EXPLICIT_ONE_SHOT_ONLY`, `next_stage=narration`. Next eligible fresh v5.0 invocation: verify same source/staged/figure/slides receipts and commit/CI, execute *at most one* narration-stage attempt by the normal coordinator within original authorization and no-resend limits, then stop. G2 remains `NOT_VERIFIED` until source-faithful narration, TTS/PCM, synchronized highlighted MP4 parts strictly <600 s and autonomous scientific/visual/audio QA pass. G3 and release remain `NOT_AUTHORIZED`. All G2 source trials and their immutable receipts preserved.
+
+---
+# 10 November 2026 - G2 first distinct original-source figure stage accepted; Send-marker recurrence fixed
+
+**v5.0 authority / frozen gates:** MicroGen_AI_Web on Dell-115 only; G1 operational Gemini Selenium transport **PASS_VERIFIED** at source-free live SHA `173b5b4` with source-sized exact JSON and integrated code SHA `d87b608` (hosted Windows CI #707 + source tests #128 both PASS). G2 real source-to-multipart-highlighted-MP4 **NOT_VERIFIED**; G3 final reviewed Windows release **NOT_VERIFIED / release NOT_AUTHORIZED**. Preserve the binding contract, one explicit original-source stage per invocation, no automatic uncertain resends, and no paid API/ChatGPT/local-model fallback or student publication.
+
+**New G2 source selection and preflight:** The Serway 8–14 scoped registry listed potential candidates, but direct read-only inspection found historical generated artifacts for all 46 PDFs. Do not treat scoped-ledger absence as global unattempted proof. Chose different Serway 1–7 section **7.2**, whose original publisher directory contained `source.pdf` only. Scoped original trial/Send ledger excluded previously tried 7.1; 7.2 was absent. Frozen publisher source `G:\\My Drive\\Serway\\Serway_1_7\\7\\7.2\\source.pdf`, SHA-256 `7cc5c12eb5f81bc6b180f24e66ac3077f15fddf59fab035c261c8723d449daba`, 702495 bytes. The publisher source remained unchanged; the isolated trial uses the same SHA. No claim of globally proven never-attempted outside inspected evidence.
+
+**One live, bounded figures-stage action:** On Dell-115 at frozen code `d87b60856da2dfd26c1c9bd138154590d026e47d`, native `windows_lecture_progression_coordinator --execute-next-one-stage --communication-mode selenium` dispatched section 7.2 figures **once** into `%LOCALAPPDATA%\\MicroGen_AI_Web_Checkpoints\\20261110_PR528_G2_SERWAY7_2_DISTINCT_SOURCE_V1`. Pre-Send stage claim was persisted. The native stage returned `FIGURES_STAGE_RETURNED_SUCCESS_NOT_FULL_LECTURE`, exit 0, within the 600-second deadline (~198 s). Read-only post-stage coordinator verified real technical figure output and returned `NEXT_SOURCE_STAGE_READY_EXPLICIT_ONE_SHOT_ONLY`, `next_stage=slides`. Multiple figure images (including Figure 7.1 and 7.1a/b/c) were present. No slides stage, TTS, video, YouTube upload or student publication was performed. Original trial claims and stdout are immutable; never rerun its figures stage.
+
+**Recurring general evidence defect, not a reason to redo 7.2:** The stage log had **three distinct `[TIMING] attempt 1 verified send: ... | registered=True`** lines for figure/page work. The legacy shared `windows_gemini_provider_halt._SEND_PROOF` detected only older vendor marker formats, leading `windows_gemini_stage_transport_triage` to persist `owned_browser_send_registered=false` despite positive logged registration. The coordinator's `model_requests_per_operator_invocation_limit=1` also falsely described a one-*stage* limit as one-*Send* limit. Shared remedy: `_SEND_PROOF` now recognises strictly anchored current vendor registration evidence and is reused automatically by both provider-health and normal terminal-triage entrypoints; triage reports `registered_browser_send_count_in_stage_log`. The coordinator correctly reports `source_stage_attempts_per_operator_invocation_limit=1` and requires log-based evidence for individual Sends. New read-only same-log-hash reconciliation preserves previously immutable triage bytes; no previous attempt reset or new model request. Regression cases exercise figures/slides/narration, legitimate and forged markers, historical SHA-bound no-overwrite and provider-health consumption. Focused local result **72 passed, 5 third-party warnings**. Exact new-commit hosted CI still **NOT_VERIFIED** until completed; no claim of real automatic recovery on already ended historical events.
+
+**Next eligible G2 action / stop:** In a separate fresh v5.0 invocation, verify final code SHA/hosted CI and the untouched section 7.2 publisher/staged/figures hashes, then consider one explicitly authorized `slides` stage using the existing coordinator. Do not automatically chain stages in this invocation. Scientific/figure correspondence, narration, PCM/TTS voice QA, synchronized multipart MP4 parts strictly under 600 s, rights for student-facing use and eventual release authorization remain separately **NOT_VERIFIED / NOT_AUTHORIZED**. This invocation's source-bearing model budget was consumed by the one figures-stage attempt; stage-specific internal page sends are separately evidenced; do not re-submit section 7.2 figures.
+
+---
+# 10 November 2026 - Dell-115 G1 operational generation transport PASS (live source-sized Selenium)
+
+**Binding gate definition:** G1 in `docs/BINDING_CLOSURE_FIRST_DEVELOPMENT_CONTRACT_20261107.md` sec. 2 is **operational generation transport**, accepted by a new, attributable, exactly-once, source-free OR genuinely new-source complete response at a source-sized workload. Independent source-grounded original textbook lecture/video acceptance is **G2**, not G1. Do not conflate these gates.
+
+**Actual new G1 provider evidence:** At local 10 November 2026 12:38 MYT, on Dell-115 only, branch PR #528, frozen code SHA `173b5b4443c71553b4ecb484bdd27c6dd924a1cb`, ran exactly one new approved `source_sized_g1_selenium_only_v3` Selenium Flash browser request, with **1,973 input characters** and a strict **42-character valid JSON response**. The live log independently reported `NEW_USER_TURN_AND_COMPOSER_CLEARED (clicked=True)` before response capture. Result status `VALID_CANARY_RESPONSE`, exit 0, one generation call, no source PDF, no paid API, no ChatGPT fallback, no resubmission. Immutable evidence: `%LOCALAPPDATA%\\MicroGen_AI_Web_Checkpoints\\20261110_PR528_G1_SOURCE_SIZED_V3_POST_LATE_FIX_ONESHOT`, claim SHA-256 `6466C8C8A11DD20A9FB2EFAFBFDCFB95490CEF95FFBE6A71A8DC39206F33C3A1`, result SHA-256 `A10CE9255B4DA1AD00064C65ED696E1846D1BAA27DCC90E9534684B3984D1E07`. The browser picker independently establishes the Flash family, **not** Google's exact server-side model version.
+
+**Operational gate result:** **G1 PASS_VERIFIED for Gemini Selenium source-sized operational transport** on this frozen Dell-115 attempt. This does not authorize automatic resends of historical claims, guarantee provider uptime, certify original-source science, or pass G2/G3. It supersedes older status descriptions that mistakenly required an original-PDF lecture for G1, without altering any older receipts.
+
+**Recurrence hardening and hosted CI correction:** Shared `series_gemini._browser_request` and `gemini_response_recovery` recover delayed model-owned `.markdown` answers without a second Send; successful calls now also carry typed, prompt-free verified new-turn metadata into future immutable G1 receipts. Original successful v3 receipt had null registration metadata but its separately observed actual Selenium log verified the new turn; do not modify that receipt. Windows hosted run #706 on first candidate SHA `173b5b4` passed offline-regressions but full suite failed an existing 90-second safety boundary after 1,393 tests passed. New change preserves <=90 seconds for unverified callers and allows <=180 seconds ONLY with explicitly verified new-turn registration. Focused local tests **67 passed**; full new-head Windows CI remains pending until the final revision is committed and validated. G1 live evidence is real, while final engineering closure requires exact-head full CI.
+
+**Local full-suite environment limit:** A separate Dell-115 unrestricted local regression run progressed through **754 passed / 6 skipped** before encountering pre-existing `tests/test_gemini_keys.py::test_client_factory_applies_configured_request_timeout`: the local Python installation lacks the newer `google.genai.types.HttpRetryOptions` SDK type. This was a failure of that SDK compatibility precondition, not a Selenium send/response failure and not a test of source-sized G1. Do not modify Gemini API/TTS or claim a full local-suite pass on this device. Use hosted declared-dependency Windows CI for complete final-head reproducibility.
+
+**Next legitimate critical gate:** Complete exact-revision Windows CI; then advance **G2** using an actually new frozen original PDF and fully automated source/math/figure/slide/narration/TTS/MP4 QA, with no per-PDF perfection loop or source retry. No arbitrary extra G1 canaries are needed.
+
+---
+# 10 November 2026 - Zenbook late Gemini answer: shared normal-path recovery
+
+**Project and authority:** MicroGen_AI_Web on Dell-115, Selenium-only, existing PR #528. v5.0 closure procedure applies without changing the binding Windows/Dell device, no-provider-fallback, finite attempts, no-duplicate-Send, source-rights and release rules.
+
+**New authentic evidence:** Zenbook source-free v2 one-shot (20261110_ZENBOOK_GEMINI_FLASH_EXISTING_EMPTY_V2_ONESHOT) terminated after 115 s with a zero-model-text receipt. The user's subsequent photograph and independent read-only Selenium DOM inspection of the exact same conversation (path /app/621c1af7fc789d5c) found the expected JSON in model-response .markdown; the outer model-response.innerText contained the extra visible header "Gemini said", and generation had stopped. The exact answer arrival time is unknown. Keep the original terminal receipt unchanged, do not claim that provider service had permanently failed, and do not repeat that Send.
+
+**General failure and missing dispatch:** Existing gemini_response_recovery and series_gemini already offered bounded same-owned-tab response recovery, but the extractor read an outer UI header that could spoil strict JSON validation. A longer unvalidated response-scoped Copy could also replace a correct short answer. A confirmed new user turn previously had a maximum 45-second post-capture generating grace. These are normal-path extraction/reconciliation gaps, not evidence to route around Google security or use another model/API.
+
+**Shared reusable remedy:** gemini_response_recovery.latest_owned_response now extracts the visible model-owned .markdown subtree, never global page text; response_snapshot_with_scoped_copy preserves an already validated answer; and the reader rejects a changed conversation URL. series_gemini._browser_request now validates nonempty vendor output, anchors the verified model conversation URL when available, and automatically performs bounded, read-only 180-second late observation after a confirmed new user turn remains generating. A missing Send registration retains the prior shorter window. No second Send, other account, tab, model, TTS cost or API fallback. This canonical browser request serves normal storyboard generation and the G1 CLI transport; no one-off repair script is required.
+
+**Safety and test evidence:** Frozen prior Zenbook screenshot and DOM evidence support the source of the bug, but no new content request occurred during the code correction. Dell-115 focused offline tests: 75 passed, with six third-party warnings. Tests include normal _browser_request automatic late-answer recovery after vendor timeout, single Send and shutdown; wrong conversation route failure, exact model-owned JSON, Copy precedence, old generic error compatibility, and registered zero-text failure preservation. Full exact-head CI and a new authorized source-sized end-to-end recovery remain NOT_VERIFIED until actually run. No scientific/academic G1 pass is inferred from synthetic JSON.
+
+**Closure gates:** Engineering remedy candidate only (automatic shared-path recovery tested offline, but not yet deployed or provider-verified on a fresh normal run); source-sized authenticated G1 academic generation remains BLOCKED/NOT_VERIFIED, G2 end-to-end lecture media remains BLOCKED_BY_G1, G3 final merge/release unapproved. Exact-head CI and integration are required before labeling CODE_INTEGRATED; no automatic repeat of previously terminal jobs. Previous registered-Send failure receipts, source files, PR/branch state and independently agreed limits are preserved.
+
+**Next eligible action:** Commit this single coherent fix and pending backward-compatibility classification regression on existing PR #528, verify Windows hosted CI at final SHA, then stop unless there is genuinely new authorized G1 evidence.
+
+---
+# 9 November 2026 — G1 root cause narrowed by independently registered Gemini Selenium Send (short controls v3/v4)
+
+**Scope:** User requested a fresh Dell-115 Gemini-via-Selenium responsiveness investigation and extra effort to identify the genuine G1 bottleneck, with NO ChatGPT/Gemini content-API fallback or repeat of uncertain source/PDF requests. Incoming clean Windows-only PR #528 branch SHA `3ba70f14eeacf5684c1fc1cf55222b348fbc57db`, with both hosted exact-head Windows workflows PASS. All new diagnostics were source-free, text-only, immutable one-Send requests in `%LOCALAPPDATA%\\MicroGen_AI_Web_Checkpoints`; no paid API/TTS, local model, HP/Yoga, user credentials, original Serway PDF regeneration, merge or publication.
+
+**Historical comparison:** On 6 Nov, an independently receipt-verified SHORT Gemini browser canary `VALID_CANARY_RESPONSE`, whereas source-sized requests failed. The 9 Nov v2 1,848-character source-free trial returned a visible Gemini error after one possible Send. That previously suggested prompt-length sensitivity, but did not establish it.
+
+**Fresh short control v3 (one independent claim):** `%LOCALAPPDATA%\\MicroGen_AI_Web_Checkpoints\\20261109_PR528_G1_DIFFERENTIAL_SHORT_V3_ONCE`. NEW 224-character unique short prompt, Selenium attached authenticated Dell-115 Gemini and selected **Flash**, terminal process exit 2, `NO_VERIFIED_RESPONSE`, `OWNED_GEMINI_UI_TERMINAL_ERROR_TEXT_NOT_API_PROOF`. Saved newly captured visible model UI error of 72 characters, generation stopped. Claim SHA `4BE521ACEB5344F752CF337B209955D433567D05BE09D27DC998289EAB92B1AE`, result SHA `512704F57A0392493E0EA91B4C51D2DA2E6246AF5B9EE42EF0B2D4E5F146CD3D`, raw response SHA `0cd6a6edc54b3e110833647748c5b71c680d97d4a433e86cd8c65285fadfb5e7`. The v3 click path had no INDEPENDENT new-turn registration receipt, so the saved visible UI error alone does NOT conclusively prove this new request reached the model. Do not resend or reinterpret the immutable v3 claim.
+
+**Critical G1 code defect closed:** The previous owner-required single-click safety patch reported `clicked=True` but omitted the legacy *new user turn + composer cleared* verification. Implemented read-only, owned-tab, prompt-free baseline **before** the one possible Send and bounded post-click observation of new user turns, new model-response count, conversation route, and composer clear. No second click/Enter, no borrowed tab or fallback. When attribution is absent, refuse to promote copied text or an old model error to verified new-request output. Typed `gemini_send_registration_status`, `gemini_new_user_turn_verified`, response-length and generating-state fields are preserved in future terminal receipts. This check is shared through `series_gemini._browser_request`, which is the normal G1 owned Gemini Selenium bridge.
+
+**Fresh decisive registration test v4 (one independent claim):** `%LOCALAPPDATA%\\MicroGen_AI_Web_Checkpoints\\20261109_PR528_G1_VERIFIED_SEND_V4_ONESHOT`. NEW 284-character source-free short prompt, authenticated Chrome 9222 Gemini Flash, exactly one normal `Send.click()`. The **owned tab positively produced `NEW_USER_TURN_AND_COMPOSER_CLEARED`**. Thus this specific Selenium login, prompt editing, model selection, Send click and new-conversation registration worked. The Gemini UI subsequently showed the Stop/generating control but **zero response characters** after 30s and 61s; after a bounded total runtime of ~176s, its saved last response was **0 characters**, `generation_active_at_capture=true`, `capture_status=empty_model_response`, raw SHA256 `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`, no correct JSON. Exit code **2** with `NO_VERIFIED_RESPONSE`, `AFTER_POSSIBLE_SEND`, `gemini_new_user_turn_verified=true`, `gemini_send_registration_status=NEW_USER_TURN_AND_COMPOSER_CLEARED`. Claim SHA `DD97DB3608C91609BF0D2529A2630F712213D9DBBF0B77710C2D02EA7EBA70AF`; result SHA `EB63BAFF97FCA8E703DDCFB5BFE8C4455F48CCD1A4BC1D0FC70CF61A1275CCEC`. These raw receipts remain immutable. No third test or v3 long control was sent after the short failures; no previous uncertain claim repeated.
+
+**Defensible layer diagnosis:** For v4 the immediate bottleneck is **AFTER a confirmed Gemini web-app user-turn registration**, in Gemini's response-generation/stream delivery path. It is NOT Selenium login, Flash picker, new-chat navigation, single Send registration, or model text Copy extraction. There are two observed terminal patterns on this Dell Chrome account: provider-app visible generic model error (v3 and previous), and a registered request that remains generating with ZERO text (v4). The exact deeper cause—Google-side model processing, this account/session, service worker, or stream/network path—**cannot** be distinguished without provider/backend/network service evidence. It is NOT evidence of HTTP 503/504/API-rotation failure or a global outage; Google's Nov 9 Workspace status dashboard publicly lists no incident, which does NOT rule out localized issues. Do not claim to have repaired Google's service.
+
+**Production fail-closed improvement:** `series_gemini` now classifies a **confirmed newly registered** user turn stuck `generating=true` with no text at the end of bounded capture as `REGISTERED_SEND_GENERATION_STALLED_ZERO_MODEL_TEXT`, distinct from missing Send registration or a visible UI error. Existing generic original v4 receipt is NOT rewritten to this newer diagnosis; the v4 saved SHA evidence and separate quarantine prove it. Typed future receipts include verified new-turn status, zero model-text length and generation flag; a standard `[MicroGen] Gemini Selenium temporary failure ... STOPPED` is printed with no fallback. Added regressions for no-send/unknown-send, new turn attestation, copied reply validation, true generating-zero-text failure, immutable one-Send, and no private prompt or raw reply in diagnostics. Focused Windows/Dell local tests **95 passed** (6 harmless third-party warnings), Python compile and git diff check PASS. A previously existing synthetic test `test_owned_vendor_error_is_not_reported_as_api_outage` exposed a real backward-compatibility classification risk: old error text without proof of a newly registered Send must NOT be promoted to `OWNED_GEMINI_UI_ERROR_AFTER_VERIFIED_NEW_USER_TURN`. The classifier now assigns the verified stage ONLY when the new trusted error explicitly says `AFTER a verified new user turn`; historic unproven UI errors retain `OWNED_GEMINI_UI_TERMINAL_ERROR_TEXT_NOT_API_PROOF`. Both cases have positive tests. Full new-head hosted Windows CI must pass separately after commit.
+
+**Gates:** G1 Selenium-only safety and truthful stop diagnostics **improved and real-run supported**, but G1 operational **BLOCKED** by Gemini web-app response generation/delivery unavailability; no complete attributable new source-sized model output. G2 remains blocked by G1; G3 retains prior engineering acceptance but full final release is unapproved. Avoid another short canary or per-PDF loop without independently changed provider evidence. There is no automatic authorized fallback to ChatGPT, Gemini API or an alternative model. If Gemini remains unavailable, stop the single affected generation procedure and preserve the evidence; independent G3 source/release work may continue within existing contract.
+
+---
+
+# 9 November 2026 — G1 genuine Gemini Selenium-only v2 attempt: terminal failure correctly captured
+
+**New direct user instruction:** Resolve G1 under the new no-fallback contract, and if Gemini fails, produce a correct, informative *final attempt result*. Scope restricted to Dell-115's clean PR #528 isolated checkout `%LOCALAPPDATA%\\MicroGen_PR528_20261106`, existing owner-authorized Gemini Selenium, no paid Gemini content API, ChatGPT fallback, TTS, protected merge, original PDF retry or user account change. Incoming code commit `a1a072c8d8938165d5c0f892548a48d6771f801b` had both exact-head Windows CI workflows PASS before this change.
+
+**General production improvements:** Added `selenium_pipeline/gemini_g1_single_route_cli.py` as the permanent one-shot, Gemini-only G1 browser outcome command. Added a **distinct original-source-free** `source_sized_selenium_only_v2` probe profile in `windows_gemini_differential_probe` with a new prompt SHA (not the 2026-11-06 failed source-sized prompt), immutable claim+result and no resend on replay. The diagnostic prints JSON plus a legible final status and exits nonzero on failed Gemini. `GeminiSeleniumTemporaryFailure` now reports the actual number of pre-Send preparations and a safe cause category; `GeminiSeleniumPreSendBlocked` distinguishes demonstrably pre-click identity/control failures. `series_gemini._browser_request` propagates privacy-safe typed pre/post-Send metadata, while preserving same-tab bounded observation, SHA-locked quarantine and no-reclick/no API/ChatGPT. The exact terminal receipt distinguishes NO SEND vs MAY HAVE SENT vs attributable answer, never invents HTTP outage, and retains only sanitized failure categories. Final wording explicitly says the owned tab was observed DURING the attempt and directs any later investigation to the persisted claim/quarantine—not an owned tab that the vendor shuts down.
+
+**ONE new REAL Selenium source-sized attempt:** On Dell-115 on **9 Nov 2026 16:00–16:02 MYT**, invoked `python -u -m selenium_pipeline.gemini_g1_single_route_cli --canary-root %LOCALAPPDATA%\\MicroGen_AI_Web_Checkpoints\\20261109_PR528_G1_GEMINI_SELENIUM_ONLY_V2_ONE_SHOT --run-one-new-selenium-probe`. This was a genuinely NEW source-free 1,848-character synthetic prompt, **no original source file**. Chrome 9222 Selenium attached; authenticated login detected; owned tab focused, Gemini **Flash** selected and opened. **One pre-Send preparation** succeeded, **one submission MAY HAVE OCCURRED**; Gemini displayed an OWNED model-response UI error. Its visible 82-character model error was captured in quarantine `gemini_20261109T080218Z_3594cf863b5f.meta.json`, SHA-256 independently verified against the raw response, generation finished, no correct JSON returned. Proven error category `OLDER_GEMINI_MODEL_ERROR`; this is **NOT** a proven 503/504/429, API outage or Chrome authentication failure. The run naturally **STOPPED**: process exit **2**, structured `G1_BLOCKED_GEMINI_SELENIUM_TEMPORARY_FAILURE`, `NO_VERIFIED_RESPONSE`, `AFTER_POSSIBLE_SEND`, `OWNED_GEMINI_UI_TERMINAL_ERROR_TEXT_NOT_API_PROOF`, pre-Send attempts=1, `request_may_have_been_submitted=true`, ChatGPT fallback=false, Gemini content API fallback=false. Do NOT retry this exact claim or this prior lecture review. Claim SHA-256 `A2C837D0BC72C822CE6D8017101EBB8D8EE53B11256F4A6893D2E9D0DB0A529D`, result SHA-256 `61F98940B095111844F876198560BCDBCBC63C79880E3BA4A82229B94FBECD01`; model raw SHA `140ab5f01590a52467c66ea076f282d93c063acf8cb8b238c938d9ef2f8b451e`. Do not retroactively replace this immutable raw receipt when fixing documentation or message phrasing.
+
+**Testing and immutable replay:** Source-free mocked typed classification, no-duplicate-Send, no-prompt leakage, retries and full terminal stdout/stderr/status tests added in `tests/test_gemini_g1_single_route.py`; scoped adjacent regression campaign **85 passed** (6 third-party warnings), plus Python compile and diff check PASS on Dell-115. A *read-only replay* of the SAME existing G1 canary root confirmed `prior_claim_reused_without_resend=true`, a second exit 2, unchanged SHA-256 for both original claim and result, and **zero second Sends**. That replay revealed that an immutable original receipt retained an older message suggesting later access to a now-closed owned tab. Fixed only the CLI's display renderer to generate current accurate instructions from the saved safe failure code (read-only replay still does not alter source/receipt); corrected adjacent tests **75 passed**. The real browser attempt itself is authentic evidence of **provider UI failure and correct stopping**, not successful G1 generation.
+
+**Gate disposition:** G1 **BLOCKED BY REAL GEMINI MODEL-SIDE UI RESPONSE ERROR**, but mandatory bounded single-provider recovery and accurate terminal classification now exercised in a real run. G2 **BLOCKED**: no real accepted source-PDF science/voice/synchronized MP4. G3 **PARTIAL**: only independent Windows packaging, installation and previous successful hosted CI; await full exact-head CI on this code change before saying implementation is regression-verified. Never unlock these gates from a source-free diagnostic or invent external provider recovery. Follow-up eligible only for a demonstrably fresh, distinct, independently authorized Gemini Selenium generation task AFTER materially changed provider/transport evidence, and always with exactly-once claims; no automatic retry of historical uncertain jobs, no fallback. Keep other independent G3 engineering work eligible while this specific provider issue persists.
+
+---
+
+# 9 November 2026 — Owner supersession: Gemini Selenium is the ONLY LLM route
+
+**New controlling requirement and scope:** The owner explicitly removed both ChatGPT browser fallback and Gemini content-API fallback for MicroGen_AI_Web G1 text-generation and academic-review work. Only **Gemini via authenticated Selenium** may be selected for figures/caption mapping, slides, narration and AI scientific review. The separate TTS voice/provider contract is not modified by this LLM-only decision. Updated `docs/BINDING_CLOSURE_FIRST_DEVELOPMENT_CONTRACT_20261107.md` with precedence over the v4.1 provider-fallback wording. Dell-115 isolated existing draft PR #528 was clean at incoming `8d8b998aacf095490d610d28d127fb4e6d571e1a`; no HP/Yoga, old G: checkout, source files, credentials, paid model API/TTS, public release, or protected merge touched.
+
+**Actual G1 shared production fixes:** Added `selenium_pipeline/gemini_selenium_only_policy.py`: at most **three finite pre-Send preparation attempts** for a NEW SHA-bound browser job (with disposal/backoff and immediate stop on security challenges); source-owned exact visible Send clicked at most once, allowing one guarded DOM-control route if Selenium CSS misses Gemini's Angular button, never a second CDP/native Enter after an uncertain click; explicit standard-error `[MicroGen] Gemini Selenium temporary failure ... procedure STOPPED ... No ChatGPT or Gemini API fallback` reminder. Wired into normal `series_gemini._browser_request`, retaining strict same-tab/response-scoped Copy plus 12/45-second observational recovery and immutable quarantine of incomplete/error replies; no post-Send resend. Normal `rich_mapping_provider_readiness.choose_provider` and `rich_mapping_provider_dispatch.dispatch_one` no longer select or execute ChatGPT, even if signed in; if Gemini is unavailable they issue a stop receipt/message with **zero Sends**. `windows_provider_route_evidence_preflight` no longer proposes ChatGPT or API and reads only Gemini browser readiness, with no API metadata network probes in normal inspection. Top-level `runner.main` accepts only `--communication-mode selenium`; `runner.execute` fails closed on an alternate environment mode; figure, slide and narration children receive Selenium/browser-only mode and single-send flags. Vendored Gemini generation in the actual production runner honors the same single-click guard. Former standalone alternate-provider *diagnostic/test code* is not a normal fallback route. Previous TTS fallback/voice rules remain separate.
+
+**Exact Windows CI follow-up (first policy HEAD `18b3062`):** Hosted reliability run `42568943961` passed its offline-regressions job but failed the full Python 3.12 suite at `tests/test_short_verified_gemini_copy.py::GeminiShortVerifiedCopy::test_real_bridge_recovers_own_short_canary_without_second_send` (1 failed, 1,742 passed, 54 skipped, 336 subtests passed before fail-fast). This was an outdated *synthetic test fixture*: it mocked the previous click helper but not the newly mandatory exact owned-tab Send visibility and one-click preflight. Updated only that test's mocks to simulate a genuinely visible Send and exactly one safe click, preserving its source-owned short Copy recovery assertion. Production no-double-Send and strict pre-Send checks were not weakened. Dell-115 corrected neighboring `test_short_verified_gemini_copy.py`, `test_gemini_response_recovery.py`, and `test_gemini_selenium_only_policy.py`: **25 PASS** (5 third-party warnings), `git diff --check` PASS. This fix is not yet called hosted-CI-green until a new exact HEAD success is verified. No real Gemini request, API or TTS experiment.
+
+**Source-independent regressions:** New `tests/test_gemini_selenium_only_policy.py` verifies 2 pre-Send failures then success, 3 exhausted finite attempts, challenge no-retry, exact single Selenium click, possible-delivery no-repeat, changed/ambiguous tab rejection, vendored production single-click and invalid runner mode, and mandatory printed stop text. Updated active provider-dispatch, preflight and owned-response fixture tests; nearest source-free browser/runner/stage regressions **109 PASSED** (18 external-library warnings) and focused last-change tests **47 PASSED** (5 warnings), with Python syntax compile PASS and `git diff --check` PASS. This is **offline test evidence only**, not a claim that a fresh Gemini source-sized response succeeded.
+
+**One real read-only Dell Gemini check after code change:** `windows_provider_route_evidence_preflight --inspect-browsers --prior-owned-ui-quarantine-meta` on the existing saved original Gemini UI error returned `gemini_browser_authenticated=true`, `GEMINI_SELENIUM_TEMPORARY_FAILURE_STOP`, `owned_gemini_ui_error_sha_verified=true`, `chatgpt_browser_authenticated=false`, `api_distinct_new_source_candidate_with_separate_cost_authorization=false`, `automatic_new_model_generation_authorized=false`, `new_model_or_tts_calls=false`. Did **not** Send or repeat original slide 3/4; authentication alone still does not prove G1 health.
+
+**G1/G2/G3:** G1 `CODE_PRESENT / OFFLINE_TESTED` for single-provider finite recovery, **real gate BLOCKED** until a legitimately new Gemini Selenium request produces attributable complete response with independently supported source evidence. G2 **BLOCKED by G1**; no fabricated full accepted lecture/WAV/synchronized MP4. G3 **PARTIAL**, previous Windows package/installation and prior exact CI evidence retained; this new production-policy revision needs its own exact final-head Windows CI. On a temporary Gemini UI outage, the job stops safely, prints the reminder, retains evidence and can resume a genuinely new eligible task only with new transport evidence. Do not automatically process same uncertain source with another provider or reset retries.
+
+---
+
+# 9 November 2026 — v4.1 G1→G2→G3 direct closure attempt: provider evidence and finite stop
+
+**Owner's directive:** Close G1, then G2 and G3 without routine human intervention. This run applied the binding closure-first contract on Dell-115, Windows/Selenium `tlyoon/MicroGen_AI_Web`, existing draft PR #528. Incoming exact head `cd5defe0eeebbfac8894c5ebcfb679429cdaa9a9`, isolated clean worktree, both associated hosted Windows Actions completed SUCCESS: reliability run `42556233130` and source-adjacent publication run `42556233129`. The separate HP/API `microgen_ai` project, old dirty G: checkout and original academic assets were not touched.
+
+**G1 definitive scoped evidence, no Send:** Existing 9222 Gemini and 9223 ChatGPT tabs both passed only the *existing authenticated composer* read-only preflight; this alone **does not certify** a fresh generation route. A **new MicroGen-owned** ChatGPT tab was opened for a read-only no-Send challenge diagnostic, and returned `title="Just a moment..."`, `browser_verification_visible=true`, `composer=false`, `request_sent=false`. This is genuine browser verification. The owned diagnostic tab was closed; no user tab or credential was changed and **no challenge bypass was attempted**. Existing source-sha-bound Gemini quarantine was reverified using production `gemini_provider_ui_terminal_error`: `GEMINI_OWNED_MODEL_VISIBLE_UI_ERROR_NOT_API_OUTAGE_PROOF`, owned 104-char model-side UI error, stored SHA valid, no reliable JSON or HTTP 503/504 proof, old retry not authorized. Existing Serway 7.1 review selector remained `DEFERRED_REPEATED_UNATTRIBUTED_BROWSER_SEND` due unchanged submitted-or-uncertain slides 3/4 (slide 2 invalid source quote), with no same-request retry or third blind Send. Current `windows_provider_route_evidence_preflight` combined the independently owned ChatGPT pre-click challenge receipt and Gemini UI error with both authentication checks and returned **`NO_GENERATION_TRANSPORT_CERTIFIED_FOR_AUTOMATIC_DISPATCH`**, `automatic_new_model_generation_authorized=false`. Do not convert the dormant existing-tab login to an accepted fresh source-sized response or start another short canary without a changed route.
+
+**G1 disposition:** `BLOCKED_EXTERNAL_SECURITY_CHALLENGE_AND_UNATTRIBUTED_MODEL_REPLY`; it is *not* a missing routine per-slide academic consent, API key rotation requirement, or proven provider HTTP outage. Next legal trigger is a genuinely authenticated new-tab ChatGPT session **without** challenge, or independently verified new Gemini model-return/capture transport evidence, plus one fresh SHA-distinct unclaimed source job with durable claim. Previously submitted slide 3/4 requests remain immutable and ineligible for resend. New billable Gemini API content generation is outside this already-standing no-new-cost Selenium scientific QA scope without its separate valid authorization; it is not silently substituted.
+
+**G2 disposition:** `BLOCKED_BY_G1`. Source/figure/math/narration/speech/voice/synchronized-multipart MP4 acceptance must remain fully automatic and source-grounded. Existing 1/43 two-pass supported original narrated units does **not** prove a whole lesson. No new source review, TTS, WAV, MP4 or QA approval occurred and no false promotion of scientific correctness is allowed.
+
+**G3 independent revalidation:** Existing `windows_release_readiness_board` run on Dell-115 using prior genuine fresh clean Windows worker install, PR489 multi-source original jobs, PR490 fresh trial, scoped PR362 receipts, and `--verify-exact-head-ci-online` returned `EXACT_HEAD_GITHUB_WINDOWS_CI_INDEPENDENTLY_VERIFIED`, `engineering_technical_release_candidate_ready=true`, but **`WINDOWS_RELEASE_CANDIDATE_BLOCKED`** and `release_candidate_ready=false`. The remaining false gates are verified source-bound synchronized MP4, second distinct original technical candidate, autonomous AI science/speech/media validation, complete second original lecture, historical release dependencies, and combined production install/release authorization. Prior source-only ZIP, clean worker installation and 2 green CI workflows are retained; no duplicate package or reinstall. The existing source-only worker installation is not production student release.
+
+**Next bounded action:** Only after a materially new authenticated/attributable provider route emerges, run ONE new immutable source-sized G1 job; on success use it for ONE distinct complete G2 lecture, independently test and then finish the remaining G3 dependency/media release checks. Other legitimate G3 tasks may proceed independently if a *specific* new unclosed production dependency is evidenced. Do not poll or resubmit the unchanged blocked source, add redundant canaries, restart PDF-fix loops, weaken academic QA, bypass verification, spend on APIs/TTS without authorized scope, merge protected branches, or publish. This run performed no provider submission or code changes; this line is a durable status-only checkpoint, not release proof.
+
+---
+
+# 9 November 2026 — v4.1 G3 parallel-fork dependency reconciliation (PR #367 / #368)
+
+**Scope and non-duplication:** MicroGen_AI_Web only, Windows/Dell-115, existing open draft PR #528. This read-only risk review began at `d2738f308fd0edd1ff80b6d451502ec16a8474b6` with two green hosted Windows jobs and a clean checkout. During the investigation, an independent concurrent development invocation committed `e3010116bf2a234355a63f9eb0b79ca60f7f69e9`, which already documented a fresh isolated Windows install/source-review package and the historical PR #368 review. The current worktree fast-forwarded cleanly to that exact revision. **Do not re-create that installation, fork review, source package or immutable receipt.**
+
+**PR #368, supplementary review-only envelope:** Read-only inspection of historical open draft #368 at exact fork HEAD `54c52e0c4df5292238640822a47664d5fe3a9db3` and Git-fetch ancestry confirm that it is **not an ancestor** of current PR #528. It contributes an additional original-PDF/script/slide-WAV/TTS-QA envelope planner with projected transition reserve, but its own contract states `real_mp4_duration_verified=false`, `production_video_approved=false`. Current production already has existing `original_wav_multipart_plan`, exact PCM element clock planning, `sourcebound_production_video.verify_element_tts_batch` and `windows_autonomous_lecture_qa.inspect` -> `tts_quality_gate.screen` -> `production_video_contract.verify_series`, which independently revalidates original/plan identity, ASR/phonetic screen and decoded encoded-MP4 duration strictly **below 600 seconds**. On Dell-115, **82 regression tests passed** across seven current production-adjacent test modules, with five third-party deprecation warnings, no original source or provider calls. This test run began on code `d2738f3`; the subsequent `e301011` change is a checkpoint-only documentation revision, not a retroactive test claim. PR #368 is classified `SUPPLEMENTARY_NOT_PROVEN_RELEASE_CRITICAL`; there is **no justification for a blind cherry-pick**. Conservative all-transitions-under-600 planning and complete end-to-end original content remain separate unresolved G2 acceptance, not invented PASS.
+
+**PR #367, owner-required original Kore voice:** Read-only full historical patch review at fork HEAD `676c0698b7206ddc75d8f1cbe5ebbdd62dfb364b` compared against current `tts._fallback_specs`, `tts_effective_identity.CLOUD`, `tts._preflight_cloud_voice`, `tts_qa_repair`, source-bound video and whole-batch retry/provenance code. Current default chain is `Gemini 3.8 Flash-Lite/Kore -> Gemini 3.8 Flash/Kore -> conditional Cloud en-US-Chirp3-HD-Kore`; stale `Corey` identity is not an accepted provider/voice contract. Exact-current-head targeted regression execution: **36 PASSED** over `test_tts_restored_fallback_policy`, `test_tts_fallback_downstream_provenance`, `test_cloud_voice_preflight_failclosed`, and `test_tts_attempt_evidence`; five third-party deprecation warnings. This establishes required **default Kore behavior**, not acoustic equivalence, alternate user-selected voices, publication or new Cloud billing authority. Historical fork #367 need not be imported wholesale to supply the default behavior already integrated in normal code. Remaining G3 risk-based branch review is not complete.
+
+**Disposition:** This closes a bounded **historical dependency triage**, not G1/G2 scientific/media production acceptance. No code change, paid TTS, Gemini/ChatGPT Send, original PDF read/regeneration, merge, release, new PR, or overwrite of parallel evidence. G1 remains partially verified for old real generation but blocked for current repeated unattributable review Sends; G2 still **BLOCKED** without a distinct fully accepted original lecture; G3 remains **PARTIAL** despite current Windows install and CI proof. The next material action requires a genuinely **new provider response/reconciliation** for safe G1/G2 progress or a separate evidenced G3 release-critical gap; do not reopen the same Serway slide requests, chase one PDF, or produce redundant packaging/CI commits.
+
+---
+
+# 9 November 2026 — v4.1 G3 clean Windows extracted-package installation acceptance
+
+**Project and scope:** MicroGen_AI_Web Windows/Selenium on Dell-115, existing draft PR #528 `feature/pr528-autonomous-ai-lecture-acceptance`. Incoming HEAD `d2738f308fd0edd1ff80b6d451502ec16a8474b6` had clean worktree and **both exact-head hosted Windows workflows PASS**: MicroGen reliability run 42544084906 and source-adjacent publication run 42544084974. No new model/browser Send, API or paid TTS, original PDF edits, source/audio/video regeneration, release merge, or student publication.
+
+**G3 real reproducibility evidence (not another PDF fix):** Used the pre-existing `Build-MicroGen-WindowsReviewCandidate.ps1` against exact code SHA `d2738f3` and the previously qualified isolated worker. The NEW checkpoint is `%LOCALAPPDATA%\\MicroGen_AI_Web_Checkpoints\\20261109_PR528_D2738F3_CI_GREEN_WINDOWS_SOURCE_REVIEW_V1`; archive `MicroGen_AI_Web_Windows_SOURCE_REVIEW_ONLY.zip`, SHA-256 `66773c7fddb744fd2410f7cf5630a688175615a1b2efbbed8e05208d562cafe0`, 3,747,077 bytes, 1,430 tracked source files. Extracted-source operator/worker smoke PASS. Private original PDFs, `.env`/credentials, WAV and MP4 excluded. `source_review_candidate_manifest.json` explicitly retains `release_candidate_approved=false`.
+
+**Fresh actual Windows installation:** From the immutable extracted candidate, executed its `Install-MicroGen-Windows.ps1 -Install` using native Python 3.12.2 into a NEW non-overwriting virtual environment `%LOCALAPPDATA%\\MicroGen_AI_Web\\pr528_g3_clean_install_d2738f3_20261109`. Installer process exit **0**, `WINDOWS_ISOLATED_WORKER_INSTALL_PASS`; all eight required modules and pip dependency-integrity check PASS, `pdflatex=true`, `ffmpeg=true`, no paid/model calls. No old worker or protected G: checkout overwritten. This proves clean **worker installation**, not full production release or original lecture performance; ffprobe remains optional/not independently qualified.
+
+**Independent exact-head release board using this NEW installed worker:** Read-only `windows_release_readiness_board` with existing PR489 source jobs, PR490 fresh trial and scoped PR362 evidence, `--include-stack-batches --verify-exact-head-ci-online` returned `engineering_technical_release_candidate_ready=true`, `EXACT_HEAD_GITHUB_WINDOWS_CI_INDEPENDENTLY_VERIFIED`, and **`WINDOWS_RELEASE_CANDIDATE_BLOCKED`**. Clean Windows worker installation and original source integrity gates TRUE. Separate false gates persist: reviewed source-bound synchronized MP4 technical evidence, distinct accepted second source, independent AI science/speech/media QA, entire historical dependency review, and composite production installation/**release approval**. Do not mark the last composite true simply because a source review/worker installation passed.
+
+**Historical PR #368 PCM-envelope review:** Fork's preliminary source/WAV/acoustic-QA envelope was inspected against the current `original_wav_multipart_plan`, `production_video_contract`, `sourcebound_production_video` and `windows_autonomous_lecture_qa`. Current planner is technical proposal only and cannot independently promote a real MP4; actual production bridge independently verifies decoded source-bound media and measured <600s parts. No proven release-critical gap requiring another overlapping planner or feature change was identified, so NO speculative cherry-pick, relaxation or duplicate tests were made. This does not certify historical PR #368 as merged/reviewed or complete the audio QA acceptance.
+
+**G1/G2/G3:** G1 **PARTIAL/BLOCKED** for current source-grounded academic browser route after two ambiguous already-consumed submissions, without newly attributable response or changed transport. G2 **BLOCKED**: no genuinely distinct fully accepted source-PDF-to-synchronized-MP4 lecture with autonomous scientific/audio QA; retain fail-closed mathematics. G3 **PARTIAL** with source-only candidate and NEW clean Windows worker install verified; full release gate remains blocked by substantive original/media acceptance and dependency review. No per-PDF manual academic approval is required for ordinary standing-authorized QA; no ambiguous re-Send.
+
+**Next critical path:** Restore/qualify one legitimate attributable G1 generation route on materially new evidence (no speculative canary), then produce one SHA-distinct, unattempted original full G2 lecture with automatic QA and only approved costs. Independent G3 work may review actual shipping dependencies without mass-merging draft PRs. This documentation-only checkpoint commit will naturally have a different SHA from the already verified, frozen ZIP source commit; do not repack endlessly merely to match the doc-only SHA. Verify exact new HEAD CI separately before calling the documentation commit CI-green.
+
+---
+
+# 9 November 2026 — G3 exact Windows CI fixture reconciliation (Cloud catalogue)
+
+**Reproduced actual CI failure:** On PR #528 commit `5a5337e4540131fd09782bfa83e25e46b7d3b76a`, GitHub Windows full suite run 42543239276 returned **1 FAILED, 1991 passed, 56 skipped, 352 subtests passed**. The exact failed test was `tests/test_tts_attempt_evidence.py::ObservedAttemptJournalTests::test_full_mocked_lite_flash_cloud_transition_records_real_path`. Its mock provided the Cloud synthesized WAV but not the newly mandatory `_preflight_cloud_voice` read-only catalogue lookup. GitHub's source-free Windows environment lacks the optional `google.cloud` runtime, raising `ModuleNotFoundError` before the mock paid synth. The separate offline-regressions job passed. This was a **test fixture regression** introduced by the real fork-preflight fix; do not weaken production voice verification or install charged services into CI.
+
+**One targeted permanent correction:** The *existing* simulated Lite→Flash→Cloud transition test now patches `selenium_pipeline.tts._preflight_cloud_voice` with a positive source-free catalogue receipt and asserts exactly one call for `en-US-Chirp3-HD-Kore`. Actual production `_preflight_cloud_voice` and permanent provider circuit are left unchanged and still fail closed. Adjacent PR366 restart-journal and PR369 live-catalogue negative tests remain mandatory. Dell-115 `pytest` with six relevant test files **46 PASS** plus five unrelated SWIG deprecation warnings; targeted Python compile and diff whitespace checks PASS. No real Cloud, Gemini model, paid TTS, original PDF, WAV, MP4 or student publication actions.
+
+**Status:** This corrects a verified exact-head full-suite failure, not a speculative extra feature. Commit/push in existing PR #528, require a **new exact final SHA** full hosted Windows reliability and publication test pass before marking G3 current head CI accepted. G1 current academic provider route and G2 full second lecture still blocked; remaining historical PR review and production release remain separate gates.
+
+---
+
+# 9 November 2026 — G3 continuation: PR366 durable observed TTS restart recovery
+
+**Current operation:** Existing Dell-115 Windows/Selenium isolated PR #528, incoming focused Cloud catalogue/circuit commit `5a5337e4540131fd09782bfa83e25e46b7d3b76a`. Read-only provenance confirmed historical draft PR #366 is **not a commit ancestor** of the shipping PR528 head; source inspection found the actual normal `selenium_pipeline.tts._synthesize_folder_unlocked` read its immutable `AttemptEvidence` journal without loading previously observed per-slide retry counts. Consequently a restarted process could repeat all three metered Gemini Lite attempts on the same script identity. This was a **new concrete release-critical gap**, not a Serway or Thomas PDF cleanup.
+
+**Permanent production-path reuse:** The existing `AttemptEvidence.read()` SHA-chained source/model/slide journal is now consulted before the first request of any restarted Gemini TTS batch. Previously recorded permanent errors stop without API calls or escalation; recorded success is accepted only if the exact candidate WAV is still independently SHA-verified; existing transient failures initialize the real retry count. After three verified transient calls a restarted process skips the exhausted model and uses only the existing guarded whole-batch fallback, not three more Lite Sends. With two observed failures, only the third eligible call may be attempted. Unknown/unaccounted candidate output and changed script/model identity fail closed. No fictitious event is appended for a reused failure.
+
+**Tests / exercised normal caller:** Reused and re-ran the historically proven source-independent fork fault tests `tests/test_durable_tts_observed_failure_resume.py`: no duplicate calls after three failed, only one after two, valid transcript-independent hash-chain across process restarts, WAV preservation with one peer exhausted, and permanent-failure non-escalation. The new Cloud catalogue/circuit tests and neighboring TTS identity/provenance/PCM regressions **52 PASS** on Dell-115, 7 third-party deprecation warnings. Source compileall and `git diff --check` PASS. All provider calls were mocked; NO actual paid Gemini/Google Cloud TTS, source generation, media production or publication.
+
+**Status:** The PR369-derived catalogue/circuit fix was pushed at incoming `5a5337e`; exact GitHub CI for that incoming SHA was started (source-adjacent workflow #116 PASS, reliability #695 was still running at time of this review). The new restart-reuse revision is **LOCAL_TESTED only until committed/pushed and its own exact SHA Windows CI passes**. Historical PR #366 and other branch forks are NOT thereby independently merged or comprehensively approved. No new feature PR, protected merge, source edits, or cost authorization.
+
+**Gates:** G1 current source academic browser route still finite-blocked due two old ambiguous Sends; no new sends. G2 full second-source scientific/media lecture still blocked. G3 advances the concrete TTS fork integration with source-independent normal-caller proof but remains incomplete pending exact-head Windows CI, remaining dependency reconciliation, and complete source/media acceptance. After verifying CI, the next evidence-based task is release-risk review of remaining PR368 PCM envelope semantics versus current source-bound multipart renderer, not a repeat retry of Serway/Thomas.
+
+---
+
+# 9 November 2026 — G3 forked TTS release dependency remedy, normal-path integration
+
+**Project:** tlyoon/MicroGen_AI_Web (Windows Selenium), Dell-115 only; existing draft PR #528, incoming exact clean head `b4a4018d3de90ccb01cc41eeaa8307b6e7f25273`. Its hosted Windows CI runs 42537111202 (reliability) and 42537111176 (publication) both passed on the incoming SHA. No source, model, audio, paid service, protected merge, student release or main checkout changes.
+
+**Bounded independent historical branch audit (G3):** Read-only live GitHub PR head/base metadata and local `git merge-base --is-ancestor` establish PR #363, #364, #365, #370 and #371 as actual ancestors of the current branch, but parallel TTS PRs **#366, #367, #368 and #369 are NOT ancestors**. Their draft/open status or adjacent PR numbering must not be mistaken for incorporation or independent approval. PR #363 is a distinct main-based integration gate; do not merge it again. This proves a concrete dependency gap, not a complete 820+ commit or 439-PR review.
+
+**Actual content reconciliation:** The current release branch already contains the source-numbered-example guard, the canonical Cloud Chirp3-HD-Kore identity (not Corey), observed Gemini retry evidence, full-batch voice-homogeneous fallback, WAV duration planning and source-bound video guards through other committed paths. Local source-free review/regressions for example coverage, TTS fallback, actual WAV multipart plan, synchronized video and release readiness yielded **70 PASS** (5 third-party deprecation warnings). These tests are current branch behavior evidence, not proof every feature from parallel PRs #366–368 is equivalent.
+
+**Missing reusable PR #369 safety behavior found and integrated:** No `list_voices`/catalogue validation existed anywhere in the current shipping TTS package before an authorized Cloud Chirp3 request. A permanent Cloud error also allowed further batch slides to request paid speech. Restored source-independent catalogue preflight as `selenium_pipeline.cloud_voice_preflight.verify_catalogue_voice`, invoked in the **normal** `tts._synthesize_folder_unlocked` Cloud branch before synthesis, with identity syntax/absent voice/provider-error fail-closed handling. A permanent Cloud error now opens the batch circuit before another slide request. The explicit three-round Gemini retry chain, Flash-Lite default, same-voice Cloud Kore conditional fallback, immutable partial candidates and publication authorization remain unchanged. No separate fork PR was blindly cherry-picked.
+
+**Regression evidence on Dell-115:** Six new offline tests cover genuine catalogue-like Kore, missing Corey, bad identities, catalogue failure, normal TTS no-billing preflight and permanent first-slide circuit. Adjacent current TTS evidence/voice/fallback tests: **41 PASS**, 7 third-party deprecation warnings; targeted Python compileall and `git diff --check` PASS. No actual Cloud catalogue query, model generation, TTS request, original source modification, MP4 or publication was performed. This fixes a production code-path gap, not an academic or audiovisual acceptance gap.
+
+**Release gates:** G1 remains blocked for current source-grounded academic browser generation because two immutable unknown-after-Send attempts lack attributable responses; the existing no-third-Send guard remains. G2 remains BLOCKED (only 1/43 source-witnessed independent science agreements, no accepted full new lecture/media). G3 advances in risk-based dependency reconciliation but full historic PR review, production install and final release are not complete. After this new code commit, **exact new-head Windows CI is mandatory** before calling the revision verified. No protected merge or student publication.
+
+**Next bounded action:** Commit/push the focused normal production fix in existing PR #528, verify hosted Windows CI at exact SHA; then review remaining nonancestor PR #366 restart semantics and #368 duration semantics against current production entrypoints, only correcting a reproduced contractual gap. Do not reopen Serway slide 2/3/4, change credentials, spend paid API/TTS or mass merge the historical stack.
+
+---
+
+# 9 November 2026 — v4.0 G2 finite provider stop / G3 current-head Windows verification
+
+**Project identity and authority:** `tlyoon/MicroGen_AI_Web` (Selenium, not API-based `microgen_ai`), Dell-115 only; binding closure-first contract v4.0 and standing owner-authorized no-new-cost internal academic QA. Existing isolated draft PR #528 worktree `C:\Users\tlyoon\AppData\Local\MicroGen_PR528_20261106` was clean at incoming SHA `a45c6931a2a8c42cf450cac2fb5c5a13108c6079`. Original shared `G:\My Drive\Projects\MicroGen_AI_Web` main checkout at `9e1a0ff6` has three pre-existing modified source files; none was touched, merged, reset or rebased.
+
+**G1 Verified for previous bounded real generation, not current reliability:** Earlier original source SHA `7015a479b52964d9385c00cf1f2ad4a16589c780b93335d825bf62b6203928c3` produced accepted SHA-bound Selenium slides and narration under existing immutable G1 receipts. Do not infer current model uptime or full G2 production from that historical successful transport.
+
+**G2 blocked / new immutable external diagnostic, no retries:** Read-only examination of the existing protected Serway 7.1 academic review queue found a **new** `slide_004_initial_review_attempt_01.json` and its durable `request_state.json` dated 9 Nov 2026. The review is `FAILED_GEMINI_REVIEW_ATTEMPT_QUARANTINED`, `SeriesBridgeError`: the owned Gemini browser showed a visible UI error instead of attributable requested JSON. The request journal is `SUBMITTED_OR_UNCERTAIN`, `submission_may_have_occurred=true`, `manual_retry_eligible=false`; source, slide and narration SHAs still match the existing exact lecture. Slides 3 and 4 are both unresolved possibly submitted requests, slide 2 has a rejected source quotation, and slide 1 retains only one dual-pass independently source-witnessed narrated claim of 43 total. The 9 Nov invocation **did not initiate or replay a model request** or infer an API HTTP error; no student release, TTS or MP4 was attempted. Model-side error versus browser transport remains to be reconciled from existing owned evidence, not from a speculative Send. With repeated comparable no-attributable-response results, do not submit more Serway 7.1 academic slides merely to reobserve the same failure. Record G2 `BLOCKED_EXTERNAL_OR_AMBIGUOUS_SEND`; independently re-evaluate it only if a captured original response or materially changed authenticated transport provides evidence for a distinct authorized step.
+
+**G3 independently advanced, still partial:** At exact incoming PR #528 SHA, hosted Windows workflow runs `42476560082` (both `offline-regressions` and `Full offline suite (Windows, Python 3.12)`) and `42476560091` (`unittest`) all completed SUCCESS. On Dell-115, the existing isolated worker environment `%LOCALAPPDATA%\MicroGen_AI_Web\pr493_clean_pypi_20261104` passed the **current-checkout** `Install-MicroGen-Windows.ps1 -SmokeOnly` with process exit 0, eight required Python imports, pip dependency integrity, ffmpeg and pdflatex present; no reinstall, API call, FFprobe acceptance or original source/media production. Read-only fresh `origin/main` fetch resolved live main `84cb105ff3a21411ac6b0de6665d6c832e11b6be`; `merge-base(HEAD,main)=main`, **0 behind, 821 commits ahead**, with the isolated PR branch clean. Branch topology and technical worker readiness are corroborated; **risk-based historical dependency review, fully source-grounded lecture/media acceptance, actual clean final production installation, merge and release remain incomplete**. This checkpoint-only update must independently receive exact-new-HEAD Windows CI before claiming its own CI status.
+
+**Single next eligible critical action:** do not restart Serway slide 2/3/4 or generate another per-PDF fix. Preserve and reconcile only pre-existing provider evidence if it can resolve an ambiguous claim; otherwise prioritize bounded G3 release-critical dependency review and a genuinely distinct authorized G2 acceptance source **only after transport capability or admissible source review evidence has materially changed**. No mandatory manual academic approval. No new paid API/TTS, security bypass, forced branch integration, or public/student publication. Overall disposition: `NOT_COMPLETE_WITH_NAMED_BLOCKERS`.
+
+---
+
+# 9 November 2026 — v4.1 G2/G1 closure: repeated unattributable browser Send containment
+
+**Project and standing authority:** `tlyoon/MicroGen_AI_Web` only, **Dell-115 Windows/Selenium**. The user-supplied `auto_cont_dev_prompt_v4.1.md` explicitly excludes the separate HP/Gemini-API `MicroGen_AI`. Read the binding `BINDING_CLOSURE_FIRST_DEVELOPMENT_CONTRACT_20261107.md` first. Routine internal source-bound Gemini/ChatGPT Selenium mathematics review remains standing-authorized without per-slide human approval. New paid APIs/TTS, new source rights, challenge bypass, protected merge, and student publication remain separately controlled.
+
+**Incoming authoritative evidence:** Clean Dell isolated PR #528 `a45c6931a2a8c42cf450cac2fb5c5a13108c6079` was exact-head green on Windows Actions runs `42476560082` and `42476560091` (2/2). The original Serway 7.1 physics source `source.pdf` SHA-256 `7015a479b52964d9385c00cf1f2ad4a16589c780b93335d825bf62b6203928c3` is the existing immutable source for the historic 43 original narrated units; no edits.
+
+**Newest observed live attempt (not in prior top checkpoint):** Serway 7.1 **slide 4 INITIAL_REVIEW attempt 01** has immutable private failure receipt `slide_004_initial_review_attempt_01.json`, last modified **2026-11-09 07:36:34 MYT**, status `FAILED_GEMINI_REVIEW_ATTEMPT_QUARANTINED`, provider submission state `UNKNOWN_AFTER_POSSIBLE_SUBMISSION`, `manual_retry_eligible=false`. Its request journal is `SUBMITTED_OR_UNCERTAIN` with `dispatch_attempted.claim` timestamp 07:35:41. Earlier slide 3 likewise ended `UNKNOWN_AFTER_POSSIBLE_SUBMISSION`; slide 2 returned an unlocatable source quotation and was correctly quarantined, not an outage. **No attributable response or successful scientific review from slides 3 or 4 was observed.** Do not resend these requests or infer a Gemini outage / broken network connection from absent DOM attribution.
+
+**New general root-family correction (G1/G2):** Existing normal `selenium_pipeline/ai_academic_review_queue.py` would skip each unknown Send and select another *fresh* slide indefinitely (slide 5 after slide 3 and 4). Code commit **`2cf7edd26492d412dc9c742808c67095b0641012`** (existing PR #528, no new PR) adds a source-independent, **read-only** two-consecutive-slide unattributed-Send guard. On two immutable `UNKNOWN_AFTER_POSSIBLE_SUBMISSION` receipts or submitted/uncertain request claims with no intervening valid completion or known return, both automatic selection and direct `execute_one_review` refuse another **fresh** browser Send. Previous receipt bytes and retry budgets are unchanged. A previously **saved/owned raw reply** remains eligible for independent no-Send source validation. A new source / independently verified route is not silently assumed to make old unknown Sends safe; new transport evidence and a separately reviewed safe continuation condition are required. This is bounded containment, **not automatic model-response repair or scientific approval**.
+
+**Validation:** 8 queue-focused tests **PASS** (including no third Send, direct CLI bypass denied, saved reply remains reconcilable). Eleven adjacent review, original-source queue, checkpoint, browser-response and ownership test files: **59 PASS**. `compileall` and `git diff --check` PASS. The **real read-only queue** returned `DEFERRED_REPEATED_UNATTRIBUTED_BROWSER_SEND`, `unattributed_prior_slides=[3,4]`, `unattempted_candidate_slide=5`, cause `PROVIDER_OR_DOM_ATTRIBUTION_UNVERIFIED`, `new_model_requests=false`. This invocation issued **zero** new Gemini/ChatGPT Sends, API calls, TTS, MP4, source writes, merges, or publications. Latest commit requires fresh exact-head Windows CI before claiming that specific SHA green.
+
+**Closure gates after this bounded action:**
+- **G1 Partial/Blocked for current academic browser route:** original source-sized slides/narration from the earlier trial exist, but two latest source-grounded review Sends have no attributable JSON. Absent independent browser-owned reply, no further automatic request on that same queue.
+- **G2 Blocked:** still just **1 of 43** narration utterances with verified two-pass source-witnessed AI agreement; slide 2 invalid source citation and slide 3/4 ambiguous. No full mathematical, audio/phonetic, element-synchronized MP4 or final lecture acceptance. No mandatory human mathematics review substituted.
+- **G3 Partial:** draft PR #528, release dependency/build/install review and final exact-head Windows CI still require independent evidence. Publication and protected-main merge not authorized.
+
+**Single next eligible milestone:** verify exact-head Dell Windows CI on the new PR #528 commit and complete an independent source-free release/dependency/build closure task. Only reopen further external source-bound review after independently attributable response/transport evidence or a materially changed, contract-approved route. Do not advance to slide 5 just to consume another uncertain Send. Stop this invocation after checkpoint update; no background promise.
+
+---
+
+# 8 November 2026 — G2-R1 verified-source quotation preflight in normal academic pipeline
+
+**Starting state:** MicroGen_AI_Web, Dell-115 only, clean draft PR #528,
+incoming verified SHA `73d72d7c947b86cf28d1d34bf011d267135619fa`
+with 3/3 hosted Windows CI passes. All earlier original generation
+trial failures and Serway slide 2 invalid-citation failure remain
+immutable. This is **not** the similarly named API-based project on HP.
+
+**Critical recurrent failure:** Original Gemini academic reviewer
+historically invented quotations on Thomas 8.4, prompting a special
+five-utterance/slide-4 source whitelist. The normal academic reviewer
+still let Gemini create its own physical textbook quotations and only
+rejected inaccurate ones after dispatch. On the current real Serway
+7.1, slide 2 initial review was indeed quarantined after returning
+unlocatable source text. This is a generalized *review input guard*
+defect; it was not evidence that all source science was wrong.
+
+**New normal-path safeguard:** Added
+`selenium_pipeline/source_verified_quote_candidates.py`.
+`ai_academic_web_review.build_review_job` now prepares an immutable
+SHA-bound **physically verifiable citation candidate packet** for
+every normal source-bound academic job BEFORE model Send. It extracts
+bounded real original PDF word lines, ranks by exact shared topical
+words, uses the existing independent
+`pdf_text_source_span_witness.prove_source_quote_occurrence` plus
+spatial continuity checks, and includes *up to two* exact physical
+quotations, source PDF page, original word bbox and normalized-quote
+hash for each exact narration ID/SHA. An absent relevant passage gives
+zero candidates and requires an unresolved response; it is **never**
+invented or promoted to scientific approval. The normal Gemini prompt
+demands one exact whitelist pair per utterance or null/UNRESOLVED,
+and the normal `validate_model_review` independently rejects
+invented, edited or cross-utterance citations while checking the
+original source SHA again. The historical specialized Thomas8.4
+source-packet exception is retained, not silently overridden.
+A historic two-pass regression with distinct genuine quotes
+(`A visible equation` versus `visible equation`) first exposed a
+real compatibility issue; the final builder also generates
+independently verified short-span alternatives. The full
+legacy two-pass agreement tests pass again.
+
+**Independent engineering evidence:** 104 adjacent Windows regression
+tests PASSED, 2 skipped, on Dell-115. Includes two distinct generated
+physics PDFs, valid citations, physically plausible but *unlisted*
+citations, fabricated citations, zero-candidate UNRESOLVED, immutable
+source drift rejection, legacy two-pass acceptance, exactly-once
+recovery, source binding, and audio/media handoff interface checks.
+The read-only packet for genuine Serway 7.1 slide 4 contained 5
+original narrated units with candidate counts [2,2,0,2,2];
+all included physical bboxes were present; model prompt 8163 chars;
+`all_mathematics_verified=false` and
+`student_publication_authorized=false`. The original source
+SHA is `7015a479b52964d9385c00cf1f2ad4a16589c780b93335d825bf62b6203928c3`.
+The new code revision requires fresh exact-head hosted CI; the
+previous 3/3 CI result is evidence only for the incoming SHA.
+
+**Real workflow attempt / finite stop:** The existing autonomous
+`ai_academic_review_cli --auto-next --execute-gemini-web` selected
+the unattempted Serway slide 3 INITIAL_REVIEW. One new source-bound
+Selenium Gemini Flash request was submitted at 2026-11-08 19:22:38
+Malaysia local time, using the real source PDF, slide PDF and
+new physically verified quotation prompt. Browser login, attachment
+readiness and Send were observed. **Gemini did not return stable
+attributable JSON** before the bounded completion window. The
+transport reported
+`POST_SUBMIT_NO_ATTRIBUTED_RESPONSE_NO_RESEND`; the immutable
+`slide_003_initial_review_attempt_01.json` recorded
+`FAILED_GEMINI_REVIEW_ATTEMPT_QUARANTINED`,
+`provider_submission_state=UNKNOWN_AFTER_POSSIBLE_SUBMISSION`,
+`manual_retry_eligible=false`, with durable
+`slide_003_initial_review_attempt_01_request` at
+`SUBMITTED_OR_UNCERTAIN`. Service-side generation versus DOM
+attribution cause is **unverified**; no second Send or API key
+switch was attempted. This result does not measure the scientific
+effectiveness of the new whitelist: the model did not provide a
+verifiable reply.
+
+**Queue continuation without per-PDF loop:** Read-only auto-next
+correctly selected slide 4 as next unattempted work, while
+quarantining slide 2's invalid citation and slide 3's ambiguous
+Send. No earlier source, slide, narration, receipt or retry
+budget was overwritten. This session made ONE live internal
+source-specific Gemini Selenium call, no paid API/TTS, WAV,
+MP4, merge or publication.
+
+**Current acceptance:** G1 source-grounded slides/narration remains
+PASS_VERIFIED on the original bounded trial; the G2-R1 source-quote
+preflight is implemented with offline cross-source and local
+real-PDF proof, but a complete *live* model output using the new
+protocol is **NOT_VERIFIED**. Exactly one of 43 original narrated
+claims has prior source-witnessed two-pass AI agreement; the
+rest remain pending/disputed including slide 2 and slide 3.
+Full G2 math, figure semantics, audiovisual highlights, TTS and
+<600-s MP4s are NOT_VERIFIED. G3 exact-head CI needs checking
+on the new commit; external release remains unapproved.
+
+**Next eligible closure action:** Verify the final commit's
+Windows CI. Then continue only with a genuinely unattempted
+source-bound academic unit or independently reconcile a newly
+observed old response if safe, **never replay** slide 2 or
+slide 3. Confirm one actual complete model reply cites only
+SHA-bound physical PDF passages or uses UNRESOLVED, then
+independently check mathematics. If the provider again yields
+no attributable output, preserve a finite externally blocked
+status and advance independent source-free integration instead
+of requesting manual approval or creating an infinite PDF
+repair loop. Existing source-math correction and separate
+media/rights gates remain independently required.
+
+---
+
+# 8 November 2026 — v4 closure: academic QA automatically chooses a safe next unit
+
+**Primary acceptance prerequisite (G2):** The existing academic-review
+component had isolated, crash-safe scientific review and retry protection
+but **no normal-path source-independent automatic selector**: its CLI
+required the operator/agent to repeat `--slide` and `--mode` for every
+source review. This is a concrete connection defect behind the owner's
+repeated perception that historical fixes are learned but not used.
+The main source progression controller also deliberately performs at
+most one source stage and does not supply autonomous academic queue
+selection. The feature freeze admits only this G2-critical integration,
+not a new general-purpose self-modifying agent.
+
+**Generalized correction in existing normal entry point:**
+`ai_academic_review_queue.select_next_safe_review` verifies the original
+SHA-locked source/slides/script queue and scans canonical slide order.
+It reuses fully completed receipts, selects an unattempted
+`INITIAL_REVIEW` or legitimate `INDEPENDENT_CHALLENGE`, and checks the
+existing persisted model-request checkpoint before selecting a claimed
+request. A previously **saved** raw model reply can be recovered
+without another Send. An uncertain Send, exhausted retry, source drift,
+or prior invalid scientific reply is recorded as a blocked unit rather
+than triggering a duplicate Send, approving science, or freezing
+unrelated unattempted slides. The existing
+`ai_academic_review_cli --auto-next` is read-only; adding
+`--execute-gemini-web` executes **at most ONE** selected unit under
+standing internal Selenium authority, never a source-specific repair
+loop. No API/TTS cost or publication approval inferred.
+
+**Newly reproduced historical failure family in real source:**
+The source quotation hallucination/ambiguity family was previously
+observed in Thomas8.4 and guarded in a source-specific locked
+quotation packet. That *specialized* guard is not a universal source
+quotation generator. On current real Serway 7.1, the auto selector
+reused the already completed two-pass slide 1 evidence and chose
+slide 2 initial review automatically. One new Gemini Selenium
+review Send successfully attached source.pdf/slides.pdf and received
+about 4203 response characters; its independent original-PDF
+quotation validator rejected the response with
+`FigureIdentityReviewRequired: Ambiguous or unlocatable exact original textbook quote`.
+The response was saved under the immutable
+`slide_002_initial_review_attempt_01_request` model checkpoint,
+with one failed `slide_002_initial_review_attempt_01.json` receipt,
+`provider_submission_state=RETURNED_RESPONSE_INVALID`,
+`manual_retry_eligible=false`.
+**Do not resend or relabel the failed source review.** This is
+an untrusted scientific citation, **not an observed connectivity
+outage**, nor proof that the mathematical content itself is false.
+
+**Permanent failure-classification fix:** Shared
+`review_retry_plan.plan_manual_review_attempt` and
+`source_review_eligibility_preflight` now classify this known
+returned-but-source-invalid signature as
+`SOURCE_MATH_QUOTE_EVIDENCE_REJECTED_NO_SAME_REQUEST_REPEAT`,
+instead of conflating it with `RECONCILE_OLD_PROVIDER_ATTEMPTS`
+and asking the owner for routine manual intervention. New future
+failures set `requires_new_independent_source_evidence=true`,
+`requires_owner_reconciliation=false` for a known returned
+invalid reply. Truly **unknown** provider Send still needs
+evidence-only reconciliation. Historical receipts and sources
+are immutable; the new classifier reads them as they are.
+
+**Real next-step evidence:** After the slide 2 failure, the same
+normal `--auto-next` read-only CLI selected
+**slide 3, INITIAL_REVIEW, attempt 1** and listed slide 2 as
+`SOURCE_MATH_QUOTE_EVIDENCE_REJECTED_NO_SAME_REQUEST_REPEAT`;
+it performed **zero additional model Sends**. In other words, a
+single bad source-citation reply no longer obstructs unrelated
+pending academic work or causes a same-job resend.
+
+**Regression scope:** 93 targeted local Windows tests passed
+before the final saved-reply no-Send auto-next regression; the
+additional tests validated that previously captured responses can be
+reconciled without another browser request, two-slide queues proceed
+deterministically, a previously ambiguous Send is not repeated, and
+source hashes cannot drift. The final exact-head hosted Windows CI
+must be verified after the coherent commit; past green CI on
+`3bf40598c6b4a16676c0b828eb24e0b90c33d065` is not transferable.
+
+**Current gates:** G1 PASS_VERIFIED for the tested Selenium
+slides/narration real original stage. G2 **NOT_VERIFIED**: 43
+original utterances, **one** dual-source-witnessed AI-agreed
+utterance on slide 1, **one** initial review on slide 2
+rejected for an unlocatable citation, and the remainder not
+independently reviewed. There is no complete autonomous correction
+for an unjustified model quote: the source evidence must be
+re-established on a legitimately **new separately bounded scope**
+before any replacement could be accepted, and the original claimed
+request cannot be replayed. The academic queue can advance other
+unattempted units. Full source/scientific/media QA, WAV, <600-second
+synchronized MP4 and learner release remain missing. G3 release
+review/merge remains incomplete; no merge/publication done.
+
+**Next justified milestone after exact-head CI:** Under existing
+source/one-Send rules, progress the next unattempted independent
+review unit through the new auto selector, and independently
+investigate a *general* preverified-PDF source quote candidate
+input protocol for future review jobs before any new submission.
+Reuse the former Thomas quotation-lock lesson; do not repeat the
+Serway 7.1 slide 2 send, alter its failed evidence, or endlessly
+repair one PDF. When real incorrect mathematical content is proven,
+route it to a bounded affected-content repair and independent
+re-validation, never a blanket magic pass. There is **no** claimed
+global automatic cure for unknown provider outages, missing source
+semantics, or permission-restricted actions.
+
+---
+
+# 8 November 2026 — v4.1: standing autonomous scientific review unblocked and exercised
+
+**Authority / root cause:** The existing MicroGen_AI_Web owner contract
+already authorized autonomous **internal, no-new-cost browser/Selenium**
+scientific QA without per-slide or manual human academic review.
+`source_review_eligibility_preflight.py` nevertheless hard-coded
+`new_slide_specific_consent_verified=false` and labeled every new
+review `NO_PENDING_RECEIPT_BUT_SCOPED_CONSENT_NOT_PROVEN`. That is a
+read-only planning convention, **not** evidence of an actual owner
+permission denial, but previous assistant sessions incorrectly used it
+to interrupt work and repeatedly ask for approval. This is a
+**contract interpretation/reporting defect**, not Gemini downtime.
+
+**Permanent remedy:** Section 4b added to
+`docs/BINDING_CLOSURE_FIRST_DEVELOPMENT_CONTRACT_20261107.md` expressly
+prohibits repeated approval requests for routine internal source-bound
+Selenium review, autonomous source-grounded fix/recheck and regression
+work. Prior project-scoped authorization is standing across sessions;
+the agent must identify a specific new paid, rights, access,
+irreversible, public action, or ambiguous external Send before asking
+for a new permission decision. The normal read-only eligibility
+planner now states
+`FRESH_INTERNAL_SELENIUM_QA_READY_UNDER_STANDING_CONTRACT`,
+`standing_autonomous_internal_qa_scope_applies=true`, and
+`separate_per_slide_owner_approval_required=false` for truly
+unattempted source-bound review work, including an independent
+challenge after a validated first pass. It maintains
+`review_model_request_sent=false` until a model request actually
+occurs, retains source SHA checks and retry exhaustion stops, and
+never authorizes paid TTS/API, duplicate submissions, bypasses,
+merge, or student publication. Targeted 21 focused tests PASS on
+Dell-115 across preflight, academic recovery and queue execution.
+
+**New ACTUAL domain acceptance evidence (not merely a status rename):**
+Authorized under the owner-reconfirmed standing no-manual-intervention
+scope, the real original Serway 7.1 **slide 1** academic review queue
+issued one new Selenium `INITIAL_REVIEW` request with source.pdf and
+slides.pdf, an immutable pre-Send claim and a complete returned,
+source-verified response: 1 narrated claim, `SUPPORTED`, exact
+physical textbook citation verified. It then issued ONE distinct
+`INDEPENDENT_CHALLENGE` review using a different mode and immutable
+claim; response separately accepted. On Dell-115 the existing
+`ai_academic_review_consensus.reconcile_actual_review_queue`
+returned:
+`original_utterances=43`, `initial_ai_reviewed=1`,
+`challenge_ai_reviewed=1`,
+`agreed_source_witnessed_segments=1`,
+`pending_or_disputed=42`,
+`AI_consensus_is_formal_math_proof=false`,
+`student_publication_authorized=false`.
+The accepted claim is `s001.utterance.001`. The immutable first
+review receipt SHA is
+`c31af65c3539ab97b7080487bafe8c28fd3a87510992a9d63b70e1ef9cab84c5`;
+the challenge receipt SHA is
+`18b94589d1990fbf4910d20ec9ad55b58cd45ce79c073b890b4a2df31320dac5`.
+Review receipts remain private under the existing
+`%LOCALAPPDATA%\MicroGen_AI_Web_Checkpoints\20261107_PR528_SERWAY7_1_PRETTS_INDEPENDENT_SCIENCE_REVIEW_QUEUE_V1`
+queue and are **not** published to GitHub. The original source,
+generated slides, narration, and the earlier terminal script-QA
+trial receipt remain unchanged; no slides/narration redo or repair
+loop. No paid Gemini API, TTS, MP4, model switch, protected merge
+or student publication was performed.
+
+**Gate interpretation:** G1 still PASS_VERIFIED for the tested real
+Selenium generation path; G2 remains NOT_VERIFIED at the **full
+lecture** level but has *new candidate-specific independent science
+evidence* (1 accepted utterance / 42 pending) and the old duplicate
+owner-approval preflight blocker is removed. G3 Windows engineering
+baseline was 3/3 CI PASS on incoming SHA
+`0322f1c780e2602e17deeb8431c4c8b67214d9cf`,
+but the new code/contract revision requires new exact-head hosted
+CI before claiming its final engineering PASS. Release
+merge/publication remains NOT_AUTHORIZED and unattempted.
+
+**Next permitted step:** resume queued independent scientific review
+only for unattempted source-bound claims with finite one-Send
+ownership, then route any genuine mathematical discrepancies to the
+existing bounded shared repair/review mechanism. Do not demand another
+per-slide owner approval. A source/rights failure, paid API/cost change,
+unknown Send or new public release action remains a legitimate stop.
+Do not reset past trials or chase Serway PDF perfection; move G2 toward
+a complete representative acceptance and close G3 dependencies.
+
+---
+
+# 8 November 2026 — G2 normal academic reviewer durable request integration (v4 learning rule)
+
+**Entry verification:** Dell-115 sole authorized Windows worker, draft PR #528
+`feature/pr528-autonomous-ai-lecture-acceptance`, clean base
+`5611108f88ada307f9ec628e9f6cd6d01c064b71`; 3/3 hosted Windows
+CI SUCCESS on that SHA. Existing scientific two-pass reviewer queue for
+Serway 7.1 remains exactly 10 slides / 43 utterances with **zero**
+model sends and zero accepted mathematics verdicts. Previous trial's
+`stage_script_qa_result.json` FAILED receipt and original publisher PDF
+were not reopened, edited or regenerated.
+
+**Reproduced general blocking integration:** The existing
+`ai_academic_web_review.run_web_review` intentionally rejects every
+real Selenium academic request without a crash-persistent
+`checkpoint_dir`. But `ai_academic_review_queue.execute_one_review`,
+which is invoked by the production academic CLI, passed no
+`checkpoint_dir` at all. Thus even a separately authorized new
+source-specific review would fail before browser dispatch; previous
+fixture-injected tests did not exercise this live-only precondition.
+
+**Permanent normal-path remedy:** `ai_academic_review_queue.execute_one_review`
+now automatically uses the established `academic_review_checkpoint`
+one-claim-before-Send guard with an immutable
+`slide_NNN_<mode>_attempt_NN_request` path in the *existing* review
+queue. The checkpoint uses prompt/source/slide/script hash identity
+and a cross-window exclusive one-Send claim. If the worker crashes
+after a reply was recorded but before the outer queue receipt,
+the next invocation **re-validates the same saved raw reply** against
+the original source quotation, slide target and narration SHA and
+finishes the missing receipt **without another provider call**.
+Unknown/ambiguous browser Send, an invalid claimed reply, stale source
+or changed prompt remain terminal for the identical job; no automatic
+retry or model-family/credential switching. This rule applies to every
+source/slide/review mode through the shared queue—not just Serway 7.1.
+
+**Evidence and scope:** 78 targeted Dell-115 Windows tests PASS, including
+the actual live-path callback with checked pre-Send durable claim,
+successful no-Send crash recovery from original saved response,
+unknown-Send rejection, invalid-claimed-reply no-replay, legacy
+fixture-review compatibility and pre-TTS no-WAV source worklists.
+The Serway 7.1 academic queue CLI status was rechecked read-only
+and still reports 43 pending with no failed review attempts; no
+new Gemini/ChatGPT model calls, paid API/TTS or media work took place.
+The full exact-head Windows CI for this new code revision must be
+checked separately before asserting it passed.
+
+**Current gate movement:** An evidenced shared **G2 prerequisite**
+(the academic queue being dispatchable *when separately authorized* and
+crash-recoverable) is removed. G2 itself remains `NOT_VERIFIED`:
+all 43 claims lack independent source-grounded AI mathematics review;
+no reviewed WAV or synchronized <600-s MP4 exists and the finite
+previous Serway 7.1 script-QA trial remains terminal. G1 retains its
+verified source-sized Selenium slides/narration evidence. G3 code release
+still needs frozen exact-head CI/dependency review, plus G2 content/media.
+
+**Owner's permanent-learning requirement encoded:** the binding
+closure-first contract now requires each confirmed general blocker to
+be diagnosed, resolved in its normal caller, recovered automatically
+where safe, regression protected and rechecked on Windows CI; external
+consent/unknown Sends are handled with finite explicit stops, not
+false automatic fixes.
+
+**Next eligible G2 operation:** secure the required source-specific
+model review scope/approval for ONE unattempted academic queue job and
+run its bounded first pass through the newly durable normal CLI.
+Only after actual validated evidence could a scientific discrepancy
+legitimately invoke a targeted math correction and independent recheck.
+Do not infer new authorization from this generic v4 invocation and do
+not resend Serway 7.1 generation or publish content.
+
+---
+
+# 7 November 2026 — v4.0 G2 prerequisite: pre-TTS academic review no longer requires WAV
+
+**One critical-path change / no extra PDF repair:** Existing Serway 7.1
+source/slide/script SHA-bound trial preserved. No source PDF rerun, prior stage
+receipt rewrite, new Gemini/ChatGPT model request, paid API/TTS, audio or MP4
+render, public release or merge.
+
+**Reproduced shared root cause (historical issue was only partly integrated):**
+`ai_academic_web_review.build_review_job` called
+`incremental_element_candidate_map.candidate_map`, which called the
+`incremental_lecture_sync_queue.inspect_folder` WAV-backed queue and
+`original_wav_multipart_plan.inspect_original_slide_wav_plan`. On a genuine
+pre-TTS source the entrypoint failed with
+`FigureIdentityReviewRequired: Expected bounded slide-level WAV inventory`
+before academic source verification could start. Older Oct 26 generalized
+math QA/retry corrected *known detected narration findings* only, not an
+independent source-grounded pre-TTS review. PR528's independent two-pass
+source/ASR/media QA was read-only and final-stage, not a pre-TTS repair driver.
+
+**Narrow general fix:** `incremental_lecture_sync_queue.inspect_pre_tts_folder`
+constructs immutable source/PDF/script utterance and visible-target input
+without WAVs, rejecting missing/invalid blocks, PDF page mismatch, changed
+hashes and any partial WAV inventory. The existing candidate mapper accepts
+an explicitly identified source-only review queue but still marks every
+element non-verified and not TTS-ready. The existing
+`ai_academic_web_review.build_review_job` uses the source-only queue when
+zero `slide*.wav` are present and retains the legacy stricter WAV-backed
+queue for already recorded audio. Both modes preserve the old source-quote,
+geometry, two-pass AI response validator and no-fabricated-approval rules.
+
+**Validation:**
+
+- 28 targeted Dell-115 Windows pytest PASS across new pre-TTS queue and
+  established academic review, immutable attempt/retry, legacy WAV-based
+  element mapping and eligibility checks. Python compilation PASS.
+- Actual previously SHA-frozen Serway 7.1 triad
+  `7015a479b52964d9385c00cf1f2ad4a16589c780b93335d825bf62b6203928c3`
+  admits a pre-TTS reviewer job without WAV. New separate original
+  science queue:
+  `%LOCALAPPDATA%\MicroGen_AI_Web_Checkpoints\20261107_PR528_SERWAY7_1_PRETTS_INDEPENDENT_SCIENCE_REVIEW_QUEUE_V1`.
+  **10 slides, 43 original utterances**, source/slide/script identity
+  preserved. Exact source-quote checks apply to any future returned model
+  verdict; no source quote is fabricated.
+- Read-only academic queue status
+  `BOUNDED_AI_REVIEW_QUEUE_CURRENT`, with all independent passes pending.
+  Eligibility preflight is
+  `NO_PENDING_RECEIPT_BUT_SCOPED_CONSENT_NOT_PROVEN`;
+  `review_model_request_sent=false`,
+  `automatic_retry_authorized=false`. No attempt budget consumed.
+- Original Serway 7.1 `stage_script_qa_result.json` remains
+  `STAGE_FAILED_OR_OUTPUT_INCOMPLETE_NO_RETRY`, and original limited
+  `math_semantic_report.json` keeps
+  `independent_source_math_ai_review_approved=false` and
+  `automatic_tts_authorized=false`. No artificial receipt promotion.
+
+**Gates / stop:** G1's real Gemini Selenium slide and narration stage
+remains PASS_VERIFIED for that tested source, not global uptime.
+G2 is **NOT_VERIFIED**; this invocation *removed its proven circular
+pre-TTS review prerequisite* but did not conduct an independent scientific
+review, repair incorrect content, authorize TTS or generate WAV/MP4.
+G3 was green at former SHA `c013fc1`; this code change needs new
+exact-head Windows CI. This is a code-level general fix with a real-source
+preflight, **not** full autonomous detect-repair-continue integration.
+
+**Next eligible action:** after exact-head CI, independently source-review
+the 43 queued claims using explicit appropriate model-job scope and the
+standing one-Send budget. Review findings must route to bounded
+source-grounded repair and re-review only when proven necessary; zero
+known domain-sign findings are not complete mathematics proof.
+The existing separate reviewer CLI currently requires an *explicit*
+source-specific review dispatch and the live eligibility preflight reports
+no new scoped consent; this invocation does not override that condition.
+Never bypass or silently rewrite terminal stage receipts. No automatic
+TTS/video or student publication until independent checks truly pass.
+
+---
+
+# 7 November 2026 — G1 materially advanced: new Gemini Selenium original-source slides and narration
+
+**Project:** MicroGen_AI_Web only, Dell-115 native Windows, isolated
+`feature/pr528-autonomous-ai-lecture-acceptance` draft, original entry
+HEAD `db77942d6a768beb266d34157f75d5fef6b72cba`.
+Owner authorized a fresh Selenium provider check; original submitted
+PDFs may not be replayed. No ChatGPT request, paid content API/TTS,
+YouTube publication, protected-main merge or non-Dell machine was used.
+
+**New qualifying G1 evidence (real original source, not merely a canary):**
+
+- A distinct, fresh **source-free** 1,535-character Gemini browser input
+  returned `VALID_CANARY_RESPONSE` under checkpoint
+  `20261107_PR528_OWNER_AUTHORIZED_GEMINI_SOURCE_SIZED_ONE_SHOT_V1`.
+  This is independent of the prior **failed** 6-Nov source-sized canary,
+  which must not be resent.
+- Read-only `windows_original_source_candidate_inventory` on Serway_1_7:
+  46 physical publisher PDFs, 8 earlier trial contracts and 10 Send-intent
+  receipts, 1.1 excluded. Chose 7.1 **before** execution by its minimal
+  source size / absence from scoped SHA claims; independently searched
+  checkpoint JSON for its original SHA and Git section history, with no
+  match. Not a guarantee of all possible historical environments.
+- New isolated original source `G:\My Drive\Serway\Serway_1_7\7\7.1\source.pdf`,
+  SHA256 `7015a479b52964d9385c00cf1f2ad4a16589c780b93335d825bf62b6203928c3`,
+  external immutable trial
+  `%LOCALAPPDATA%\MicroGen_AI_Web_Checkpoints\20261107_PR528_SERWAY7_1_DISTINCT_ORIGINAL_TRIAL_V1`;
+  source-copy hash verified and 7-stage dry-run passed.
+- **Figures:** exit 0, source-bound receipt
+  `FIGURES_STAGE_RETURNED_SUCCESS_NOT_FULL_LECTURE`. The 1-page PDF
+  had no figure crops requiring Gemini; figure stage was local only.
+- **Slides:** one real Selenium Send of source.pdf plus prompt and PNG
+  metadata; Gemini returned accepted `slides.tex` and compiled
+  10-page `slides.pdf`. Immutable
+  `STAGE_COMPLETED_AND_SOURCE_SHA_BOUND`; slides.pdf SHA
+  `dda52f91192a54cf23239cf7c685bc775602620bb92a32ed63fc79a3f5622e62`.
+- **Narration:** one new Selenium Send of that deck, original source and
+  rendered prompt; Gemini returned a 5,669-character capture and validated
+  10-block `script.txt`; immutable
+  `STAGE_COMPLETED_AND_SOURCE_SHA_BOUND`; script SHA
+  `902f40954c2698db7ba7b801382b69897d848936e917ba43c9763b5ee40ed478`.
+- The earlier `NO_GENERATION_TRANSPORT_CERTIFIED_FOR_AUTOMATIC_DISPATCH`
+  preflight applied **before** this new real success. G1 can now be
+  reported `PASS_VERIFIED` for this distinct source-sized **slides and
+  narration** route, not an unlimited uptime or full-lecture certificate.
+
+**G2 issue revealed and generalized once, with no source/PDF replay:**
+
+- Script QA actual process EXIT 0; local script risk `blocking=0`,
+  `warnings=0`; `.microgen_work/math_semantic_report.json` exists and
+  is hash-pinned in the runner state, with `blocking_count=0` under a
+  **limited** math/domain/sign ruleset.
+- The publisher code `selenium_pipeline/output_paths.py` omitted the
+  `math_semantic_report.json` and `math_semantic_repair_prompt.json`
+  artifacts from `script_qa`'s published output list, despite the
+  runner and immutable stage controller requiring them. The trial's
+  `stage_script_qa_result.json` is **immutable**
+  `STAGE_FAILED_OR_OUTPUT_INCOMPLETE_NO_RETRY`; the operator correctly
+  reports `HALTED_PREVIOUS_STAGE_FAILED_NO_RESEND`.
+- **Permanent general fix:** publish both verified math report and repair
+  prompt on future successful/diagnostic script-QA stages, preserving
+  their actual status flags. Two positive/negative publication regression
+  tests added; **38 focused Windows tests PASS** (source-adjacent outputs,
+  Windows stage sequence and source-SHA stage reuse). No model retries
+  and no changed original/staged source. The existing failed terminal
+  receipt is **not** edited, overwritten or falsely promoted.
+- The actual limited math report says
+  `all_mathematics_verified=false`,
+  `independent_source_math_ai_review_approved=false`,
+  `automatic_tts_authorized=false`. Its zero domain-sign hazard count
+  **does not** certify complete mathematical accuracy or permit TTS/media
+  release. No generated WAV/MP4 and no student publication.
+
+**Current closure status:**
+
+- **G1:** source-sized Gemini Selenium generation of **real original slides
+  and narration** PASS_VERIFIED once, with immutable SHA-bound receipts.
+  Future availability remains external and cannot be guaranteed.
+- **G2:** PARTIAL / NOT_VERIFIED: no complete autonomous independent
+  source/figure/math/voice review, no accepted TTS/WAV, synchronized
+  highlighted <600-second MP4, or second independently accepted lecture.
+  Source 7.1 script-QA terminal remains failed, with no authorized retry.
+  Do not solve this by editing the QA flags.
+- **G3:** underlying Windows engineering candidate was verified at
+  entry `db77942` with exact-head 2/2 hosted CI, but latest code change
+  requires new exact-head hosted CI. Historical release-critical PR review
+  remains incomplete; draft PR #528 unmerged.
+- **Next permitted step:** independently reconcile the *existing* physical,
+  hash-verified limited QA artifacts under the no-resend/evidence-reuse
+  policy, and complete genuine autonomous source-math/audio/media QA
+  without overriding `automatic_tts_authorized=false`. Alternatively
+  run a distinct new-source pilot only after the general publisher fix is
+  exact-head CI-green, with a fresh SHA/receipt; never replay Serway 7.1.
+  Stop if the required independent QA cannot be legitimately satisfied.
+
+**No code change other than the narrow general QA publishing fix.** This
+is genuine G1 acceptance advancement and reusable G2 defect correction,
+not full production closure. All new original/model attempt claims are
+one-shot and terminal.
+
+---
+
+# 7 November 2026 — v4.0 frozen closure charter (Google Drive master prompt)
+
+**Operating source:** owner's Google Drive `auto_cont_dev_prompt_v4.0.md`
+(file `1wYIvmymMSudafl_BWEmj5V1mjWE232tI`) was read and applied to
+**MicroGen_AI_Web** only. It supersedes v3.0 as the general development
+procedure; the repository's
+`docs/BINDING_CLOSURE_FIRST_DEVELOPMENT_CONTRACT_20261107.md` supplies
+the project-specific scientific, cost, device and release boundaries.
+No new model, TTS, source or student publication authorization is inferred.
+
+**Frozen entry identity:** Dell-115, native Windows, isolated clean draft
+`feature/pr528-autonomous-ai-lecture-acceptance`, examined code
+`c578ae9ce32431ee5fd590282bd787ddad1fe4eb`. Both hosted Windows
+CI jobs at this revision SUCCESS. The following charter is fixed *before*
+a new acceptance attempt; changing candidate, tests or thresholds after
+an unsuccessful run is prohibited. A documentation-only revision after
+this entry must independently reverify exact-head CI.
+
+| Gate / necessity | Status (7 Nov) | Required independent acceptance evidence | Owner, prerequisite and stop rule |
+| --- | --- | --- | --- |
+| **G1** original-source-sized generation transport (mandatory operational prerequisite) | **BLOCKED_EXTERNAL**; no unattended route certified | Fresh, **new** claimed job and complete attributable source-sized model output, ownership and exact-one-Send receipt; login/metadata/short canary are NOT enough | Authorized owner/provider must allow ordinary new-tab operation, or new independently verifiable provider capacity/route evidence. Do not bypass ChatGPT verification or replay earlier Gemini failed source-sized canary and claimed PDFs. One new bounded test only if a material change creates a distinct, justified hypothesis and within existing cost policy. Otherwise terminal for this failure signature. |
+| **G2** independent genuine full lecture (mandatory domain + pilot) | **NOT_VERIFIED**, blocked by G1 | Different original PDF, registered SHA and rights, all original figure panels, correct slides/script, actual TTS WAV and voice evidence, source-cited autonomous AI maths/figure/speech QA, active narration-synced highlighted MP4 frames, every encoded part **strictly <600 s**, immutable receipts | Exact source/selection rationale and distinct prior-attempt history must be frozen **before** submission. The 45 scoped inventory candidates are NOT globally verified unused. Do not select an easier replacement after failure; one-Send source/stage policy remains. No mandatory human academic review for internal stage progression; external release separate. |
+| **G3-E** engineering technical baseline (separately reportable track) | **PASS_VERIFIED** when complete release-board review inputs provided | Isolated Windows worker PASS, clean source tree, actual source/recovery receipts, read-only historical stack batch *plan*, and exact-head 2/2 hosted CI; engineering candidate only | Previously verified on c578ae9 using the same `--include-stack-batches` plus `--verify-exact-head-ci-online` flags; omitting optional batch-plan evidence returns engineering_ready false. Neither flag establishes a completed independent PR review nor student release. Do not reopen without changed code/dependencies/evidence. |
+| **G3-R** integrated approved production release (mandatory code/release) | **NOT_VERIFIED** | Actual required PR dependency/technical review and frozen reproducible final Windows package/installation on exact released commit, G1 and G2 actual acceptance, permission for any merge and external release | No mass historical draft merges, feature additions, or publication. Next independent G3 work only when it demonstrably reduces a release-critical dependency, not for more CI/doc/PR churn. |
+
+**Bounded terminal provider evidence, not to be replayed:** Gemini browser source-sized
+synthetic one-shot `20261106_PR528_SOURCE_SIZED_SYNTHETIC_GEMINI_CANARY_V1`
+ended after verified Send with SHA-bound model UI error; not proven HTTP 503/504.
+ChatGPT new owned tab on Dell-115 showed `Just a moment...` security
+verification with **zero Send**; distinct no-Send receipt
+`20261107_PR528_CHATGPT_BROWSER_DISTINCT_CANARY_V1`. Existing authenticated
+tabs are not a certified new-tab transport; never circumvent the challenge.
+No new external model request or source generation was made in this
+v4 charter invocation.
+
+**v4 anti-stall decision:** The preceding contract-renewal invocation and
+this acceptance-status invocation have not supplied a fully accepted new
+lecture or reliable new generation route. Mark **CLOSURE_STALL for G1/G2
+external-path advancement**. This is NOT grounds to invent another test,
+change computers, use a different key to replay, or weaken quality gates.
+Resume G1 only after a materially changed authorized browser verification
+state or independently verified new provider path. Continue a *distinct*
+G3 release-critical dependency only if it has concrete acceptance criteria.
+If none is actionable, stop and report `NOT_COMPLETE_WITH_NAMED_BLOCKERS`.
+
+**Measured outcome of this v4 invocation:** recovered latest evidence and
+froze all acceptance identities, exact evidence requirements, owner/stop
+conditions and prior failed-request limits. **No acceptance gate advanced**;
+the previously reported engineering technical readiness was independently
+reconfirmed with all required optional inputs. Existing original sources
+and old trial receipts preserved. This is a scope/stop-control checkpoint,
+not new software functionality or completed production release.
+
+---
+
+# 7 November 2026 — Binding closure-first contract v4.0 adopted
+
+- **Authority:** Owner directed a revised procedure learned from repeated blocker-fixing rounds. `docs/BINDING_CLOSURE_FIRST_DEVELOPMENT_CONTRACT_20261107.md` now controls *future development procedure* and is linked from existing effective contract and autonomous-development protocol. Existing technical/scientific/TTS/security/source/publication requirements remain.
+- **New operating gates:** G1 reliable legitimately available model route (currently BLOCKED); G2 genuinely independent complete lecture with AI-only scientific, figure, speech and synchronized MP4 acceptance (BLOCKED by G1); G3 reproducible Windows release with verified release-critical dependencies and exact-head CI (PARTIAL, engineering candidate already verified). No new unrelated features or PRs.
+- **Historical knowledge retained:** immutable no-resend and SHA reuse, no repeated PDF perfection, no mistaken Gemini API-vs-browser diagnosis, no ChatGPT challenge bypass, bounded retries across sessions, no blanket historical PR merge; these rules remain effective under future v3.0 autonomous prompt invocations.
+- **Validation for adoption:** contract/index links inspected and targeted Windows contract regressions to be recorded at commit/push. An updated doc pointer is NOT provider recovery, complete lecture or production release.
+
+---
+
+# 7 Nov 2026 — Universal orphan Send-intent source inventory exclusion
+
+- **Project:** MicroGen_AI_Web / Dell-115 Windows-only Selenium; extend existing PR528; preceding exact code HEAD `272ded40debb11291bcf2b6b68f554107321f7e0`, both Windows CI jobs SUCCESS.
+- **Actual model-stage enforcement:** `windows_fresh_source_trial.run_trial` now checks strictly validated sibling trial contracts and figures/slides/narration/script-QA Send intents for the exact original SHA *before* copying/staging a new source or writing any new Send intent. The current trial's own receipts remain handled by existing one-Send logic. This registry is scoped, never global proof. Three focused production-path tests (same-SHA orphan blocked; unrelated SHA permitted; malformed sibling blocked) PASS.
+- **Permanent cross-source safeguard:** Native `windows_original_source_candidate_inventory` now checks SHA-formatted, strict-schema previous `figures_attempt_started.json` and `stage_{slides,narration,script_qa}_started.json` receipts as well as full trial contracts. Missing trial contract no longer permits an old pre-Send claimed source into the new-source candidate pool. No global proof of never-attempted and no model-send authority added. Existing Windows operator uses the same routine.
+- **Verified on Dell-115:** 50 focused source selection, progression, launch and stage regression tests passed; source-free fault-injection tests include orphan, duplicates, malformed receipts and bounded registry. Real read-only publisher/registry inspection: 46 Serway_1_7 PDFs; 8 trial contracts; 10 Send intents (8 distinct SHAs); 1.1 excluded by BOTH existing contract and Send-intent evidence; 45 remaining possible candidates, not verified globally unattempted. No regeneration or model calls.
+- **Previous milestones retained:** exact-head Windows CI green on prior `272ded4`; read-only engineering candidate true but actual release blocked; standalone Windows source-only package from `105ed34` validated. Gemini source-sized browser UI failure and ChatGPT browser `Just a moment...` challenge still prevent reliable unattended new model dispatch. Second distinct complete academic/audio/MP4 lesson, historical PR reconciliation, final release and separate student publication remain incomplete.
+- **Next:** Continue distinct new source only with genuine transport/claim eligibility, zero duplicate replays; finish autonomous AI-science/figure/voice/media acceptance and reviewed historical integration. No paid API/TTS without authorization, no HP/Yoga/local models/Ubuntu, no unaudited merge or release.
+
+---
+
+# 2026-11-07 PR528 source-only engineering acceptance and batch-one regression
+
+- **Project:** MicroGen_AI_Web native Windows Selenium. Sole authorized PC Dell-115; branch `feature/pr528-autonomous-ai-lecture-acceptance`. Latest verified **code** commit `105ed344b5ae32eb4b3c7ba8bf9672eb6d429eb7`; both exact-head Windows CI jobs SUCCESS in GitHub run `42335084092`; read-only GitHub main freshness matches `84cb105ff3a21411ac6b0de6665d6c832e11b6be`.
+- **Read-only production release board:** Actual pre-existing multisource jobs `20261104_PR489_WINDOWS_MULTISOURCE_JOBS_V1`, original trial `20261104_PR490_FRESH_SERWAY22_1_V1`, installed PR493 isolated Windows worker, tracked GitHub CI: `engineering_technical_release_candidate_ready=true` but `WINDOWS_RELEASE_CANDIDATE_BLOCKED`. Worker install PASS; second original `SECOND_SOURCE_PROVENANCE_INCOMPLETE`; autonomous original lecture QA not provided; reviewed sourcebound MP4 not selected; historical PR review incomplete. No model, TTS, FFmpeg or publication operations.
+- **Fresh portable source-only candidate:** `%LOCALAPPDATA%\MicroGen_AI_Web_Checkpoints\20261107_PR528_EXACT_HEAD_WINDOWS_SOURCE_REVIEW_ONLY_V1`, built with the existing guarded `Build-MicroGen-WindowsReviewCandidate.ps1` from exact code commit `105ed34`. `CLEAN_EXTRACTED_WINDOWS_SOURCE_REVIEW_CANDIDATE_ONLY`, 1,421 tracked source files; ZIP SHA256 `f16fc4a00747e196fe5efd7a323f086666d85b81aeb11f4f4c23efb5e243616b`; clean extracted isolated worker + Windows operator doctor PASS. Excludes private PDFs, credentials, WAV, MP4 and source output. Not a production installation or release. A subsequent documentation-only checkpoint commit will differ from the packaged source SHA.
+- **First bounded historical review batch, regression scope only:** 20 commits `d42413c1...` to `98cbbae9...` after live `origin/main`; 59 changed files, approximately 6,234 insertions/36 deletions. Focused native Windows tests on latest code for strict part duration, source-anchored narration, synchronization, ASR, mathematical identity and TTS gates: **68 PASS**, five third-party SWIG deprecation warnings. These are current-head functional regressions, not individual historic PR diff/CI/academic approvals.
+- **Important PR mapping caveat:** GitHub `commits/{sha}/pulls` returned tens of later stacked PRs for a single early commit; membership alone cannot identify the introducing PR in this cumulative branch topology. A complete first-batch independent PR dependency review was **not** claimed. Prior live audit: 439 open PRs, 158 contiguous newest drafts, historic adjacency disagreements; 810 commits ahead of tracked main as of code commit `105ed34`; 41 review batches. No automatic merge authorization.
+- **Persistent blockers:** Gemini's source-sized web model request previously ended with a model UI error, not proven HTTP 503/504; fresh ChatGPT Selenium tab hits a `Just a moment...` verification interstitial, now explicitly classified without challenge bypass. No automatic original-source generation route certified; second genuinely completed original-source PDF→figure→slides→narration→Flash-Lite TTS→synchronized <600s MP4 plus AI-based science/figure/voice acceptance still absent. No historic PR stack integration or student publication approval.
+- **Next:** Resolve generation transport only on new evidence without replaying any claimed canary or prior Serway PDF; independently verify a distinct unattempted full source using authorised, bounded provider route when available; perform bounded historical per-PR code/science/voice reviews, not simplistic many-to-many commit associations. No repeated per-PDF fixes, no paid API/TTS without separate authority, no HP/Yoga, local LLM, student publication or unreviewed merge.
+
+---
+# 7 Nov 2026 — PR528 ChatGPT new-tab verification diagnosis and safeguard
+
+- **Verified cause of fresh-tab editor unavailability (Dell-115 port 9223):** Two *existing* ChatGPT tabs had visible authenticated contenteditable editors, while one *new* MicroGen-owned zero-input tab loaded `https://chatgpt.com/` into a `Just a moment...` browser-verification interstitial with no editor/main across six read-only polls spanning 12.4 seconds. Navigation itself completed (~1.75 seconds). The diagnostic never typed or sent any prompt and closed only its own empty tab. Underlying reason the website demands new-tab verification is not proven; this is **not** evidence of ChatGPT model generation failure or Gemini API 503/504.
+- **Permanent code correction:** `windows_chatgpt_sourcefree_canary.owned_browser_verification_visible` checks that exact observed title on the ChatGPT domain (no bypass). Both the source-free one-shot canary and actual production `windows_chatgpt_once_transport` classify a missing composer accompanied by that verification page as `CHATGPT_BROWSER_VERIFICATION_REQUIRED_NO_SEND`, not a generic missing editor or a model outage. Canary zero-click case closes only its new empty owned tab; old claims and sent/uncertain tabs remain protected. Independent immutable prior-result verifier accepts the new clearly zero-send diagnostic with an explicit `browser_verification_interstitial_reported` flag. No verification challenges are automatically solved, no resubmissions are performed.
+- **Validation:** 72 focused native Windows tests PASS (ChatGPT once-transport, one-shot canary, route evidence preflight, login/port isolation and release-readiness board). `git diff --check` PASS. Exact-head hosted Windows CI must be rechecked after the new commit.
+- **Release gates unchanged:** Browser verification still prevents reliable *new* ChatGPT tab creation; Gemini source-sized model-side failure remains independently recorded. Neither transport is certified for unattended new lecture dispatch. The fully accepted second original source, source-grounded academic/audio/figure/MP4 QA, historical draft-PR reconciliation, production release and student publication remain incomplete. Dell-115 only; no replay of earlier canaries or Serway 10.1/10.2/11.1/11.2; no paid API/TTS, local models, non-Dell machine or unauthorized merges/publication.
+
+---
+
+# 2026-11-07 PR528 recovery verification (second session)
+
+- Device/branch: Dell-115 only; isolated clean branch `feature/pr528-autonomous-ai-lecture-acceptance`, exact source HEAD `7d6657d30889e4a86ad60b8d956b7adcfb0f316e`. Original older `MicroGen_AI_Web_LatestRun` worktree has two pre-existing dirty files and was NOT changed.
+- Hosted exact-head evidence: `gh pr view 528` reported both Windows checks SUCCESS on that exact SHA; draft OPEN, mergeable but not merge/release approved.
+- Native Dell focused tests: `python -m pytest -q tests/test_windows_provider_route_evidence_preflight.py tests/test_windows_chatgpt_sourcefree_canary.py tests/test_windows_release_readiness_board.py`: **48 PASS**.
+- Live read-only provider preflight: both browser logins authenticated; SHA-verified Gemini owned model-side UI error; prior ChatGPT editor failure verified; result `NO_GENERATION_TRANSPORT_CERTIFIED_FOR_AUTOMATIC_DISPATCH`. No Send, content API, TTS, PDF change, or publication. Historical short Gemini success does not establish source-sized health; HTTP 503/504 is not proven by this check.
+- Historical review: native bounded batch planner found 808 commits ahead of local tracked main / 41 20-commit batches; merely a plan, not accepted reviews. Live GitHub open PR audit found 439 open PRs (complete pagination), contiguous newest 158 draft PRs, and 10 adjacent branch disagreements in older history. Independent per-PR review and merges remain incomplete; all release/merge flags false. Local main freshness must be checked independently before integration.
+- Outstanding critical path: generation transport not certified for automatic original-source dispatch; second distinct original full figures/slides/narration/Flash-Lite TTS/synchronized MP4 with autonomous science/voice/diagram QA not yet accepted; safe PR-stack reconciliation, production release and owner-authorized student publication incomplete.
+- Next justified bounded work: independent offline source-agnostic integration/release readiness and first bounded PR dependency reviews; improve only reusable transport/editor mechanics when new evidence supports a fix; do not rerun prior canaries or Serway 10.1/10.2/11.1/11.2, reset retry claims, use paid API/TTS without approval, or merge/publish.
+- The current invocation made no changes to production pipeline code; no end-to-end success or provider recovery is claimed. The present checkpoint update is documentation only.
+
+---
+# PR528 — ChatGPT source-free editor failure and provider-route safeguard (7 Nov 2026)
+
+**Baseline:** MicroGen_AI_Web native Windows Selenium, Dell-115 sole authorized device.
+Existing draft PR528 parent `afa2c21f7d39da8d408256b3f8b629067695634b` CI #678 both Windows jobs PASS.
+**One new independent ChatGPT source-free 9223 canary:** prior signed-in session validated and dry run 0 submissions. Claim dir `%LOCALAPPDATA%\MicroGen_AI_Web_Checkpoints\20261107_PR528_CHATGPT_BROWSER_DISTINCT_CANARY_V1` fresh; terminal `PROMPT_NOT_CONFIRMED_NO_SEND`, `send_click_attempted=false`, `model_submissions_this_call=0`. NO model response or generation tested. Fresh OWNED-tab editor-only diagnostic also timed out before an editor could be found; it closed only its own tab and did not send. No repeat of any previous PDF or canary, no paid API/TTS.
+**General code change in existing PR528:** `windows_chatgpt_sourcefree_canary.inspect_existing_no_send` validates the prior exact claim+terminal receipt and absent click-intent, read-only; `windows_provider_route_evidence_preflight` accepts optional `--prior-chatgpt-canary-root` and suppresses ChatGPT as a distinct new-job alternative when an independently validated pre-Send editor failure exists. It never authorizes generation based only on login. 44 focused Windows pytest PASS; syntax + diff PASS; hosted exact-head CI pending commit at drafting.
+**Combined read-only route:** `%LOCALAPPDATA%\MicroGen_AI_Web_Checkpoints\20261107_PR528_BOTH_BROWSER_CANARIES_READONLY_ROUTE.json`. Both browser logins present, Gemini source-sized model UI error SHA-verified, ChatGPT own prompt entry unverified, `NO_GENERATION_TRANSPORT_CERTIFIED_FOR_AUTOMATIC_DISPATCH`, automatic new model generation false. Neither HTTP 503/504 nor ChatGPT model-generation failure proven.
+**Remaining:** Real second distinct original full pipeline and automatic academic/voice/figure/MP4 QA, safe historical PR stack integration. Do not switch to paid Gemini API without explicit approval or re-open §10.1/10.2/11.1/11.2. Windows-only; no local models, HP/Yoga, merges or student publication.
+
+---
+# PR528 — Source-sized synthetic Gemini verification and shared terminal UI-error hardening (6 Nov 2026)
+
+**Latest experiment:** CI-green PR528 previous head `42aab2ff0cf36094c2284d67e8aed56845cf17e8` (#677 BOTH Windows jobs success). Dell-115 sole Windows machine. Harmless 1535-character source-sized test sent exactly ONCE via existing `windows_gemini_differential_probe` extended with separate `source_sized` profile, separate Send claim+response SHA; old short profile untouched. Receipt at `%LOCALAPPDATA%\MicroGen_AI_Web_Checkpoints\20261106_PR528_SOURCE_SIZED_SYNTHETIC_GEMINI_CANARY_V1`: `NO_VERIFIED_RESPONSE`, `SeriesBridgeError`, verified Send, 0 accepted JSON chars, bridge stage `OWNED_RESPONSE_UNVERIFIED_QUARANTINED`; no source PDF or paid API/TTS. SHA-bound owned response quarantine `%LOCALAPPDATA%\Microvid\gemini_quarantine\gemini_20261106T104226Z_4b18ddd25700.meta.json` contains 104-character exact Gemini UI model text (terminal response, not successful test). Read-only reclassification `GEMINI_MODEL_COULD_NOT_FULFILL_REQUEST`, `provider_server_outage_proven=false`, `browser_capture_total_failure_proven=false`, `original_source_retry_authorized=false`. **NEVER resend this synthetic claim or §10.1/10.2/11.1/11.2 source SHAs.**
+
+**Permanent code safeguards:** shared strict `gemini_provider_ui_terminal_error` now recognizes the genuine third exact Gemini owned-model failure phrase; the production figure watcher uses strict owner-bound classification on every *completed* visible response rather than its own substring heuristic. The existing differential source-free canary now supports an independently SHA/claim-bound, one-time browser-only source-sized profile (1200–3000 synthetic characters), never API billing. Existing route preflight distinguishes short vs source-sized positive responses and prioritizes trusted negative source-sized UI error evidence over any prior positive short canary. Live read-only route with verified failing source-sized claim+UI metadata: `CHATGPT_BROWSER_AVAILABLE_FOR_A_DISTINCT_NEW_JOB_ONLY`, both Gemini/ChatGPT logged in, `gemini_browser_auto_selection_suppressed_by_prior_evidence=true`, `automatic_new_model_generation_authorized=false`. This is not proof ChatGPT will successfully generate a lecture.
+
+**Validation:** Dell-115 54 focused pytest PASS (plus earlier source-sized 33 tests), Python compile/diff checks PASS. Full exact-head Windows CI for this subsequent code commit remains required; initial head #677 green. Release remains blocked by second distinct fully generated/AI-reviewed lecture, genuine figure/audio/MP4 QA, and historical stacked PR integration. No automatic source retry, no local models, Ubuntu, HP/Yoga use, paid API/TTS, merge or student publication.
+
+See `docs/WINDOWS_AUTONOMOUS_LECTURE_QA_PR528_20261106.md`.
+
+---
+
+# PR528 — Autonomous AI science/speech/MP4 readiness without human academic signoff (6 Nov 2026)
+
+**6 November 2026 follow-on: source-free Gemini generation check.** Dell-115 successfully completed exactly one new Gemini browser-only canary in `%LOCALAPPDATA%\MicroGen_AI_Web_Checkpoints\20261106_PR528_GEMINI_BROWSER_CANARY_V1`, with owned-tab Selenium verified Send and exact valid generated response. Immutable result `VALID_CANARY_RESPONSE`, analysis `BROWSER_SHORT_CANARY_WORKS_LONG_FORM_NOT_CERTIFIED`. This is positive *short* browser generation health, not proof of a successful source-sized request, API 503/504, or long-form rendering. No textbook PDF, retry, API call, TTS or publication. Source-free verified receipt is integrated into existing read-only provider-route preflight; it now reports historical prior short success separately without enabling automated original generation. Local focused Windows checks: 39 PASS for the follow-on. Parent PR528 CI #676 was green **before** follow-on; new exact-head CI must pass after this update. Do not rerun any original Serway §§10.1, 10.2, 11.1, 11.2. Detailed explanation in `docs/WINDOWS_AUTONOMOUS_LECTURE_QA_PR528_20261106.md`.
+
+---
+
+**Branch:** feature/pr528-autonomous-ai-lecture-acceptance, new isolated Dell-115 Windows worktree %LOCALAPPDATA%\MicroGen_PR528_20261106, stacked on exact CI-green PR527 head e9ca7c4e7066a4de5ccc1f8081e04ef3080d77cb (GitHub Actions #675 BOTH Windows jobs passed). This priority is DISTINCT from Gemini UI error handling and avoids per-source retries.
+
+**Contract mismatch addressed:** Original lecture_release_gate.py has a historic manual human-academic approval path, but the current project contract requires autonomous AI-based scientific and media QA instead. New windows_autonomous_lecture_qa module independently recomputes saved real two-pass original-source AI consensus, SHA-bound narrated element correspondence, independent Gemini ASR / relaxed phonetic screen over existing WAV, mathematical domain lint and decoded synchronized MP4 validation with strict <600s part limits; it never submits a model request, generates TTS, renders video, or publishes. Windows release-readiness board now optionally accepts all five AI/audio/media evidence paths and ties results to the independently verified second-source SHA. It does NOT pretend technical agreement proves narrator identity, all figure meaning, or full academic / student release approval. Existing human legacy route remains optional, not required by this AI evidence path.
+
+**Evidence:** Source-free focused tests and existing Windows release/second-source/media tests passed locally (37 at first targeted invocation; broader and hosted CI remain required after final changes). New files described in docs/WINDOWS_AUTONOMOUS_LECTURE_QA_PR528_20261106.md. Parent PR527 #675 fully green. PR528 exact-head CI pending until branch is pushed. No original PDF resumed or retried, provider or TTS calls, non-Dell devices, local models, Linux or student publication.
+
+**Remaining:** second genuinely completed original with full AI scientific, figure-semantic, voice and video QA; safe reviewed historical PR stack; final production installation and independently approved publication. Do not relax these gates to manufacture success.
+
+---
+
 # PR527 — Reusable Gemini post-submit response recovery, no resend (6 Nov 2026)
 
 **Latest independent priority (6 Nov 2026, afternoon):** Following CI #674 SUCCESS on 07317c3420f651bf5871641456f2602813ff2ff9, a different Serway §11.2 one-shot figures stage failed with an independently submitted page-2 Gemini request and a visible owned-model `Sorry, something went wrong` response. Local crop succeeded; no HTTP 503/504 evidenced. Immutable trial `%LOCALAPPDATA%\MicroGen_AI_Web_Checkpoints\20261106_PR527_SERWAY11_2_DISTINCT_NEW_DRYRUN_V1`; original SHA `c98e7cc9d1e83ad26949026682314a75e9437e20bf8437709b2a5ba776b12a58`; **NEVER replay**. A general fix now extends the existing strict model-UI-error classifier, aborts the figure-mapping wait on an exact error in the MicroGen-owned response, forbids re-send/API fallback, and enhances automatic source-bound stage diagnostics. Dell-115 focused **50 pytest PASS**, syntax/whitespace PASS. These follow-up changes are not yet hosted CI accepted at this checkpoint. No student release, paid API/TTS, non-Dell machines, Ubuntu or local models.

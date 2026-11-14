@@ -107,6 +107,51 @@ class FigurePageCheckpointTests(unittest.TestCase):
         self.assertNotIn("merge_lettered_figs_v3.main([])",txt)
         self.assertIn("Automatic lettered-panel merging disabled",txt)
 
+    def test_source_geometry_manifest_is_immutable_resume_dependency(self):
+        import hashlib
+        import shutil
+        from types import SimpleNamespace
+        from selenium_pipeline.figure_crop_source_provenance import (
+            build_crop_geometry_candidate, save_page_crop_geometry)
+        original_crop = self.crop / "fig_1.png"
+        page_crop = self.page / original_crop.name
+        shutil.copy2(original_crop, page_crop)
+        picture = SimpleNamespace(prov=[SimpleNamespace(
+            page_no=1, bbox=SimpleNamespace(
+                l=10, r=110, t=70, b=20, coord_origin="BOTTOMLEFT"))])
+        entry = build_crop_geometry_candidate(
+            picture=picture, original_pdf=self.source,
+            page_png=self.page / "page_3.png", crop_png=page_crop,
+            page_number=3, page_width_pt=200, page_height_pt=150)
+        source_manifest = self.page / "page_3_crop_geometry.json"
+        save_page_crop_geometry(
+            target=source_manifest, source_pdf=self.source,
+            page_png=self.page / "page_3.png",
+            records=[entry], page_number=3)
+        destination_manifest = self.crop / source_manifest.name
+        shutil.copy2(source_manifest, destination_manifest)
+        checkpoint = save_checkpoint(self.r, 3)
+        self.assertTrue(checkpoint_can_resume(self.r, 3))
+        record = json.loads(checkpoint.read_text())
+        self.assertEqual(
+            record["source_geometry_manifest_sha256"],
+            hashlib.sha256(source_manifest.read_bytes()).hexdigest())
+        before = source_manifest.read_bytes()
+        destination_manifest.write_bytes(before + b"tAMPER")
+        self.assertFalse(checkpoint_can_resume(self.r, 3))
+        with self.assertRaises(ValueError):
+            save_checkpoint(self.r, 3)
+        destination_manifest.write_bytes(before)
+        self.assertTrue(checkpoint_can_resume(self.r, 3))
+        source_manifest.unlink()
+        self.assertFalse(checkpoint_can_resume(self.r, 3))
+
+    def test_one_sided_geometry_declaration_fails_closed(self):
+        (self.page / "page_3_crop_geometry.json").write_text("{}")
+        with self.assertRaisesRegex(ValueError, "Source geometry manifest"):
+            save_checkpoint(self.r, 3)
+        self.assertFalse(checkpoint_can_resume(self.r, 3))
+
     def test_only_int_page_and_only_allowed_root(self):
         self.assertFalse(checkpoint_can_resume(self.r,-1))
         self.assertFalse(checkpoint_can_resume(self.r,1.5))
