@@ -175,6 +175,28 @@ def validate_model_review(*,folder:Path,job:dict,response:dict,mode:str,
             "academic_mathematics_independently_verified":False,
             "tts_authorized":False,"student_publication_authorized":False}
 
+def validate_source_demoted_review(*, folder: Path, job: dict,
+                                  response: dict, mode: str,
+                                  verified_source_evidence: dict | None = None) -> dict:
+    """Strict proof after conservative, citation-aware source-only downgrades.
+
+    This never upgrades any Gemini verdict. The unmodified original model
+    response is held in the immutable academic request checkpoint.
+    """
+    evidence = None
+    if verified_source_evidence is None and job.get(
+            "verified_source_quote_candidates_v1") is not None:
+        from .academic_quote_reconciliation import reconcile_untrusted_review
+        response, evidence = reconcile_untrusted_review(
+            job=job, response=response)
+    validated = validate_model_review(
+        folder=folder, job=job, response=response,
+        mode=mode, verified_source_evidence=verified_source_evidence)
+    if evidence is not None:
+        validated["source_only_downgrade_audit"] = evidence
+    return validated
+
+
 def _academic_browser_request(prompt: str, files: list[Path], *,
                               chrome_port: int, wait_cap_s: int) -> str:
     """Use the same Flash-first, Pro/Medium recovery as slides and narration.
@@ -227,7 +249,7 @@ def run_web_review(*,folder:Path,job:dict,mode:str,
                 raise
             # This is formatting-only; source validation still applies.
             decoded=recover_rendered_json_format_only(raw)
-        return validate_model_review(folder=folder,job=job,response=decoded,
+        return validate_source_demoted_review(folder=folder,job=job,response=decoded,
               mode=mode,verified_source_evidence=verified_source_evidence)
     if checkpoint_dir is not None:
         from .academic_review_checkpoint import submit_once

@@ -9,7 +9,7 @@ import hashlib,json,re
 from pathlib import Path
 from .figure_source_identity import require,_sha
 from .ai_academic_web_review import (build_review_job,run_web_review,
-    review_instructions,validate_model_review)
+    review_instructions,validate_source_demoted_review)
 from .series_gemini import decode_storyboard_response
 from .gemini_model import GeminiModelError
 
@@ -240,7 +240,7 @@ def execute_one_review(*,queue_root:Path,folder:Path,
                 response = validate_saved(
                     checkpoint=live_checkpoint,
                     expected_fingerprint=expected,
-                    validator=lambda raw: validate_model_review(
+                    validator=lambda raw: validate_source_demoted_review(
                         folder=folder, job=job,
                         response=decode_storyboard_response(raw),
                         mode=mode),
@@ -299,9 +299,19 @@ def execute_one_review(*,queue_root:Path,folder:Path,
         return fail
     with success.open("x",encoding="utf8") as f:
         json.dump(response,f,indent=2);f.write("\n")
+    audit=response.get("source_only_downgrade_audit") or {}
+    genuinely_returned=audit.get(
+        "model_returned_utterance_count",response["review_count"])
+    require(type(genuinely_returned) is int
+            and 1<=genuinely_returned<=response["review_count"],
+            "Missing source-bound original model-row count")
     done={"status":"GEMINI_SOURCE_REVIEW_ONE_SLIDE_COMPLETED",
           "slide":slide,"mode":mode,"attempt":attempt,
-          "verified_original_utterances":response["review_count"],
+          "verified_original_utterances":genuinely_returned,
+          "machine_unreviewed_placeholders":
+              response["review_count"]-genuinely_returned,
+          "full_original_model_review_coverage":
+              genuinely_returned==response["review_count"],
           "receipt_sha256":_sha(success),
           "academic_independent_challenge_complete":False,
           "student_publication_authorized":False}
