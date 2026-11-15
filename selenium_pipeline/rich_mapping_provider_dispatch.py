@@ -81,13 +81,18 @@ def _global_slide_claim(*, source_sha256: str, slide: int,
 _RICH_MAPPING_ENV_LOCK = threading.RLock()
 
 
-def _real_transport(provider:str,prompt:str,port:int,wait_cap_s:int)->str:
+def _real_transport(provider:str,prompt:str,port:int,wait_cap_s:int,
+                    *,accept_fn=None)->str:
     if provider!="gemini":
         raise RichMappingError(
             "Gemini Selenium is the sole supported LLM generation route. "
             "ChatGPT and Gemini API fallback are disabled.")
     from .series_gemini import _browser_request
     from .rich_element_model_alignment import complete_json_response
+    # A source-free transport canary may supply its OWN exact JSON acceptor,
+    # but it shares every production rich model/Thinking/owned-tab guard.
+    if accept_fn is not None and not callable(accept_fn):
+        raise RichMappingError("Only a callable bounded response validator")
     # This is the NORMAL rich visual-mapping stage, distinct from strict
     # original academic-review and cheap figure-caption stages. The
     # existing owned-tab adaptive family policy is allowed to select a
@@ -126,7 +131,8 @@ def _real_transport(provider:str,prompt:str,port:int,wait_cap_s:int)->str:
             os.environ.pop(name,None)
         response=_browser_request(
             prompt,[],port=port,wait_cap_s=wait_cap_s,
-            min_chars=110,accept_fn=complete_json_response)
+            min_chars=8 if accept_fn is not None else 110,
+            accept_fn=accept_fn or complete_json_response)
         # The underlying _browser_request verifies the exact selected
         # family AND Thinking radio immediately before its one Send. UI
         # family is verified; opaque server model version remains UNKNOWN.
@@ -306,7 +312,75 @@ def dispatch_one(*,source_folder:Path,checkpoint:Path,fallback_dir:Path,
             and inspected["authenticated_ui_ready"] is True
             and inspected["model_submission_performed"] is False,
             "Selected model provider is not a safe authenticated browser")
+    # The same full original/author SHA-bound request is always retained
+    # for independent QA. Long PDFs can overwhelm the model with redundant
+    # full-page text. In the real transport only, deterministically select
+    # short exact contiguous original page windows without changing the
+    # source geometry, original unit identities or scientific approval gate.
     prompt=prompt_partial(scoped)
+    prompt_metadata={
+        "source_excerpt_mode":"FULL_ORIGINAL_TEXT",
+        "original_prompt_characters":len(prompt),
+        "sent_prompt_characters":len(prompt),
+        "source_excerpt_windows":0,
+        "original_source_queue_unchanged":True,
+    }
+    if transport is None:
+        from .rich_source_excerpt_windows import bounded_prompt_partial
+        try:
+            prompt,prompt_metadata=bounded_prompt_partial(scoped)
+        except (ValueError,KeyError,TypeError) as error:
+            return {
+                "status":"RICH_ORIGINAL_SOURCE_WINDOWING_UNVERIFIED_NO_SEND",
+                "slide":slide,"model_submissions":0,
+                "evidence_error_type":type(error).__name__,
+                "new_eligible_utterances_preserved":len(eligible),
+                "student_publication_authorized":False,
+            }
+        # Before permanently reserving any source unit, compare the actual
+        # bounded prompt size to a new SHA-verified source-free canary and
+        # any newer failed real rich job. No model call in either preflight.
+        from .windows_new_source_browser_admission import (
+            inspect_new_source_browser_admission)
+        from .windows_rich_mapping_capacity_admission import (
+            inspect_rich_mapping_capacity)
+        try:
+            admission=inspect_new_source_browser_admission()
+        except (ValueError,OSError,RuntimeError) as error:
+            return {
+                "status":"GEMINI_RICH_MAPPING_ROUTE_EVIDENCE_INVALID_NO_SEND",
+                "slide":slide,"model_submissions":0,
+                "evidence_error_type":type(error).__name__,
+                "new_eligible_utterances_preserved":len(eligible),
+                "student_publication_authorized":False,
+            }
+        if admission.get("new_source_stage_send_eligible") is not True:
+            return {
+                "status":"GEMINI_RICH_MAPPING_ROUTE_UNVERIFIED_NO_SEND",
+                "slide":slide,"model_submissions":0,
+                "new_eligible_utterances_preserved":len(eligible),
+                "route_admission":admission,
+                "student_publication_authorized":False,
+            }
+        try:
+            capacity=inspect_rich_mapping_capacity(
+                prompt_characters=len(prompt),base_admission=admission)
+        except (ValueError,OSError,RuntimeError,KeyError,TypeError) as error:
+            return {
+                "status":"GEMINI_RICH_MAPPING_CAPACITY_EVIDENCE_INVALID_NO_SEND",
+                "slide":slide,"model_submissions":0,
+                "evidence_error_type":type(error).__name__,
+                "new_eligible_utterances_preserved":len(eligible),
+                "student_publication_authorized":False,
+            }
+        if capacity.get("rich_model_send_eligible") is not True:
+            return {
+                "status":"GEMINI_RICH_MAPPING_CAPACITY_UNVERIFIED_NO_SEND",
+                "slide":slide,"model_submissions":0,
+                "new_eligible_utterances_preserved":len(eligible),
+                "capacity_admission":capacity,
+                "student_publication_authorized":False,
+            }
     initial={
         "schema_version":1,
         "status":"MAY_HAVE_SUBMITTED_RECONCILE_BEFORE_RESEND",
@@ -323,6 +397,7 @@ def dispatch_one(*,source_folder:Path,checkpoint:Path,fallback_dir:Path,
         "prior_accepted_prose_links_protected":len(
             pending["accepted_prose_links_already_sha_verified_do_not_resend"]),
         "original_prompt_sha256":sha_bytes(prompt.encode("utf8")),
+        "physical_prompt_excerpt_witness":prompt_metadata,
         "created_unix":round(time.time(),3),
         "model_response_captured":False,
         "paid_tts_authorized":False,
