@@ -78,6 +78,8 @@ jobs:
             "tests.test_windows_original_stage_sequence"
             "tests.test_windows_lecture_progression_coordinator"
             "tests.test_windows_auto_captionless_recovery"
+            "tests.test_windows_historical_stage_auto_reuse"
+            "tests.test_windows_dryrun_send_eligibility"
             "tests.test_windows_lecture_progression_launcher"
             "tests.test_windows_lecture_media_handoff"
             "tests.test_windows_release_media_receipt_gate"

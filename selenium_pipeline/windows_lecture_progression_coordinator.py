@@ -371,6 +371,42 @@ def advance_one(*, source_root: Path, section: str, trial_dir: Path,
             communication_mode=communication_mode,
             technical_check=technical_check, provider_inspect=provider_inspect,
             browser_route_inspect=browser_route_inspect)
+    # Local, SHA-verified historical outputs are always preferable to a new
+    # Gemini Send. This bounded no-Send chain is part of normal advancement,
+    # including when provider health/route gates are currently closed.
+    stage_reuse = []
+    for _ in range(3):
+        eligible = state.get("status") in (
+            "NEXT_SOURCE_STAGE_READY_EXPLICIT_ONE_SHOT_ONLY",
+            "HALTED_PROVIDER_CAPACITY_NO_NEW_SUBMISSION",
+            "HALTED_UNVERIFIED_GEMINI_BROWSER_ROUTE_NO_SEND",
+        )
+        candidate = state.get("next_stage")
+        if not eligible or candidate not in ("slides", "narration", "script_qa"):
+            break
+        from .windows_historical_stage_auto_reuse import (
+            auto_reuse_accepted_stage)
+        try:
+            adopted = auto_reuse_accepted_stage(
+                trial_dir=Path(trial_dir), stage=candidate)
+        except (CampaignRecoveryBlocked, ValueError, OSError, KeyError, TypeError):
+            break
+        if adopted["status"] != "AUTO_REUSED_ACCEPTED_SOURCE_STAGE":
+            break
+        stage_reuse.append(adopted)
+        state = inspect_progress(
+            source_root=source_root, section=section, trial_dir=trial_dir,
+            communication_mode=communication_mode,
+            technical_check=technical_check,
+            provider_inspect=provider_inspect,
+            browser_route_inspect=browser_route_inspect)
+    if stage_reuse:
+        # No model stage was invoked here. A reviewed media handoff is a real
+        # terminal frontier, not permission to synthesize TTS/video evidence.
+        return {**state, "historical_source_stages_reused": stage_reuse,
+                "automatic_captionless_recovery": automatic_recovery,
+                "active_trial_dir": str(Path(trial_dir).absolute()),
+                "new_model_or_tts_calls": False}
     if state["status"] != "NEXT_SOURCE_STAGE_READY_EXPLICIT_ONE_SHOT_ONLY":
         return ({**state, "automatic_captionless_recovery": automatic_recovery}
                 if automatic_recovery else state)

@@ -20,6 +20,63 @@ from .original_multisource_recovery_campaign import (
 from .windows_scoped_prior_full_media_acceptance import _PR362
 
 
+def _verified_inert_forward_dryrun(*, folder: Path, contract: dict) -> bool:
+    """A source-only dry-run is not a provider Send claim.
+
+    Require the complete original forward-campaign receipt, source identity and
+    zero staged Send records. Any unproved, ambiguous or changed claim fails
+    closed and remains a blocker.
+    """
+    parent = folder.parent
+    campaign_file = parent / "forward_source_campaign_contract.json"
+    receipt_file = parent / (folder.name + ".dryrun.json")
+    if (not campaign_file.is_file() or campaign_file.is_symlink()
+            or not receipt_file.is_file() or receipt_file.is_symlink()):
+        return False
+    campaign = _verified_json(campaign_file)
+    receipt = _verified_json(receipt_file)
+    source = Path(contract.get("source_path", ""))
+    staged = Path(contract.get("staged_source_path", ""))
+    sha = contract.get("source_sha256")
+    section = receipt.get("section")
+    matches = [row for row in campaign.get("selected_distinct_sources", [])
+               if type(row) is dict and row.get("section") == section
+               and row.get("source_sha256") == sha]
+    require(
+        campaign.get("schema_version") == 1
+        and campaign.get("status") == "WINDOWS_SOURCE_INDEPENDENT_DRYRUN_CAMPAIGN_V1"
+        and campaign.get("single_source_stage_send_authorized") is False
+        and campaign.get("model_tts_or_video_execution") is False
+        and campaign.get("student_publication_authorized") is False
+        and receipt.get("schema_version") == 1
+        and receipt.get("status") == "FRESH_SOURCE_SEVEN_STAGE_DRY_RUN_READY"
+        and receipt.get("model_or_tts_calls") is False
+        and receipt.get("student_publication_authorized") is False
+        and receipt.get("source_sha256") == sha
+        and receipt.get("external_trial_dir") == str(folder)
+        and contract.get("paid_tts_authorized") is False
+        and contract.get("student_publication_authorized") is False
+        and len(matches) == 1
+        and type(section) is str
+        and type(sha) is str
+        and source.is_file() and not source.is_symlink()
+        and staged.is_file() and not staged.is_symlink()
+        and staged.is_relative_to(folder)
+        and file_sha256(source) == file_sha256(staged) == sha
+        and source.stat().st_size == matches[0].get("source_bytes"),
+        "Historical dry-run record is inconsistent, not safe to ignore")
+    # A dry-run with a provider claim/result is not inert, even if the outer
+    # campaign receipt was never updated after a foreign worker touched it.
+    for name in ("figures_attempt_started.json", "figures_attempt_result.json",
+                 "stage_slides_started.json", "stage_slides_result.json",
+                 "stage_narration_started.json", "stage_narration_result.json",
+                 "stage_script_qa_started.json", "stage_script_qa_result.json"):
+        path = folder / name
+        require(not path.exists() and not path.is_symlink(),
+                "Dry-run unexpectedly acquired an original Send or result")
+    return True
+
+
 def require_no_previous_sibling_source_claim(*, source_sha256: str,
                                              trial_dir: Path,
                                              max_receipts: int = 5000) -> int:
@@ -76,6 +133,12 @@ def require_no_previous_sibling_source_claim(*, source_sha256: str,
                 and re.fullmatch(r"[0-9a-f]{64}", sha) is not None,
                 "Untrusted prior source claim cannot qualify a new Send")
         examined += 1
+        if (sha == source_sha256 and claim.name == "fresh_trial_contract.json"
+                and _verified_inert_forward_dryrun(folder=claim.parent,
+                                                   contract=record)):
+            # A source-only Windows dry-run was never a model Send. Do not
+            # let exploratory preflight block the first genuine attempt.
+            continue
         require(sha != source_sha256,
                 "Original source SHA already claimed by another trial; no resend")
     return examined
@@ -116,6 +179,7 @@ def find_candidates(*, publisher_root: Path, trial_registry_root: Path,
     require(re.fullmatch(r"[0-9a-f]{64}", historical_sha) is not None,
             "Historic accepted original-source anchor missing")
     seen = {}
+    inert_dryruns = {}
     for claim in known_claims:
         require(claim.is_file() and not claim.is_symlink(),
                 "Unsafe source trial ledger file")
@@ -134,7 +198,10 @@ def find_candidates(*, publisher_root: Path, trial_registry_root: Path,
                 and re.fullmatch(r"[0-9a-f]{64}", digest) is not None
                 and data.get("student_publication_authorized") is False,
                 "Untrusted existing trial source claim: no duplicate submission")
-        seen.setdefault(digest, []).append(str(claim))
+        if _verified_inert_forward_dryrun(folder=claim.parent, contract=data):
+            inert_dryruns.setdefault(digest, []).append(str(claim))
+        else:
+            seen.setdefault(digest, []).append(str(claim))
     sent_intents = {}
     for intent_path in known_intents:
         require(intent_path.is_file() and not intent_path.is_symlink()
@@ -221,6 +288,7 @@ def find_candidates(*, publisher_root: Path, trial_registry_root: Path,
         "known_trial_contracts_examined": len(known_claims),
         "known_send_intent_receipts_examined": len(known_intents),
         "known_distinct_trial_source_count": len(seen),
+        "known_inert_source_only_dryrun_count": len(inert_dryruns),
         "known_distinct_send_intent_sources": len(sent_intents),
         "potential_new_candidates": result,
         "excluded_source_summaries": excluded,
