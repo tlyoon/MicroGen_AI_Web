@@ -1,3 +1,11 @@
+# 15 Nov 2026 — Automatic on-flight historical captionless recovery (post-PR529 candidate)
+
+**Scoped recovery closure:** Dell-115 isolated branch `feature/captionless-crosspage-recovery-stress-20261115` now wires immutable historical captionless figure-stage salvage into the actual `LectureAdvance` operator. A previously failed source can automatically receive a deterministic SHA-bound local successor and proceed to the next eligible bounded stage when normal provider gates allow. A NEW terminal failure is source-only recovered in the same invocation, without a second provider Send. No original failure receipt is overwritten; concurrent workers use a native Windows lock and interruption-restart reuses or safely reconstructs only the proven no-Send successor. Existing single-model-stage limit and separate media/publication gates remain unchanged. The cross-page hard-coded `page_6` filenames were corrected.
+
+**Actual acceptance:** 119 Windows regression tests passed across 12 relevant modules; prior repeated tests passed. A genuine original Serway 6.4 historical failed figure trial generated a verified auto successor with zero model Sends and unchanged publisher PDF/failure SHA. Five subsequent invocations reused exactly that successor. Normal coordinator recognized `slides` as the next stage, but negative provider-health gate correctly halted new submission. This is successful engineering recovery/admission, **not** proven model slide generation, scientific/visual/acoustic QA, full G2 video or release. Full evidence: `docs/AUTO_CAPTIONLESS_HISTORICAL_RECOVERY_ONFLIGHT_20261115.md` and `docs/CAPTIONLESS_GRAPHIC_RECOVERY_STRESS_20261115.md`. Verify hosted exact-branch Windows CI and PR status after push before calling merged production.
+
+---
+
 # 15 Nov 2026 — Forward source-independent G2 engineering milestone (non-Serway-6.4)
 
 **Owner directive honored:** Stop using repeated uncertain Serway 6.4 rich-mapping Gemini attempts as the dependency that governs general MicroGen_AI_Web codebase advancement. Previous source-global and academic one-Send claims remain untouched. This milestone makes a reusable native Windows forward-only source engineering campaign available from the normal MicroGen-Windows.ps1 operator, rather than depending on the assistant to manually pick and reset the next PDF.
