@@ -1,6 +1,7 @@
-# Bounded source-bound G2 academic-to-media cycle on Dell-115.
-# A Windows Interactive-only scheduled task may invoke this after sign-in.
-# Failed/uncertain Gemini requests are never resubmitted.
+# One-launch, finite source-bound G2 auto-recovery and FORWARD progress on Dell-115.
+# This script does NOT install, schedule or resume any Windows recurring task.
+# After a recovered stage it automatically continues to the next eligible one;
+# never resubmit an ambiguous Gemini request or bypass academic/paid QA.
 param([switch]$ReadOnly)
 
 $ErrorActionPreference = 'Stop'
@@ -23,10 +24,10 @@ New-Item -ItemType Directory -Path $LogRoot -Force | Out-Null
 $stamp = [DateTime]::UtcNow.ToString('yyyyMMddTHHmmssfffZ')
 $Log = Join-Path $LogRoot ("g2_" + $stamp + ".log")
 $argsList = @(
-    '-u','-m','selenium_pipeline.windows_g2_autonomous_qa_supervisor',
+    '-u','-m','selenium_pipeline.g2_forward_recovery_engine',
     '--folder',$Folder,'--queue-root',$Queue,'--work-root',$WorkRoot,
     '--health-family','pro',
-    '--max-units',($(if ($ReadOnly) { '0' } else { '1' }))
+    '--max-cycles','32'
 )
 if (-not $ReadOnly) {
     $argsList += '--execute'

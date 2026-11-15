@@ -86,6 +86,7 @@ jobs:
             "tests.test_academic_quote_reconciliation"
             "tests.test_academic_queue_fresh_send_health"
             "tests.test_windows_g2_autonomous_qa_supervisor"
+            "tests.test_g2_forward_recovery_engine"
             "tests.test_windows_g2_audio_proof_inventory"
             "tests.test_windows_lecture_progression_launcher"
             "tests.test_windows_lecture_media_handoff"
