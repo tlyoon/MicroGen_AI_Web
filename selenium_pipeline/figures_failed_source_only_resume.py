@@ -134,14 +134,14 @@ def recover(*, previous_trial: Path, new_trial: Path) -> dict:
     crops = new_work / "crops" / f"page_{page_number}"
     mapping = page.with_name(f"page_{page_number}_mapping.txt")
     original_trace = crops / "gemini_transport_attempts.json"
-    _new_bytes(page.with_name("page_6_mapping.original_refusal.txt"),
+    _new_bytes(page.with_name(f"page_{page_number}_mapping.original_refusal.txt"),
                mapping.read_bytes())
     _new_bytes(crops / "gemini_transport_attempts.original_failure.json",
                original_trace.read_bytes())
-    raw = page.with_name("page_6_uncaptioned_model_reply.raw.txt")
+    raw = page.with_name(f"page_{page_number}_uncaptioned_model_reply.raw.txt")
     _new_bytes(raw, b"MAPPING_REVIEW_REQUIRED\n")
     witness["saved_model_reply_sha256"] = file_sha256(raw)
-    _new_json(page.with_name("page_6_uncaptioned_source_evidence.json"), witness)
+    _new_json(page.with_name(f"page_{page_number}_uncaptioned_source_evidence.json"), witness)
     crop_name, label, target = rows[0]
     crop = crops / crop_name
     dest = crops / target
