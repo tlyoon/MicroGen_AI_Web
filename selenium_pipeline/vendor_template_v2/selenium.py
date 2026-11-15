@@ -1324,15 +1324,14 @@ class GeminiSeleniumClient:
         )
         from selenium_pipeline.gemini_stage_policy import browser_stage_needs_thinking
         # Adaptation is stage-scoped, never an arbitrary source-review or
-        # TTS provider substitution. Strict original academic preflights
-        # retain their exact-family gate. The *rich_mapping* proposal route
-        # has a separate source-global/academic-unit once-only ledger and
-        # may choose a visibly available full Pro + verified Medium when
-        # standard Flash is absent. Never substitute Flash-Lite for this
-        # academic-semantic mapping stage, or bypass an owned-tab check.
+        # TTS provider substitution. Existing source-locked academic-review
+        # and rich-mapping requests can choose an independently visible Pro
+        # plus verified Medium ONLY if preferred Flash is truly absent.
+        # Both retain their original one-Send and scientific-evidence gates.
+        # Never substitute Flash-Lite for semantic/math review.
         active_stage=os.getenv("MICROGEN_ACTIVE_GENERATION_STAGE","").strip().lower()
         adaptive_allowed=(active_stage in {"figures","slides","narration",
-                                           "rich_mapping"}
+                                           "rich_mapping","academic_review"}
                           and os.getenv("MICROGEN_DISABLE_ADAPTIVE_MODEL_FALLBACK")!="1")
         requires_thinking = browser_stage_needs_thinking(mode=target_mode)
         if target_mode not in {"flash-lite", "flash", "pro"}:

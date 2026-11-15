@@ -19,12 +19,11 @@ def sha(path):
 class CaptionlessCrossPageStress(unittest.TestCase):
     def test_failed_trial_uses_discovered_page_for_all_evidence_names(self):
         source = inspect.getsource(recover_failed_trial)
-        for suffix in (
-            "mapping.original_refusal.txt",
-            "uncaptioned_model_reply.raw.txt",
-            "uncaptioned_source_evidence.json",
-        ):
-            self.assertIn('f"page_{page_number}_' + suffix + '"', source)
+        self.assertIn('f"page_{page_number}_mapping.original_refusal.txt"', source)
+        self.assertIn('f"page_{page_number}_{recovery_kind}_model_reply.raw.txt"', source)
+        self.assertIn('f"page_{page_number}_{recovery_kind}_source_evidence.json"', source)
+        self.assertIn('recovery_kind = "uncaptioned"', source)
+        self.assertIn('recovery_kind = "mixed_source"', source)
         self.assertNotIn('page_6_', source)
 
     def test_source_only_different_pages_and_tampering(self):

@@ -5,7 +5,7 @@ release authorization. Browser requests are explicit, isolated and read-only
 with respect to the original Thomas files.
 """
 from __future__ import annotations
-import argparse,json,re
+import argparse,json,re,os
 from pathlib import Path
 from .figure_source_identity import require,_sha
 from .incremental_element_candidate_map import candidate_map
@@ -175,14 +175,46 @@ def validate_model_review(*,folder:Path,job:dict,response:dict,mode:str,
             "academic_mathematics_independently_verified":False,
             "tts_authorized":False,"student_publication_authorized":False}
 
+def _academic_browser_request(prompt: str, files: list[Path], *,
+                              chrome_port: int, wait_cap_s: int) -> str:
+    """Use the same Flash-first, Pro/Medium recovery as slides and narration.
+
+    This scoped stage is ONLY a model-family choice before a single claimed
+    request. Do not carry its Pro fallback into the next slide or the next
+    process; independently verify the actual owned picker on every Send.
+    """
+    keys = ("MICROGEN_ACTIVE_GENERATION_STAGE",
+            "MICROGEN_GEMINI_UI_MODE", "MICROGEN_LLM_MODEL",
+            "MICROGEN_MODEL_ROUTE_REASON", "MICROGEN_MODEL_ROUTE_REQUESTED",
+            "MICROGEN_MODEL_ROUTE_OFFERED")
+    original = {key: os.environ.get(key) for key in keys}
+    try:
+        os.environ["MICROGEN_ACTIVE_GENERATION_STAGE"] = "academic_review"
+        requested = os.environ.get("MICROGEN_GEMINI_UI_MODE", "flash").strip().lower()
+        if requested not in ("flash", "pro"):
+            requested = "flash"
+        os.environ["MICROGEN_GEMINI_UI_MODE"] = requested
+        os.environ["MICROGEN_LLM_MODEL"] = (
+            "gemini-3.8-flash" if requested == "flash" else "gemini-3.1-pro")
+        return _browser_request(
+            prompt, files, port=chrome_port,
+            wait_cap_s=wait_cap_s, min_chars=80)
+    finally:
+        for key, value in original.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+
+
 def run_web_review(*,folder:Path,job:dict,mode:str,
                    chrome_port:int=9222,wait_cap_s:int=240,transport=None,
                    response_observer=None,verified_source_evidence:dict|None=None,
                    checkpoint_dir:Path|None=None)->dict:
     require(chrome_port in range(1,65536) and 60<=wait_cap_s<=600,
             "Browser request must be bounded")
-    call=transport or (lambda prompt,files:_browser_request(
-        prompt,files,port=chrome_port,wait_cap_s=wait_cap_s,min_chars=80))
+    call=transport or (lambda prompt,files:_academic_browser_request(
+        prompt,files,chrome_port=chrome_port,wait_cap_s=wait_cap_s))
     instruction=review_instructions(job,mode=mode,
                         verified_source_evidence=verified_source_evidence)
     def strict_source_validator(raw):
