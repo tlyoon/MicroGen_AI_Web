@@ -1,5 +1,17 @@
 # MicroGen_AI_Web failure-to-fix ledger — current continuation
 
+## MG-G2-FORWARD-DIFFERENT-SOURCE-DRYRUN-ENGINE-V1 — 15 Nov 2026
+
+**Generalization rather than PDF perfection:** Serway 6.4 had 3 immutable rich uncertain original slide claims and post-canary rich capacity admission halted. The codebase can still progress on distinct source-independent source-only work without model requests or owner intervention.
+
+**Reusable normal-path fix:** New Windows forward-source campaign under selenium_pipeline/windows_forward_source_campaign.py plus MicroGen-Windows.ps1 ForwardSourceDryRuns mode selects finite 1-12 distinct original PDF SHA records from existing immutable candidate inventory, stages exact publisher bytes using windows_fresh_source_trial.run_trial(dryrun), records source-scoped immutable dry-run terminal receipts, resumes across independent process/new sessions without rerun and inspects updated next-stage status read-only. Kernel interprocess lease prevents racing concurrent invocations and releases after crash. A failed/tampered original affects only its own section; next independently chosen source proceeds. Source mutation, forged dry-run Send intent, invalid provider/TTS output or unsafe external trial files fail closed. The default path NEVER sends Gemini, Gemini API, ChatGPT, TTS, encoder or release. Existing real model-stage one-Send protection is retained.
+
+**Real Dell stress:** Publisher G:\My Drive\Serway\Serway_1_7 scoped 46 originals, 25 prior trial contracts and 35 send intents. Excluded already claimed 1.1/1.2. Fresh distinct 1.3 and 1.4 each passed real seven-stage source-only dry-run in external %LOCALAPPDATA%\MicroGen_AI_Web_Checkpoints\MG_20261115_NON64_FORWARD_V1, 0 provider Sends, 0 TTS, 0 MP4, no release. Restart PASS: 0 new, 2 reused, unchanged SHA. Existing source 6.4 untouched. Native 2-PDF PowerShell and synthetic 3-PDF restart/timeout/fault-injection/concurrency/claim tests PASS; broad **142 Dell pytest passed**, no failures; final hosted CI pending.
+
+**Remaining:** G2 real academic element mappings, phonetic and PCM QA, synchronized decoded <600 s video and release not complete. Next: real per-source one-stage progression behind existing independent provider/one-send gates, never carry old 6.4 uncertainty to a new Send.
+
+---
+
 ## MG-G2-ORIGINAL-RICH-PROMPT-PAGE-OVERLOAD-WINDOW-V1 — 14 Nov 2026
 
 Authentic v7 large source-free one-Send Gemini JSON passed but original slide9 one-utterance source request failed at zero generated characters after 180s inactivity despite Pro/Medium and registered Send. Original source-global slide9 is MAY_HAVE_SUBMITTED_RECONCILE_BEFORE_RESEND (not repeatable); provider backend outage UNPROVEN; no scientific approval. Prior slides 3/4 remain similarly held. Original slide9 source-page text alone occupied 11,114 of 13,933 prompt chars. Excessive full-page context is a structural candidate contributor, not established exclusive provider failure cause.

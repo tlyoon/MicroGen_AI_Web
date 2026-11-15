@@ -1,13 +1,16 @@
 # Native Windows operator; self-locates its checkout, never accesses user secrets.
 [CmdletBinding()]
 param(
-    [ValidateSet('Doctor', 'Inspect', 'BatchStatus', 'RenderPrepared', 'LectureStatus', 'LectureAdvance', 'LectureMediaReview', 'LectureCandidates')]
+    [ValidateSet('Doctor', 'Inspect', 'BatchStatus', 'RenderPrepared', 'LectureStatus', 'LectureAdvance', 'LectureMediaReview', 'LectureCandidates', 'ForwardSourceDryRuns')]
     [string]$Mode = 'Doctor',
     [string]$Campaign = '',
     [string]$Section = '',
     [string]$JobsDir = '',
     [string]$SourceRoot = '',
     [string]$TrialRegistryRoot = '',
+    [string]$CampaignName = '',
+    [ValidateRange(1,12)]
+    [int]$MaxNewSources = 3,
     [string]$TrialDir = '',
     [ValidateSet('selenium','api')]
     [string]$CommunicationMode = 'selenium',
@@ -29,7 +32,7 @@ if (-not $Python) {
     else { $Python = 'python' }
 }
 $arguments = @('-m', 'selenium_pipeline.windows_operator')
-if ($Mode -notin @('LectureStatus','LectureAdvance','LectureMediaReview','LectureCandidates') -and (
+if ($Mode -notin @('LectureStatus','LectureAdvance','LectureMediaReview','LectureCandidates','ForwardSourceDryRuns') -and (
     $SourceRoot -or $TrialDir -or $ConfirmContentApiCost -or
     $CommunicationMode -ne 'selenium'
 )) { throw 'Lecture-only arguments are not valid in legacy operator modes.' }
@@ -37,9 +40,12 @@ if ($Mode -ne 'LectureMediaReview' -and (
     $ReviewDraft -or $ReviewSelection -or $TtsRequest -or $AudioDir -or
     $ReviewOutDir -or $ConfirmMediaReviewRender
 )) { throw 'Reviewed media inputs and FFmpeg consent require LectureMediaReview.' }
-if ($Mode -ne 'LectureCandidates' -and $TrialRegistryRoot) {
-    throw 'TrialRegistryRoot requires read-only LectureCandidates mode.'
+if ($Mode -notin @('LectureCandidates','ForwardSourceDryRuns') -and $TrialRegistryRoot) {
+    throw 'TrialRegistryRoot requires LectureCandidates or ForwardSourceDryRuns mode.'
 }
+if ($Mode -ne 'ForwardSourceDryRuns' -and (
+    $CampaignName -or $MaxNewSources -ne 3
+)) { throw 'CampaignName and MaxNewSources are only valid for ForwardSourceDryRuns.' }
 switch ($Mode) {
     'Doctor' {
         if ($Campaign -or $Section -or $JobsDir) {
@@ -100,6 +106,17 @@ switch ($Mode) {
             'selenium_pipeline.windows_original_source_candidate_inventory',
             '--publisher-root', $SourceRoot, '--trial-registry-root',
             $TrialRegistryRoot)
+    }
+    'ForwardSourceDryRuns' {
+        if (-not $SourceRoot -or -not $TrialRegistryRoot -or
+            $TrialDir -or $Section -or $Campaign -or $JobsDir -or
+            $ConfirmContentApiCost -or $CommunicationMode -ne 'selenium') {
+            throw 'ForwardSourceDryRuns requires -SourceRoot and external -TrialRegistryRoot, and sends no models.'
+        }
+        $arguments = @('-m', 'selenium_pipeline.windows_forward_source_campaign',
+            '--publisher-root', $SourceRoot, '--trial-registry-root',
+            $TrialRegistryRoot, '--max-new-sources', [string]$MaxNewSources)
+        if ($CampaignName) { $arguments += @('--campaign-name', $CampaignName) }
     }
     'LectureMediaReview' {
         if (-not $SourceRoot -or -not $Section -or -not $TrialDir -or
