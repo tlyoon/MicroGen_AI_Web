@@ -2060,6 +2060,23 @@ def run_mapping(
                     "graphics; skipping numbered-figure caption mapping")
                 continue
 
+            # Normal no-resend gate: two different subsection PDFs can contain
+            # exactly the SAME printed page/crops. Before any browser upload or
+            # Send, compare independently SHA-bound old refusal evidence.
+            if (CFG.root.name == ".microgen_work"
+                    and CFG.root.parent.parent.parent.name == "source_tree"):
+                from selenium_pipeline.figure_duplicate_page_presend import (
+                    block_duplicate_page_send)
+                duplicate_probe = block_duplicate_page_send(
+                    workspace=CFG.root, page_number=idx)
+                log(f"[SOURCE-PAGE-DEDUP] page={idx} status={duplicate_probe['status']} "
+                    "new_model_sends=0")
+            else:
+                # Standalone legacy mapping has no scoped Windows immutable
+                # trial registry. Its owned Send policy remains unchanged.
+                log("[SOURCE-PAGE-DEDUP] no original Windows trial registry; "
+                    "no cross-trial reuse claim")
+
             try:
                 _mapping_txt = None
                 new_pngs = []

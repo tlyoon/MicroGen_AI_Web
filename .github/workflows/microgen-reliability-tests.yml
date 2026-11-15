@@ -80,6 +80,8 @@ jobs:
             "tests.test_windows_auto_captionless_recovery"
             "tests.test_windows_historical_stage_auto_reuse"
             "tests.test_windows_dryrun_send_eligibility"
+            "tests.test_figure_duplicate_page_presend"
+            "tests.test_windows_g2_audio_proof_inventory"
             "tests.test_windows_lecture_progression_launcher"
             "tests.test_windows_lecture_media_handoff"
             "tests.test_windows_release_media_receipt_gate"
