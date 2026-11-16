@@ -38,11 +38,25 @@ def fake_wav():
 @unittest.skipUnless(HAVE_SDK, "Installed google-genai/httpx SDK required")
 class RealSdkWireContractTests(unittest.TestCase):
     def make_client(self):
-        # The API key is deliberately nonfunctional; HTTP send is intercepted.
-        return genai.Client(
-            api_key="DUMMY_NO_NETWORK_TEST",
-            http_options=types.HttpOptions(
-                retry_options=types.HttpRetryOptions(attempts=1)))
+        # This test exercises the REAL installed interactions SDK protocol,
+        # not a fabricated stand-in. Older google-genai releases have neither
+        # Client.interactions nor the HttpRetryOptions type, and must be
+        # reported as unsupported rather than mistaken for provider failure.
+        # The key cannot authenticate; both tests intercept HTTP before send.
+        options = (
+            types.HttpOptions(retry_options=types.HttpRetryOptions(attempts=1))
+            if hasattr(types, "HttpRetryOptions")
+            else types.HttpOptions()
+        )
+        client = genai.Client(api_key="DUMMY_NO_NETWORK_TEST",
+                              http_options=options)
+        if not hasattr(client, "interactions"):
+            if hasattr(client, "close"):
+                client.close()
+            self.skipTest("Installed google-genai lacks interactions transport")
+        self.assertTrue(hasattr(client._api_client, "_httpx_client"),
+                        "Unsupported interactions SDK HTTP transport")
+        return client
 
     def test_real_sdk_serializes_and_decodes_exact_flash_lite_wav(self):
         calls=[]
