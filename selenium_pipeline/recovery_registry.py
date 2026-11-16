@@ -13,13 +13,17 @@ import re
 
 REGISTRY_PATH = Path(__file__).resolve().parent / "recovery_registry_v1.json"
 _STATUS = "MICROGEN_EXECUTABLE_RECOVERY_REGISTRY_V1"
-_HANDLER = "NORMAL_SOURCE_BOUND_G2_SUPERVISOR_AND_QUEUE"
+_HANDLERS = {
+    "selection_action": "NORMAL_SOURCE_BOUND_G2_SUPERVISOR_AND_QUEUE",
+    "supervisor_status": "NORMAL_SOURCE_BOUND_G2_SUPERVISOR_AND_QUEUE",
+    "owned_transport_diagnostic": "OWNED_GEMINI_SELENIUM_RESPONSE_QUARANTINE",
+}
 _REQUIRED = {
     "id", "match_type", "signature", "mechanism", "classification",
     "handler", "preconditions", "verification_test", "last_verified_date",
     "environment", "retry_policy", "enabled",
 }
-_KINDS = frozenset({"selection_action", "supervisor_status"})
+_KINDS = frozenset(_HANDLERS)
 
 
 def load_registry(path: Path | None = None) -> dict:
@@ -37,8 +41,8 @@ def load_registry(path: Path | None = None) -> dict:
     for e in obj["entries"]:
         if (type(e) is not dict or set(e) != _REQUIRED
                 or type(e["enabled"]) is not bool
-                or e["handler"] != _HANDLER
                 or e["match_type"] not in _KINDS
+                or e["handler"] != _HANDLERS.get(e["match_type"])
                 or not all(type(e[field]) is str and 1 <= len(e[field]) <= 255
                            for field in _REQUIRED - {"enabled"})
                 or not re.fullmatch(r"[A-Z][A-Z0-9_]{5,99}", e["id"])

@@ -74,6 +74,20 @@
       "enabled": true
     },
     {
+      "id": "GEMINI_OWNED_DOM_DIAGNOSTIC",
+      "match_type": "owned_transport_diagnostic",
+      "signature": "OWNED_POST_SEND_RESPONSE_MISSING",
+      "mechanism": "READONLY_SAME_TAB_RESPONSE_DOM_METADATA_NO_RETRY",
+      "classification": "POST_SEND_PDF_RESPONSE_UNATTRIBUTED",
+      "handler": "OWNED_GEMINI_SELENIUM_RESPONSE_QUARANTINE",
+      "preconditions": "same owned Gemini tab; route identity checked; model response count metadata only; source Send already claimed",
+      "verification_test": "tests/test_owned_gemini_dom_diagnostics.py",
+      "last_verified_date": "2026-11-16",
+      "environment": "Dell-115 / Windows / Selenium Gemini shared browser",
+      "retry_policy": "finite one-time read-only capture after source Send; never replays claimed Send or changes QA",
+      "enabled": true
+    },
+    {
       "id": "G2_PROVIDER_DEFERRED",
       "match_type": "supervisor_status",
       "signature": "G2_PROVIDER_HEALTH_DEFERRED_NO_NEW_SOURCE_SEND",

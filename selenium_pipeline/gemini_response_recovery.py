@@ -254,7 +254,8 @@ def default_quarantine_dir() -> Path:
 
 
 def quarantine_snapshot(snapshot: dict, *, directory: Path | None = None,
-                        reason: str = "incomplete_json") -> dict:
+                        reason: str = "incomplete_json",
+                        owned_dom_diagnostic: dict | None = None) -> dict:
     """Write no-overwrite untrusted text and hash-bound metadata for review.
 
     The files live only in a local user-owned directory. No automatic re-prompt,
@@ -296,6 +297,12 @@ def quarantine_snapshot(snapshot: dict, *, directory: Path | None = None,
         "provider_server_outage_proven": False,
         "original_source_retry_authorized": False,
     }
+    if owned_dom_diagnostic is not None:
+        # Record only same-tab count metadata and fixed classification.
+        # Never persist arbitrary page text, URLs, prompts or browser HTML.
+        from .owned_gemini_dom_diagnostics import sanitize_dom_diagnostic
+        meta["owned_tab_response_dom"] = sanitize_dom_diagnostic(
+            owned_dom_diagnostic)
     with raw_path.open("xb") as stream:
         stream.write(payload)
     with meta_path.open("x", encoding="utf-8") as stream:

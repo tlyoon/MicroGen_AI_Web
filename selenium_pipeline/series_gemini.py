@@ -329,8 +329,18 @@ def _browser_request(instruction: str,attachments: list[Path],
                     "strict_json_capture_exception" if capture_error is not None
                     else "strict_json_capture_timeout"
                 )
+                from .owned_gemini_dom_diagnostics import (
+                    observe_owned_dom_metadata)
+                # Capture read-only DOM *counts* on this exact owned tab
+                # BEFORE shutdown. This distinguishes an empty provider
+                # response container from a possible selector drift without
+                # interpreting either as a successful or safe-to-retry Send.
+                same_tab_dom = observe_owned_dom_metadata(
+                    client.driver, owned_handle, expected_url=expected_url)
                 try:
-                    receipt = quarantine_snapshot(snapshot, reason=reason)
+                    receipt = quarantine_snapshot(
+                        snapshot, reason=reason,
+                        owned_dom_diagnostic=same_tab_dom)
                 except OSError as exc:
                     raise SeriesBridgeError(
                         "Gemini JSON capture failed and recovery quarantine "
@@ -381,8 +391,14 @@ def _browser_request(instruction: str,attachments: list[Path],
                     latest_owned_response,quarantine_snapshot)
                 unproven=latest_owned_response(
                     client.driver,getattr(client,"_automation_tab",None))
-                quarantine_snapshot(unproven,
-                    reason="unverified_new_gemini_turn_after_one_send")
+                from .owned_gemini_dom_diagnostics import (
+                    observe_owned_dom_metadata)
+                same_tab_dom = observe_owned_dom_metadata(
+                    client.driver,owned_handle)
+                quarantine_snapshot(
+                    unproven,
+                    reason="unverified_new_gemini_turn_after_one_send",
+                    owned_dom_diagnostic=same_tab_dom)
                 raise SeriesBridgeError(
                     "Gemini reply text was captured without a positively "
                     "registered NEW user turn on the owned tab; preserved "
