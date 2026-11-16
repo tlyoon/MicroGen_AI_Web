@@ -124,6 +124,34 @@ class G2ForwardRecoveryEngineTests(unittest.TestCase):
         self.assertEqual(one["recovery_mechanism"],
                          "SHA_LOCKED_SOURCE_CITATION_DOWNGRADE_AND_LOCAL_REPLY_RECONCILIATION")
 
+    def test_quarantined_saved_reply_advances_next_unattempted_slide(self):
+        """A genuinely rejected saved reply may not halt unrelated science."""
+        self.selection["action"]="RECONCILE_PRIOR_RESPONSE_NO_SEND"
+        def dispatch(**kwargs):
+            self.events.append(kwargs)
+            if len(self.events)==1:
+                self.assertEqual(self.selection["next_slide"],5)
+                self.selection={**self.selection,"next_slide":6,
+                                "action":"FRESH_FIRST_ATTEMPT",
+                                "blocked_other_slides":[{
+                                    "slide":5,
+                                    "reason":"SOURCE_REVIEW_QUARANTINED_INVALID_SAVED_REPLY",
+                                    "original_request_replay_authorized":False}]}
+                return self.report("G2_ACADEMIC_QA_INCOMPLETE_REVIEW_OR_SOURCE_REPAIR",
+                    attempt={"status":"BOUNDED_REVIEW_STOPPED_AFTER_UNACCEPTED_UNIT",
+                             "completed":[]})
+            self.assertEqual(self.selection["next_slide"],6)
+            return self.report("G2_PROVIDER_HEALTH_DEFERRED_NO_NEW_SOURCE_SEND",
+                               health={"new_source_review_send_allowed":False})
+        result=self.invoke(execute=True,supervisor=dispatch)
+        self.assertEqual(len(self.events),2)
+        stages=result["stage_cycles_this_invocation"]
+        self.assertEqual(stages[0]["action"],"CONTINUE")
+        self.assertEqual(stages[0]["classification"],
+                         "NEXT_ELIGIBLE_SLIDE_REQUIRES_PROVIDER_HEALTH")
+        self.assertEqual(stages[1]["action"],"HALT")
+        self.assertFalse(result["G2_claimed_complete"])
+
     def test_rerun_verifies_existing_chain_and_never_overwrites(self):
         def dispatch(**kw):
             return self.report("G2_PROVIDER_HEALTH_DEFERRED_NO_NEW_SOURCE_SEND")

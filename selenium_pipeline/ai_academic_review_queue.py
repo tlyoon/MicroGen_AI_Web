@@ -362,22 +362,34 @@ def select_next_safe_review(*,queue_root:Path,folder:Path)->dict:
                 require(reconciled.is_file() and not reconciled.is_symlink(),
                         "Saved-response reconciliation record untrusted")
                 reconcile_result=json.loads(reconciled.read_text(encoding="utf8"))
-                # A failed saved-reply reconciliation cannot be bypassed by
-                # shifting to the next slide in a later invocation.
+                # An invalid saved reply is permanently unavailable for
+                # this mode. Do NOT replay, approve, or silently repair it.
+                # Its outstanding scientific gap remains in the queue, but
+                # independently unattempted slides may advance under the
+                # ordinary provider health and source-validation gates.
                 require(reconcile_result.get("status") in {
                     "FAILED_SAVED_RESPONSE_RECONCILIATION_NO_SEND",
                     "GEMINI_SOURCE_REVIEW_ONE_SLIDE_COMPLETED"},
                     "Unexpected prior saved-response reconciliation")
                 if reconcile_result["status"]=="FAILED_SAVED_RESPONSE_RECONCILIATION_NO_SEND":
-                    return {
-                        "status":"DEFERRED_SAVED_REPLY_RECONCILIATION_FAILED",
-                        "next_slide":None,"next_mode":None,
-                        "failed_reconciliation_slide":slide,
-                        "resume_condition":"NEW_INDEPENDENT_SOURCE_EVIDENCE",
-                        "new_model_requests":False,
-                        "automatic_retry_authorized":False,
-                        "student_publication_authorized":False,
-                    }
+                    require(
+                        reconcile_result.get("slide")==slide
+                        and reconcile_result.get("mode")==mode
+                        and reconcile_result.get("attempt")==1
+                        and reconcile_result.get("provider_submission_state")
+                            =="PRIOR_SAVED_RESPONSE_ONLY"
+                        and reconcile_result.get("new_provider_requests") is False
+                        and reconcile_result.get("academically_approved") is False
+                        and reconcile_result.get("student_publication_authorized") is False,
+                        "Failed saved reply cannot be quarantined without exact identity")
+                    blocked.append({
+                        "slide":slide,"mode":mode,
+                        "reason":"SOURCE_REVIEW_QUARANTINED_INVALID_SAVED_REPLY",
+                        "reconciliation_receipt_sha256":_sha(reconciled),
+                        "original_request_replay_authorized":False,
+                        "needs_new_independent_source_evidence":True,
+                    })
+                    continue
                 blocked.append({"slide":slide,"mode":mode,
                                 "reason":"PRIOR_SAVED_REPLY_RECONCILIATION_ALREADY_ATTEMPTED"})
                 continue

@@ -221,7 +221,13 @@ class AutomaticSourceBoundReviewQueue(unittest.TestCase):
             "slide_001_initial_review_reconciled_after_attempt_01.json").is_file())
         next_plan=select_next_safe_review(queue_root=self.queue,folder=self.folder)
         self.assertEqual(next_plan["status"],
-                         "DEFERRED_SAVED_REPLY_RECONCILIATION_FAILED")
+                         "ONE_SAFE_ACADEMIC_REVIEW_UNIT_READY")
+        self.assertEqual(next_plan["next_slide"],2)
+        self.assertEqual(next_plan["next_mode"],"INITIAL_REVIEW")
+        self.assertEqual(next_plan["blocked_other_slides"][0]["reason"],
+                         "SOURCE_REVIEW_QUARANTINED_INVALID_SAVED_REPLY")
+        self.assertFalse(next_plan["blocked_other_slides"][0][
+            "original_request_replay_authorized"])
         self.assertFalse(next_plan["new_model_requests"])
 
     def test_bounded_batch_autonomously_advances_three_source_verified_units(self):
