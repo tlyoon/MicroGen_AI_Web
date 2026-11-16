@@ -87,7 +87,10 @@ def check(*,queue_root:Path, checkpoint_parent:Path,source_sha:str,
           family:str,execute_source_free_probe:bool=False,
           probe_fn=None, latest_success_fn=None, clock=None) -> dict:
     """No source/PDF/model prompt is sent unless a fresh source-free health response exists."""
-    from .academic_provider_requalification import latest_success,probe_once
+    from .academic_provider_requalification import latest_success, probe_once
+    from .academic_incident_response_health import (
+        incident_identity, latest_incident_success, probe_incident_once,
+    )
     require(family in ("flash","pro"),"Original Gemini family not independently known")
     clock = clock or time.time
     now=float(clock())
@@ -101,7 +104,9 @@ def check(*,queue_root:Path, checkpoint_parent:Path,source_sha:str,
             "source_free_new_requests":0,
             "existing_claims_resent":False,
         }
-    last=max(x["last_original_unsafe_claim_unix"] for x in claims)
+    newest=max(claims,key=lambda x:x["last_original_unsafe_claim_unix"])
+    last=newest["last_original_unsafe_claim_unix"]
+    incident=incident_identity(newest,source_sha=source_sha,family=family)
     require(last<=now+3,"Source review claim timestamp from future")
     lookup=latest_success if latest_success_fn is None else latest_success_fn
     historical=lookup(checkpoint_parent=checkpoint_parent,source_sha=source_sha,
@@ -120,6 +125,22 @@ def check(*,queue_root:Path, checkpoint_parent:Path,source_sha:str,
             "source_free_new_requests":0,
             "existing_claims_resent":False,
         }
+    # A past successful probe does not cover a subsequent uncertain model
+    # submission. Reuse a separately immutable, source-free response bound to
+    # the newest incident before attempting any new diagnostic Send.
+    incident_proof=latest_incident_success(
+        checkpoint_parent=checkpoint_parent, source_sha=source_sha,
+        family=family, incident=incident, after_unix=last, now=now)
+    if incident_proof is not None:
+        return {
+            "status":"NEW_INCIDENT_SOURCE_FREE_RESPONSE_REVERIFIED",
+            "original_unattributed_requests":len(claims),
+            "new_source_review_send_allowed":True,
+            "source_free_new_requests":0,
+            "existing_claims_resent":False,
+            "incident_sha256":incident,
+            "health_proof_scope":"LATEST_UNCERTAIN_SOURCE_INCIDENT",
+        }
     if not execute_source_free_probe:
         return {
             "status":"G2_FRESH_REVIEW_DEFERRED_PENDING_SOURCE_FREE_PROBE",
@@ -132,11 +153,25 @@ def check(*,queue_root:Path, checkpoint_parent:Path,source_sha:str,
     with _full_family_scope(family):
         outcome=probe(checkpoint_parent=checkpoint_parent,source_sha=source_sha,
                       family=family)
+        # The legacy once-daily slot may have succeeded *before* the latest
+        # uncertain academic Send. Requalify a distinct incident with a new
+        # bounded nonce, never replaying the old diagnostic or source request.
+        # An immediately failed NEW legacy probe must not trigger another Send.
+        if (probe_fn is None
+                and (outcome.get("reused_immutable_probe") is True or
+                     outcome.get("status") ==
+                         "PRIOR_SOURCE_FREE_PROBE_UNCERTAIN_NO_RESEND")
+                and not (outcome.get("status") ==
+                         "SOURCE_FREE_ATTRIBUTABLE_RESPONSE_VERIFIED"
+                         and outcome.get("observed_unix",0) > last)):
+            outcome=probe_incident_once(
+                checkpoint_parent=checkpoint_parent,source_sha=source_sha,
+                family=family,incident=incident,after_unix=last,now=now)
     safe=(outcome.get("status") ==
           "SOURCE_FREE_ATTRIBUTABLE_RESPONSE_VERIFIED"
           and outcome.get("source_sha256")==source_sha
           and outcome.get("model_family")==family
-          and outcome.get("observed_unix",0)>last
+          and last<outcome.get("observed_unix",0)<=float(clock())+3
           and outcome.get("no_original_source_uploaded") is True
           and outcome.get("gemini_new_user_turn_verified") is True)
     return {
@@ -147,4 +182,8 @@ def check(*,queue_root:Path, checkpoint_parent:Path,source_sha:str,
         "source_free_new_requests":outcome.get("new_provider_requests",0),
         "existing_claims_resent":False,
         "source_free_result_status":outcome.get("status"),
+        "health_proof_scope":("LATEST_UNCERTAIN_SOURCE_INCIDENT"
+                              if outcome.get("incident_sha256")==incident
+                              else "LEGACY_SOURCE_MODEL_DAILY"),
+        "incident_sha256":incident,
     }
