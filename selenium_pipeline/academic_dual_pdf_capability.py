@@ -230,20 +230,52 @@ def existing_outcome(*, queue_root: Path, checkpoint_parent: Path,
 
 
 def _create_pdf(path: Path, code: str, label: str) -> str:
-    from reportlab.pdfgen import canvas
-    require(not path.exists() and not path.is_symlink(), "Synthetic PDF already exists")
-    pdf = canvas.Canvas(str(path), pagesize=(612, 792), invariant=1)
-    pdf.setTitle("MicroGen synthetic PDF-capability probe " + label)
-    pdf.setFont("Helvetica", 17)
-    pdf.drawString(65, 700, "MicroGen synthetic diagnostic file " + label)
-    pdf.setFont("Courier", 14)
-    pdf.drawString(65, 650, "PDF_CODE: " + code)
-    pdf.drawString(65, 620, "No user or textbook source material.")
-    pdf.showPage()
-    pdf.save()
-    raw = path.read_bytes()
-    require(raw.startswith(b"%PDF-") and 200 < len(raw) < 20000,
+    """Build a valid, deterministic single-page PDF using only Python stdlib.
+
+    The CI Windows runner intentionally has no ReportLab installation.
+    This limited generator contains no arbitrary user text or PDF parser:
+    code and label are fixed safe ASCII, and the cross-reference offsets are
+    computed on the exact bytes written. An external PDF reader must still
+    confirm that the hidden code can be extracted from each attachment.
+    """
+    require(not path.exists() and not path.is_symlink()
+            and re.fullmatch(r"[0-9A-F]{18}", code) is not None
+            and label in ("A", "B"), "Unsafe synthetic PDF parameters")
+    content = (
+        "BT /F1 17 Tf 65 700 Td "
+        "(MicroGen synthetic diagnostic file " + label + ") Tj ET\n"
+        "BT /F1 14 Tf 65 650 Td (PDF_CODE: " + code + ") Tj ET\n"
+        "BT /F1 12 Tf 65 620 Td "
+        "(No user or textbook source material.) Tj ET\n"
+    ).encode("ascii")
+    objs = [
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        (b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
+         b"/Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>"),
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+        (b"<< /Length " + str(len(content)).encode("ascii") +
+         b" >>\nstream\n" + content + b"endstream"),
+    ]
+    pdf = bytearray(b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n")
+    offsets = [0]
+    for idx, body in enumerate(objs, start=1):
+        offsets.append(len(pdf))
+        pdf.extend(str(idx).encode("ascii") + b" 0 obj\n" +
+                   body + b"\nendobj\n")
+    cross_ref_start = len(pdf)
+    pdf.extend(b"xref\n0 6\n0000000000 65535 f \n")
+    for offset in offsets[1:]:
+        pdf.extend(f"{offset:010d} 00000 n \n".encode("ascii"))
+    pdf.extend((b"trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n" +
+                str(cross_ref_start).encode("ascii") + b"\n%%EOF\n"))
+    raw = bytes(pdf)
+    require(raw.startswith(b"%PDF-1.4") and 200 < len(raw) < 20000,
             "Synthetic PDF malformed")
+    with path.open("xb") as output:
+        output.write(raw)
+        output.flush()
+        os.fsync(output.fileno())
     return _sha(raw)
 
 
