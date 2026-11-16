@@ -101,7 +101,8 @@ def step(*, folder: Path, queue_root: Path, work_root: Path,
         if execute and max_units:
             from .ai_academic_review_queue import (
                 advance_bounded_safe_reviews, select_next_safe_review)
-            selected = select_next_safe_review(queue_root=queue_root,folder=folder)
+            selected = select_next_safe_review(
+                queue_root=queue_root,folder=folder,health_family=health_family)
             if (selected.get("status") == "ONE_SAFE_ACADEMIC_REVIEW_UNIT_READY"
                     and selected.get("action") == "FRESH_FIRST_ATTEMPT"):
                 from .academic_queue_fresh_send_health import check as check_health
@@ -114,8 +115,14 @@ def step(*, folder: Path, queue_root: Path, work_root: Path,
                     provider_health.get("new_source_review_send_allowed") is not True)
             if not new_source_sends_deferred:
                 dispatcher = review_advance or advance_bounded_safe_reviews
-                attempt = dispatcher(queue_root=queue_root, folder=folder,
-                                     max_units=max_units, execute=True)
+                if review_advance is None:
+                    attempt = dispatcher(queue_root=queue_root, folder=folder,
+                                         max_units=max_units, execute=True,
+                                         health_family=health_family)
+                else:
+                    # Keep test-only injected dispatch contract unchanged.
+                    attempt = dispatcher(queue_root=queue_root, folder=folder,
+                                         max_units=max_units, execute=True)
         from .ai_academic_review_consensus import reconcile_actual_review_queue
         read_consensus = consensus_reader or reconcile_actual_review_queue
         state = read_consensus(queue_root=queue_root, folder=folder)
@@ -132,7 +139,8 @@ def step(*, folder: Path, queue_root: Path, work_root: Path,
         agreed = len(state["accepted_ai_evidence"])
         pending = state["pending_or_disputed"]
         from .ai_academic_review_queue import select_next_safe_review
-        next_safe = select_next_safe_review(queue_root=queue_root,folder=folder)
+        next_safe = select_next_safe_review(
+            queue_root=queue_root,folder=folder,health_family=health_family)
         common = {
             "two_pass_ai_source_agreed_segments": agreed,
             "pending_or_disputed_segments": pending,

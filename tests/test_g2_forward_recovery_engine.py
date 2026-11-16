@@ -49,10 +49,12 @@ class G2ForwardRecoveryEngineTests(unittest.TestCase):
             raise ValueError("Original queue SHA-bound files changed")
         return actual.copy()
 
-    def invoke(self,*,execute=False,max_cycles=8,supervisor=None):
+    def invoke(self,*,execute=False,max_cycles=8,supervisor=None,
+               synthetic_pdf_probe=None):
         return run(folder=self.folder,queue_root=self.queue,
                    work_root=self.work,execute=execute,
                    max_cycles=max_cycles,supervisor=supervisor,
+                   synthetic_pdf_probe=synthetic_pdf_probe,
                    health_family="pro",auto_media=True)
 
     def report(self,status,*,attempt=None,health=None,agreed=4,pending=81):
@@ -80,6 +82,115 @@ class G2ForwardRecoveryEngineTests(unittest.TestCase):
             self.invoke(execute=True,supervisor=forbidden)
         home=self.work/"g2_forward_recovery_v1"
         self.assertFalse(list(home.rglob("*.intent.json")))
+
+    def test_consumed_pdf_probe_does_not_create_another_stage_on_restart(self):
+        self.selection={
+            "status":"DEFERRED_SYNTHETIC_PDF_CAPABILITY_EXHAUSTED_NO_RESEND",
+            "unattempted_candidate_slide":12,
+            "unattributed_prior_slides":[10,11],
+            "last_capability_status":"DUAL_SYNTHETIC_PDF_RESPONSE_UNVERIFIED",
+            "new_model_requests":False,
+        }
+        def never_supervisor(**kw):
+            self.fail("Consumed synthetic probe cannot dispatch a new request")
+        def never_probe(**kw):
+            self.fail("Consumed synthetic probe may not be resent")
+        output=self.invoke(execute=True,max_cycles=8,
+            supervisor=never_supervisor,synthetic_pdf_probe=never_probe)
+        self.assertEqual(output["status"],
+                         "G2_FORWARD_STOPPED_AT_VERIFIED_ELIGIBILITY_BOUNDARY")
+        self.assertEqual(output["stage_cycles_this_invocation"],[])
+        self.assertEqual(output["last_stage"]["unattempted_candidate_slide"],12)
+        self.assertEqual(list(Path(output["journal"]).glob("*.intent.json")),[])
+
+    def test_synthetic_dual_pdf_capability_proof_advances_to_fresh_source(self):
+        self.selection={
+            "status":"DEFERRED_REPEATED_UNATTRIBUTED_BROWSER_SEND",
+            "required_recovery_action":"SYNTHETIC_DUAL_PDF_CAPABILITY_PROBE",
+            "unattributed_prior_slides":[10,11],
+            "unattempted_candidate_slide":12,
+            "new_model_requests":False,
+        }
+        sends=[]
+        def pdf_probe(**kw):
+            sends.append(kw)
+            self.selection={
+                "status":"ONE_SAFE_ACADEMIC_REVIEW_UNIT_READY",
+                "action":"FRESH_FIRST_ATTEMPT",
+                "next_slide":12,"next_mode":"INITIAL_REVIEW",
+                "original_source_pdf_health_proven":True,
+            }
+            return {
+                "status":"DUAL_SYNTHETIC_PDF_RESPONSE_VERIFIED",
+                "incident_sha256":"a"*64,
+                "new_source_review_send_allowed":True,
+                "new_provider_requests":1,
+            }
+        def supervisor(**kw):
+            self.events.append(kw)
+            self.assertEqual(self.selection["next_slide"],12)
+            return self.report("G2_PROVIDER_HEALTH_DEFERRED_NO_NEW_SOURCE_SEND",
+                               health={"new_source_review_send_allowed":False})
+        science={
+            "status":"INDEPENDENTLY_REVALIDATED_AI_SOURCE_MATH_AGREEMENT_QUEUE",
+            "accepted_ai_evidence":[{"id":str(i)} for i in range(20)],
+            "pending_or_disputed":65,"original_utterances":85}
+        with patch(
+            "selenium_pipeline.ai_academic_review_consensus.reconcile_actual_review_queue",
+            return_value=science):
+            result=self.invoke(execute=True,max_cycles=2,
+                supervisor=supervisor,synthetic_pdf_probe=pdf_probe)
+        self.assertEqual(len(sends),1)
+        self.assertEqual(len(self.events),1)
+        self.assertEqual(result["stage_cycles_this_invocation"][0]["action"],
+                         "CONTINUE")
+        self.assertEqual(result["stage_cycles_this_invocation"][1]["action"],
+                         "HALT")
+        home=Path(result["journal"])
+        first=_json_file(home/"0001.intent.json")
+        receipt=_json_file(home/"0001.result.json")
+        self.assertEqual(first["stage_classification"],
+                         "SOURCE_REVIEW_MODALITY_CAPABILITY_PROBE")
+        self.assertEqual(first["original_unsafe_claim_slides"],[10,11])
+        self.assertEqual(first["recovery_mechanism"],
+                         "OWNED_TWO_SYNTHETIC_PDF_SOURCE_MODALITY_TEST_ONCE_ONLY")
+        self.assertEqual(receipt["actual_report"][
+            "two_pass_ai_source_agreed_segments"],20)
+        self.assertFalse(receipt["actual_report"]["academic_science_approved"])
+        self.assertFalse(receipt["actual_report"]["new_paid_tts_dispatched"])
+
+    def test_synthetic_pdf_probe_failure_is_persisted_and_never_sends_source(self):
+        self.selection={
+            "status":"DEFERRED_REPEATED_UNATTRIBUTED_BROWSER_SEND",
+            "required_recovery_action":"SYNTHETIC_DUAL_PDF_CAPABILITY_PROBE",
+            "unattributed_prior_slides":[10,11],
+            "unattempted_candidate_slide":12}
+        calls=[]
+        def fail(**kw):
+            calls.append(kw)
+            return {"status":"DUAL_SYNTHETIC_PDF_RESPONSE_UNVERIFIED",
+                    "new_source_review_send_allowed":False,
+                    "new_provider_requests":1}
+        def never_supervisor(**kw):
+            self.fail("Cannot begin science review after failed PDF canary")
+        science={
+            "status":"INDEPENDENTLY_REVALIDATED_AI_SOURCE_MATH_AGREEMENT_QUEUE",
+            "accepted_ai_evidence":[],"pending_or_disputed":85,
+            "original_utterances":85}
+        with patch(
+            "selenium_pipeline.ai_academic_review_consensus.reconcile_actual_review_queue",
+            return_value=science):
+            output=self.invoke(execute=True,max_cycles=8,
+                supervisor=never_supervisor,synthetic_pdf_probe=fail)
+        self.assertEqual(len(calls),1)
+        self.assertEqual(len(output["stage_cycles_this_invocation"]),1)
+        self.assertEqual(output["stage_cycles_this_invocation"][0]["action"],
+                         "HALT")
+        receipt=_json_file(Path(output["journal"])/"0001.result.json")
+        self.assertEqual(receipt["actual_report"]["status"],
+                         "G2_SYNTHETIC_PDF_CAPABILITY_DEFERRED")
+        self.assertFalse(receipt["actual_report"]["provider_health"][
+            "new_source_review_send_allowed"])
 
     def test_completed_recovery_triggers_next_stage_without_new_user_prompt(self):
         def dispatch(**kwargs):

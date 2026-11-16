@@ -108,6 +108,34 @@ def check(*,queue_root:Path, checkpoint_parent:Path,source_sha:str,
     last=newest["last_original_unsafe_claim_unix"]
     incident=incident_identity(newest,source_sha=source_sha,family=family)
     require(last<=now+3,"Source review claim timestamp from future")
+    # This stronger incident-specific check requires Gemini to read BOTH
+    # synthetic PDF attachments and return distinct hidden file tokens.
+    # Unlike the older text-only canary it exercises the original browser
+    # document-upload + response route, without uploading a textbook.
+    if len(claims)>=2:
+        initial_slides=sorted({
+            int(m.group(1)) for x in claims
+            if (m:=re.fullmatch(
+                r"slide_([0-9]{3})_initial_review_attempt_0[1-3]_request",
+                x["checkpoint_name"])) is not None
+        })
+        if len(initial_slides)>=2:
+            from .academic_dual_pdf_capability import qualifying_proof
+            enhanced=qualifying_proof(
+                queue_root=queue_root,checkpoint_parent=checkpoint_parent,
+                source_sha=source_sha,prior_slides=initial_slides,
+                family=family,now=now)
+            if enhanced is not None:
+                return {
+                    "status":"NEW_SOURCE_MODALITY_PDF_CAPABILITY_VERIFIED",
+                    "original_unattributed_requests":len(claims),
+                    "new_source_review_send_allowed":True,
+                    "source_free_new_requests":0,
+                    "existing_claims_resent":False,
+                    "source_modality_proof_incident":
+                        enhanced["incident_sha256"],
+                    "original_source_uploaded":False,
+                }
     lookup=latest_success if latest_success_fn is None else latest_success_fn
     historical=lookup(checkpoint_parent=checkpoint_parent,source_sha=source_sha,
                       family=family,after_unix=last,now=now)

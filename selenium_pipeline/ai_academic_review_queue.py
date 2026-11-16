@@ -121,7 +121,8 @@ def _prior_unattributed_streak(*, queue_root:Path, slide_jobs:list[dict],
 def execute_one_review(*,queue_root:Path,folder:Path,
                        slide:int,mode:str,
                        attempt:int=1,transport=None,
-                       wrapped_recovery_only:bool=False)->dict:
+                       wrapped_recovery_only:bool=False,
+                       health_family:str="pro")->dict:
     queue_root=Path(queue_root).absolute();folder=Path(folder).absolute()
     require(type(attempt) is int and 1<=attempt<=3,"No unbounded AI retry loop")
     row=_check_queue(queue_root=queue_root,folder=folder,slide=slide,mode=mode)
@@ -226,11 +227,26 @@ def execute_one_review(*,queue_root:Path,folder:Path,
                 "MODEL_REPLY_OBSERVED_UNVALIDATED",
                 "REJECTED_RESPONSE_UNTRUSTED",
                 "SOURCE_VALIDATED_ONE_PASS_UNAPPROVED"}
-        require(saved_reply,
-                "DEFERRED_REPEATED_UNATTRIBUTED_BROWSER_SEND: two prior "
-                "slide requests may have been submitted without an "
-                "attributable response; require new independent transport "
-                "evidence, not another model Send")
+        if not saved_reply:
+            # The same-model short text-only canary proved insufficient:
+            # two real full-source reviews lost all model attribution.
+            # Require a *newer*, exact synthetic two-PDF/readback proof.
+            # The original failed source requests remain unrepeatable.
+            from .academic_dual_pdf_capability import qualifying_proof
+            from .figure_source_identity import FigureIdentityReviewRequired
+            try:
+                capability = qualifying_proof(
+                    queue_root=queue_root,checkpoint_parent=queue_root.parent,
+                    source_sha=_sha(folder/"source.pdf"),prior_slides=prior,
+                    family=health_family)
+            except (FigureIdentityReviewRequired, ValueError, OSError):
+                # Some historical QUEUE receipts predate the strict claim
+                # schema. They can NEVER support a new Send; remain blocked.
+                capability = None
+            require(capability is not None,
+                    "DEFERRED_REPEATED_UNATTRIBUTED_BROWSER_SEND: a fresh "
+                    "owned dual-synthetic-PDF capability result is required "
+                    "before any new full-source scientific submission")
     returned_response=False
     def witness_model_return(raw):
         nonlocal returned_response
@@ -366,7 +382,8 @@ def execute_one_review(*,queue_root:Path,folder:Path,
     return done
 
 
-def select_next_safe_review(*,queue_root:Path,folder:Path)->dict:
+def select_next_safe_review(*,queue_root:Path,folder:Path,
+                            health_family:str="pro")->dict:
     """Source-independent, read-only choice of ONE next review operation.
 
     This is selection, not provider authorization or a retry. Completed modes
@@ -549,8 +566,57 @@ def select_next_safe_review(*,queue_root:Path,folder:Path)->dict:
                 queue_root=queue_root,slide_jobs=plan["slide_jobs"],
                 before_slide=slide)
             if len(prior)>=2:
+                from .academic_dual_pdf_capability import qualifying_proof
+                from .figure_source_identity import FigureIdentityReviewRequired
+                try:
+                    capability=qualifying_proof(
+                        queue_root=queue_root,checkpoint_parent=queue_root.parent,
+                        source_sha=_sha(folder/"source.pdf"),prior_slides=prior,
+                        family=health_family)
+                except (FigureIdentityReviewRequired, ValueError, OSError):
+                    # A historical unsupported claim or tampered receipt
+                    # cannot prove a healthy two-PDF response. Fail closed
+                    # to the existing two-original-Send circuit breaker.
+                    capability=None
+                if capability is not None:
+                    return {
+                        "status":"ONE_SAFE_ACADEMIC_REVIEW_UNIT_READY",
+                        "next_slide":slide,"next_mode":mode,"attempt":1,
+                        "action":action,
+                        "original_source_pdf_health_proven":True,
+                        "synthetic_pdf_capability_incident":
+                            capability["incident_sha256"],
+                        "blocked_other_slides":blocked,
+                        "new_model_requests":False,
+                        "student_publication_authorized":False,
+                    }
+                # A consumed, unsuccessful synthetic probe is NOT a reason
+                # to create another "recovery" stage in every future run.
+                # Preserve its exclusive request claim; only a *new* incident
+                # with newer original source evidence could qualify again.
+                try:
+                    from .academic_dual_pdf_capability import existing_outcome
+                    consumed=existing_outcome(
+                        queue_root=queue_root,checkpoint_parent=queue_root.parent,
+                        source_sha=_sha(folder/"source.pdf"),prior_slides=prior,
+                        family=health_family)
+                except (FigureIdentityReviewRequired, ValueError, OSError):
+                    consumed=None
+                if consumed is not None and (
+                        consumed.get("new_source_review_send_allowed") is not True):
+                    return {
+                        "status":"DEFERRED_SYNTHETIC_PDF_CAPABILITY_EXHAUSTED_NO_RESEND",
+                        "next_slide":None,"next_mode":None,
+                        "unattempted_candidate_slide":slide,
+                        "unattributed_prior_slides":prior,
+                        "last_capability_status":consumed["status"],
+                        "original_request_replay_authorized":False,
+                        "new_model_requests":False,
+                        "student_publication_authorized":False,
+                    }
                 return {
                     "status":"DEFERRED_REPEATED_UNATTRIBUTED_BROWSER_SEND",
+                    "required_recovery_action":"SYNTHETIC_DUAL_PDF_CAPABILITY_PROBE",
                     "next_slide":None,"next_mode":None,
                     "unattempted_candidate_slide":slide,
                     "unattributed_prior_slides":prior,
@@ -587,9 +653,11 @@ def select_next_safe_review(*,queue_root:Path,folder:Path)->dict:
 
 
 def advance_one_safe_review(*,queue_root:Path,folder:Path,
-                            execute:bool=False,transport=None)->dict:
+                            execute:bool=False,transport=None,
+                            health_family:str="pro")->dict:
     """At most one standing-authorized browser review; no source loops."""
-    selection=select_next_safe_review(queue_root=queue_root,folder=folder)
+    selection=select_next_safe_review(
+        queue_root=queue_root,folder=folder,health_family=health_family)
     if not execute or selection["status"]!="ONE_SAFE_ACADEMIC_REVIEW_UNIT_READY":
         return selection
     saved_envelope=selection.get("action")=="RECOVER_WRAPPED_SAVED_REPLY_NO_SEND"
@@ -599,7 +667,7 @@ def advance_one_safe_review(*,queue_root:Path,folder:Path,
         queue_root=queue_root,folder=folder,
         slide=selection["next_slide"],mode=selection["next_mode"],
         attempt=1,transport=transport,
-        wrapped_recovery_only=saved_envelope)
+        wrapped_recovery_only=saved_envelope,health_family=health_family)
     return {
         "status":"ONE_AUTONOMOUS_ACADEMIC_REVIEW_ATTEMPT_FINISHED",
         "selection":selection,"review":result,
@@ -614,7 +682,7 @@ def advance_one_safe_review(*,queue_root:Path,folder:Path,
 
 def advance_bounded_safe_reviews(*,queue_root:Path,folder:Path,
                                  max_units:int=3,execute:bool=False,
-                                 transport=None)->dict:
+                                 transport=None,health_family:str="pro")->dict:
     """Advance independently eligible review units without per-slide prompts.
 
     Re-enter the existing select/claim/validate gateway after EACH verified
@@ -626,7 +694,8 @@ def advance_bounded_safe_reviews(*,queue_root:Path,folder:Path,
             "Autonomous academic review batch is bounded to 1-3 units")
     queue_root,folder=Path(queue_root).absolute(),Path(folder).absolute()
     if not execute:
-        selection=select_next_safe_review(queue_root=queue_root,folder=folder)
+        selection=select_next_safe_review(
+            queue_root=queue_root,folder=folder,health_family=health_family)
         return {"status":"READONLY_BOUNDED_REVIEW_PLAN",
                 "max_units":max_units,"next_selection":selection,
                 "new_provider_requests":False,"student_publication_authorized":False}
@@ -636,7 +705,7 @@ def advance_bounded_safe_reviews(*,queue_root:Path,folder:Path,
         # queue, model-claim state and anti-stall budget before every action.
         outcome=advance_one_safe_review(
             queue_root=queue_root,folder=folder,execute=True,
-            transport=transport)
+            transport=transport,health_family=health_family)
         if outcome.get("status")!="ONE_AUTONOMOUS_ACADEMIC_REVIEW_ATTEMPT_FINISHED":
             return {"status":"BOUNDED_REVIEW_STOPPED_NOT_READY",
                     "completed":completed,"stop_evidence":outcome,
@@ -660,7 +729,8 @@ def advance_bounded_safe_reviews(*,queue_root:Path,folder:Path,
                      slide=slide,mode=mode)
         completed.append({"slide":slide,"mode":mode,
                           "receipt_sha256":receipt["receipt_sha256"]})
-    next_safe=select_next_safe_review(queue_root=queue_root,folder=folder)
+    next_safe=select_next_safe_review(
+        queue_root=queue_root,folder=folder,health_family=health_family)
     return {"status":"BOUNDED_REVIEW_LIMIT_REACHED",
             "completed":completed,"next_selection":next_safe,
             "max_units":max_units,"no_auto_retry":True,

@@ -34,6 +34,8 @@ MAX_PERSISTED_CYCLES=256
 
 _RESOLUTIONS={
     "FRESH_FIRST_ATTEMPT":"ORIGINAL_SOURCE_BOUND_ONE_SHOT_ACADEMIC_GEMINI",
+    "SYNTHETIC_DUAL_PDF_CAPABILITY_PROBE":
+        "OWNED_TWO_SYNTHETIC_PDF_SOURCE_MODALITY_TEST_ONCE_ONLY",
     "RECONCILE_PRIOR_RESPONSE_NO_SEND":
         "SHA_LOCKED_SOURCE_CITATION_DOWNGRADE_AND_LOCAL_REPLY_RECONCILIATION",
     "PREPARED_UNSENT_NO_DUPLICATE":
@@ -147,7 +149,8 @@ def _recover_history(home:Path,hashes:dict,source:Path,queue:Path,
                 and intent.get("prior_result_sha256")==previous
                 and intent.get("stage_classification") in (
                     "SOURCE_CITED_ACADEMIC_REVIEW",
-                    "TWO_PASS_SOURCE_QA_TO_PRODUCTION_MEDIA"),
+                    "TWO_PASS_SOURCE_QA_TO_PRODUCTION_MEDIA",
+                    "SOURCE_REVIEW_MODALITY_CAPABILITY_PROBE"),
                 "Forward decision/source/previous-stage SHA changed")
         result_path=home/f"{expected_no:04d}.result.json"
         if not result_path.is_file():
@@ -156,9 +159,42 @@ def _recover_history(home:Path,hashes:dict,source:Path,queue:Path,
                     "Only final crashed stage may be restored")
             # This can be run again across process deaths. It performs no
             # Gemini Send, no new TTS, no video, and does NOT certify completion.
-            observed=inspect(folder=source,queue_root=queue,work_root=work_root,
-                             health_family=health_family,auto_media=auto_media,
-                             execute=False,max_units=0)
+            if intent.get("stage_classification")==(
+                    "SOURCE_REVIEW_MODALITY_CAPABILITY_PROBE"):
+                # The synthetic request may have been sent before a crash.
+                # Reconcile only its immutable saved claim/result; do not
+                # submit a second probe during torn-stage recovery.
+                from .academic_dual_pdf_capability import qualifying_proof
+                claims=intent.get("original_unsafe_claim_slides")
+                require(type(claims) is list and len(claims)>=2
+                        and intent.get("capability_model_family")==health_family,
+                        "Crashed PDF capability stage identity changed")
+                proof=qualifying_proof(
+                    queue_root=queue,checkpoint_parent=queue.parent,
+                    source_sha=hashes["source.pdf"],
+                    prior_slides=claims,family=health_family)
+                def saved_only(**_):
+                    if proof is not None:
+                        return {**proof, "new_provider_requests":0}
+                    return {
+                        "status":"CRASHED_SYNTHETIC_PDF_PROBE_NOT_VERIFIED_NO_RESEND",
+                        "new_source_review_send_allowed":False,
+                        "new_provider_requests":0,
+                    }
+                observed=_synthetic_pdf_capability_stage(
+                    folder=source,queue_root=queue,hashes=hashes,
+                    selection={
+                        "status":"DEFERRED_REPEATED_UNATTRIBUTED_BROWSER_SEND",
+                        "required_recovery_action":
+                            "SYNTHETIC_DUAL_PDF_CAPABILITY_PROBE",
+                        "unattributed_prior_slides":claims,
+                    },family=health_family,probe=saved_only)
+            else:
+                observed=inspect(folder=source,queue_root=queue,
+                                 work_root=work_root,
+                                 health_family=health_family,
+                                 auto_media=auto_media,
+                                 execute=False,max_units=0)
             require(type(observed) is dict and observed.get(
                 "original_source_sha256")==hashes["source.pdf"],
                 "Cracked source checkpoint cannot be read-only recovered")
@@ -189,6 +225,17 @@ def _decision(report:dict, prior:dict)->tuple[str,str,bool]:
     status=report.get("status")
     selection=report.get("next_safe_academic_action") or {}
     attempt=report.get("bounded_review_attempt") or {}
+    if status=="G2_SYNTHETIC_PDF_CAPABILITY_VERIFIED":
+        safe=(selection.get("status")=="ONE_SAFE_ACADEMIC_REVIEW_UNIT_READY"
+              and selection.get("action")=="FRESH_FIRST_ATTEMPT"
+              and report.get("provider_health",{}).get(
+                  "new_source_review_send_allowed") is True)
+        return (("CONTINUE" if safe else "HALT"),
+                ("DUAL_PDF_PROOF_ADVANCE_TO_NEW_UNATTEMPTED_REVIEW"
+                 if safe else "PDF_PROBE_PROOF_DID_NOT_REQUALIFY_REVIEW"),
+                bool(safe))
+    if status=="G2_SYNTHETIC_PDF_CAPABILITY_DEFERRED":
+        return ("HALT","SYNTHETIC_PDF_CAPABILITY_NOT_VERIFIED_NO_RETRY",False)
     if status in _DEFERRED:
         return ("HALT",_registered_recovery(
             "supervisor_status", status, _DEFERRED,
@@ -227,10 +274,74 @@ def _decision(report:dict, prior:dict)->tuple[str,str,bool]:
     return ("HALT","UNRECOGNIZED_STAGE_REQUIRES_EXPLICIT_SOURCE_EVIDENCE",False)
 
 
+def _synthetic_pdf_capability_stage(*, folder:Path, queue_root:Path,
+                                    hashes:dict,selection:dict,
+                                    family:str,probe=None)->dict:
+    """One bounded, synthetic-only two-PDF review-transport check.
+
+    This is NOT a textbook review, scientific consensus, TTS or permission
+    to replay the original no-response claims. Selection is source-bound
+    and is independently recomputed after any verified capability receipt.
+    """
+    require(selection.get("status")==
+            "DEFERRED_REPEATED_UNATTRIBUTED_BROWSER_SEND"
+            and selection.get("required_recovery_action")==
+                "SYNTHETIC_DUAL_PDF_CAPABILITY_PROBE",
+            "Synthetic capability only applies to a proven two-Send stop")
+    from .academic_dual_pdf_capability import probe_once
+    from .ai_academic_review_queue import select_next_safe_review
+    from .ai_academic_review_consensus import reconcile_actual_review_queue
+    outcome=(probe or probe_once)(
+        queue_root=queue_root, checkpoint_parent=queue_root.parent,
+        source_sha=hashes["source.pdf"],
+        prior_slides=selection["unattributed_prior_slides"],
+        family=family)
+    require(outcome.get("new_source_review_send_allowed") in (True, False)
+            and type(outcome.get("new_provider_requests")) is int
+            and 0<=outcome["new_provider_requests"]<=1,
+            "Unverified finite synthetic Gemini probe outcome")
+    following=select_next_safe_review(
+        queue_root=queue_root,folder=folder,health_family=family)
+    state=reconcile_actual_review_queue(queue_root=queue_root,folder=folder)
+    require(state.get("status")==
+            "INDEPENDENTLY_REVALIDATED_AI_SOURCE_MATH_AGREEMENT_QUEUE"
+            and len(state.get("accepted_ai_evidence",[]))+
+                state.get("pending_or_disputed", -1) ==
+                state.get("original_utterances", -2),
+            "Synthetic probe may not bypass independent source-science")
+    safe=(outcome["new_source_review_send_allowed"] is True
+          and following.get("status")=="ONE_SAFE_ACADEMIC_REVIEW_UNIT_READY"
+          and following.get("action")=="FRESH_FIRST_ATTEMPT")
+    return {
+        "schema_version":1,
+        "status":("G2_SYNTHETIC_PDF_CAPABILITY_VERIFIED" if safe else
+                  "G2_SYNTHETIC_PDF_CAPABILITY_DEFERRED"),
+        "original_source_sha256":hashes["source.pdf"],
+        "original_slides_sha256":hashes["slides.pdf"],
+        "original_script_sha256":hashes["script.txt"],
+        "two_pass_ai_source_agreed_segments":len(state["accepted_ai_evidence"]),
+        "pending_or_disputed_segments":state["pending_or_disputed"],
+        "expected_original_utterances":state["original_utterances"],
+        "provider_health":{
+            "status":outcome["status"],
+            "new_source_review_send_allowed":bool(safe),
+            "new_synthetic_pdf_requests":outcome["new_provider_requests"],
+            "original_source_uploaded":False,
+            "original_request_replayed":False,
+        },
+        "next_safe_academic_action":following,
+        "new_paid_tts_dispatched":False,
+        "real_mp4_encoded_this_cycle":False,
+        "academic_science_approved":False,
+        "student_publication_authorized":False,
+    }
+
+
 def run(*,folder:Path,queue_root:Path,work_root:Path,
         execute:bool=False,max_cycles:int=MAX_CYCLES_PER_INVOCATION,
         health_family:str="pro",auto_media:bool=True,
-        supervisor:Callable|None=None)->dict:
+        supervisor:Callable|None=None,
+        synthetic_pdf_probe:Callable|None=None)->dict:
     """Continue every genuinely eligible stage now; stop at a proven blocker.
 
     No separate scheduled task or background dependency is installed.
@@ -275,13 +386,42 @@ def run(*,folder:Path,queue_root:Path,work_root:Path,
             # A one-cycle supervisor stages original media only AFTER exact
             # source and independent science proof. One model Send maximum.
             from .ai_academic_review_queue import select_next_safe_review
-            selection=select_next_safe_review(queue_root=queue_root,folder=folder)
-            media_only=selection.get("status") != "ONE_SAFE_ACADEMIC_REVIEW_UNIT_READY"
-            if not media_only:
+            selection=select_next_safe_review(
+                queue_root=queue_root,folder=folder,health_family=health_family)
+            if selection.get("status")==(
+                    "DEFERRED_SYNTHETIC_PDF_CAPABILITY_EXHAUSTED_NO_RESEND"):
+                # Another invocation cannot restart a synthetic or original
+                # request already claimed by the previous failed incident.
+                # Report the durable eligibility boundary without creating
+                # an endless stream of no-op forward-stage receipts.
+                return {
+                    "status":"G2_FORWARD_STOPPED_AT_VERIFIED_ELIGIBILITY_BOUNDARY",
+                    "journal":str(home),
+                    "stage_cycles_this_invocation":completed,
+                    "last_stage":{
+                        "status":selection["status"],
+                        "reason":"SYNTHETIC_PDF_NO_REPLY_OR_UNCERTAIN_CLAIM",
+                        "unattempted_candidate_slide":
+                            selection.get("unattempted_candidate_slide"),
+                        "original_request_replay_authorized":False,
+                        "student_publication_authorized":False,
+                    },
+                    "next_scheduled_task_created":False,
+                    "G2_claimed_complete":False,
+                }
+            capability_only=(
+                selection.get("status")=="DEFERRED_REPEATED_UNATTRIBUTED_BROWSER_SEND"
+                and selection.get("required_recovery_action")
+                    =="SYNTHETIC_DUAL_PDF_CAPABILITY_PROBE"
+            )
+            media_only=(not capability_only and
+                        selection.get("status")!="ONE_SAFE_ACADEMIC_REVIEW_UNIT_READY")
+            if not media_only and not capability_only:
                 require(selection.get("action") in _RESOLUTIONS,
                         "Unknown source-review recovery action cannot dispatch a provider request")
-            kind=("TWO_PASS_SOURCE_QA_TO_PRODUCTION_MEDIA" if media_only else
-                  "SOURCE_CITED_ACADEMIC_REVIEW")
+            kind=("SOURCE_REVIEW_MODALITY_CAPABILITY_PROBE" if capability_only
+                  else "TWO_PASS_SOURCE_QA_TO_PRODUCTION_MEDIA" if media_only
+                  else "SOURCE_CITED_ACADEMIC_REVIEW")
             intent_path=home/f"{next_no:04d}.intent.json"
             _new_json(intent_path,{
                 "schema_version":1,"original_source_folder":str(folder),
@@ -291,10 +431,19 @@ def run(*,folder:Path,queue_root:Path,work_root:Path,
                 "original_script_sha256":hashes["script.txt"],
                 "prior_result_sha256":previous,
                 "stage_classification":kind,
-                "selected_original_slide":selection.get("next_slide"),
-                "selected_original_mode":selection.get("next_mode"),
+                "selected_original_slide":(
+                    selection.get("unattempted_candidate_slide")
+                    if capability_only else selection.get("next_slide")),
+                "selected_original_mode":(
+                    "INITIAL_REVIEW" if capability_only else selection.get("next_mode")),
+                "original_unsafe_claim_slides":(
+                    selection.get("unattributed_prior_slides")
+                    if capability_only else None),
+                "capability_model_family":health_family if capability_only else None,
                 "recovery_mechanism":_registered_recovery(
-                    "selection_action", selection.get("action") or "",
+                    "selection_action",
+                    ("SYNTHETIC_DUAL_PDF_CAPABILITY_PROBE" if capability_only
+                     else selection.get("action") or ""),
                     _RESOLUTIONS,
                     "REVALIDATE_TWO_PASS_SOURCE_CONSENSUS_OR_STOP"),
                 "recovery_registry_sha256":_sha(REGISTRY_PATH),
@@ -303,10 +452,16 @@ def run(*,folder:Path,queue_root:Path,work_root:Path,
                 "student_publication_authorized":False,
             })
             try:
-                report=invoke(
-                    folder=folder,queue_root=queue_root,work_root=work_root,
-                    execute=True,max_units=0 if media_only else 1,
-                    health_family=health_family,auto_media=auto_media)
+                if capability_only:
+                    report=_synthetic_pdf_capability_stage(
+                        folder=folder,queue_root=queue_root,hashes=hashes,
+                        selection=selection,family=health_family,
+                        probe=synthetic_pdf_probe)
+                else:
+                    report=invoke(
+                        folder=folder,queue_root=queue_root,work_root=work_root,
+                        execute=True,max_units=0 if media_only else 1,
+                        health_family=health_family,auto_media=auto_media)
             except Exception as exc:
                 # A process or provider failure may occur AFTER a Send;
                 # record uncertainty, never grant retry or scientific QA.

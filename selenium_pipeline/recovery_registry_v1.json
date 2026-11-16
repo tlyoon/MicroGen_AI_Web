@@ -18,6 +18,20 @@
       "enabled": true
     },
     {
+      "id": "G2_SYNTHETIC_TWO_PDF_CAPABILITY",
+      "match_type": "selection_action",
+      "signature": "SYNTHETIC_DUAL_PDF_CAPABILITY_PROBE",
+      "mechanism": "OWNED_TWO_SYNTHETIC_PDF_SOURCE_MODALITY_TEST_ONCE_ONLY",
+      "classification": "TWO_ORIGINAL_SOURCE_SENDS_UNATTRIBUTED",
+      "handler": "NORMAL_SOURCE_BOUND_G2_SUPERVISOR_AND_QUEUE",
+      "preconditions": "two immutable prior source claims; synthetic PDFs contain secret challenge markers, no original source uploaded",
+      "verification_test": "tests/test_academic_dual_pdf_capability.py",
+      "last_verified_date": "2026-11-16",
+      "environment": "Dell-115 / Windows / Selenium Gemini G2",
+      "retry_policy": "finite one-send diagnostic per incident, one per UTC source/model day; no-repeat claim; 32-stage limit",
+      "enabled": true
+    },
+    {
       "id": "G2_ACADEMIC_SAVED_REPLY",
       "match_type": "selection_action",
       "signature": "RECONCILE_PRIOR_RESPONSE_NO_SEND",
