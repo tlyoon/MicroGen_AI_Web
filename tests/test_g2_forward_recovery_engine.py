@@ -72,6 +72,15 @@ class G2ForwardRecoveryEngineTests(unittest.TestCase):
             "real_mp4_encoded_this_cycle":False,
         }
 
+    def test_v6_unknown_action_does_not_dispatch_or_claim_source_send(self):
+        self.selection["action"]="UNREGISTERED_RISKY_PROVIDER_RETRY"
+        def forbidden(**kw):
+            self.fail("An unclassified recovery may not call the supervisor")
+        with self.assertRaisesRegex(Exception,"Unknown source-review recovery action"):
+            self.invoke(execute=True,supervisor=forbidden)
+        home=self.work/"g2_forward_recovery_v1"
+        self.assertFalse(list(home.rglob("*.intent.json")))
+
     def test_completed_recovery_triggers_next_stage_without_new_user_prompt(self):
         def dispatch(**kwargs):
             self.events.append(kwargs)

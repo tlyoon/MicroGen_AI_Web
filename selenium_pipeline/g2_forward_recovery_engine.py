@@ -26,6 +26,7 @@ from typing import Callable
 
 from .evidence_reuse_contract import file_sha256
 from .original_multisource_recovery_campaign import require
+from .recovery_registry import lookup_mechanism, REGISTRY_PATH
 
 
 MAX_CYCLES_PER_INVOCATION=32
@@ -55,6 +56,22 @@ _TERMINAL_ATTEMPTS={
     "BOUNDED_REVIEW_STOPPED_AFTER_UNACCEPTED_UNIT",
 }
 _DONE_ACCEPTED="GEMINI_SOURCE_REVIEW_ONE_SLIDE_COMPLETED"
+
+
+def _registered_recovery(match_type: str, signature: str, known: dict,
+                         fallback: str) -> str:
+    """Consult durable verified recovery intelligence before executing a stage.
+
+    Never permit a changed/retired label to masquerade as an installed
+    implementation: the queue/supervisor retains the actual code-reviewed
+    handler and its no-Send / scientific / billing gates.
+    """
+    found = lookup_mechanism(match_type, signature)
+    expected = known.get(signature)
+    if expected is not None:
+        require(found == expected,
+                "Known recovery signature retired, missing or changed in registry")
+    return found if found is not None else fallback
 
 
 def _sha(path:Path)->str:
@@ -173,7 +190,9 @@ def _decision(report:dict, prior:dict)->tuple[str,str,bool]:
     selection=report.get("next_safe_academic_action") or {}
     attempt=report.get("bounded_review_attempt") or {}
     if status in _DEFERRED:
-        return ("HALT",_DEFERRED[status],False)
+        return ("HALT",_registered_recovery(
+            "supervisor_status", status, _DEFERRED,
+            "UNRECOGNIZED_STAGE_REQUIRES_EXPLICIT_SOURCE_EVIDENCE"),False)
     if status=="G2_ACADEMIC_TWO_PASS_SOURCE_QA_READY_FOR_REAL_AUDIO":
         return ("HALT","SOURCE_ACADEMIC_PASS_BUT_MEDIA_NOT_AUTHORIZED_OR_DISABLED",
                 False)
@@ -258,6 +277,9 @@ def run(*,folder:Path,queue_root:Path,work_root:Path,
             from .ai_academic_review_queue import select_next_safe_review
             selection=select_next_safe_review(queue_root=queue_root,folder=folder)
             media_only=selection.get("status") != "ONE_SAFE_ACADEMIC_REVIEW_UNIT_READY"
+            if not media_only:
+                require(selection.get("action") in _RESOLUTIONS,
+                        "Unknown source-review recovery action cannot dispatch a provider request")
             kind=("TWO_PASS_SOURCE_QA_TO_PRODUCTION_MEDIA" if media_only else
                   "SOURCE_CITED_ACADEMIC_REVIEW")
             intent_path=home/f"{next_no:04d}.intent.json"
@@ -271,9 +293,11 @@ def run(*,folder:Path,queue_root:Path,work_root:Path,
                 "stage_classification":kind,
                 "selected_original_slide":selection.get("next_slide"),
                 "selected_original_mode":selection.get("next_mode"),
-                "recovery_mechanism":_RESOLUTIONS.get(
-                    selection.get("action"),
+                "recovery_mechanism":_registered_recovery(
+                    "selection_action", selection.get("action") or "",
+                    _RESOLUTIONS,
                     "REVALIDATE_TWO_PASS_SOURCE_CONSENSUS_OR_STOP"),
+                "recovery_registry_sha256":_sha(REGISTRY_PATH),
                 "never_resend_ambiguous_claim":True,
                 "paid_operations_subject_to_existing_tts_cost_guard":True,
                 "student_publication_authorized":False,
