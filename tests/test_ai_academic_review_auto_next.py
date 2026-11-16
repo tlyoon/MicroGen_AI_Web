@@ -230,6 +230,177 @@ class AutomaticSourceBoundReviewQueue(unittest.TestCase):
             "original_request_replay_authorized"])
         self.assertFalse(next_plan["new_model_requests"])
 
+    def _seed_historical_wrapped_rejection(self, *, damage=None):
+        """Simulate a real, already-claimed reply rejected by the old parser."""
+        from selenium_pipeline.academic_review_checkpoint import validate_saved
+        job=build_review_job(folder=self.folder,slide_numbers=[1])
+        prompt=review_instructions(job,mode="INITIAL_REVIEW")
+        raw_candidate=json.loads(self.fake_response(prompt,[]))
+        payload={"job":raw_candidate}
+        if damage=="additional_wrapper_key":
+            payload["untrusted_claim"]="APPROVED"
+        raw=json.dumps(payload)
+        cp=self.queue/"slide_001_initial_review_attempt_01_request"
+        pre=prepare(checkpoint=cp,original_folder=self.folder,
+                    request_text=prompt,source_hashes={
+                        "source.pdf":job["source_sha256"],
+                        "slides.pdf":job["slides_sha256"],
+                        "script.txt":job["script_sha256"]},
+                    review_mode="INITIAL_REVIEW")
+        mark_submission_maybe(cp,expected_fingerprint=pre["request_fingerprint"])
+        record_observation(cp,raw=raw,
+                           expected_fingerprint=pre["request_fingerprint"])
+        def historical_parser(_):
+            raise FigureIdentityReviewRequired("Original model review format cannot be reconciled")
+        with self.assertRaises(FigureIdentityReviewRequired):
+            validate_saved(checkpoint=cp,
+                           expected_fingerprint=pre["request_fingerprint"],
+                           validator=historical_parser)
+        old=self.queue/"slide_001_initial_review_attempt_01.json"
+        reconciliation=self.queue/(
+            "slide_001_initial_review_reconciled_after_attempt_01.json")
+        old.write_text(json.dumps({
+            "status":"FAILED_GEMINI_REVIEW_ATTEMPT_QUARANTINED",
+            "slide":1,"mode":"INITIAL_REVIEW","attempt":1,
+            "provider_submission_state":"RETURNED_RESPONSE_INVALID",
+            "manual_retry_eligible":False,
+            "academically_approved":False,
+            "student_publication_authorized":False,
+        }),encoding="utf8")
+        reconciliation.write_text(json.dumps({
+            "status":"FAILED_SAVED_RESPONSE_RECONCILIATION_NO_SEND",
+            "slide":1,"mode":"INITIAL_REVIEW","attempt":1,
+            "provider_submission_state":"PRIOR_SAVED_RESPONSE_ONLY",
+            "new_provider_requests":False,
+            "academically_approved":False,
+            "student_publication_authorized":False,
+        }),encoding="utf8")
+        return cp,old,reconciliation,raw
+
+    def test_historical_job_envelope_recovery_no_send_then_forward(self):
+        checkpoint,old,reconciled,raw=self._seed_historical_wrapped_rejection()
+        old_bytes,reconciled_bytes=old.read_bytes(),reconciled.read_bytes()
+        original_checkpoint_bytes=(
+            checkpoint/"model_response_untrusted.txt").read_bytes()
+        before_source=self.source_before.copy()
+        chosen=select_next_safe_review(queue_root=self.queue,folder=self.folder)
+        self.assertEqual(chosen["action"],"RECOVER_WRAPPED_SAVED_REPLY_NO_SEND")
+        self.assertEqual(chosen["next_slide"],1)
+        self.assertFalse(chosen["new_model_requests"])
+        from selenium_pipeline import ai_academic_review_queue as queue_module
+        with patch.object(queue_module,"run_web_review",
+                          side_effect=AssertionError("never re-Send Gemini")):
+            result=advance_one_safe_review(
+                queue_root=self.queue,folder=self.folder,execute=True)
+        self.assertEqual(result["review"]["status"],
+                         "GEMINI_SOURCE_REVIEW_ONE_SLIDE_COMPLETED")
+        accepted=self.queue/"slide_001_initial_review.json"
+        self.assertTrue(accepted.is_file())
+        receipt=json.loads(accepted.read_text(encoding="utf8"))
+        self.assertEqual(receipt["original_model_envelope_audit"]["status"],
+                         "EXACT_JOB_ENVELOPE_UNWRAPPED_ONLY")
+        self.assertEqual(receipt["original_model_envelope_audit"]["source_support_promoted"],0)
+        self.assertFalse(receipt["student_publication_authorized"])
+        self.assertEqual(old.read_bytes(),old_bytes)
+        self.assertEqual(reconciled.read_bytes(),reconciled_bytes)
+        self.assertEqual((checkpoint/"model_response_untrusted.txt").read_bytes(),
+                         original_checkpoint_bytes)
+        self.assertEqual(before_source,
+                         {x.name:x.read_bytes() for x in self.folder.iterdir()
+                          if x.is_file()})
+        recovered=self.queue/"slide_001_initial_review_envelope_recovered_after_attempt_01.json"
+        self.assertTrue(recovered.is_file())
+        provenance=json.loads(recovered.read_text())[
+            "saved_envelope_recovery_provenance"]
+        self.assertEqual(provenance["status"],
+                         "OWNED_REPLY_SOURCE_ONLY_ENVELOPE_RECOVERY_V1")
+        self.assertFalse(provenance["new_provider_requests"])
+        self.assertEqual(provenance["scientific_verdicts_added"],0)
+        self.assertEqual(provenance["source_citations_invented"],0)
+        new_plan=select_next_safe_review(queue_root=self.queue,folder=self.folder)
+        self.assertEqual((new_plan["next_slide"],new_plan["next_mode"]),
+                         (1,"INDEPENDENT_CHALLENGE"))
+
+    def test_wrapped_recovery_after_crash_between_saved_validation_and_receipt(self):
+        # The process may die after validate_saved marks the original
+        # checkpoint source-validated but before the new recovery receipt.
+        from selenium_pipeline.academic_review_checkpoint import (
+            validate_saved, fingerprint)
+        from selenium_pipeline.ai_academic_web_review import validate_source_demoted_review
+        from selenium_pipeline.series_gemini import decode_storyboard_response
+        checkpoint,old,reconciled,raw=self._seed_historical_wrapped_rejection()
+        job=build_review_job(folder=self.folder,slide_numbers=[1])
+        prompt=review_instructions(job,mode="INITIAL_REVIEW")
+        expected=fingerprint(request_text=prompt,source_hashes={
+            "source.pdf":job["source_sha256"],
+            "slides.pdf":job["slides_sha256"],
+            "script.txt":job["script_sha256"]},
+            review_mode="INITIAL_REVIEW")
+        earlier=validate_saved(checkpoint=checkpoint,
+                               expected_fingerprint=expected,
+                               validator=lambda text:validate_source_demoted_review(
+                                   folder=self.folder,job=job,
+                                   response=decode_storyboard_response(text),
+                                   mode="INITIAL_REVIEW"))
+        self.assertEqual(earlier["status"],
+                         "SOURCE_WITNESSED_AI_MATH_REVIEW_ONE_PASS")
+        self.assertFalse((self.queue/"slide_001_initial_review.json").exists())
+        selected=select_next_safe_review(queue_root=self.queue,folder=self.folder)
+        self.assertEqual(selected["action"],"RECOVER_WRAPPED_SAVED_REPLY_NO_SEND")
+        from selenium_pipeline import ai_academic_review_queue as queue_module
+        with patch.object(queue_module,"run_web_review",
+                          side_effect=AssertionError("no Gemini re-Send")):
+            recovered=advance_one_safe_review(
+                queue_root=self.queue,folder=self.folder,execute=True)
+        self.assertEqual(recovered["review"]["status"],
+                         "GEMINI_SOURCE_REVIEW_ONE_SLIDE_COMPLETED")
+        self.assertTrue((self.queue/"slide_001_initial_review.json").is_file())
+
+    def test_nested_partial_review_keeps_unsupported_and_missing_rows_unresolved(self):
+        from selenium_pipeline.ai_academic_web_review import validate_source_demoted_review
+        job=build_review_job(folder=self.folder,slide_numbers=[1])
+        raw=json.loads(self.fake_response(
+            review_instructions(job,mode="INDEPENDENT_CHALLENGE"),[]))
+        only=raw["rows"][0]
+        only["verdict"]="SUPPORTED"
+        only["source_page"]=None
+        only["verbatim_source_quote"]=None
+        raw["rows"]=[only]
+        validated=validate_source_demoted_review(
+            folder=self.folder,job=job,
+            response={"job":raw},mode="INDEPENDENT_CHALLENGE")
+        self.assertEqual(validated["review_count"],job["utterance_count"])
+        self.assertEqual(validated["rows"][0]["verdict"],"UNRESOLVED")
+        self.assertFalse(validated["rows"][0]["exact_textbook_quote_verified"])
+        self.assertFalse(validated["student_publication_authorized"])
+        audit=validated["source_only_downgrade_audit"]
+        self.assertEqual(audit["model_returned_utterance_count"],1)
+        self.assertEqual(
+            audit["machine_inserted_unresolved_placeholder_count"],
+            job["utterance_count"]-1)
+        self.assertEqual(audit["model_claims_promoted_to_supported"],0)
+        self.assertEqual(
+            validated["original_model_envelope_audit"]["source_support_promoted"],0)
+
+    def test_malformed_or_tampered_wrapped_reply_stays_quarantined(self):
+        checkpoint,old,reconciled,raw=self._seed_historical_wrapped_rejection(
+            damage="additional_wrapper_key")
+        chosen=select_next_safe_review(queue_root=self.queue,folder=self.folder)
+        self.assertEqual(chosen["next_slide"],2)
+        self.assertIn("SOURCE_REVIEW_QUARANTINED_INVALID_SAVED_REPLY",
+                      [x["reason"] for x in chosen["blocked_other_slides"]])
+        self.assertFalse((self.queue/"slide_001_initial_review.json").exists())
+        # Rewriting the captured response cannot promote it even when its JSON
+        # is otherwise acceptable, because the owned-Send SHA must match.
+        (checkpoint/"model_response_untrusted.txt").write_text(
+            json.dumps({"job":json.loads(self.fake_response(
+                review_instructions(build_review_job(
+                    folder=self.folder,slide_numbers=[1]),mode="INITIAL_REVIEW"),[]))}),
+            encoding="utf8")
+        second=select_next_safe_review(queue_root=self.queue,folder=self.folder)
+        self.assertEqual(second["next_slide"],2)
+        self.assertFalse((self.queue/"slide_001_initial_review.json").exists())
+
     def test_bounded_batch_autonomously_advances_three_source_verified_units(self):
         report=advance_bounded_safe_reviews(
             queue_root=self.queue,folder=self.folder,max_units=3,

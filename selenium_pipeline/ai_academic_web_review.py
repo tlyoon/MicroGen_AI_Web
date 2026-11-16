@@ -183,6 +183,11 @@ def validate_source_demoted_review(*, folder: Path, job: dict,
     This never upgrades any Gemini verdict. The unmodified original model
     response is held in the immutable academic request checkpoint.
     """
+    # Historical Gemini source reviews occasionally wrap the requested
+    # schema in one {"job":...} object. Only remove that exact transport
+    # envelope. Never repair or invent its scientific rows or citations.
+    from .academic_review_envelope_recovery import unwrap_exact_review_envelope
+    response, had_exact_envelope = unwrap_exact_review_envelope(response)
     evidence = None
     if verified_source_evidence is None and job.get(
             "verified_source_quote_candidates_v1") is not None:
@@ -194,6 +199,14 @@ def validate_source_demoted_review(*, folder: Path, job: dict,
         mode=mode, verified_source_evidence=verified_source_evidence)
     if evidence is not None:
         validated["source_only_downgrade_audit"] = evidence
+    if had_exact_envelope:
+        validated["original_model_envelope_audit"] = {
+            "schema_version": 1,
+            "status": "EXACT_JOB_ENVELOPE_UNWRAPPED_ONLY",
+            "verdicts_added": 0, "source_citations_added": 0,
+            "source_support_promoted": 0, "provider_requests": 0,
+            "student_publication_authorized": False,
+        }
     return validated
 
 

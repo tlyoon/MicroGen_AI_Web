@@ -37,6 +37,8 @@ _RESOLUTIONS={
         "SHA_LOCKED_SOURCE_CITATION_DOWNGRADE_AND_LOCAL_REPLY_RECONCILIATION",
     "PREPARED_UNSENT_NO_DUPLICATE":
         "VERIFY_OLD_EXCLUSIVE_CLAIM_AND_CERTIFIED_NO_SEND",
+    "RECOVER_WRAPPED_SAVED_REPLY_NO_SEND":
+        "EXACT_OWNED_JSON_ENVELOPE_AND_DOWNGRADE_ONLY_SOURCE_RECONCILIATION",
 }
 _DEFERRED={
     "G2_PROVIDER_HEALTH_DEFERRED_NO_NEW_SOURCE_SEND":
@@ -187,8 +189,13 @@ def _decision(report:dict, prior:dict)->tuple[str,str,bool]:
             return ("HALT","NO_MORE_SOURCE_BOUND_REVIEW_OPERATIONS",False)
         if (attempt.get("status") in _TERMINAL_ATTEMPTS
                 and selection.get("status")=="ONE_SAFE_ACADEMIC_REVIEW_UNIT_READY"
-                and new_selection=="RECONCILE_PRIOR_RESPONSE_NO_SEND"):
-            return ("CONTINUE","RECONCILE_IMMUTABLE_MODEL_REPLY_WITHOUT_RESEND",True)
+                and new_selection in {
+                    "RECONCILE_PRIOR_RESPONSE_NO_SEND",
+                    "RECOVER_WRAPPED_SAVED_REPLY_NO_SEND"}):
+            return ("CONTINUE",(
+                "RECONCILE_EXACT_WRAPPED_MODEL_REPLY_WITHOUT_RESEND"
+                if new_selection=="RECOVER_WRAPPED_SAVED_REPLY_NO_SEND" else
+                "RECONCILE_IMMUTABLE_MODEL_REPLY_WITHOUT_RESEND"),True)
         if (attempt.get("status")=="BOUNDED_REVIEW_STOPPED_AFTER_UNACCEPTED_UNIT"
                 and selection.get("status")=="ONE_SAFE_ACADEMIC_REVIEW_UNIT_READY"
                 and selection.get("next_slide") != prior.get("next_slide")):

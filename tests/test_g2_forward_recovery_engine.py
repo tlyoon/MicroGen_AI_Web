@@ -124,6 +124,30 @@ class G2ForwardRecoveryEngineTests(unittest.TestCase):
         self.assertEqual(one["recovery_mechanism"],
                          "SHA_LOCKED_SOURCE_CITATION_DOWNGRADE_AND_LOCAL_REPLY_RECONCILIATION")
 
+    def test_new_wrapped_saved_reply_recovers_and_advances_without_prompt(self):
+        self.selection["action"]="RECOVER_WRAPPED_SAVED_REPLY_NO_SEND"
+        def dispatch(**kw):
+            self.events.append(kw)
+            if len(self.events)==1:
+                self.selection={**self.selection,
+                                "next_slide":7,
+                                "action":"RECOVER_WRAPPED_SAVED_REPLY_NO_SEND"}
+                return self.report("G2_ACADEMIC_QA_INCOMPLETE_REVIEW_OR_SOURCE_REPAIR",
+                    attempt={"status":"BOUNDED_REVIEW_LIMIT_REACHED",
+                             "completed":[{"slide":5,"receipt_sha256":"f"*64}]})
+            return self.report("G2_PROVIDER_HEALTH_DEFERRED_NO_NEW_SOURCE_SEND")
+        out=self.invoke(execute=True,supervisor=dispatch)
+        self.assertEqual(len(self.events),2)
+        self.assertEqual(out["stage_cycles_this_invocation"][0]["action"],
+                         "CONTINUE")
+        self.assertEqual(out["stage_cycles_this_invocation"][1]["action"],
+                         "HALT")
+        home=Path(out["journal"])
+        intent=_json_file(home/"0001.intent.json")
+        self.assertEqual(intent["recovery_mechanism"],
+                         "EXACT_OWNED_JSON_ENVELOPE_AND_DOWNGRADE_ONLY_SOURCE_RECONCILIATION")
+        self.assertTrue(intent["never_resend_ambiguous_claim"])
+
     def test_quarantined_saved_reply_advances_next_unattempted_slide(self):
         """A genuinely rejected saved reply may not halt unrelated science."""
         self.selection["action"]="RECONCILE_PRIOR_RESPONSE_NO_SEND"

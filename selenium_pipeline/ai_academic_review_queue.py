@@ -120,7 +120,8 @@ def _prior_unattributed_streak(*, queue_root:Path, slide_jobs:list[dict],
 
 def execute_one_review(*,queue_root:Path,folder:Path,
                        slide:int,mode:str,
-                       attempt:int=1,transport=None)->dict:
+                       attempt:int=1,transport=None,
+                       wrapped_recovery_only:bool=False)->dict:
     queue_root=Path(queue_root).absolute();folder=Path(folder).absolute()
     require(type(attempt) is int and 1<=attempt<=3,"No unbounded AI retry loop")
     row=_check_queue(queue_root=queue_root,folder=folder,slide=slide,mode=mode)
@@ -129,6 +130,32 @@ def execute_one_review(*,queue_root:Path,folder:Path,
     evidence_file=queue_root/f"slide_{slide:03d}_{mode.lower()}_attempt_{attempt:02d}.json"
     live_checkpoint=queue_root/(
         f"slide_{slide:03d}_{mode.lower()}_attempt_{attempt:02d}_request")
+    require(type(wrapped_recovery_only) is bool,
+            "Invalid saved-review recovery mode")
+    if wrapped_recovery_only:
+        require(transport is None and attempt==1,
+                "Envelope recovery MUST NOT issue any Gemini Send")
+        prior_reconciliation=queue_root/(
+            f"slide_{slide:03d}_{mode.lower()}_reconciled_after_attempt_01.json")
+        require(prior_reconciliation.is_file()
+                and not prior_reconciliation.is_symlink(),
+                "Original failed reconciliation evidence is required")
+        old=json.loads(prior_reconciliation.read_text(encoding="utf8"))
+        require(old.get("status")=="FAILED_SAVED_RESPONSE_RECONCILIATION_NO_SEND"
+                and old.get("slide")==slide and old.get("mode")==mode
+                and old.get("provider_submission_state")=="PRIOR_SAVED_RESPONSE_ONLY"
+                and old.get("new_provider_requests") is False
+                and old.get("academically_approved") is False
+                and old.get("student_publication_authorized") is False,
+                "Cannot reinterpret a previously approved or unclaimed source review")
+        from .academic_review_envelope_recovery import (
+            inspect_owned_nested_envelope)
+        candidate=inspect_owned_nested_envelope(
+            checkpoint=live_checkpoint, mode=mode,
+            job=build_review_job(folder=folder,slide_numbers=[slide]))
+        require(candidate is not None
+                and candidate["status"]=="VERIFIED_WRAPPED_SOURCE_REVIEW_NO_SEND",
+                "Not an exact source-bound model-owned wrapped reply")
     if transport is not None and (live_checkpoint/"dispatch_attempted.claim").exists():
         require(False,"Previously claimed Gemini review cannot use an injected "
                       "transport; only verify same saved reply without Send")
@@ -151,10 +178,15 @@ def execute_one_review(*,queue_root:Path,folder:Path,
             and saved_path.is_file() and not saved_path.is_symlink())
     reconciliation_only=evidence_file.exists() and saved_reply_candidate
     if reconciliation_only:
-        # The old failure is permanent evidence. Write a separate immutable
-        # reconciliation result and NEVER replay the consumed browser claim.
+        # Historical failure is permanent evidence; successor receipt
+        # cannot overwrite its previous scientific validation decision.
         evidence_file=queue_root/(
             f"slide_{slide:03d}_{mode.lower()}_reconciled_after_attempt_{attempt:02d}.json")
+    if wrapped_recovery_only:
+        require(reconciliation_only,
+                "Envelope recovery needs existing invalid saved reply")
+        evidence_file=queue_root/(
+            f"slide_{slide:03d}_{mode.lower()}_envelope_recovered_after_attempt_{attempt:02d}.json")
     require(not evidence_file.exists() and not evidence_file.is_symlink(),
             "Observed attempt/reconciliation receipt must never be overwritten")
     # Fail immediately after previous failures unless caller explicitly elects next attempt.
@@ -315,6 +347,20 @@ def execute_one_review(*,queue_root:Path,folder:Path,
           "receipt_sha256":_sha(success),
           "academic_independent_challenge_complete":False,
           "student_publication_authorized":False}
+    if wrapped_recovery_only:
+        # Audit the write-once successor. Original request and prior failed
+        # reconciliation receipts stay immutable, and the next academic
+        # reviewer must still pass separate independent source consensus.
+        done["saved_envelope_recovery_provenance"]={
+            "schema_version":1,
+            "status":"OWNED_REPLY_SOURCE_ONLY_ENVELOPE_RECOVERY_V1",
+            "original_model_response_sha256":candidate["response_sha256"],
+            "prior_failed_reconciliation_sha256":_sha(prior_reconciliation),
+            "new_provider_requests":False,
+            "scientific_verdicts_added":0,
+            "source_citations_invented":0,
+            "student_publication_authorized":False,
+        }
     with evidence_file.open("x",encoding="utf8") as f:
         json.dump(done,f,indent=2);f.write("\n")
     return done
@@ -382,6 +428,56 @@ def select_next_safe_review(*,queue_root:Path,folder:Path)->dict:
                         and reconcile_result.get("academically_approved") is False
                         and reconcile_result.get("student_publication_authorized") is False,
                         "Failed saved reply cannot be quarantined without exact identity")
+                    # Historical salvage route: the same owned model bytes
+                    # may contain a single known {"job":...} envelope. It is
+                    # NOT another reviewer response; source/quote/math checks
+                    # remain independently mandatory and no Send is possible.
+                    successor=queue_root/(
+                        f"slide_{slide:03d}_{mode.lower()}_envelope_recovered_after_attempt_01.json")
+                    if successor.exists() or successor.is_symlink():
+                        require(successor.is_file() and not successor.is_symlink(),
+                                "Unsafe historical envelope successor")
+                        previous=json.loads(successor.read_text(encoding="utf8"))
+                        require(previous.get("slide")==slide
+                                and previous.get("mode")==mode
+                                and previous.get("attempt")==1
+                                and previous.get("student_publication_authorized") is False
+                                and previous.get("status") in {
+                                    "GEMINI_SOURCE_REVIEW_ONE_SLIDE_COMPLETED",
+                                    "FAILED_SAVED_RESPONSE_RECONCILIATION_NO_SEND"},
+                                "Untrusted envelope recovery successor")
+                        require(previous.get("status")!=
+                                "GEMINI_SOURCE_REVIEW_ONE_SLIDE_COMPLETED",
+                                "Accepted envelope reply has no original source pass")
+                    else:
+                        from .academic_review_envelope_recovery import (
+                            inspect_owned_nested_envelope)
+                        from .figure_source_identity import FigureIdentityReviewRequired
+                        try:
+                            proof=inspect_owned_nested_envelope(
+                                checkpoint=saved_claim,mode=mode,
+                                job=build_review_job(folder=folder,slide_numbers=[slide]))
+                        except (FigureIdentityReviewRequired, ValueError,
+                                KeyError, TypeError):
+                            # A tampered, unbound or malformed saved reply is
+                            # NOT evidence of recovery. Keep it quarantined,
+                            # without claiming any source-supported verdict.
+                            proof=None
+                        if proof is not None:
+                            return {
+                                "status":"ONE_SAFE_ACADEMIC_REVIEW_UNIT_READY",
+                                "next_slide":slide,"next_mode":mode,"attempt":1,
+                                "action":"RECOVER_WRAPPED_SAVED_REPLY_NO_SEND",
+                                "historical_reconciliation_sha256":_sha(reconciled),
+                                "original_model_response_sha256":proof["response_sha256"],
+                                "original_model_rows":proof["model_rows"],
+                                "previously_completed_slides":completed,
+                                "blocked_other_slides":blocked,
+                                "new_model_requests":False,
+                                "per_slide_approval_required":False,
+                                "automatic_retry_authorized":False,
+                                "student_publication_authorized":False,
+                            }
                     blocked.append({
                         "slide":slide,"mode":mode,
                         "reason":"SOURCE_REVIEW_QUARANTINED_INVALID_SAVED_REPLY",
@@ -496,10 +592,14 @@ def advance_one_safe_review(*,queue_root:Path,folder:Path,
     selection=select_next_safe_review(queue_root=queue_root,folder=folder)
     if not execute or selection["status"]!="ONE_SAFE_ACADEMIC_REVIEW_UNIT_READY":
         return selection
+    saved_envelope=selection.get("action")=="RECOVER_WRAPPED_SAVED_REPLY_NO_SEND"
+    require(not saved_envelope or transport is None,
+            "No injected/model transport for historical envelope recovery")
     result=execute_one_review(
         queue_root=queue_root,folder=folder,
         slide=selection["next_slide"],mode=selection["next_mode"],
-        attempt=1,transport=transport)
+        attempt=1,transport=transport,
+        wrapped_recovery_only=saved_envelope)
     return {
         "status":"ONE_AUTONOMOUS_ACADEMIC_REVIEW_ATTEMPT_FINISHED",
         "selection":selection,"review":result,
