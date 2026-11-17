@@ -261,8 +261,28 @@ class OfflineSourceReadinessTests(unittest.TestCase):
                 {"target_id":"s001.fraction.2","ranking_hint":.9}
             ]
             return report
+        def context_fixture(*,slides_pdf,slide,choices):
+            self.assertEqual(slide,1)
+            self.assertEqual(len(choices),2)
+            return [{
+                "target_id":c["draft_element_id"],
+                "visible_literal_fraction":"1/2",
+                "fraction_bbox_pdf_pt":[1,1,3,4],
+                "fraction_spans_sha256":"a"*64,
+                "context_is_only_spatial_evidence":True,
+                "nearby_physical_pdf_lines":[],
+                "selected_target_id":None,
+                "independent_semantic_choice_required":True,
+                "source_semantics_approved":False,
+                "paid_tts_authorized":False,
+            } for c in choices]
+        # This old audit fixture deliberately uses non-PDF test bytes.
+        # Physical text/geometry validation is tested separately against
+        # genuine PDFs in test_fraction_pdf_context_review.py.
         with patch("selenium_pipeline.incremental_element_candidate_map.candidate_map",
-                   side_effect=mapping):
+                   side_effect=mapping),patch(
+            "selenium_pipeline.fraction_pdf_context_review.physically_witnessed_fraction_context",
+            side_effect=context_fixture):
             result=self.run_audit()
         self.assertEqual(result["ambiguous_fraction_review_count"],1)
         record=json.loads(Path(result["offline_evidence_path"]).read_text())
@@ -272,6 +292,10 @@ class OfflineSourceReadinessTests(unittest.TestCase):
         self.assertIsNone(choices["selected_target_id"])
         self.assertTrue(choices["independent_semantic_choice_required"])
         self.assertFalse(choices["source_semantics_approved"])
+        self.assertEqual(len(choices["physically_witnessed_review_contexts"]),2)
+        self.assertTrue(all(x["selected_target_id"] is None and
+                            not x["source_semantics_approved"]
+                            for x in choices["physically_witnessed_review_contexts"]))
         # The model cannot claim to have selected any candidate by altering
         # the persisted technical readiness evidence.
         record["ambiguous_fraction_review_worklist"][0][

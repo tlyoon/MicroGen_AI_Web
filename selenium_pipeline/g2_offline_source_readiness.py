@@ -53,6 +53,7 @@ def _source_identifiers(folder: Path, queue_root: Path) -> dict:
         "recovery_registry.py",
         "recovery_registry_v1.json",
         "physical_fraction_review_targets.py",
+        "fraction_pdf_context_review.py",
     )
     signatures={}
     for name in modules:
@@ -92,6 +93,7 @@ def _verify_record(path: Path, original: dict, expected_slide: int) -> dict:
             and 0 < path.stat().st_size <= MAX_RECEIPT_BYTES,
             "Missing/linked/oversized source-bound offline QA record")
     report=json.loads(path.read_text(encoding="utf8"))
+    from .fraction_pdf_context_review import verify_saved_context_packet
     require(type(report) is dict
             and report.get("schema_version")==VERSION
             and report.get("status")==STATUS
@@ -130,6 +132,9 @@ def _verify_record(path: Path, original: dict, expected_slide: int) -> dict:
                     and x.get("independent_semantic_choice_required") is True
                     and type(x.get("source_review_target_choices")) is list
                     and len(x["source_review_target_choices"])==2
+                    and verify_saved_context_packet(
+                        x.get("physically_witnessed_review_contexts"),
+                        x["source_review_target_choices"])
                     for x in report["ambiguous_fraction_review_worklist"]),
             "Source-bound offline QA may not be forged or promoted")
     return report
@@ -260,7 +265,17 @@ def inspect_and_checkpoint(*, folder: Path, queue_root: Path,
                         and second.get("ranking_hint",0)>=.8
                         and abs(first["ranking_hint"]-
                                 second["ranking_hint"])<=.05):
+                    # Preserve exact original-PDF line/bbox context for
+                    # EACH repeated literal fraction. This is more useful
+                    # to the independent Gemini reviewer than equal .90
+                    # scores, but is NOT an automatic target decision.
+                    from .fraction_pdf_context_review import (
+                        physically_witnessed_fraction_context)
+                    options=physically_witnessed_fraction_context(
+                        slides_pdf=folder/"slides.pdf",slide=i,
+                        choices=[a,b])
                     ambiguous.append({
+                        "physically_witnessed_review_contexts":options,
                         "slide":i,
                         "utterance_id":unit.get("utterance_id"),
                         "utterance_sha256":unit.get("original_text_sha256"),
