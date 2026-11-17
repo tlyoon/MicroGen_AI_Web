@@ -50,6 +50,8 @@ def _source_identifiers(folder: Path, queue_root: Path) -> dict:
         "academic_visual_preflight.py",
         "source_verified_quote_candidates.py",
         "ai_academic_review_consensus.py",
+        "recovery_registry.py",
+        "recovery_registry_v1.json",
     )
     signatures={}
     for name in modules:

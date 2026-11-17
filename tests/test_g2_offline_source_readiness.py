@@ -202,6 +202,21 @@ class OfflineSourceReadinessTests(unittest.TestCase):
         self.assertFalse(revised["scientific_approval"])
         self.assertEqual(revised["new_model_requests"],0)
 
+    def test_retired_registry_forces_new_offline_readiness_evidence(self):
+        first=self.run_audit()
+        def changed_registry(path):
+            if Path(path).name=="recovery_registry_v1.json":
+                return "e"*64
+            return file_sha256(path)
+        with patch("selenium_pipeline.g2_offline_source_readiness.file_sha256",
+                   side_effect=changed_registry):
+            second=self.run_audit()
+        self.assertNotEqual(first["offline_evidence_path"],
+                            second["offline_evidence_path"])
+        self.assertFalse(second["scientific_approval"])
+        self.assertEqual(second["new_model_requests"],0)
+        self.assertEqual(len(list(self.work.rglob("*.json"))),2)
+
     def test_read_only_creates_no_receipts_or_provider_calls(self):
         result=self.run_audit(execute=False)
         self.assertEqual(result["status"],

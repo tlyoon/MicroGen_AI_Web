@@ -33,7 +33,7 @@ Those four are **not auto-assigned**; they require exact visual/semantic indepen
 
 ## Source/readiness cache invalidation
 
-The concurrent v6 offline QA module now incorporates a SHA of the **actual six source/QA mapping algorithm files** (including itself, `element_plan_autodraft.py`, source-quote and scientific recheck code) into its content-addressed receipt identity. Any future change in ranker, source quote algorithm, geometry checker or consensus verifier invalidates the older offline preflight result and generates new source-locked technical evidence. A changed implementation cannot silently reuse the prior report with seven unranked cases. Crash-safety, finite resource bounds and no provider Send are preserved.
+The concurrent v6 offline QA module now incorporates a SHA of the **actual eight source/QA mapping and registry files** (including itself, `element_plan_autodraft.py`, source-quote and scientific recheck code) into its content-addressed receipt identity. Any future change in ranker, source quote algorithm, geometry checker or consensus verifier invalidates the older offline preflight result and generates new source-locked technical evidence. A changed implementation cannot silently reuse the prior report with seven unranked cases. Crash-safety, finite resource bounds and no provider Send are preserved.
 
 ## Verification
 
@@ -42,3 +42,7 @@ The concurrent v6 offline QA module now incorporates a SHA of the **actual six s
 - Focused tests passed: **43 passed, 0 failed**; expanded local/historical tests and exact-head Windows CI must pass before this follow-up code can be reported as hosted-verified.
 
 **G2 scientific state remains open** at **20 of 85 independently source-agreed**, 65 unresolved; slides 10/11 and the failed synthetic Gemini PDF request remain consumed and cannot be replayed. No new Gemini submission or paid operation is part of this source-target ranking fix.
+
+## Registry-aware cache verification (17 November)
+
+A final safety review found that retiring a known ranking recovery must invalidate offline evidence, even if the `.py` source is unchanged. Both `recovery_registry.py` and `recovery_registry_v1.json` are now included in the eight-file `audit_implementation_sha256`, with a negative regression test that changes only the registry fingerprint. Focused **35 passed**, expanded local **183 passed**, zero failures. The real normal G2 audit generated the new source/queue/implementation-bound receipt `88aecf46a81289d0bddc4693a9100110fb6215d6edfe35917fea4fc18274bd7c.json`, SHA256 `14d6bbcc1a007e4ee9f4e58ac3850ade4c8d980f3287d0eb992eedc270ac8a82`: 13 slides, 85 original units, 4 still without ranked targets, science 20 accepted/65 unresolved, and 10 physically witnessed citation candidates for all five units of slide 12. Original consumed requests and 19-stage G2 journal remain unchanged. Await hosted CI for the final followup commit before claiming this exact head hosted-verified.
