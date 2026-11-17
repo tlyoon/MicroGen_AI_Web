@@ -154,8 +154,17 @@ def stable_recommendations(speech: str, candidates: list[dict]) -> list[dict]:
     ranked=[]
     for target in candidates:
         kind=target.get("kind")
-        if kind not in ("text_block","image_caption_panel","math_row_group"):
+        if kind not in ("text_block","image_caption_panel","math_row_group",
+                        "math_fraction_review"):
             continue
+        if kind=="math_fraction_review":
+            a=target.get("anchor") or {}
+            if (a.get("type")!="physical_fraction_spans"
+                    or target.get("original_pdf_fraction_geometry_verified") is not True
+                    or target.get("mathematical_semantics_verified") is not False
+                    or a.get("math_semantics_verified") is not False
+                    or target.get("independent_fraction_meaning_review_required") is not True):
+                continue
         if kind=="math_row_group":
             # Recycle physically reconstructed 2-8 glyph-fragment equations
             # as review targets, never claims of mathematical equivalence.
@@ -191,6 +200,20 @@ def stable_recommendations(speech: str, candidates: list[dict]) -> list[dict]:
             # Do not merely down-rank it: candidates may otherwise outrank
             # all correct expressions in the same rendered slide.
             continue
+        if kind=="math_fraction_review":
+            # Physical glyph geometry (not math source semantics) supports
+            # a fractional focus candidate for independent visual review.
+            # Negated/contradictory utterances do not earn this hint.
+            if re.search(r"\b(?:not|never|wrong|incorrect|unequal)\b",
+                         speech,re.I):
+                continue
+            if (visible=="1/2" and re.search(
+                    r"\bone\s+half\b",speech,re.I)):
+                score=max(score,.90)
+            elif (visible=="L/T^2" and re.search(
+                    r"\blength\s+divided\s+by\s+time\s+squared\b",
+                    speech,re.I)):
+                score=max(score,.90)
         if kind in ("text_block","math_row_group"):
             # This supplies a *physical literal notation hint* only, not an
             # equation-equivalence or scientific-acceptance conclusion.

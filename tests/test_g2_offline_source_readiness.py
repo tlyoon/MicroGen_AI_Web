@@ -246,6 +246,40 @@ class OfflineSourceReadinessTests(unittest.TestCase):
         self.assertEqual(second["new_model_requests"],0)
         self.assertEqual(len(list(self.work.rglob("*.json"))),2)
 
+    def test_tied_physical_fraction_choices_stay_unassigned(self):
+        def mapping(**kwargs):
+            report=self.map_fixture(**kwargs)
+            report["slides"][0]["candidate_visual_targets"]=[
+                {"kind":"math_fraction_review",
+                 "draft_element_id":"s001.fraction.1"},
+                {"kind":"math_fraction_review",
+                 "draft_element_id":"s001.fraction.2"},
+            ]
+            report["slides"][0]["original_utterance_candidates"][0][
+                "candidate_visual_targets"]=[
+                {"target_id":"s001.fraction.1","ranking_hint":.9},
+                {"target_id":"s001.fraction.2","ranking_hint":.9}
+            ]
+            return report
+        with patch("selenium_pipeline.incremental_element_candidate_map.candidate_map",
+                   side_effect=mapping):
+            result=self.run_audit()
+        self.assertEqual(result["ambiguous_fraction_review_count"],1)
+        record=json.loads(Path(result["offline_evidence_path"]).read_text())
+        choices=record["ambiguous_fraction_review_worklist"][0]
+        self.assertEqual(choices["source_review_target_choices"],[
+            "s001.fraction.1","s001.fraction.2"])
+        self.assertIsNone(choices["selected_target_id"])
+        self.assertTrue(choices["independent_semantic_choice_required"])
+        self.assertFalse(choices["source_semantics_approved"])
+        # The model cannot claim to have selected any candidate by altering
+        # the persisted technical readiness evidence.
+        record["ambiguous_fraction_review_worklist"][0][
+            "selected_target_id"]="s001.fraction.1"
+        Path(result["offline_evidence_path"]).write_text(json.dumps(record))
+        with self.assertRaisesRegex(ValueError,"may not be forged or promoted"):
+            self.run_audit()
+
     def test_read_only_creates_no_receipts_or_provider_calls(self):
         result=self.run_audit(execute=False)
         self.assertEqual(result["status"],

@@ -144,6 +144,20 @@
       "enabled": true
     },
     {
+      "id": "G2_PDF_SPATIALLY_WITNESSED_FRACTION_REVIEW",
+      "match_type": "source_mapping_repair",
+      "signature": "SPLIT_PDF_NUMERATOR_DENOMINATOR_OR_SUPERSCRIPT_UNRANKED",
+      "mechanism": "ORIGINAL_PDF_LITERAL_STACKED_FRACTION_REVIEW_TARGET_ONLY",
+      "classification": "PDF_SPATIALLY_SPLIT_LITERAL_MATH_SYMBOLS",
+      "handler": "NORMAL_VERIFIED_ELEMENT_RANKER",
+      "preconditions": "actual original PDF exact aligned glyphs, independently verified source/slide/utterance SHA, no semantic math or paid TTS approval",
+      "verification_test": "tests/test_physical_fraction_review_targets.py",
+      "last_verified_date": "2026-11-17",
+      "environment": "Dell-115 original rendered math fraction glyph geometry",
+      "retry_policy": "finite deterministic source-bound PDF spatial parsing only, no provider Send or scientific assumptions",
+      "enabled": true
+    },
+    {
       "id": "G2_PROVIDER_DEFERRED",
       "match_type": "supervisor_status",
       "signature": "G2_PROVIDER_HEALTH_DEFERRED_NO_NEW_SOURCE_SEND",
