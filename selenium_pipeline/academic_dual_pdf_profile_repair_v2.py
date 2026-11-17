@@ -140,9 +140,24 @@ def existing_outcome(**kw):
     return _read(**kw)[0]
 
 
-def qualifying_proof(**kw):
+def qualifying_proof(*, now=None, **kw):
+    # The source-review health gate supplies a fixed observation clock.
+    # Look for a real v2 claim FIRST: legacy v1-only incidents must return
+    # None, not be promoted or rejected by an unrelated v2 inspection.
+    incident, _ = _verify_unsafe_source_claims(
+        queue_root=kw["queue_root"],source_sha=kw["source_sha"],
+        prior_slides=kw["prior_slides"],family=kw["family"])
+    home=_home(kw["checkpoint_parent"],kw["source_sha"],
+               kw["family"],incident)
+    if not home.exists():
+        return None
     evidence, _ = _read(**kw)
-    return evidence if evidence and evidence.get("new_source_review_send_allowed") is True else None
+    if (evidence is None or evidence.get("new_source_review_send_allowed") is not True):
+        return None
+    if now is not None and (type(now) not in (int,float)
+                            or evidence["observed_unix"] > float(now)+3):
+        return None
+    return evidence
 
 
 def newly_eligible(**kw) -> bool:

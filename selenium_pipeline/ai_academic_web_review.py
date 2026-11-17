@@ -231,8 +231,25 @@ def _academic_browser_request(prompt: str, files: list[Path], *,
         os.environ["MICROGEN_GEMINI_UI_MODE"] = requested
         os.environ["MICROGEN_LLM_MODEL"] = (
             "gemini-3.8-flash" if requested == "flash" else "gemini-3.1-pro")
+        selected_port=chrome_port
+        if requested=="pro" and chrome_port==9222:
+            # Run a real OWNED model/Medium no-Send preflight. A separately
+            # authorized already-running Account B may be chosen only BEFORE
+            # this claim's one Send. This must never retry an earlier Send.
+            from .gemini_transport_router import (
+                verified_browser_route, GeminiTransportNotAuthorized)
+            from .gemini_selenium_only_policy import GeminiSeleniumPreSendBlocked
+            try:
+                route=verified_browser_route(
+                    family="pro",claimed_send_state="NEW_CLAIM_BEFORE_SEND")
+                selected_port=route.port
+            except GeminiTransportNotAuthorized as exc:
+                raise GeminiSeleniumPreSendBlocked(
+                    "NO_VERIFIED_OWNED_GEMINI_ROUTE_BEFORE_SEND",
+                    attempts_used=1,
+                    failure_phase="GEMINI_BROWSER_OR_WEBDRIVER_NOT_READY") from exc
         return _browser_request(
-            prompt, files, port=chrome_port,
+            prompt, files, port=selected_port,
             wait_cap_s=wait_cap_s, min_chars=80)
     finally:
         for key, value in original.items():

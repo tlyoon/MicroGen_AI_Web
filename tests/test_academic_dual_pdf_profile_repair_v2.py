@@ -79,6 +79,15 @@ class RepairedProfilePdfProbeTests(TestCase):
         self.assertEqual(self.sent,["v1","v2"])
         saved=queue_proof(**self.kwargs())
         self.assertTrue(saved["new_source_review_send_allowed"])
+        # The REAL source health gate passes an explicit clock; a valid v2
+        # receipt must not be silently ignored because `now` is supplied.
+        with_clock=queue_proof(**self.kwargs(),now=time.time()+1)
+        self.assertIsNotNone(with_clock)
+        self.assertTrue(with_clock["new_source_review_send_allowed"])
+        # The older v1 proof itself also rejects an impossible pre-incident
+        # observation time; preserve that existing fail-closed behavior.
+        with self.assertRaises(Exception):
+            queue_proof(**self.kwargs(),now=1.0)
         self.assertFalse(saved["academic_approval"])
         self.assertEqual(saved["incident_sha256"],proof["incident_sha256"])
         self.assertEqual(probe_once(**self.kwargs(),transport=self.response)["new_provider_requests"],0)

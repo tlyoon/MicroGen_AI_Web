@@ -212,11 +212,11 @@ def qualifying_proof(*, queue_root: Path, checkpoint_parent: Path,
     # A consumed unsuccessful v1 request is immutable. A distinct, separately
     # claimed v2 transport test is eligible only after registered primary
     # profile repair, with exact old incident/result identity checked by v2.
-    if proof is not None and family == "pro" and now is None:
+    if proof is not None and family == "pro":
         from .academic_dual_pdf_profile_repair_v2 import qualifying_proof as v2_proof
         return v2_proof(queue_root=queue_root, checkpoint_parent=checkpoint_parent,
                         source_sha=source_sha, prior_slides=prior_slides,
-                        family=family)
+                        family=family, now=now)
     return None
 
 

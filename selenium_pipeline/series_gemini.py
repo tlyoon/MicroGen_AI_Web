@@ -200,6 +200,13 @@ def _browser_request(instruction: str,attachments: list[Path],
             assert_owned_gemini_mode(
                 client.driver, owned_handle, mode=configured_ui_mode(),wait_seconds=4)
             baseline=owned_gemini_send_baseline(client.driver,owned_handle)
+            # Passive, scoped performance counters are sampled before the
+            # one-Send boundary. This does not observe URLs/payloads, enable
+            # network capture, authorize a replay or change the Send policy.
+            from .gemini_owned_network_diagnostics import (
+                arm_owned_network_baseline)
+            network_before=arm_owned_network_baseline(
+                client.driver,owned_handle)
             send_boundary_entered=True
             clicked=click_one_owned_gemini_send(
                 client.driver,owned_handle)
@@ -338,10 +345,16 @@ def _browser_request(instruction: str,attachments: list[Path],
                 # interpreting either as a successful or safe-to-retry Send.
                 same_tab_dom = observe_owned_dom_metadata(
                     client.driver, owned_handle, expected_url=expected_url)
+                from .gemini_owned_network_diagnostics import (
+                    observe_owned_network_timing)
+                same_tab_network = observe_owned_network_timing(
+                    client.driver,owned_handle,
+                    baseline=network_before,expected_url=expected_url)
                 try:
                     receipt = quarantine_snapshot(
                         snapshot, reason=reason,
-                        owned_dom_diagnostic=same_tab_dom)
+                        owned_dom_diagnostic=same_tab_dom,
+                        owned_network_diagnostic=same_tab_network)
                 except OSError as exc:
                     raise SeriesBridgeError(
                         "Gemini JSON capture failed and recovery quarantine "

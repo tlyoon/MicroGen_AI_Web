@@ -223,6 +223,12 @@ class SameTabDomDiagnosticsTests(unittest.TestCase):
                              "OWNED_DOM_MODEL_ELEMENTS_ABSENT")
             self.assertFalse(audit["original_source_retry_authorized"])
             self.assertFalse(audit["owned_tab_response_dom"]["retry_authorized"])
+            # Normal one-Send failure must also persist the new passive
+            # same-tab resource diagnostic. This legacy fake driver has no
+            # Performance Timing support; fail closed, never invent activity.
+            self.assertEqual(audit["owned_tab_network_timing"]["status"],
+                             "OWNED_NETWORK_NO_BASELINE")
+            self.assertFalse(audit["owned_tab_network_timing"]["retry_authorized"])
         self.assertEqual(events,["shutdown"])
 
     def test_poisoned_diagnostic_is_downgraded_not_persisted(self):

@@ -102,6 +102,34 @@
       "enabled": true
     },
     {
+      "id": "GEMINI_SAME_OWNED_TAB_PASSIVE_NETWORK_TIMING",
+      "match_type": "owned_transport_diagnostic",
+      "signature": "OWNED_POST_SEND_RESOURCE_TIMING_MISSING",
+      "mechanism": "READONLY_SAME_TAB_RESOURCE_TIMING_METADATA_NO_RETRY",
+      "classification": "MODEL_RESPONSE_ABSENT_AFTER_REGISTERED_SEND",
+      "handler": "OWNED_GEMINI_SELENIUM_RESPONSE_QUARANTINE",
+      "preconditions": "only current owned Gemini tab, performance timing sampled before one Send, same document epoch, no URL/payload/credential recording",
+      "verification_test": "tests/test_gemini_owned_network_diagnostics.py",
+      "last_verified_date": "2026-11-17",
+      "environment": "Dell-115 authenticated owned Chrome Gemini Selenium",
+      "retry_policy": "finite one passive baseline plus one response-failure timing snapshot; no network interception and no replay",
+      "enabled": true
+    },
+    {
+      "id": "GEMINI_OWNED_TRANSPORT_ROUTE_SELECTION",
+      "match_type": "transport_selection",
+      "signature": "EXACT_GEMINI_BROWSER_ROUTE_PRE_SEND",
+      "mechanism": "SELECT_OWNED_PRIMARY_OR_ALREADY_RUNNING_ALT_NO_API",
+      "classification": "BEFORE_THE_SINGLE_ALREADY_CLAIMED_NEW_GEMINI_SEND",
+      "handler": "NORMAL_ACADEMIC_OWNED_ROUTE_AND_VERIFIED_MODEL_THINKING_PREFLIGHT",
+      "preconditions": "exact primary or previously authorized running alternative on 9225, positive requested Gemini full model and Medium Thinking, no old replay, API disabled",
+      "verification_test": "tests/test_gemini_transport_router.py",
+      "last_verified_date": "2026-11-17",
+      "environment": "Dell-115 existing Gemini Chrome on port 9222 / 9225",
+      "retry_policy": "finite pre-Send route inspection only, zero new model requests, no paid API fallback and no replay after uncertain Send",
+      "enabled": true
+    },
+    {
       "id": "G2_OFFLINE_SOURCE_READINESS",
       "match_type": "offline_dependency",
       "signature": "DEFERRED_SYNTHETIC_PDF_CAPABILITY_EXHAUSTED_NO_RESEND",
