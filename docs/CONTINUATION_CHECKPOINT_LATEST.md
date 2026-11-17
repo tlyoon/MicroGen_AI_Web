@@ -1,3 +1,15 @@
+# 17 Nov 2026 — On-flight enrolled Account B pre-Send recovery (P1 remains blocked)
+
+**Critical path status: BLOCKED_EXTERNAL_DEPENDENCY (not recovered).** Real Serway §1.3 G2 independent two-pass source review still **20/85 accepted, 65 pending**. Both original slide 10/11 PDF Sends and v1/v2 synthetic two-PDF incidents remain exhausted; neither may be replayed. Slide 12 untouched. No new PDF response or science acceptance, paid API/TTS, G3/media or student publication.
+
+**New executable recovery route:** The previously user-enrolled `AccountB` Chrome profile was found initialized on Dell-115 while port 9225 was offline. New `gemini_existing_alternate_recovery.py`, `launch_gemini.launch(existing_profile_only=True)`, normal `academic_gemini_presend_preflight` integration, registered exact alternate-profile reopening and local Chrome-command-line/port ownership proof now automatically reopen and verify ONLY that known enrolled profile when an authorized fresh pre-Send fallback is eligible. Missing profile, wrong port/identity, missing ownership and retired registry fail before model requests or file uploads. No profile or account creation, login typing, model downgrade, API fallback or replay.
+
+**Genuine live result:** Dell-115 account B port 9225 reopened, existing login positively verified, owned Pro model selected and verified, **Medium Thinking unavailable** (`GEMINI_THINKING_LEVEL_UNAVAILABLE_NO_SEND`). Real saved receipt: `MicroGen_AI_Web_Checkpoints/accountB_enrolled_real_presend_receipt_20261117.json`. This proves an old browser can be reopened, **not** that the required Gemini two-PDF model response exists. No synthetic/source Send was attempted because the required pre-Send capability gate failed. History had already identified this Account B Thinking limitation; do not repeat it without new capability evidence.
+
+**Tests:** Focused **51 passed, 2 skipped, 0 failed**; broad local cross-stage and original one-Send regression **145 passed, 3 skipped, 0 failed** with five nonfatal dependency warnings. Specific details in `docs/ACCOUNT_B_ENROLLED_PROFILE_RECOVERY_20261117.md`. Current head CI and real no-Send G2 restart to check after commit; no merge or scheduler authorized. Next critical-path action requires a newly positive *actual* model+Medium preflight on an independently usable authorized transport, or separately authorized API path; then a uniquely claimed new two-PDF proof and original source-science acceptance before downstream G2/G3. Unchanged source/queue remains blocked.
+
+---
+
 # 17 Nov 2026 — Source-locked physical fraction context packet, no automatic math choice
 
 **Independent offline review preparation completed, not G2 scientific approval.** Historical `SPLIT_PDF_NUMERATOR_DENOMINATOR_OR_SUPERSCRIPT_UNRANKED` recovery detects two physically witnessed `1/2` fractions on original Serway §1.3 slide 6. Two original narration utterances still tie because the proposed-equation fraction and the dimensional-substitution fraction are both visually literal `1/2`. We did not guess which to highlight or weaken two-model review.

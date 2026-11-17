@@ -62,7 +62,8 @@ def wait_ready(port: int, timeout: int = 20) -> bool:
     return False
 
 
-def launch(alternate_user: str | None = None, port: int | None = None) -> tuple[int, Path]:
+def launch(alternate_user: str | None = None, port: int | None = None,
+           existing_profile_only: bool = False) -> tuple[int, Path]:
     port = port or (ALT_PORT if alternate_user else DEFAULT_PORT)
     if port == CHATGPT_RESERVED_PORT:
         raise ValueError(
@@ -75,10 +76,19 @@ def launch(alternate_user: str | None = None, port: int | None = None) -> tuple[
             "Gemini primary and alternate Chrome profiles must not share "
             "each other's reserved port; no browser was changed.")
     profile = profile_root(alternate_user)
+    if existing_profile_only:
+        state=profile/"Local State"
+        default=profile/"Default"
+        if (not profile.is_dir() or profile.is_symlink()
+                or not state.is_file() or state.is_symlink()
+                or not default.is_dir() or default.is_symlink()):
+            raise ValueError(
+                "Enrolled Chrome profile missing or unsafe; no new profile allowed")
     if ready(port):
         print(f"[gemini] reusing active debug session on port {port}")
         return port, profile
-    profile.mkdir(parents=True, exist_ok=True)
+    if not existing_profile_only:
+        profile.mkdir(parents=True, exist_ok=True)
     args = [chrome_exe(), f"--remote-debugging-port={port}", f"--user-data-dir={profile}",
             "--no-first-run", "--no-default-browser-check", GEMINI_URL]
     subprocess.Popen(args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

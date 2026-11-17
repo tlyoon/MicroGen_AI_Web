@@ -184,6 +184,59 @@ class ExactAcademicGeminiCapabilities(unittest.TestCase):
                 select_ready_existing_session(primary_port=9222)
         self.assertEqual(ports,[9222])
 
+    def test_previously_enrolled_offline_alt_is_inspected_without_new_profile(self):
+        from selenium_pipeline.academic_gemini_presend_preflight import (
+            select_ready_existing_session)
+        enrolled=self.root/"MicroGen_AI_Web"/"gemini_alternate"/"AccountB"
+        enrolled.mkdir(parents=True)
+        (enrolled/"Local State").write_text("existing-chrome-state")
+        (enrolled/"Default").mkdir()
+        seen=[]
+        def probe(*,port):
+            seen.append(port)
+            if port==9222:
+                raise AcademicGeminiPreSendBlocked(
+                    "GEMINI_REQUESTED_MODEL_FAMILY_UNAVAILABLE")
+            return {"status":"EXACT_OWNED_GEMINI_MODEL_AND_THINKING_READY_NO_SEND",
+                    "model_family":"flash","thinking_level":"medium",
+                    "gemini_requests_submitted":0,"files_uploaded":0}
+        with patch("selenium_pipeline.academic_gemini_presend_preflight.inspect",
+                   side_effect=probe),patch(
+                   "selenium_pipeline.launch_gemini.ready",return_value=False),patch(
+                   "selenium_pipeline.launch_gemini.launch",
+                   side_effect=AssertionError("selection itself must not launch")):
+            selected=select_ready_existing_session(primary_port=9222)
+        self.assertEqual(seen,[9222,9225])
+        self.assertEqual(selected["verified_port"],9225)
+        self.assertTrue(selected["alternate_account_used"])
+        self.assertEqual(selected["gemini_requests_submitted"],0)
+
+    def test_real_preflight_invokes_registered_no_send_reopen_on_alt(self):
+        enrolled=self.root/"MicroGen_AI_Web"/"gemini_alternate"/"AccountB"
+        enrolled.mkdir(parents=True)
+        (enrolled/"Local State").write_text("existing-chrome-state")
+        (enrolled/"Default").mkdir()
+        from selenium_pipeline.gemini_model import assert_owned_gemini_mode
+        with patch("selenium_pipeline.launch_gemini.ready",
+                   return_value=False),patch(
+                   "selenium_pipeline.gemini_existing_alternate_recovery.enrolled_alternate_port_owned",
+                   return_value=True),patch(
+                   "selenium_pipeline.launch_gemini.launch",
+                   return_value=(9225,enrolled)) as launched,patch(
+                   "selenium_pipeline.gemini_model.assert_owned_gemini_mode",
+                   return_value="Flash") as model,patch(
+                   "selenium_pipeline.gemini_thinking.assert_owned_gemini_thinking_level",
+                   return_value="medium") as thought:
+            evidence=inspect(port=9225)
+        launched.assert_called_once_with(
+            "AccountB",port=9225,existing_profile_only=True)
+        model.assert_called_once()
+        thought.assert_called_once()
+        self.assertEqual(evidence["gemini_requests_submitted"],0)
+        self.assertEqual(evidence["files_uploaded"],0)
+        self.assertFalse(evidence["model_prompt_typed"])
+        self.assertFalse(evidence["academic_approval"])
+
     def test_absent_debug_session_never_launches_disposable_chrome(self):
         from selenium_pipeline.academic_gemini_presend_preflight import inspect
         with patch("selenium_pipeline.launch_gemini.ready",

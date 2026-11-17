@@ -200,6 +200,20 @@
       "enabled": true
     },
     {
+      "id": "GEMINI_ENROLLED_ACCOUNT_B_PROFILE_REOPEN",
+      "match_type": "presend_capability_repair",
+      "signature": "AUTHORIZED_ENROLLED_ALTERNATE_PROFILE_OFFLINE_NO_SEND",
+      "mechanism": "REOPEN_ONLY_ENROLLED_ACCOUNT_B_THEN_REVERIFY_NO_SEND",
+      "classification": "PREVIOUSLY_AUTHORIZED_ACCOUNT_B_DEBUG_PORT_OFFLINE",
+      "handler": "NORMAL_EXISTING_OWNED_GEMINI_ACCOUNT_CAPABILITY_PREFLIGHT",
+      "preconditions": "only exact pre-existing Dell-115 AccountB Chrome profile with Local State and Default, no symlinks or profile creation, no credentials, verified exact model and Medium Thinking on owned Gemini tab after restart",
+      "verification_test": "tests/test_gemini_existing_alternate_recovery.py; tests/test_academic_gemini_presend_preflight.py",
+      "last_verified_date": "2026-11-17",
+      "environment": "Dell-115 enrolled authorized Gemini AccountB persistent profile, Chrome port 9225",
+      "retry_policy": "finite one offline enrolled-profile reopen before a fresh authorized source Send; no model request, no file upload, no paid API and never replay uncertain claims",
+      "enabled": true
+    },
+    {
       "id": "GEMINI_DISAPPEARED_PRIMARY_DEBUG_SESSION_ALT_RECOVERY",
       "match_type": "presend_capability_repair",
       "signature": "PRIMARY_GEMINI_DEBUG_SESSION_DISAPPEARED_NO_SEND",
