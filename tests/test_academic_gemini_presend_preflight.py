@@ -89,6 +89,82 @@ class ExactAcademicGeminiCapabilities(unittest.TestCase):
         self.assertEqual(result["thinking_level"],"medium")
         self.assertEqual(result["gemini_requests_submitted"],0)
 
+    def test_missing_owned_thinking_control_tries_only_existing_alt_no_send(self):
+        from selenium_pipeline.academic_gemini_presend_preflight import (
+            select_ready_existing_session)
+        seen=[]
+        def probe(*,port):
+            seen.append(port)
+            if port==9222:
+                raise AcademicGeminiPreSendBlocked(
+                    "GEMINI_THINKING_CONTROL_UNAVAILABLE_OR_AMBIGUOUS")
+            return {"status":"EXACT_OWNED_GEMINI_MODEL_AND_THINKING_READY_NO_SEND",
+                    "model_family":"pro","thinking_level":"high",
+                    "gemini_requests_submitted":0}
+        with patch("selenium_pipeline.academic_gemini_presend_preflight.inspect",
+                   side_effect=probe),\
+             patch("selenium_pipeline.launch_gemini.ready",
+                   return_value=True):
+            result=select_ready_existing_session(primary_port=9222)
+        self.assertEqual(seen,[9222,9225])
+        self.assertEqual(result["verified_port"],9225)
+        self.assertTrue(result["existing_profile_only"])
+        self.assertEqual(result["thinking_level"],"high")
+        self.assertEqual(result["gemini_requests_submitted"],0)
+
+    def test_retired_thinking_profile_recovery_never_reaches_second_account(self):
+        from selenium_pipeline.academic_gemini_presend_preflight import (
+            select_ready_existing_session)
+        seen=[]
+        def probe(*,port):
+            seen.append(port)
+            raise AcademicGeminiPreSendBlocked(
+                "GEMINI_THINKING_CONTROL_UNAVAILABLE_OR_AMBIGUOUS")
+        with patch("selenium_pipeline.academic_gemini_presend_preflight.inspect",
+                   side_effect=probe),\
+             patch("selenium_pipeline.launch_gemini.ready",
+                   return_value=True),\
+             patch("selenium_pipeline.recovery_registry.lookup_mechanism",
+                   return_value=None):
+            with self.assertRaises(AcademicGeminiPreSendBlocked):
+                select_ready_existing_session(primary_port=9222)
+        self.assertEqual(seen,[9222])
+
+    def test_missing_thinking_control_never_invents_level_when_alt_is_blocked(self):
+        from selenium_pipeline.academic_gemini_presend_preflight import (
+            select_ready_existing_session)
+        seen=[]
+        def probe(*,port):
+            seen.append(port)
+            raise AcademicGeminiPreSendBlocked(
+                "GEMINI_THINKING_CONTROL_UNAVAILABLE_OR_AMBIGUOUS")
+        with patch("selenium_pipeline.academic_gemini_presend_preflight.inspect",
+                   side_effect=probe),\
+             patch("selenium_pipeline.launch_gemini.ready",
+                   return_value=True):
+            with self.assertRaises(AcademicGeminiPreSendBlocked) as found:
+                select_ready_existing_session(primary_port=9222)
+        self.assertEqual(seen,[9222,9225])
+        self.assertEqual(found.exception.failure_phase,
+                         "GEMINI_THINKING_CONTROL_UNAVAILABLE_OR_AMBIGUOUS")
+
+    def test_distinct_thinking_failure_codes_are_not_mislabelled_model_picker(self):
+        from selenium_pipeline.gemini_selenium_only_policy import presend_failure_code
+        cases={
+            "PRE_SEND_THINKING_EXPANDER_NOT_UNIQUE_OR_MISSING":
+                "GEMINI_THINKING_CONTROL_UNAVAILABLE_OR_AMBIGUOUS",
+            "PRE_SEND_REQUESTED_THINKING_LEVEL_UNAVAILABLE_NO_SEND":
+                "GEMINI_THINKING_LEVEL_UNAVAILABLE_NO_SEND",
+            "PRE_SEND_THINKING_SELECTION_NOT_CONFIRMED_NO_SEND":
+                "GEMINI_THINKING_SELECTION_UNVERIFIED_NO_SEND",
+            "PRE_SEND_REQUESTED_GEMINI_MODEL_NOT_AVAILABLE_NO_SEND":
+                "GEMINI_REQUESTED_MODEL_FAMILY_UNAVAILABLE",
+        }
+        for cause,expected in cases.items():
+            with self.subTest(cause=cause):
+                self.assertEqual(presend_failure_code(RuntimeError(cause)),
+                                 expected)
+
     def test_no_running_alternate_never_launches_or_switches_model(self):
         from selenium_pipeline.academic_gemini_presend_preflight import (
             select_ready_existing_session)

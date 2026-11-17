@@ -20,6 +20,7 @@ _HANDLERS = {
     "offline_dependency": "NORMAL_G2_INDEPENDENT_SOURCE_READINESS",
     "source_mapping_repair": "NORMAL_VERIFIED_ELEMENT_RANKER",
     "slide_layout_repair": "NORMAL_BEAMER_HEADLINE_GEOMETRY_RECOVERY",
+    "presend_capability_repair": "NORMAL_EXISTING_OWNED_GEMINI_ACCOUNT_CAPABILITY_PREFLIGHT",
 }
 _REQUIRED = {
     "id", "match_type", "signature", "mechanism", "classification",

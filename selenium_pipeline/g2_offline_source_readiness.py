@@ -104,7 +104,21 @@ def _verify_record(path: Path, original: dict, expected_slide: int) -> dict:
             and report.get("academic_approval") is False
             and report.get("new_model_requests")==0
             and report.get("paid_tts_calls")==0
-            and report.get("student_publication_authorized") is False,
+            and report.get("student_publication_authorized") is False
+            and report.get("unranked_visual_review_worklist_status")==
+                "ORIGINAL_PDF_PHYSICAL_OPTIONS_UNASSIGNED_REVIEW_REQUIRED"
+            and type(report.get("unranked_visual_review_worklist")) is list
+            and len(report["unranked_visual_review_worklist"])==
+                report.get("unranked_visual_review_count")
+            and len(report["unranked_visual_review_worklist"])==sum(
+                r.get("utterances_without_ranked_targets",0)
+                for r in report["slide_inventory"])
+            and all(type(x) is dict
+                    and x.get("selected_target_id") is None
+                    and x.get("source_semantics_approved") is False
+                    and x.get("paid_tts_authorized") is False
+                    and x.get("model_review_required") is True
+                    for x in report["unranked_visual_review_worklist"]),
             "Source-bound offline QA may not be forged or promoted")
     return report
 
@@ -140,6 +154,7 @@ def inspect_and_checkpoint(*, folder: Path, queue_root: Path,
             "slide_count":stored["slide_count"],
             "original_two_pass_accepted":stored["original_two_pass_accepted"],
             "original_pending_or_disputed":stored["original_pending_or_disputed"],
+            "unranked_visual_review_count":stored["unranked_visual_review_count"],
             "verified_source_citation_candidate_count_for_next_slide":
                 stored["verified_source_citation_candidate_count_for_next_slide"],
             "new_model_requests":0,
@@ -207,11 +222,52 @@ def inspect_and_checkpoint(*, folder: Path, queue_root: Path,
                 map_all["utterance_count"],
             "No independent original two-pass consensus revalidation")
 
+    # Additional independent task when no original Gemini PDF-response is
+    # available: prepare the exact source-bound ambiguous-visual worklist for
+    # later model/physics review, without assigning even one visual target.
+    # Physical targets are offered as observations, never a selected match.
+    unresolved=[]
     inventory=[]
     for i,row in enumerate(map_all["slides"],start=1):
         require(row["slide"]==i,
                 "Out-of-order physical source slide identity")
         units=row["original_utterance_candidates"]
+        for unit in units:
+            if unit["candidate_visual_targets"]:
+                continue
+            snippet=str(unit.get("original_text",""))
+            has_math=bool(re.search(
+                r"\b(?:half|fraction|squared|power|exponent|denominator)\b",
+                snippet,re.I))
+            targets=[]
+            for target in row["candidate_visual_targets"][:24]:
+                tid=target.get("draft_element_id")
+                bbox=target.get("bbox_pdf_pt")
+                if type(tid) is not str or type(bbox) is not list:
+                    continue
+                require(len(bbox)==4 and all(type(v) in (int,float)
+                        for v in bbox),
+                        "Unverified physical target geometry in review worklist")
+                targets.append({
+                    "target_id":tid,"kind":target.get("kind"),
+                    "bbox_pdf_pt":bbox,
+                    "visible_text_sha256":_sha_bytes(
+                        str(target.get("visible_text","")).encode("utf8"))
+                })
+            unresolved.append({
+                "slide":i,
+                "utterance_id":unit.get("utterance_id"),
+                "utterance_sha256":unit.get("original_text_sha256"),
+                "exact_original_spoken_text":snippet[:400],
+                "reason":("FRACTION_OR_MATH_LAYOUT_REQUIRES_INDEPENDENT_REVIEW"
+                          if has_math else
+                          "SEMANTIC_PARAPHRASE_REQUIRES_INDEPENDENT_REVIEW"),
+                "physically_witnessed_slide_targets_not_assigned":targets,
+                "selected_target_id":None,
+                "source_semantics_approved":False,
+                "model_review_required":True,
+                "paid_tts_authorized":False,
+            })
         inventory.append({
             "slide":i,
             "utterance_count":len(units),
@@ -240,6 +296,10 @@ def inspect_and_checkpoint(*, folder: Path, queue_root: Path,
         "technical_geometry_blocker_count":geometry["blocker_count"],
         "technical_geometry_review_findings":geometry["findings_total"],
         "slide_inventory":inventory,
+        "unranked_visual_review_worklist_status":
+            "ORIGINAL_PDF_PHYSICAL_OPTIONS_UNASSIGNED_REVIEW_REQUIRED",
+        "unranked_visual_review_worklist":unresolved,
+        "unranked_visual_review_count":len(unresolved),
         "original_two_pass_accepted":len(consensus["accepted_ai_evidence"]),
         "original_pending_or_disputed":consensus["pending_or_disputed"],
         "independent_scientific_consensus_granted":False,
@@ -274,6 +334,7 @@ def inspect_and_checkpoint(*, folder: Path, queue_root: Path,
         "slide_count":map_all["slide_count"],
         "original_two_pass_accepted":len(consensus["accepted_ai_evidence"]),
         "original_pending_or_disputed":consensus["pending_or_disputed"],
+        "unranked_visual_review_count":len(unresolved),
         "verified_source_citation_candidate_count_for_next_slide":quotes,
         "technical_geometry_blocker_count":geometry["blocker_count"],
         "new_model_requests":0,"scientific_approval":False,

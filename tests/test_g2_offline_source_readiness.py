@@ -123,6 +123,16 @@ class OfflineSourceReadinessTests(unittest.TestCase):
         record=json.loads(Path(result["offline_evidence_path"]).read_text())
         self.assertEqual(record["slide_inventory"][1][
             "utterances_without_ranked_targets"],1)
+        self.assertEqual(result["unranked_visual_review_count"],1)
+        self.assertEqual(record["unranked_visual_review_worklist_status"],
+                         "ORIGINAL_PDF_PHYSICAL_OPTIONS_UNASSIGNED_REVIEW_REQUIRED")
+        self.assertEqual(record["unranked_visual_review_count"],1)
+        self.assertIsNone(record["unranked_visual_review_worklist"][0][
+            "selected_target_id"])
+        self.assertTrue(record["unranked_visual_review_worklist"][0][
+            "model_review_required"])
+        self.assertFalse(record["unranked_visual_review_worklist"][0][
+            "source_semantics_approved"])
         self.assertFalse(record["figure_semantics_verified"])
         self.assertFalse(record["academic_approval"])
         self.assertFalse(record["independent_scientific_consensus_granted"])
@@ -161,6 +171,25 @@ class OfflineSourceReadinessTests(unittest.TestCase):
         record=json.loads(path.read_text())
         record["academic_approval"]=True
         path.write_text(json.dumps(record))
+        with self.assertRaisesRegex(ValueError,"may not be forged or promoted"):
+            self.run_audit()
+
+    def test_ambiguity_worklist_cannot_be_marked_approved(self):
+        result=self.run_audit()
+        path=Path(result["offline_evidence_path"])
+        report=json.loads(path.read_text())
+        report["unranked_visual_review_worklist"][0][
+            "selected_target_id"]="s002.text.001"
+        path.write_text(json.dumps(report),encoding="utf8")
+        with self.assertRaisesRegex(ValueError,"may not be forged or promoted"):
+            self.run_audit()
+
+    def test_ambiguity_worklist_count_cannot_be_forged(self):
+        result=self.run_audit()
+        path=Path(result["offline_evidence_path"])
+        report=json.loads(path.read_text())
+        report["unranked_visual_review_count"]=0
+        path.write_text(json.dumps(report),encoding="utf8")
         with self.assertRaisesRegex(ValueError,"may not be forged or promoted"):
             self.run_audit()
 

@@ -102,10 +102,22 @@ def select_ready_existing_session(*,primary_port: int=9222,
                 "existing_profile_only":True}
     except AcademicGeminiPreSendBlocked as first:
         if (not allow_active_alternate or primary_port!=DEFAULT_PORT
-                or first.failure_phase!=
-                    "GEMINI_REQUESTED_MODEL_FAMILY_UNAVAILABLE"
+                or first.failure_phase not in {
+                    "GEMINI_REQUESTED_MODEL_FAMILY_UNAVAILABLE",
+                    "GEMINI_THINKING_CONTROL_UNAVAILABLE_OR_AMBIGUOUS",
+                    "GEMINI_THINKING_LEVEL_UNAVAILABLE_NO_SEND",
+                    "GEMINI_THINKING_SELECTION_UNVERIFIED_NO_SEND",
+                }
                 or not ready(ALT_PORT)):
             raise
+        if first.failure_phase!="GEMINI_REQUESTED_MODEL_FAMILY_UNAVAILABLE":
+            from .recovery_registry import lookup_mechanism
+            registered=lookup_mechanism(
+                "presend_capability_repair",
+                "EXACT_GEMINI_THINKING_CONTROL_UNAVAILABLE_NO_SEND")
+            if registered!=(
+                "REVALIDATE_EXACT_MODEL_AND_THINKING_ON_OTHER_RUNNING_AUTHORIZED_PROFILE_NO_SEND"):
+                raise
         try:
             second=inspect(port=ALT_PORT)
             return {**second,"verified_port":ALT_PORT,

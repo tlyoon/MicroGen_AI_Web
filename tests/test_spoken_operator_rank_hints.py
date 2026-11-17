@@ -40,6 +40,27 @@ class ExactSpokenOperatorHintsTests(unittest.TestCase):
                 self.assertEqual(
                     _exact_spoken_math_operator_hint(speech,wrong),0.0)
 
+    def test_spoken_exponent_explanation_ranks_exact_printed_equation_only(self):
+        speech=("Looking at length, the exponent on the left is one, "
+                "and on the right it is n plus m.")
+        printed=target("n + m = 1\\nand\\nm = 2",id="s011.text.003")
+        ranked=stable_recommendations(speech,[printed])
+        self.assertEqual([x["draft_element_id"] for x in ranked],
+                         ["s011.text.003"])
+        self.assertGreaterEqual(ranked[0]["overlap_hint"],.68)
+        self.assertNotIn("scientific_approval",ranked[0])
+        for wrong in ("m + n = 1","n + m = 2","n + m = 11",
+                      "n + m = -1","p + m = 1"):
+            with self.subTest(wrong=wrong):
+                self.assertEqual(
+                    _exact_spoken_math_operator_hint(speech,wrong),0)
+        for contradiction in ("That exponent is NOT n plus m",
+                              "The equation n plus m is wrong"):
+            with self.subTest(contradiction=contradiction):
+                self.assertEqual(_exact_spoken_math_operator_hint(
+                    contradiction+" exponent on the left is one",
+                    "n + m = 1"),0)
+
     def test_literal_unit_ratio_does_not_conflate_squared_denominators(self):
         phrase=(" One factor of time cancels in the denominator, "
                 "leaving us with length divided by time on the right side.")

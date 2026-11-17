@@ -130,6 +130,20 @@
       "enabled": true
     },
     {
+      "id": "GEMINI_PRE_SEND_THINKING_CONTROL_PROFILE_FALLBACK",
+      "match_type": "presend_capability_repair",
+      "signature": "EXACT_GEMINI_THINKING_CONTROL_UNAVAILABLE_NO_SEND",
+      "mechanism": "REVALIDATE_EXACT_MODEL_AND_THINKING_ON_OTHER_RUNNING_AUTHORIZED_PROFILE_NO_SEND",
+      "classification": "MODEL_PRESENT_THINKING_CONTROL_UNAVAILABLE_OR_UNVERIFIED",
+      "handler": "NORMAL_EXISTING_OWNED_GEMINI_ACCOUNT_CAPABILITY_PREFLIGHT",
+      "preconditions": "no prompt typed, no file upload, no prior Send replay, second authenticated Chrome debug port already active, exact positive full model and thinking level verified on owned tab",
+      "verification_test": "tests/test_academic_gemini_presend_preflight.py",
+      "last_verified_date": "2026-11-17",
+      "environment": "Dell-115 9222/9225 authenticated Gemini owned Chrome profiles",
+      "retry_policy": "finite one other already-running account inspection only, no new credentials, no provider Send, no lower-thinking assumptions",
+      "enabled": true
+    },
+    {
       "id": "G2_PROVIDER_DEFERRED",
       "match_type": "supervisor_status",
       "signature": "G2_PROVIDER_HEALTH_DEFERRED_NO_NEW_SOURCE_SEND",

@@ -108,6 +108,22 @@ def _exact_spoken_math_operator_hint(speech: str, visible: str) -> float:
                 re.escape(right)+r"\s*=\s*"+re.escape(value)+r"(?![0-9])")
         if re.search(actual,rendered):
             return .92
+    # When speech discusses where the exponents come from, it may name
+    # the exact printed equation in an *opposite verbal order*. Propose
+    # that physical equation for independent review without asserting
+    # left/right interpretation or mathematical correctness.
+    partial=re.search(r"\b([a-z])\s+plus\s+([a-z])\b",spoken)
+    if (partial and re.search(r"\bexponents?\b",spoken)
+            and re.search(r"\b(?:left|right)\b",spoken)
+            and not re.search(r"\b(?:not|never|unequal|incorrect|wrong)\b",
+                              spoken)):
+        a,b=partial.groups()
+        for word,value in number.items():
+            if re.search(r"\b"+word+r"\b",spoken):
+                expression=(r"(?<![a-z0-9])"+re.escape(a)+r"\s*\+\s*"+
+                            re.escape(b)+r"\s*=\s*"+value+r"(?![0-9])")
+                if re.search(expression,rendered):
+                    return .68
     proportional=re.search(
         r"\b([a-z])\s+is\s+proportional\s+to\b"
         r".{0,90}?\b([a-z])\s+times\b"

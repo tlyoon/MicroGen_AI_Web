@@ -42,6 +42,26 @@ def presend_failure_code(error: BaseException) -> str:
     if ("requested_gemini_model_not_available" in detail
             or "model_not_available_no_send" in detail):
         return "GEMINI_REQUESTED_MODEL_FAMILY_UNAVAILABLE"
+    # A positively selected model does not imply the optional nested
+    # Thinking menu exists. Differentiate an absent/ambiguous effort control
+    # from model-family failure; never infer Medium from a Pro label.
+    if any(x in detail for x in (
+        "pre_send_thinking_expander_not_unique_or_missing",
+        "pre_send_ambiguous_thinking_expander",
+        "pre_send_thinking_fallback_without_positive_absence",
+    )):
+        return "GEMINI_THINKING_CONTROL_UNAVAILABLE_OR_AMBIGUOUS"
+    if any(x in detail for x in (
+        "pre_send_requested_thinking_level_unavailable_no_send",
+        "pre_send_requested_thinking_level_disabled_no_send",
+        "no_verifiable_non_downgrading_thinking_level_no_send",
+    )):
+        return "GEMINI_THINKING_LEVEL_UNAVAILABLE_NO_SEND"
+    if any(x in detail for x in (
+        "pre_send_thinking_level_not_verified_no_send",
+        "pre_send_thinking_selection_not_confirmed_no_send",
+    )):
+        return "GEMINI_THINKING_SELECTION_UNVERIFIED_NO_SEND"
     if any(x in detail for x in ("mode", "picker", "flash", "pro",
                                  "thinking", "level")):
         return "GEMINI_MODEL_PICKER_NOT_READY"
