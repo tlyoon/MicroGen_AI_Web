@@ -200,6 +200,20 @@
       "enabled": true
     },
     {
+      "id": "GEMINI_OWNED_THINKING_OVERLAY_RECOVERY",
+      "match_type": "presend_capability_repair",
+      "signature": "THINKING_EXPANDER_MISSING_AFTER_OWNED_PICKER_OPEN_NO_SEND",
+      "mechanism": "CLOSE_OWNED_PICKER_AND_RETRY_FINITE_PRESEND_DISCOVERY_NO_SEND",
+      "classification": "MODEL_PICKER_OPENED_NESTED_THINKING_SUBMENU_UNDETECTABLE",
+      "handler": "NORMAL_EXISTING_OWNED_GEMINI_ACCOUNT_CAPABILITY_PREFLIGHT",
+      "preconditions": "verified exact Gemini owned tab and one unique model picker, only failed pre-Send nested Thinking discovery, no model prompt or file upload, retry only if this registry remedy remains enabled",
+      "verification_test": "tests/test_gemini_adaptive_ui_thinking.py; tests/test_academic_gemini_presend_preflight.py",
+      "last_verified_date": "2026-11-17",
+      "environment": "Dell-115 Gemini Pro and Flash owned Selenium menu preflight, both existing authorized Chrome profiles",
+      "retry_policy": "finite 15-second owned-menu detection only; always close stale picker before retry, never infer Medium from model label, no Send or paid API or exhausted source replay",
+      "enabled": true
+    },
+    {
       "id": "GEMINI_ENROLLED_ACCOUNT_B_PROFILE_REOPEN",
       "match_type": "presend_capability_repair",
       "signature": "AUTHORIZED_ENROLLED_ALTERNATE_PROFILE_OFFLINE_NO_SEND",

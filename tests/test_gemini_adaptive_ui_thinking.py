@@ -273,6 +273,98 @@ class AdaptiveGeminiUiTests(unittest.TestCase):
         self.assertFalse(_matches_mode(
             "Open mode picker, currently Flash-Lite","flash"))
 
+    def test_missing_entire_thinking_submenu_is_not_called_medium_unavailable(self):
+        from selenium_pipeline.gemini_selenium_only_policy import (
+            presend_failure_code)
+        browser=AdaptiveBrowser(mode="pro",level="low")
+        # Missing Angular expander is UI-discovery failure, not evidence that
+        # the account lacks the exact Medium option. Reproduces Account B.
+        with patch("selenium_pipeline.gemini_thinking._thinking_expander",
+                   side_effect=GeminiThinkingError(
+                    "PRE_SEND_THINKING_EXPANDER_NOT_UNIQUE_OR_MISSING")):
+            with self.assertRaisesRegex(GeminiThinkingError,
+                                       "EXPANDER_NOT_UNIQUE_OR_MISSING") as failure:
+                select_owned_gemini_thinking_level(
+                    browser,"owned",level="medium",timeout=1)
+        self.assertEqual(presend_failure_code(failure.exception),
+                         "GEMINI_THINKING_CONTROL_UNAVAILABLE_OR_AMBIGUOUS")
+        self.assertEqual(browser.level,"low")
+        self.assertFalse(browser.menu_open)
+
+    def test_transient_missing_expander_self_heals_in_same_bounded_presend_attempt(self):
+        from selenium_pipeline import gemini_thinking as logic
+        browser=AdaptiveBrowser(mode="pro",level="low")
+        original=logic._thinking_expander
+        attempts=[]
+        def intermittent(driver):
+            attempts.append(1)
+            if len(attempts)==1:
+                raise GeminiThinkingError(
+                    "PRE_SEND_THINKING_EXPANDER_NOT_UNIQUE_OR_MISSING")
+            return original(driver)
+        with patch("selenium_pipeline.gemini_thinking._thinking_expander",
+                   side_effect=intermittent):
+            selected=select_owned_gemini_thinking_level(
+                browser,"owned",level="medium",timeout=2)
+        self.assertEqual(selected,"medium")
+        # First failed discovery, second selection, third independent
+        # post-selection radio verification (not a second model Send).
+        self.assertEqual(len(attempts),3)
+        self.assertEqual(browser.level,"medium")
+        self.assertFalse(browser.menu_open)
+        # Exactly one radio selection. Cleanup of the first incomplete
+        # menu open is never a model prompt, a Send or a second attempt.
+        self.assertEqual(browser.events.count("click:thinking-medium"),1)
+        self.assertGreaterEqual(browser.events.count("click:picker"),3)
+
+    def test_retired_stale_overlay_remedy_prevents_recovery_attempt(self):
+        from selenium_pipeline.gemini_selenium_only_policy import (
+            presend_failure_code)
+        browser=AdaptiveBrowser(mode="pro",level="low")
+        with patch("selenium_pipeline.gemini_thinking._thinking_expander",
+                   side_effect=GeminiThinkingError(
+                    "PRE_SEND_THINKING_EXPANDER_NOT_UNIQUE_OR_MISSING")),patch(
+                   "selenium_pipeline.recovery_registry.lookup_mechanism",
+                   return_value=None):
+            with self.assertRaisesRegex(GeminiThinkingError,
+                                       "OVERLAY_RECOVERY_NOT_REGISTERED") as error:
+                select_owned_gemini_thinking_level(
+                    browser,"owned",level="medium",timeout=1)
+        self.assertEqual(browser.level,"low")
+        self.assertFalse(browser.menu_open)
+        self.assertEqual(browser.events.count("click:picker"),2)
+        self.assertFalse(any("thinking-medium" in x for x in browser.events))
+
+    def test_expander_present_but_no_level_controls_is_not_proof_of_absence(self):
+        from selenium_pipeline.gemini_selenium_only_policy import (
+            presend_failure_code)
+        browser=AdaptiveBrowser(mode="pro",level="low")
+        with patch("selenium_pipeline.gemini_thinking._thinking_options",
+                   return_value=[]),patch(
+                   "selenium_pipeline.gemini_thinking.visible_offered_thinking_levels",
+                   return_value=[]):
+            with self.assertRaisesRegex(GeminiThinkingError,
+                                       "OPTIONS_NOT_DISCOVERABLE_NO_SEND") as failure:
+                select_owned_gemini_thinking_level(
+                    browser,"owned",level="medium",timeout=1)
+        self.assertEqual(presend_failure_code(failure.exception),
+                         "GEMINI_THINKING_CONTROL_UNAVAILABLE_OR_AMBIGUOUS")
+        self.assertEqual(browser.level,"low")
+
+    def test_actually_seen_low_high_options_support_true_medium_absence(self):
+        from selenium_pipeline.gemini_selenium_only_policy import (
+            presend_failure_code)
+        browser=AdaptiveBrowser(mode="pro",level="low",missing_medium=True)
+        with patch("selenium_pipeline.gemini_thinking.visible_offered_thinking_levels",
+                   return_value=["high","low"]):
+            with self.assertRaisesRegex(GeminiThinkingError,
+                                       "REQUESTED_THINKING_LEVEL_UNAVAILABLE") as failure:
+                select_owned_gemini_thinking_level(
+                    browser,"owned",level="medium",timeout=1)
+        self.assertEqual(presend_failure_code(failure.exception),
+                         "GEMINI_THINKING_LEVEL_UNAVAILABLE_NO_SEND")
+        self.assertEqual(browser.level,"low")
+
     def test_no_medium_or_ambiguous_medium_fails_without_send(self):
         for kwargs in ({"missing_medium":True},{"duplicate_medium":True}):
             browser=AdaptiveBrowser(mode="flash",**kwargs)

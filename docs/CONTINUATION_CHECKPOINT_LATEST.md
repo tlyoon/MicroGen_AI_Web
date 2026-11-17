@@ -1,3 +1,13 @@
+# 17 Nov 2026 — Registered stale Gemini Thinking-overlay cleanup and correct capability classification
+
+**CRITICAL PATH: STILL BLOCKED_EXTERNAL_DEPENDENCY; 20/85 real Serway §1.3 source-science units accepted.** Historical original two-PDF requests and both PDF-capability probes have no attributable answer; no request replay, paid operation, scientific review, media generation, or G3 advancement authorized.
+
+Real Dell-115 evidence distinguished Pro picker verified from actual Thinking expander: Account B had no unique discoverable nested Thinking expander, so previous generic `GEMINI_THINKING_LEVEL_UNAVAILABLE` was misleading; independently checked primary Flash/Medium had requested family unavailable. Corrected normal `gemini_thinking` code now closes the owned mode picker on nested discovery failure (preventing stale overlays between bounded attempts), registry-gates the retry `GEMINI_OWNED_THINKING_OVERLAY_RECOVERY`, and classifies missing/empty control versus positively witnessed offered levels correctly. Fault injection proves temporary failed expander → safe close → Medium selected and independently rechecked in the SAME finite pre-Send operation, as well as fail-closed persistent ambiguity and registry retirement. Actual Account B post-fix no-Send preflight now correctly says `GEMINI_THINKING_CONTROL_UNAVAILABLE_OR_AMBIGUOUS`; **no Medium radio proved**.
+
+Focused **58 passed, 1 skipped**; final broader G2/provider/Thinking one-Send regression **158 passed, 1 skipped**, zero failures, Dell-115. New exact-commit GitHub CI to be checked independently. Full diagnosis and strict next eligibility proof in `docs/G2_P1_THINKING_MENU_STALE_OVERLAY_RECOVERY_20261117.md`. **Do not call this original two-PDF recovery.** No provider-backed model response or eligible new transport has been established.
+
+---
+
 # 17 Nov 2026 — On-flight enrolled Account B pre-Send recovery (P1 remains blocked)
 
 **Critical path status: BLOCKED_EXTERNAL_DEPENDENCY (not recovered).** Real Serway §1.3 G2 independent two-pass source review still **20/85 accepted, 65 pending**. Both original slide 10/11 PDF Sends and v1/v2 synthetic two-PDF incidents remain exhausted; neither may be replayed. Slide 12 untouched. No new PDF response or science acceptance, paid API/TTS, G3/media or student publication.

@@ -14,6 +14,17 @@ import re
 import time
 
 LEVELS = frozenset(("low", "medium", "high"))
+_OVERLAY_SIGNATURE="THINKING_EXPANDER_MISSING_AFTER_OWNED_PICKER_OPEN_NO_SEND"
+_OVERLAY_MECHANISM="CLOSE_OWNED_PICKER_AND_RETRY_FINITE_PRESEND_DISCOVERY_NO_SEND"
+
+
+def _owned_overlay_recovery_registered()->bool:
+    try:
+        from .recovery_registry import lookup_mechanism
+        return (lookup_mechanism("presend_capability_repair",
+                 _OVERLAY_SIGNATURE)==_OVERLAY_MECHANISM)
+    except (ValueError,OSError):
+        return False
 
 # In-process, owned-tab-only, very short-lived proof. The *first* proof
 # always comes from the actual checked Thinking radio, not picker wording.
@@ -188,13 +199,21 @@ def _expand_for_thinking(driver, handle):
     from .gemini_model import _owned_picker
     _owned(driver, handle)
     picker = _owned_picker(driver, handle)
-    if (picker.get_attribute("aria-expanded") or "").casefold() != "true":
-        picker.click()
-    parent = _thinking_expander(driver)
-    if (parent.get_attribute("aria-expanded") or "").casefold() != "true":
-        parent.click()
-    _owned(driver, handle)
-    return picker
+    try:
+        if (picker.get_attribute("aria-expanded") or "").casefold() != "true":
+            picker.click()
+        parent = _thinking_expander(driver)
+        if (parent.get_attribute("aria-expanded") or "").casefold() != "true":
+            parent.click()
+        _owned(driver, handle)
+        return picker
+    except Exception:
+        # If the expander discovery fails after opening the outer picker,
+        # the caller never receives 'picker' and cannot close it in finally.
+        # This historically left stale overlays open across attempts. It is
+        # safe to close only the already identified owned menu, never Send.
+        _close_picker(driver, handle, picker)
+        raise
 
 
 def _close_picker(driver, handle, picker) -> None:
@@ -245,6 +264,8 @@ def select_owned_gemini_thinking_level(driver, handle: str, *,
         raise GeminiThinkingError("Invalid thinking selector parameters")
     deadline = time.monotonic() + timeout
     picker = None
+    saw_reachable_expander = False
+    saw_other_selectable_levels = False
     try:
         while time.monotonic() < deadline:
             try:
@@ -255,8 +276,12 @@ def select_owned_gemini_thinking_level(driver, handle: str, *,
                 # never a wrong tab or ambiguous named option.
                 if "EXPANDER_NOT_UNIQUE_OR_MISSING" not in str(exc):
                     raise
+                if not _owned_overlay_recovery_registered():
+                    raise GeminiThinkingError(
+                        "PRE_SEND_THINKING_OVERLAY_RECOVERY_NOT_REGISTERED_NO_SEND") from exc
                 time.sleep(.25)
                 continue
+            saw_reachable_expander = True
             choices = _thinking_options(driver, level)
             if len(choices) > 1:
                 raise GeminiThinkingError("PRE_SEND_AMBIGUOUS_THINKING_LEVEL_MENU")
@@ -282,9 +307,22 @@ def select_owned_gemini_thinking_level(driver, handle: str, *,
                     time.sleep(min(0.2, remaining))
                 raise GeminiThinkingError(
                     "PRE_SEND_THINKING_SELECTION_NOT_CONFIRMED_NO_SEND")
+            # A hidden/empty semantic menu is not proof that the requested
+            # level is actually absent. Only another positively witnessed,
+            # selectable Thinking radio can establish true unavailability.
+            # This distinction was missing in the real Account B failure.
+            offered = visible_offered_thinking_levels(driver)
+            if offered:
+                saw_other_selectable_levels = True
             _close_picker(driver, handle, picker)
             picker = None
             time.sleep(.25)
+        if not saw_reachable_expander:
+            raise GeminiThinkingError(
+                "PRE_SEND_THINKING_EXPANDER_NOT_UNIQUE_OR_MISSING")
+        if not saw_other_selectable_levels:
+            raise GeminiThinkingError(
+                "PRE_SEND_THINKING_OPTIONS_NOT_DISCOVERABLE_NO_SEND")
         raise GeminiThinkingError(
             "PRE_SEND_REQUESTED_THINKING_LEVEL_UNAVAILABLE_NO_SEND")
     finally:

@@ -49,6 +49,8 @@ def presend_failure_code(error: BaseException) -> str:
     # from model-family failure; never infer Medium from a Pro label.
     if any(x in detail for x in (
         "pre_send_thinking_expander_not_unique_or_missing",
+        "pre_send_thinking_options_not_discoverable_no_send",
+        "pre_send_thinking_overlay_recovery_not_registered_no_send",
         "pre_send_ambiguous_thinking_expander",
         "pre_send_thinking_fallback_without_positive_absence",
     )):
@@ -107,6 +109,12 @@ def _nonretryable_presend(error: Exception) -> bool:
         "permission denied", "different source", "invalid source",
         "requested_gemini_model_not_available_no_send",
         "existing_gemini_debug_session_unavailable_no_send",
+        # A full finite owned-menu inspection already concluded that its
+        # expander or options are inaccessible. Recreating the same client
+        # twice more cannot justify a Send and repeats a known failure.
+        "pre_send_thinking_expander_not_unique_or_missing",
+        "pre_send_thinking_options_not_discoverable_no_send",
+        "pre_send_thinking_overlay_recovery_not_registered_no_send",
     ))
 
 

@@ -145,6 +145,37 @@ class GeminiSeleniumOnlyPolicyTests(unittest.TestCase):
         self.assertEqual(raised.exception.gemini_prepare_attempts_used,1)
         self.assertFalse(raised.exception.gemini_send_boundary_entered)
 
+    def test_terminal_thinking_menu_discovery_does_not_rebuild_chrome_three_times(self):
+        from selenium_pipeline.gemini_thinking import GeminiThinkingError
+        from selenium_pipeline.gemini_selenium_only_policy import (
+            presend_failure_code)
+        for signature in (
+            "PRE_SEND_THINKING_EXPANDER_NOT_UNIQUE_OR_MISSING",
+            "PRE_SEND_THINKING_OPTIONS_NOT_DISCOVERABLE_NO_SEND",
+            "PRE_SEND_THINKING_OVERLAY_RECOVERY_NOT_REGISTERED_NO_SEND",
+        ):
+            clients=[]
+            def make():
+                c=MockClient(len(clients))
+                clients.append(c)
+                return c
+            with self.subTest(signature=signature):
+                clients.clear()
+                with self.assertRaises(GeminiSeleniumTemporaryFailure) as failure:
+                    prepare_with_bounded_retries(
+                        make_client=make,
+                        prepare_without_send=lambda c: (_ for _ in ()).throw(
+                            GeminiThinkingError(signature)),
+                        dispose=lambda c:c.shutdown(),
+                        sleeper=lambda _:self.fail(
+                            "Already exhausted one owned-menu discovery, no duplicate"))
+                self.assertEqual(len(clients),1)
+                self.assertEqual(clients[0].shutdown_count,1)
+                self.assertEqual(failure.exception.gemini_prepare_attempts_used,1)
+                self.assertEqual(failure.exception.gemini_failure_phase,
+                                 "GEMINI_THINKING_CONTROL_UNAVAILABLE_OR_AMBIGUOUS")
+                self.assertFalse(failure.exception.gemini_send_boundary_entered)
+
     def test_authentication_or_challenge_stops_without_retries(self):
         tried = []
         with self.assertRaises(GeminiSeleniumTemporaryFailure):
