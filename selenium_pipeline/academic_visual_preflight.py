@@ -22,7 +22,7 @@ def inspect(pdf:Path,*,min_figure_width_fraction:float=.18,
     all_pages=[]
     counts={"clipped_content":0,"small_figures":0,
             "composite_figure_review":0,"small_text_spans":0,
-            "orphan_equation_fragments":0}
+            "orphan_equation_fragments":0,"clipped_or_wrong_slide_counters":0}
     with pymupdf.open(pdf) as pages:
         for n,page in enumerate(pages,1):
             findings=[]
@@ -40,6 +40,26 @@ def inspect(pdf:Path,*,min_figure_width_fraction:float=.18,
                 for line in b.get("lines",[]):
                     for span in line.get("spans",[]):
                         t=span.get("text","").strip()
+                        counter=re.fullmatch(r"(\d+)\s*/\s*(\d+)",t)
+                        if counter:
+                            # Actual rendered metadata—not a guessed footer:
+                            # prior single-pass Beamer source printed N / 1
+                            # and positioned the text above the top edge.
+                            x0,y0,x1,y1=map(float,span["bbox"])
+                            bad=(int(counter[1])!=n
+                                 or int(counter[2])!=len(pages)
+                                 or y0<1.0 or x0<0
+                                 or x1>w-5.0 or y1>28.0)
+                            if bad:
+                                findings.append({
+                                    "severity":"blocker",
+                                    "reason":"clipped_or_incorrect_slide_counter",
+                                    "text_sample":t[:30],
+                                    "bbox":[round(v,3) for v in (x0,y0,x1,y1)],
+                                    "expected":f"{n} / {len(pages)}"})
+                                counts["clipped_or_wrong_slide_counters"]+=1
+                                counts["clipped_content"]+=1
+                            continue
                         if t and float(span.get("size",0))<6.5:
                             findings.append({"severity":"review","reason":"small_text_span",
                               "text_sample":t[:55],"size_pt":round(span["size"],2)})

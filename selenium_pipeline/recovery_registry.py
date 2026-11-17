@@ -19,6 +19,7 @@ _HANDLERS = {
     "owned_transport_diagnostic": "OWNED_GEMINI_SELENIUM_RESPONSE_QUARANTINE",
     "offline_dependency": "NORMAL_G2_INDEPENDENT_SOURCE_READINESS",
     "source_mapping_repair": "NORMAL_VERIFIED_ELEMENT_RANKER",
+    "slide_layout_repair": "NORMAL_BEAMER_HEADLINE_GEOMETRY_RECOVERY",
 }
 _REQUIRED = {
     "id", "match_type", "signature", "mechanism", "classification",

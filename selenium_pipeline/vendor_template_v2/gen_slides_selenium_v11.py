@@ -136,21 +136,39 @@ if slides_tex.exists() and slides_pdf.exists():
 # Pre-check compile
 # ------------------------------------------------------------
 def pdflatex_compiles(tex_path: Path) -> bool:
-    """Return True if pdflatex compiles the file (single pass)."""
+    """Compile legacy sources once; safe headline twice for correct total.
+
+    The true slide total is resolved by Beamer's navigation auxiliary file,
+    and a one-pass compile may silently print N / 1. Keep the historical
+    behavior for unrecognized generators but never release a repaired
+    counter without two complete successful native PDF compilations.
+    """
     try:
-        cmd = ["pdflatex", "-interaction=nonstopmode", "-halt-on-error", tex_path.name]
-        proc = subprocess.run(
-            cmd,
-            cwd=str(tex_path.parent),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            timeout=180,
-        )
-        (tex_path.with_suffix(".compile0.log")).write_text(proc.stdout, encoding="utf-8", newline="\n")
-        return proc.returncode == 0
+        from selenium_pipeline.slide_headline_geometry_recovery import (
+            SAFE_HEADLINE, verify_slide_counter_pdf)
+        original=tex_path.read_text(encoding="utf-8")
+        safe=SAFE_HEADLINE in original
+        passes=2 if safe else 1
+        cmd=["pdflatex","-interaction=nonstopmode","-halt-on-error",
+             "-no-shell-escape",tex_path.name]
+        combined=[]
+        for passno in range(passes):
+            proc=subprocess.run(
+                cmd,cwd=str(tex_path.parent),stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,text=True,timeout=180)
+            combined.append(f"PASS {passno+1}/{passes}\n"+proc.stdout)
+            if proc.returncode!=0:
+                break
+        (tex_path.with_suffix(".compile0.log")).write_text(
+            "\n".join(combined),encoding="utf-8",newline="\n")
+        if proc.returncode!=0:
+            return False
+        if safe:
+            verify_slide_counter_pdf(tex_path.with_suffix(".pdf"))
+        return True
     except Exception as e:
-        (tex_path.with_suffix(".compile0.log")).write_text(f"[compile exception] {e}\n", encoding="utf-8")
+        (tex_path.with_suffix(".compile0.log")).write_text(
+            f"[compile exception] {type(e).__name__}: {e}\n",encoding="utf-8")
         return False
 
 
@@ -1290,6 +1308,13 @@ def generate_slides_tex(
         
         latex = sanitize_gemini_latex_response(response_text)
         latex = normalize_unicode_to_latex(latex)
+        # Automatic, local, no-provider repair of the historical out-of-page
+        # N / 1 Beamer metadata headline. Exact known template only.
+        from selenium_pipeline.slide_headline_geometry_recovery import (
+            normalize_legacy_headline)
+        latex, headline_recovery = normalize_legacy_headline(latex)
+        if headline_recovery=="KNOWN_LEGACY_HEADLINE_RECOVERED":
+            log("Recovered inset Beamer page counters before physical compile")
         
         from selenium_pipeline.latex_graphics_bounds import bound_beamer_graphics
         latex, bounded_count = bound_beamer_graphics(latex)
