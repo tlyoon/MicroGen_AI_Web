@@ -18,6 +18,7 @@ _HANDLERS = {
     "supervisor_status": "NORMAL_SOURCE_BOUND_G2_SUPERVISOR_AND_QUEUE",
     "owned_transport_diagnostic": "OWNED_GEMINI_SELENIUM_RESPONSE_QUARANTINE",
     "offline_dependency": "NORMAL_G2_INDEPENDENT_SOURCE_READINESS",
+    "source_mapping_repair": "NORMAL_VERIFIED_ELEMENT_RANKER",
 }
 _REQUIRED = {
     "id", "match_type", "signature", "mechanism", "classification",

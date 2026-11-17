@@ -39,7 +39,28 @@ def _source_identifiers(folder: Path, queue_root: Path) -> dict:
     queue_file = queue_root / "queue.json"
     require(queue_file.is_file() and not queue_file.is_symlink(),
             "Missing immutable academic queue")
-    return {**originals, "queue.json": file_sha256(queue_file)}
+    # An unchanged textbook is NOT enough for cache reuse when the audit's
+    # ranker/citation/visual/science verification algorithms are revised.
+    # Recompute its source-bound proof under a new implementation digest.
+    code_root=Path(__file__).resolve().parent
+    modules=(
+        "g2_offline_source_readiness.py",
+        "incremental_element_candidate_map.py",
+        "element_plan_autodraft.py",
+        "academic_visual_preflight.py",
+        "source_verified_quote_candidates.py",
+        "ai_academic_review_consensus.py",
+    )
+    signatures={}
+    for name in modules:
+        code=code_root/name
+        require(code.is_file() and not code.is_symlink(),
+                "Source QA algorithm not available for versioned verification")
+        signatures[name]=file_sha256(code)
+    return {**originals,"queue.json":file_sha256(queue_file),
+            "audit_implementation_sha256":_sha_bytes(json.dumps(
+                signatures,sort_keys=True,separators=(",", ":")
+            ).encode("utf8"))}
 
 
 def _receipt_path(folder: Path, queue_root: Path, work_root: Path,
@@ -50,7 +71,8 @@ def _receipt_path(folder: Path, queue_root: Path, work_root: Path,
             and not work_root.is_relative_to(folder)
             and not queue_root.is_relative_to(folder),
             "Independent QA must never edit original source tree")
-    for name in ("source.pdf", "slides.pdf", "script.txt", "queue.json"):
+    for name in ("source.pdf", "slides.pdf", "script.txt", "queue.json",
+                 "audit_implementation_sha256"):
         require(re.fullmatch(r"[0-9a-f]{64}", ids.get(name, "")) is not None,
                 "Source provenance incomplete")
     key=_sha_bytes(json.dumps({

@@ -183,6 +183,25 @@ class OfflineSourceReadinessTests(unittest.TestCase):
                             second["offline_evidence_path"])
         self.assertEqual(len(list(self.work.rglob("*.json"))),2)
 
+    def test_ranker_version_change_invalidates_old_offline_audit(self):
+        original=self.run_audit()
+        before=len(self.events)
+        # Exact same original PDFs/queue, but algorithm implementation
+        # changed. Replaying an old candidate-map report is now unsafe.
+        def changed_ranker_code(path):
+            if Path(path).name=="element_plan_autodraft.py":
+                return "f"*64
+            return file_sha256(path)
+        with patch("selenium_pipeline.g2_offline_source_readiness.file_sha256",
+                   side_effect=changed_ranker_code):
+            revised=self.run_audit()
+        self.assertNotEqual(original["offline_evidence_path"],
+                            revised["offline_evidence_path"])
+        self.assertGreater(len(self.events),before)
+        self.assertEqual(len(list(self.work.rglob("*.json"))),2)
+        self.assertFalse(revised["scientific_approval"])
+        self.assertEqual(revised["new_model_requests"],0)
+
     def test_read_only_creates_no_receipts_or_provider_calls(self):
         result=self.run_audit(execute=False)
         self.assertEqual(result["status"],
