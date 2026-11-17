@@ -382,7 +382,22 @@ def valid(stage: str, folder: Path) -> bool:
                                     (folder / name).stat().st_size > 0 for name in OUTPUTS[stage]):
         return False
     if stage == "slides":
-        return slide_pages(folder) > 0
+        if slide_pages(folder) <= 0:
+            return False
+        # Old page-counter defects must not be silently adopted from a
+        # legacy slides-stage cache just because PDF pages exist. The new
+        # producer already normalizes this exact known header before its
+        # two-pass native compile. Here we check without mutating any
+        # previously accepted source, slide or scientific QA receipt.
+        from .slide_headline_geometry_recovery import (
+            verify_existing_slide_counter_contract)
+        try:
+            verify_existing_slide_counter_contract(
+                tex_file=folder / "slides.tex",
+                pdf_file=folder / "slides.pdf")
+        except (ValueError, OSError):
+            return False
+        return True
     if stage == "narration":
         return len(blocks((folder / "script.txt").read_text(encoding="utf-8"))) == slide_pages(folder)
     if stage == "script_qa":
@@ -961,6 +976,27 @@ def _execute_unlocked(s: Settings) -> Path:
                     accepted=previously_completed,model_stamp=model_stamp,
                     validity_passed=check_valid(stage,folder))
             except RunnerReuseError as exc:
+                if stage=="slides":
+                    # The historical clipped counter remains an independent,
+                    # deterministic local repair; derive a new candidate
+                    # without changing this completed stage, any immutable
+                    # scientific receipt or the original teaching slides.
+                    from .slide_headline_geometry_recovery import (
+                        recover_versioned_legacy_counter_deck)
+                    local=Path(os.getenv("LOCALAPPDATA") or
+                               str(Path.home()/"AppData"/"Local"))
+                    checkpoint=Path(os.getenv(
+                        "MICROGEN_COUNTER_CANDIDATE_WORK_ROOT",
+                        str(local/"MicroGen_AI_Web_Checkpoints")))
+                    try:
+                        counter_candidate=recover_versioned_legacy_counter_deck(
+                            original_folder=folder,checkpoint_root=checkpoint)
+                        print("[microgen] independently versioned old-counter "
+                              f"candidate physically verified: "
+                              f"{counter_candidate['candidate_pdf_path']}; "
+                              "frozen review identity unchanged",flush=True)
+                    except (ValueError,OSError,RuntimeError):
+                        pass  # Nonmatching failures retain their original stop.
                 raise RuntimeError(
                     f"Previously completed {stage} evidence changed or is incomplete; "
                     "stop for version-scoped review rather than automatically "

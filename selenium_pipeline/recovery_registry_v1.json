@@ -164,11 +164,11 @@
       "mechanism": "INSET_BEAMER_COUNTER_TWO_PASS_PHYSICAL_PROOF",
       "classification": "PDF_PAGE_COUNTER_CLIPPED_OR_WRONG_TOTAL",
       "handler": "NORMAL_BEAMER_HEADLINE_GEOMETRY_RECOVERY",
-      "preconditions": "exact historical Beamer metadata template only; never alter source physics, narration, existing approved PDFs or request fingerprints",
-      "verification_test": "tests/test_slide_headline_geometry_recovery.py",
+      "preconditions": "exact legacy Beamer counter only; runner and generator cached-slide checks; source+TeX+PDF SHA identity; no rewrite of reviewed source, paid calls or scientific approval",
+      "verification_test": "tests/test_slide_headline_geometry_recovery.py; tests/test_slide_counter_normal_entrypoints.py",
       "last_verified_date": "2026-11-17",
       "environment": "Dell-115 / Windows MiKTeX / MicroGen Selenium slide generation",
-      "retry_policy": "finite deterministic zero-provider single-template normalization, two bounded native PDF compilations, physical text-span edge and total checks",
+      "retry_policy": "finite two local crash-resume candidate attempts only; two native PDF compile passes; physical 13-page evidence; SHA/asset-bound idempotent reuse, originals never overwritten",
       "enabled": true
     },
     {

@@ -114,6 +114,44 @@ if slides_tex.exists() and slides_pdf.exists():
             "WARN",
         )
     else:
+        # This early-exit is a separate ordinary entrypoint from runner.valid.
+        # Before skipping generation, apply the SAME read-only known-headline
+        # physical counter contract, so a cached N / 1 or clipped edge never
+        # masquerades as an accepted deck. Never rewrite a previously
+        # generated deck or perform a new Gemini Send to repair its identity.
+        from selenium_pipeline.slide_headline_geometry_recovery import (
+            verify_existing_slide_counter_contract)
+        try:
+            verify_existing_slide_counter_contract(
+                tex_file=slides_tex,pdf_file=slides_pdf)
+        except (ValueError, OSError) as exc:
+            # A known old counter template has a deterministic no-provider
+            # repair. Run it AUTOMATICALLY on a separate versioned candidate;
+            # the prior source and slide PDFs stay frozen until independent
+            # science/source acceptance can bind the changed candidate SHA.
+            from selenium_pipeline.slide_headline_geometry_recovery import (
+                normalize_legacy_headline, recover_versioned_legacy_counter_deck)
+            source_text=slides_tex.read_text(encoding="utf8")
+            _,known=normalize_legacy_headline(source_text)
+            if known=="KNOWN_LEGACY_HEADLINE_RECOVERED" and Path("source.pdf").is_file():
+                local=Path(os.environ.get("LOCALAPPDATA") or
+                           str(Path.home()/"AppData"/"Local"))
+                checkpoint=Path(os.environ.get(
+                    "MICROGEN_COUNTER_CANDIDATE_WORK_ROOT",
+                    str(local/"MicroGen_AI_Web_Checkpoints")))
+                try:
+                    candidate=recover_versioned_legacy_counter_deck(
+                        original_folder=Path.cwd(),checkpoint_root=checkpoint)
+                    log("Created/reused separately versioned known-counter "
+                        f"candidate, physical slides={candidate['original_page_count']}; "
+                        "frozen source and scientific QA still require separate review")
+                except (ValueError,OSError,RuntimeError) as local_error:
+                    log("Finite versioned counter repair unavailable: "
+                        +type(local_error).__name__,"WARN")
+            raise RuntimeError(
+                "Existing slides have unsafe known Beamer counter geometry; "
+                "do not reuse frozen artifacts until a separately versioned "
+                "counter candidate passes source-bound acceptance") from exc
         # Existing slides are NOT reusable merely because LaTeX compiles:
         # a promised worked textbook example may be wholly absent.
         from selenium_pipeline.source_numbered_example_coverage import (
