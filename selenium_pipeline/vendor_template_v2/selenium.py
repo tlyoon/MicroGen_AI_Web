@@ -52,6 +52,9 @@ class Config:
 
     # If True, attach to an existing remote-debug Chrome when the port is already in use.
     use_persistent_chrome: bool = True
+    # Academic source preflight must not replace a disappeared authenticated
+    # browser with a disposable run_* Chrome profile between checks.
+    existing_session_only: bool = False
 
     # If True, keep v7 behaviour of force-killing Chrome to free the debug port.
     # Set env SAFE_CHROME=1 to disable killing all Chrome.
@@ -1086,6 +1089,10 @@ class GeminiSeleniumClient:
         cfg = self.cfg
 
         port_in_use = _is_port_in_use(cfg.debug_port)
+        if cfg.existing_session_only and not port_in_use:
+            # The debug port may disappear after the caller's first check.
+            # Do not silently start an unauthenticated run_* profile.
+            raise RuntimeError("EXISTING_GEMINI_DEBUG_SESSION_UNAVAILABLE_NO_SEND")
         if port_in_use and cfg.use_persistent_chrome:
             # Attach to existing session; do not "own" it.
             self._launched_profile_dir = None

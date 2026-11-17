@@ -33,6 +33,8 @@ class GeminiSeleniumPreSendBlocked(GeminiSeleniumTemporaryFailure):
 def presend_failure_code(error: BaseException) -> str:
     """Safe failure classification; never copy the prompt or browser page."""
     detail = (type(error).__name__ + " " + str(error)).casefold()
+    if "existing_gemini_debug_session_unavailable_no_send" in detail:
+        return "GEMINI_EXISTING_DEBUG_SESSION_UNAVAILABLE_NO_SEND"
     if any(x in detail for x in ("login", "sign in", "authentication",
                                  "captcha", "challenge", "just a moment")):
         return "AUTHENTICATION_OR_BROWSER_VERIFICATION_REQUIRED"
@@ -104,6 +106,7 @@ def _nonretryable_presend(error: Exception) -> bool:
         "captcha", "source mismatch", "source changed", "unauthorized",
         "permission denied", "different source", "invalid source",
         "requested_gemini_model_not_available_no_send",
+        "existing_gemini_debug_session_unavailable_no_send",
     ))
 
 

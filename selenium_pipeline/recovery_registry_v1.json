@@ -144,6 +144,20 @@
       "enabled": true
     },
     {
+      "id": "GEMINI_DISAPPEARED_PRIMARY_DEBUG_SESSION_ALT_RECOVERY",
+      "match_type": "presend_capability_repair",
+      "signature": "PRIMARY_GEMINI_DEBUG_SESSION_DISAPPEARED_NO_SEND",
+      "mechanism": "VERIFY_ALREADY_RUNNING_ALTERNATE_WITHOUT_NEW_CHROME_NO_SEND",
+      "classification": "PRE_SEND_PRIMARY_CHROME_DEBUG_PORT_ABSENT",
+      "handler": "NORMAL_EXISTING_OWNED_GEMINI_ACCOUNT_CAPABILITY_PREFLIGHT",
+      "preconditions": "primary DevTools endpoint absent, alternate DevTools endpoint already alive, no launch or creation of Chrome profiles, exact model/Thinking independently verified",
+      "verification_test": "tests/test_academic_gemini_presend_preflight.py",
+      "last_verified_date": "2026-11-17",
+      "environment": "Dell-115 authorized Gemini debugging profiles, ports 9222 and 9225 only",
+      "retry_policy": "finite one read-only existing alternate inspection, no new login, no prompt, no PDF upload, no Send, no claim replay",
+      "enabled": true
+    },
+    {
       "id": "G2_PDF_SPATIALLY_WITNESSED_FRACTION_REVIEW",
       "match_type": "source_mapping_repair",
       "signature": "SPLIT_PDF_NUMERATOR_DENOMINATOR_OR_SUPERSCRIPT_UNRANKED",

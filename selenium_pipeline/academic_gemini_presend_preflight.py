@@ -29,6 +29,7 @@ def inspect(*,port: int=9222) -> dict:
     if type(port) is not int or not 1<=port<=65535:
         raise AcademicGeminiPreSendBlocked("INVALID_GEMINI_DEBUG_PORT")
     from .series_gemini import _vendor_module
+    from .launch_gemini import ready
     from .three_pc_worker import LocalInstanceLock
     from .gemini_model import assert_owned_gemini_mode
     from .gemini_thinking import (
@@ -41,8 +42,16 @@ def inspect(*,port: int=9222) -> dict:
     vendor=_vendor_module()
     config=vendor.Config(
         root=cache,debug_port=port,
-        use_persistent_chrome=True,force_kill_chrome_to_free_port=False)
+        use_persistent_chrome=True,existing_session_only=True,
+        force_kill_chrome_to_free_port=False)
     with LocalInstanceLock(f"gemini_port_{port}",cache/"browser_locks"):
+        # Vendor start() launches a timestamped, unauthenticated Chrome
+        # profile when this port is absent, even in persistent mode. Never
+        # allow an academic preflight to silently create such a profile.
+        # Only attach to an already-running, explicitly authorized session.
+        if not ready(port):
+            raise AcademicGeminiPreSendBlocked(
+                "GEMINI_EXISTING_DEBUG_SESSION_UNAVAILABLE_NO_SEND")
         client=None
         try:
             client=vendor.GeminiSeleniumClient(config)
@@ -107,17 +116,26 @@ def select_ready_existing_session(*,primary_port: int=9222,
                     "GEMINI_THINKING_CONTROL_UNAVAILABLE_OR_AMBIGUOUS",
                     "GEMINI_THINKING_LEVEL_UNAVAILABLE_NO_SEND",
                     "GEMINI_THINKING_SELECTION_UNVERIFIED_NO_SEND",
+                    "GEMINI_EXISTING_DEBUG_SESSION_UNAVAILABLE_NO_SEND",
                 }
                 or not ready(ALT_PORT)):
             raise
         if first.failure_phase!="GEMINI_REQUESTED_MODEL_FAMILY_UNAVAILABLE":
             from .recovery_registry import lookup_mechanism
-            registered=lookup_mechanism(
-                "presend_capability_repair",
-                "EXACT_GEMINI_THINKING_CONTROL_UNAVAILABLE_NO_SEND")
-            if registered!=(
-                "REVALIDATE_EXACT_MODEL_AND_THINKING_ON_OTHER_RUNNING_AUTHORIZED_PROFILE_NO_SEND"):
-                raise
+            if first.failure_phase=="GEMINI_EXISTING_DEBUG_SESSION_UNAVAILABLE_NO_SEND":
+                registered=lookup_mechanism(
+                    "presend_capability_repair",
+                    "PRIMARY_GEMINI_DEBUG_SESSION_DISAPPEARED_NO_SEND")
+                if registered!=(
+                    "VERIFY_ALREADY_RUNNING_ALTERNATE_WITHOUT_NEW_CHROME_NO_SEND"):
+                    raise
+            else:
+                registered=lookup_mechanism(
+                    "presend_capability_repair",
+                    "EXACT_GEMINI_THINKING_CONTROL_UNAVAILABLE_NO_SEND")
+                if registered!=(
+                    "REVALIDATE_EXACT_MODEL_AND_THINKING_ON_OTHER_RUNNING_AUTHORIZED_PROFILE_NO_SEND"):
+                    raise
         try:
             second=inspect(port=ALT_PORT)
             return {**second,"verified_port":ALT_PORT,

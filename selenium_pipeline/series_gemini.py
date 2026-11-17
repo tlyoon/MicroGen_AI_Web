@@ -99,7 +99,8 @@ def _browser_request(instruction: str,attachments: list[Path],
     request_root=Path(attachments[0]).parent if attachments else cache
     cfg=vendor.Config(
         root=request_root,debug_port=port,
-        use_persistent_chrome=True,force_kill_chrome_to_free_port=False,
+        use_persistent_chrome=True,existing_session_only=True,
+        force_kill_chrome_to_free_port=False,
     )
     from .gemini_selenium_only_policy import (
         prepare_with_bounded_retries, emit_temporary_failure,
