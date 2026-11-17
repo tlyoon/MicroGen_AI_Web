@@ -604,6 +604,33 @@ def select_next_safe_review(*,queue_root:Path,folder:Path,
                     consumed=None
                 if consumed is not None and (
                         consumed.get("new_source_review_send_allowed") is not True):
+                    # Only one genuinely NEW modality test after the observed
+                    # primary-profile repair is permitted. It is never v1
+                    # re-submission: same original claim identities, new
+                    # two-PDF secrets and exclusive versioned v2 receipt.
+                    if (health_family == "pro" and
+                        consumed.get("status") == "DUAL_SYNTHETIC_PDF_RESPONSE_UNVERIFIED"):
+                        from .academic_dual_pdf_profile_repair_v2 import newly_eligible
+                        try:
+                            v2_allowed = newly_eligible(
+                                queue_root=queue_root,
+                                checkpoint_parent=queue_root.parent,
+                                source_sha=_sha(folder/"source.pdf"),
+                                prior_slides=prior, family=health_family)
+                        except (FigureIdentityReviewRequired, ValueError, OSError):
+                            v2_allowed = False
+                        if v2_allowed:
+                            return {
+                                "status":"DEFERRED_REPEATED_UNATTRIBUTED_BROWSER_SEND",
+                                "required_recovery_action":
+                                    "SYNTHETIC_DUAL_PDF_AFTER_VERIFIED_PRIMARY_PROFILE_REPAIR",
+                                "next_slide":None,"next_mode":None,
+                                "unattempted_candidate_slide":slide,
+                                "unattributed_prior_slides":prior,
+                                "new_model_requests":False,
+                                "original_request_replay_authorized":False,
+                                "student_publication_authorized":False,
+                            }
                     return {
                         "status":"DEFERRED_SYNTHETIC_PDF_CAPABILITY_EXHAUSTED_NO_RESEND",
                         "next_slide":None,"next_mode":None,

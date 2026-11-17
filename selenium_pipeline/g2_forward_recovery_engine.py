@@ -40,6 +40,8 @@ _RESOLUTIONS={
     "FRESH_FIRST_ATTEMPT":"ORIGINAL_SOURCE_BOUND_ONE_SHOT_ACADEMIC_GEMINI",
     "SYNTHETIC_DUAL_PDF_CAPABILITY_PROBE":
         "OWNED_TWO_SYNTHETIC_PDF_SOURCE_MODALITY_TEST_ONCE_ONLY",
+    "SYNTHETIC_DUAL_PDF_AFTER_VERIFIED_PRIMARY_PROFILE_REPAIR":
+        "ONE_FRESH_TWO_PDF_OWNED_READBACK_AFTER_DISTINCT_PROFILE_REPAIR",
     "RECONCILE_PRIOR_RESPONSE_NO_SEND":
         "SHA_LOCKED_SOURCE_CITATION_DOWNGRADE_AND_LOCAL_REPLY_RECONCILIATION",
     "PREPARED_UNSENT_NO_DUPLICATE":
@@ -289,10 +291,15 @@ def _synthetic_pdf_capability_stage(*, folder:Path, queue_root:Path,
     """
     require(selection.get("status")==
             "DEFERRED_REPEATED_UNATTRIBUTED_BROWSER_SEND"
-            and selection.get("required_recovery_action")==
+            and selection.get("required_recovery_action") in {
                 "SYNTHETIC_DUAL_PDF_CAPABILITY_PROBE",
+                "SYNTHETIC_DUAL_PDF_AFTER_VERIFIED_PRIMARY_PROFILE_REPAIR"},
             "Synthetic capability only applies to a proven two-Send stop")
-    from .academic_dual_pdf_capability import probe_once
+    if selection["required_recovery_action"] == (
+            "SYNTHETIC_DUAL_PDF_AFTER_VERIFIED_PRIMARY_PROFILE_REPAIR"):
+        from .academic_dual_pdf_profile_repair_v2 import probe_once
+    else:
+        from .academic_dual_pdf_capability import probe_once
     from .ai_academic_review_queue import select_next_safe_review
     from .ai_academic_review_consensus import reconcile_actual_review_queue
     outcome=(probe or probe_once)(
@@ -452,8 +459,9 @@ def run(*,folder:Path,queue_root:Path,work_root:Path,
                 }
             capability_only=(
                 selection.get("status")=="DEFERRED_REPEATED_UNATTRIBUTED_BROWSER_SEND"
-                and selection.get("required_recovery_action")
-                    =="SYNTHETIC_DUAL_PDF_CAPABILITY_PROBE"
+                and selection.get("required_recovery_action") in {
+                    "SYNTHETIC_DUAL_PDF_CAPABILITY_PROBE",
+                    "SYNTHETIC_DUAL_PDF_AFTER_VERIFIED_PRIMARY_PROFILE_REPAIR"}
             )
             media_only=(not capability_only and
                         selection.get("status")!="ONE_SAFE_ACADEMIC_REVIEW_UNIT_READY")
@@ -483,7 +491,7 @@ def run(*,folder:Path,queue_root:Path,work_root:Path,
                 "capability_model_family":health_family if capability_only else None,
                 "recovery_mechanism":_registered_recovery(
                     "selection_action",
-                    ("SYNTHETIC_DUAL_PDF_CAPABILITY_PROBE" if capability_only
+                    (selection.get("required_recovery_action") if capability_only
                      else selection.get("action") or ""),
                     _RESOLUTIONS,
                     "REVALIDATE_TWO_PASS_SOURCE_CONSENSUS_OR_STOP"),

@@ -32,6 +32,20 @@
       "enabled": true
     },
     {
+      "id": "G2_VERIFIED_PRIMARY_PROFILE_REPAIR_TWO_PDF_V2",
+      "match_type": "selection_action",
+      "signature": "SYNTHETIC_DUAL_PDF_AFTER_VERIFIED_PRIMARY_PROFILE_REPAIR",
+      "mechanism": "ONE_FRESH_TWO_PDF_OWNED_READBACK_AFTER_DISTINCT_PROFILE_REPAIR",
+      "classification": "ONE_NEW_DIAGNOSTIC_AFTER_DISTINCT_AUTHENTICATED_PROFILE_REMEDIATION",
+      "handler": "NORMAL_SOURCE_BOUND_G2_SUPERVISOR_AND_QUEUE",
+      "preconditions": "same two immutable uncertain original source claims, v1 failed immutable receipt, restored primary Chrome Pro Medium, unique new source-free synthetic PDF pair",
+      "verification_test": "tests/test_academic_dual_pdf_profile_repair_v2.py",
+      "last_verified_date": "2026-11-17",
+      "environment": "Dell-115 / Windows / source-bound Gemini Selenium Pro Medium",
+      "retry_policy": "finite one additional v2 synthetic Send ever per exact original incident, no old v1 or academic claim replay",
+      "enabled": true
+    },
+    {
       "id": "G2_ACADEMIC_SAVED_REPLY",
       "match_type": "selection_action",
       "signature": "RECONCILE_PRIOR_RESPONSE_NO_SEND",

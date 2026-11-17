@@ -148,6 +148,70 @@ class G2ForwardRecoveryEngineTests(unittest.TestCase):
                 home=self.work/"g2_forward_recovery_v1"
                 self.assertFalse(list(home.rglob("*.intent.json")))
 
+    def test_distinct_post_profile_repair_pdf_probe_is_one_stage_then_advances(self):
+        self.selection={
+            "status":"DEFERRED_REPEATED_UNATTRIBUTED_BROWSER_SEND",
+            "required_recovery_action":
+                "SYNTHETIC_DUAL_PDF_AFTER_VERIFIED_PRIMARY_PROFILE_REPAIR",
+            "unattributed_prior_slides":[10,11],
+            "unattempted_candidate_slide":12}
+        called=[]
+        def new_probe(**kw):
+            called.append(kw)
+            self.selection={"status":"ONE_SAFE_ACADEMIC_REVIEW_UNIT_READY",
+                            "action":"FRESH_FIRST_ATTEMPT",
+                            "next_slide":12,"next_mode":"INITIAL_REVIEW"}
+            return {"status":"DUAL_SYNTHETIC_PDF_RESPONSE_VERIFIED",
+                    "incident_sha256":"d"*64,
+                    "new_source_review_send_allowed":True,
+                    "new_provider_requests":1}
+        science={
+            "status":"INDEPENDENTLY_REVALIDATED_AI_SOURCE_MATH_AGREEMENT_QUEUE",
+            "accepted_ai_evidence":[{"id":str(i)} for i in range(20)],
+            "pending_or_disputed":65,"original_utterances":85}
+        def supervisor(**kw):
+            self.events.append(kw)
+            return self.report("G2_PROVIDER_HEALTH_DEFERRED_NO_NEW_SOURCE_SEND")
+        with patch("selenium_pipeline.ai_academic_review_consensus."
+                   "reconcile_actual_review_queue",return_value=science):
+            output=self.invoke(execute=True,max_cycles=2,
+                supervisor=supervisor,synthetic_pdf_probe=new_probe)
+        self.assertEqual(len(called),1)
+        self.assertEqual(len(self.events),1)
+        self.assertEqual(output["stage_cycles_this_invocation"][0]["action"],
+                         "CONTINUE")
+        intent=_json_file(Path(output["journal"])/"0001.intent.json")
+        self.assertEqual(intent["recovery_mechanism"],
+                         "ONE_FRESH_TWO_PDF_OWNED_READBACK_AFTER_DISTINCT_PROFILE_REPAIR")
+        self.assertEqual(intent["original_unsafe_claim_slides"],[10,11])
+        self.assertTrue(intent["never_resend_ambiguous_claim"])
+
+    def test_failed_new_profile_repair_probe_cannot_enter_source_review(self):
+        self.selection={
+            "status":"DEFERRED_REPEATED_UNATTRIBUTED_BROWSER_SEND",
+            "required_recovery_action":
+                "SYNTHETIC_DUAL_PDF_AFTER_VERIFIED_PRIMARY_PROFILE_REPAIR",
+            "unattributed_prior_slides":[10,11],
+            "unattempted_candidate_slide":12}
+        def failed(**kw):
+            self.selection={
+                "status":"DEFERRED_SYNTHETIC_PDF_CAPABILITY_EXHAUSTED_NO_RESEND",
+                "unattempted_candidate_slide":12}
+            return {"status":"DUAL_SYNTHETIC_PDF_RESPONSE_UNVERIFIED",
+                    "new_source_review_send_allowed":False,
+                    "new_provider_requests":1}
+        science={
+            "status":"INDEPENDENTLY_REVALIDATED_AI_SOURCE_MATH_AGREEMENT_QUEUE",
+            "accepted_ai_evidence":[],"pending_or_disputed":85,
+            "original_utterances":85}
+        with patch("selenium_pipeline.ai_academic_review_consensus."
+                   "reconcile_actual_review_queue",return_value=science):
+            output=self.invoke(execute=True,max_cycles=3,
+                supervisor=lambda **kw:self.fail("Unverified PDF must not advance"),
+                synthetic_pdf_probe=failed)
+        self.assertEqual(len(output["stage_cycles_this_invocation"]),1)
+        self.assertEqual(output["stage_cycles_this_invocation"][0]["action"],"HALT")
+
     def test_synthetic_dual_pdf_capability_proof_advances_to_fresh_source(self):
         self.selection={
             "status":"DEFERRED_REPEATED_UNATTRIBUTED_BROWSER_SEND",
