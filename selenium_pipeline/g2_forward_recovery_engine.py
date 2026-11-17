@@ -419,10 +419,25 @@ def run(*,folder:Path,queue_root:Path,work_root:Path,
                         and audit.get("scientific_approval") is False
                         and audit.get("student_publication_authorized") is False,
                         "Offline source readiness cannot authorize model replay")
+                # v6.1: do not conflate real offline engineering progress with
+                # recovery of this distinct, still-unattributed Gemini PDF
+                # scientific operation. No proof may be synthesized from
+                # local test success, a Send, or a registered remedy.
+                from .recovery_proof_gate import pdf_critical_path_verdict
+                critical_path=pdf_critical_path_verdict(
+                    source_sha256=hashes["source.pdf"],
+                    original_accepted=audit.get("original_two_pass_accepted"),
+                    original_total=audit.get("original_utterance_count"),
+                    supporting_work_completed=True)
+                require(critical_path["status"]=="BLOCKED_EXTERNAL_DEPENDENCY"
+                        and critical_path["original_operation_recovered"] is False
+                        and critical_path["next_milestone_advanced"] is False,
+                        "Secondary repair cannot close primary PDF content-generation blocker")
                 return {
                     "status":"G2_FORWARD_STOPPED_AT_VERIFIED_ELIGIBILITY_BOUNDARY",
                     "journal":str(home),
                     "stage_cycles_this_invocation":completed,
+                    "critical_path_recovery_proof":critical_path,
                     "last_stage":{
                         "status":selection["status"],
                         "reason":"SYNTHETIC_PDF_NO_REPLY_OR_UNCERTAIN_CLAIM",

@@ -100,6 +100,8 @@ class G2ForwardRecoveryEngineTests(unittest.TestCase):
             self.events.append(kw)
             self.assertEqual(kw["next_slide"],12)
             return {"status":"G2_OFFLINE_READINESS_COMPLETED_NO_GEMINI_SEND",
+                    "original_utterance_count":85,
+                    "original_two_pass_accepted":20,
                     "new_model_requests":0,"scientific_approval":False,
                     "student_publication_authorized":False}
         output=self.invoke(execute=True,max_cycles=8,
@@ -109,6 +111,12 @@ class G2ForwardRecoveryEngineTests(unittest.TestCase):
         self.assertEqual(output["last_stage"][
             "independent_offline_source_readiness"]["status"],
             "G2_OFFLINE_READINESS_COMPLETED_NO_GEMINI_SEND")
+        self.assertEqual(output["critical_path_recovery_proof"]["status"],
+                         "BLOCKED_EXTERNAL_DEPENDENCY")
+        self.assertFalse(output["critical_path_recovery_proof"][
+            "original_operation_recovered"])
+        self.assertTrue(output["critical_path_recovery_proof"][
+            "supporting_work_completed"])
         self.assertEqual(output["status"],
                          "G2_FORWARD_STOPPED_AT_VERIFIED_ELIGIBILITY_BOUNDARY")
         self.assertEqual(output["stage_cycles_this_invocation"],[])
