@@ -88,6 +88,20 @@
       "enabled": true
     },
     {
+      "id": "G2_OFFLINE_SOURCE_READINESS",
+      "match_type": "offline_dependency",
+      "signature": "DEFERRED_SYNTHETIC_PDF_CAPABILITY_EXHAUSTED_NO_RESEND",
+      "mechanism": "SHA_BOUND_INDEPENDENT_OFFLINE_SOURCE_READINESS_ONCE",
+      "classification": "EXTERNAL_GEMINI_PDF_ROUTE_EXHAUSTED_INDEPENDENT_WORK_ELIGIBLE",
+      "handler": "NORMAL_G2_INDEPENDENT_SOURCE_READINESS",
+      "preconditions": "source, slides, script, review queue exact SHA; no Gemini Send; read-only source and visual preflight",
+      "verification_test": "tests/test_g2_offline_source_readiness.py",
+      "last_verified_date": "2026-11-17",
+      "environment": "Dell-115 / Windows / MicroGen G2 original PDF",
+      "retry_policy": "finite one content-addressed offline audit per unchanged source; fail closed on corrupt or torn evidence",
+      "enabled": true
+    },
+    {
       "id": "G2_PROVIDER_DEFERRED",
       "match_type": "supervisor_status",
       "signature": "G2_PROVIDER_HEALTH_DEFERRED_NO_NEW_SOURCE_SEND",

@@ -2,6 +2,7 @@
 import json
 import tempfile
 import unittest
+from datetime import date
 from pathlib import Path
 
 from selenium_pipeline.recovery_registry import (
@@ -86,7 +87,10 @@ class VersionSixRecoveryRegistryTests(unittest.TestCase):
     def test_all_entries_have_verification_provenance(self):
         for e in self.original["entries"]:
             self.assertTrue(e["verification_test"].startswith("tests/"))
-            self.assertEqual(e["last_verified_date"],"2026-11-16")
+            self.assertLessEqual(
+                date.fromisoformat(e["last_verified_date"]), date(2026,11,17))
+            self.assertGreaterEqual(
+                date.fromisoformat(e["last_verified_date"]),date(2026,11,16))
             self.assertIn("finite",e["retry_policy"])
             self.assertTrue(e["enabled"])
             self.assertNotIn("paid",e["handler"].casefold())

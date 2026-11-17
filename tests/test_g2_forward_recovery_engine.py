@@ -50,11 +50,12 @@ class G2ForwardRecoveryEngineTests(unittest.TestCase):
         return actual.copy()
 
     def invoke(self,*,execute=False,max_cycles=8,supervisor=None,
-               synthetic_pdf_probe=None):
+               synthetic_pdf_probe=None,offline_auditor=None):
         return run(folder=self.folder,queue_root=self.queue,
                    work_root=self.work,execute=execute,
                    max_cycles=max_cycles,supervisor=supervisor,
                    synthetic_pdf_probe=synthetic_pdf_probe,
+                   offline_auditor=offline_auditor,
                    health_family="pro",auto_media=True)
 
     def report(self,status,*,attempt=None,health=None,agreed=4,pending=81):
@@ -95,13 +96,49 @@ class G2ForwardRecoveryEngineTests(unittest.TestCase):
             self.fail("Consumed synthetic probe cannot dispatch a new request")
         def never_probe(**kw):
             self.fail("Consumed synthetic probe may not be resent")
+        def audited(**kw):
+            self.events.append(kw)
+            self.assertEqual(kw["next_slide"],12)
+            return {"status":"G2_OFFLINE_READINESS_COMPLETED_NO_GEMINI_SEND",
+                    "new_model_requests":0,"scientific_approval":False,
+                    "student_publication_authorized":False}
         output=self.invoke(execute=True,max_cycles=8,
-            supervisor=never_supervisor,synthetic_pdf_probe=never_probe)
+            supervisor=never_supervisor,synthetic_pdf_probe=never_probe,
+            offline_auditor=audited)
+        self.assertEqual(len(self.events),1)
+        self.assertEqual(output["last_stage"][
+            "independent_offline_source_readiness"]["status"],
+            "G2_OFFLINE_READINESS_COMPLETED_NO_GEMINI_SEND")
         self.assertEqual(output["status"],
                          "G2_FORWARD_STOPPED_AT_VERIFIED_ELIGIBILITY_BOUNDARY")
         self.assertEqual(output["stage_cycles_this_invocation"],[])
         self.assertEqual(output["last_stage"]["unattempted_candidate_slide"],12)
         self.assertEqual(list(Path(output["journal"]).glob("*.intent.json")),[])
+
+    def test_offline_dependency_never_grants_provider_send_or_science(self):
+        self.selection={
+            "status":"DEFERRED_SYNTHETIC_PDF_CAPABILITY_EXHAUSTED_NO_RESEND",
+            "unattempted_candidate_slide":12,
+        }
+        for promoted in (
+            {"new_model_requests":1, "scientific_approval":False,
+             "student_publication_authorized":False},
+            {"new_model_requests":0, "scientific_approval":True,
+             "student_publication_authorized":False},
+            {"new_model_requests":0, "scientific_approval":False,
+             "student_publication_authorized":True},
+        ):
+            with self.subTest(promoted=promoted):
+                def malicious(**kw):
+                    return {"status":"G2_OFFLINE_READINESS_COMPLETED_NO_GEMINI_SEND",
+                            **promoted}
+                with self.assertRaisesRegex(ValueError,
+                                            "cannot authorize model replay"):
+                    self.invoke(execute=True,offline_auditor=malicious,
+                                supervisor=lambda **kw:self.fail(
+                                    "No scientific Send may occur"))
+                home=self.work/"g2_forward_recovery_v1"
+                self.assertFalse(list(home.rglob("*.intent.json")))
 
     def test_synthetic_dual_pdf_capability_proof_advances_to_fresh_source(self):
         self.selection={

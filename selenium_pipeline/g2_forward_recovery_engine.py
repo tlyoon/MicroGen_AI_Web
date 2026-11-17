@@ -32,6 +32,10 @@ from .recovery_registry import lookup_mechanism, REGISTRY_PATH
 MAX_CYCLES_PER_INVOCATION=32
 MAX_PERSISTED_CYCLES=256
 
+_OFFLINE_REMEDIES={
+    "DEFERRED_SYNTHETIC_PDF_CAPABILITY_EXHAUSTED_NO_RESEND":
+        "SHA_BOUND_INDEPENDENT_OFFLINE_SOURCE_READINESS_ONCE",
+}
 _RESOLUTIONS={
     "FRESH_FIRST_ATTEMPT":"ORIGINAL_SOURCE_BOUND_ONE_SHOT_ACADEMIC_GEMINI",
     "SYNTHETIC_DUAL_PDF_CAPABILITY_PROBE":
@@ -341,7 +345,8 @@ def run(*,folder:Path,queue_root:Path,work_root:Path,
         execute:bool=False,max_cycles:int=MAX_CYCLES_PER_INVOCATION,
         health_family:str="pro",auto_media:bool=True,
         supervisor:Callable|None=None,
-        synthetic_pdf_probe:Callable|None=None)->dict:
+        synthetic_pdf_probe:Callable|None=None,
+        offline_auditor:Callable|None=None)->dict:
     """Continue every genuinely eligible stage now; stop at a proven blocker.
 
     No separate scheduled task or background dependency is installed.
@@ -390,10 +395,30 @@ def run(*,folder:Path,queue_root:Path,work_root:Path,
                 queue_root=queue_root,folder=folder,health_family=health_family)
             if selection.get("status")==(
                     "DEFERRED_SYNTHETIC_PDF_CAPABILITY_EXHAUSTED_NO_RESEND"):
-                # Another invocation cannot restart a synthetic or original
-                # request already claimed by the previous failed incident.
-                # Report the durable eligibility boundary without creating
-                # an endless stream of no-op forward-stage receipts.
+                # Provider-dependent source reviews are exhausted, but v6
+                # requires continuing independently eligible offline work.
+                # This source/quote/geometry audit is a separate, strictly
+                # no-Send development milestone, never scientific acceptance.
+                _registered_recovery(
+                    "offline_dependency",selection["status"],
+                    _OFFLINE_REMEDIES,
+                    "UNRECOGNIZED_OFFLINE_DEPENDENCY_FAIL_CLOSED")
+                from .g2_offline_source_readiness import inspect_and_checkpoint
+                next_slide=selection.get("unattempted_candidate_slide")
+                require(type(next_slide) is int and 1<=next_slide<=200,
+                        "No real unattempted source slide for offline milestone")
+                audit=(offline_auditor or inspect_and_checkpoint)(
+                    folder=folder,queue_root=queue_root,
+                    work_root=work_root,next_slide=next_slide,
+                    execute=True)
+                require(type(audit) is dict
+                        and audit.get("status") in {
+                            "G2_OFFLINE_READINESS_COMPLETED_NO_GEMINI_SEND",
+                            "G2_OFFLINE_READINESS_REUSED_NO_NEW_WORK"}
+                        and audit.get("new_model_requests")==0
+                        and audit.get("scientific_approval") is False
+                        and audit.get("student_publication_authorized") is False,
+                        "Offline source readiness cannot authorize model replay")
                 return {
                     "status":"G2_FORWARD_STOPPED_AT_VERIFIED_ELIGIBILITY_BOUNDARY",
                     "journal":str(home),
@@ -401,6 +426,7 @@ def run(*,folder:Path,queue_root:Path,work_root:Path,
                     "last_stage":{
                         "status":selection["status"],
                         "reason":"SYNTHETIC_PDF_NO_REPLY_OR_UNCERTAIN_CLAIM",
+                        "independent_offline_source_readiness":audit,
                         "unattempted_candidate_slide":
                             selection.get("unattempted_candidate_slide"),
                         "original_request_replay_authorized":False,
