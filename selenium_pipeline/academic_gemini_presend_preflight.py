@@ -45,13 +45,16 @@ def inspect(*,port: int=9222) -> dict:
         use_persistent_chrome=True,existing_session_only=True,
         force_kill_chrome_to_free_port=False)
     with LocalInstanceLock(f"gemini_port_{port}",cache/"browser_locks"):
-        # Vendor start() launches a timestamped, unauthenticated Chrome
-        # profile when this port is absent, even in persistent mode. Never
-        # allow an academic preflight to silently create such a profile.
-        # Only attach to an already-running, explicitly authorized session.
+        # Vendor used to launch a disposable Chrome when port disappeared.
+        # Reopen only the already initialized, previously authorized PRIMARY
+        # profile through the finite registered no-Send recovery; Account B
+        # must remain already running. Never launch a new empty profile.
         if not ready(port):
-            raise AcademicGeminiPreSendBlocked(
-                "GEMINI_EXISTING_DEBUG_SESSION_UNAVAILABLE_NO_SEND")
+            from .gemini_existing_primary_recovery import (
+                recover_existing_primary_debug_session)
+            if not recover_existing_primary_debug_session(port):
+                raise AcademicGeminiPreSendBlocked(
+                    "GEMINI_EXISTING_DEBUG_SESSION_UNAVAILABLE_NO_SEND")
         client=None
         try:
             client=vendor.GeminiSeleniumClient(config)

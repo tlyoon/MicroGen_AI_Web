@@ -1090,9 +1090,16 @@ class GeminiSeleniumClient:
 
         port_in_use = _is_port_in_use(cfg.debug_port)
         if cfg.existing_session_only and not port_in_use:
-            # The debug port may disappear after the caller's first check.
-            # Do not silently start an unauthenticated run_* profile.
-            raise RuntimeError("EXISTING_GEMINI_DEBUG_SESSION_UNAVAILABLE_NO_SEND")
+            # Even if the port disappeared AFTER preflight, reopen only the
+            # previously initialized authorized primary profile, under the
+            # exact versioned on-flight recovery registry. No fresh run_*.
+            from selenium_pipeline.gemini_existing_primary_recovery import (
+                recover_existing_primary_debug_session)
+            if not recover_existing_primary_debug_session(cfg.debug_port):
+                raise RuntimeError("EXISTING_GEMINI_DEBUG_SESSION_UNAVAILABLE_NO_SEND")
+            port_in_use = _is_port_in_use(cfg.debug_port)
+            if not port_in_use:
+                raise RuntimeError("EXISTING_GEMINI_DEBUG_SESSION_UNAVAILABLE_NO_SEND")
         if port_in_use and cfg.use_persistent_chrome:
             # Attach to existing session; do not "own" it.
             self._launched_profile_dir = None

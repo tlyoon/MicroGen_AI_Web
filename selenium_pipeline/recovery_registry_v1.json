@@ -144,6 +144,20 @@
       "enabled": true
     },
     {
+      "id": "GEMINI_EXISTING_PRIMARY_PROFILE_REOPEN",
+      "match_type": "presend_capability_repair",
+      "signature": "AUTHORIZED_PRIMARY_PERSISTENT_DEBUG_SESSION_LOST_NO_SEND",
+      "mechanism": "REOPEN_ONLY_EXISTING_PRIMARY_PROFILE_THEN_REVERIFY_NO_SEND",
+      "classification": "AUTHORIZED_PRIMARY_DEBUG_ENDPOINT_DISAPPEARED",
+      "handler": "NORMAL_EXISTING_OWNED_GEMINI_ACCOUNT_CAPABILITY_PREFLIGHT",
+      "preconditions": "previous primary profile exists with Local State and Default, no symlink, original Chrome port only, no password or different identity, exact model/Thinking independently verified afterwards",
+      "verification_test": "tests/test_gemini_existing_primary_recovery.py",
+      "last_verified_date": "2026-11-17",
+      "environment": "Dell-115 persisted authorized primary Gemini Chrome profile on 9222",
+      "retry_policy": "finite one primary profile relaunch within pre-Send preparation; never replay consumed model request or create a fresh profile",
+      "enabled": true
+    },
+    {
       "id": "GEMINI_DISAPPEARED_PRIMARY_DEBUG_SESSION_ALT_RECOVERY",
       "match_type": "presend_capability_repair",
       "signature": "PRIMARY_GEMINI_DEBUG_SESSION_DISAPPEARED_NO_SEND",
