@@ -144,6 +144,32 @@ def _exact_spoken_math_operator_hint(speech: str, visible: str) -> float:
     return 0.0
 
 
+def _exact_dimensional_addition_rule_focus(speech: str, visible: str) -> float:
+    """Lexical rule-topic focus, NEVER a physical dimension equivalence proof.
+
+    A prohibition on mixing *different named fundamental quantities* may be
+    reviewed against the actually printed conditional addition rule. The
+    speech and original PDF must each contain explicit, narrowly matched
+    text; do not infer that any arbitrary pair of quantities are incompatible.
+    """
+    s=speech.casefold()
+    v=visible.casefold()
+    if not re.search(
+        r"\b(?:cannot|can't|can\s+not|must\s+not|do\s+not)\s+"
+        r"(?:add|subtract)\b",s):
+        return 0.0
+    mentioned={q for q in ("length","mass","time") if
+               re.search(r"\b"+q+r"\b",s)}
+    if len(mentioned)<2:
+        return 0.0
+    if not re.search(
+        r"\bquantities\s+can\s+be\s+added\s+or\s+"
+        r"subtracted\s+only\s+if\s+they\s+have\s+the\s+same\s+"
+        r"dimensions\b",re.sub(r"\s+"," ",v)):
+        return 0.0
+    return .72
+
+
 def stable_recommendations(speech: str, candidates: list[dict]) -> list[dict]:
     spoken_math=math_markers(speech)
     # Only SOURCE-WITNESSED caption panels may have a deterministic
@@ -214,6 +240,18 @@ def stable_recommendations(speech: str, candidates: list[dict]) -> list[dict]:
                     r"\blength\s+divided\s+by\s+time\s+squared\b",
                     speech,re.I)):
                 score=max(score,.90)
+        if kind=="text_block":
+            # Inflected "add"/"added" refer to the exact physical slide
+            # rule; this is a review-focus hint, not semantic approval of
+            # the quantity-specific narration or any audio timing.
+            rule_hint=_exact_dimensional_addition_rule_focus(speech,visible)
+            if rule_hint:
+                from .recovery_registry import lookup_mechanism
+                mechanism=lookup_mechanism(
+                    "source_mapping_repair",
+                    "SPOKEN_DIMENSIONAL_ADDITION_RULE_TOPICAL_PARAPHRASE")
+                if mechanism=="EXACT_VISIBLE_DIMENSIONAL_ADDITION_RULE_REVIEW_HINT_ONLY":
+                    score=max(score,rule_hint)
         if kind in ("text_block","math_row_group"):
             # This supplies a *physical literal notation hint* only, not an
             # equation-equivalence or scientific-acceptance conclusion.

@@ -158,6 +158,20 @@
       "enabled": true
     },
     {
+      "id": "G2_EXACT_DIMENSIONAL_ADDITION_RULE_TOPIC_HINT",
+      "match_type": "source_mapping_repair",
+      "signature": "SPOKEN_DIMENSIONAL_ADDITION_RULE_TOPICAL_PARAPHRASE",
+      "mechanism": "EXACT_VISIBLE_DIMENSIONAL_ADDITION_RULE_REVIEW_HINT_ONLY",
+      "classification": "VERBAL_QUANTITY_ADDITION_AND_RENDERED_DIMENSION_RULE_DIFFERENT_INFLECTION",
+      "handler": "NORMAL_VERIFIED_ELEMENT_RANKER",
+      "preconditions": "source/slide/narration SHA verified; original visible literal addition condition and two distinct named fundamental quantities in negated speech; topic focus only",
+      "verification_test": "tests/test_spoken_operator_rank_hints.py",
+      "last_verified_date": "2026-11-17",
+      "environment": "Dell-115 original rendered source-grounded physics rule and speech",
+      "retry_policy": "finite no-provider deterministic review-topic focus only; no source mathematics, semantic equivalence or paid-media approval",
+      "enabled": true
+    },
+    {
       "id": "G2_PROVIDER_DEFERRED",
       "match_type": "supervisor_status",
       "signature": "G2_PROVIDER_HEALTH_DEFERRED_NO_NEW_SOURCE_SEND",

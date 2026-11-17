@@ -112,6 +112,52 @@ class ExactSpokenOperatorHintsTests(unittest.TestCase):
             "Dimensions must match",[target("Dimensions must match")])[0][
                 "draft_element_id"],"s011.text.003")
 
+    def test_actual_dimension_rule_topical_paraphrase_review_only(self):
+        from selenium_pipeline.element_plan_autodraft import (
+            _exact_dimensional_addition_rule_focus)
+        spoken="You cannot add a length to a time."
+        printed=("Quantities can be added or subtracted only if they have "
+                 "the same\ndimensions.")
+        self.assertGreater(
+            _exact_dimensional_addition_rule_focus(spoken,printed),.7)
+        ranked=stable_recommendations(
+            spoken,[target(printed,id="s005.text.003")])
+        self.assertEqual([x["draft_element_id"] for x in ranked],
+                         ["s005.text.003"])
+        self.assertGreaterEqual(ranked[0]["overlap_hint"],.72)
+        self.assertNotIn("science_approved",ranked[0])
+        self.assertNotIn("tts_authorized",ranked[0])
+        negative=[
+            "You cannot add two lengths.",
+            "You can add length to time.",
+            "You cannot add a length.",
+            "One cannot add a dimensionless scalar to a length.",
+        ]
+        for utterance in negative:
+            with self.subTest(utterance=utterance):
+                self.assertEqual(
+                    _exact_dimensional_addition_rule_focus(utterance,printed),0)
+        for wrong in [
+            "Quantities may be added freely.",
+            "Quantities can be added if they have different dimensions.",
+            "The terms on both sides must have the same dimensions.",
+        ]:
+            with self.subTest(wrong=wrong):
+                self.assertEqual(
+                    _exact_dimensional_addition_rule_focus(spoken,wrong),0)
+
+    def test_retired_dimensional_rule_hint_refuses_new_rank(self):
+        from unittest.mock import patch
+        spoken="You cannot add a length to a time."
+        rule=("Quantities can be added or subtracted only if they have "
+              "the same dimensions.")
+        self.assertTrue(stable_recommendations(
+            spoken,[target(rule,id="s005.text.003")]))
+        with patch("selenium_pipeline.recovery_registry.lookup_mechanism",
+                   return_value=None):
+            self.assertEqual(stable_recommendations(
+                spoken,[target(rule,id="s005.text.003")]),[])
+
     def test_existing_trig_mismatch_still_excluded(self):
         speech="The sine of theta is positive."
         results=stable_recommendations(
