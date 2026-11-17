@@ -39,8 +39,14 @@ def enrolled_alternate_port_owned()->bool:
     try:
         import os
         import psutil
-        expected=os.path.normcase(os.path.normpath(
-            str(Path(profile_root(_ENROLLED_LABEL)).resolve())))
+        enrolled=Path(profile_root(_ENROLLED_LABEL))
+        # On Windows, temp/user-data paths may be entered through an NTFS
+        # junction or another canonical alias. Chrome records the *raw*
+        # --user-data-dir argument passed by our launcher; Path.resolve()
+        # can canonicalize that same enrolled directory to a different
+        # string. Accept ONLY these two known equivalent representations.
+        expected={os.path.normcase(os.path.normpath(str(enrolled))),
+                  os.path.normcase(os.path.normpath(str(enrolled.resolve())))}
         port_flag=f"--remote-debugging-port={ALT_PORT}"
         for proc in psutil.process_iter(["name","cmdline"]):
             try:
@@ -53,7 +59,7 @@ def enrolled_alternate_port_owned()->bool:
                        and x.startswith("--user-data-dir=")]
                 if len(roots)!=1:
                     continue
-                if os.path.normcase(os.path.normpath(roots[0]))==expected:
+                if os.path.normcase(os.path.normpath(roots[0])) in expected:
                     return True
             except (psutil.NoSuchProcess,psutil.AccessDenied):
                 continue

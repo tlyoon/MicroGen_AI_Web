@@ -65,12 +65,38 @@ class EnrolledAlternateRecoveryTests(unittest.TestCase):
                         "sys.modules",{"psutil":fake}):
             self.assertFalse(enrolled_alternate_port_owned())
             self.assertFalse(recover(9225))
-        fake.process_iter=lambda attrs:[wrong,good]
-        with mock_patch("selenium_pipeline.launch_gemini.ready",
-                        return_value=True),mock_patch.dict(
-                        "sys.modules",{"psutil":fake}):
+        # Exercise both the literal launcher --user-data-dir argument and
+        # its normalized Windows junction alias (CI temp directories can
+        # resolve differently from their raw paths).
+        canonical=SimpleNamespace(info={"name":"chrome.exe","cmdline":[
+            "chrome.exe","--remote-debugging-port=9225",
+            "--user-data-dir="+str(self.root.resolve())]})
+        for candidate in (good,canonical):
+            with self.subTest(candidate=candidate),mock_patch(
+                    "selenium_pipeline.launch_gemini.ready",
+                    return_value=True),mock_patch.dict(
+                    "sys.modules",{"psutil":fake}):
+                fake.process_iter=lambda attrs:[wrong,candidate]
+                self.assertTrue(enrolled_alternate_port_owned())
+                self.assertTrue(recover(9225))
+
+    def test_raw_chrome_argument_survives_a_different_resolved_junction_alias(self):
+        from types import SimpleNamespace
+        from selenium_pipeline.gemini_existing_alternate_recovery import (
+            enrolled_alternate_port_owned)
+        fake_proc=SimpleNamespace(info={"name":"chrome.exe","cmdline":[
+            "chrome.exe","--remote-debugging-port=9225",
+            "--user-data-dir="+str(self.root)]})
+        fake=SimpleNamespace(NoSuchProcess=LookupError,
+                             AccessDenied=PermissionError,
+                             process_iter=lambda attrs:[fake_proc])
+        # The real Chrome launch passes the raw enrolled path, while
+        # canonicalization of an NTFS junction may return a different alias.
+        with patch("selenium_pipeline.launch_gemini.ready",
+                   return_value=True),patch.dict(
+                   "sys.modules",{"psutil":fake}),patch.object(
+                   Path,"resolve",return_value=Path(str(self.root)+"-canonical")):
             self.assertTrue(enrolled_alternate_port_owned())
-            self.assertTrue(recover(9225))
 
     def test_invalid_ports_never_even_check_profile(self):
         for port in (9222,9223,9226,"9225",True,None):
