@@ -340,6 +340,20 @@
       "enabled": true
     },
     {
+      "id": "TTS_EXISTING_ISOLATED_SDK_RECOVERY",
+      "match_type": "tts_runtime_repair",
+      "signature": "DEFAULT_PYTHON_GEMINI38_TTS_SDK_INCOMPATIBLE",
+      "mechanism": "REUSE_PREVIOUSLY_INSTALLED_VERIFIED_ISOLATED_TTS_SDK_NO_API",
+      "classification": "OLD_GOOGLE_GENAI_SDK_IN_PROTECTED_DEFAULT_PYTHON",
+      "handler": "NORMAL_ISOLATED_TTS_WORKER_SDK_PREFLIGHT",
+      "preconditions": "parent google-genai preflight fails; exact existing October 2026 Dell-115 isolated SDK; child version>=2.25,<3 verified; paid TTS still requires separate approval",
+      "verification_test": "tests/test_gemini38_tts_interactions_sdk.py; tests/test_tts_worker_request_evidence.py",
+      "last_verified_date": "2026-11-18",
+      "environment": "Dell-115 AppData pre-enrolled isolated TTS SDK venv; source and academic checkpoints unchanged",
+      "retry_policy": "finite one local SDK-only subprocess preflight, no package installation or credentials, no TTS API call without authorization; missing venv fails closed",
+      "enabled": true
+    },
+    {
       "id": "G2_ACOUSTIC_DEFERRED",
       "match_type": "supervisor_status",
       "signature": "G2_MEDIA_GENERATED_AWAITING_INDEPENDENT_ACOUSTIC_QA",

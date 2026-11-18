@@ -273,9 +273,38 @@ def _modern_tts_worker_python(model: str) -> str:
         return sys.executable
     selected = os.environ.get("MICROGEN_TTS_WORKER_PYTHON", "").strip()
     if not selected:
-        from .gemini38_tts_interactions import require_modern_tts_sdk
-        require_modern_tts_sdk()
-        return sys.executable
+        from .gemini38_tts_interactions import (
+            require_modern_tts_sdk,InteractionsTTSCompatError)
+        try:
+            require_modern_tts_sdk()
+        except InteractionsTTSCompatError:
+            # Historical Dell-115 root cause: default Conda Python still
+            # ships SDK 1.4.0, while an October 2026 source-independent
+            # isolated SDK 2.33.0 is ALREADY installed. Reuse that old fix
+            # in the normal executable worker preflight; never upgrade the
+            # protected workspace or invent a new venv in flight.
+            from .recovery_registry import lookup_mechanism
+            if lookup_mechanism(
+                    "tts_runtime_repair",
+                    "DEFAULT_PYTHON_GEMINI38_TTS_SDK_INCOMPATIBLE"
+                    )!="REUSE_PREVIOUSLY_INSTALLED_VERIFIED_ISOLATED_TTS_SDK_NO_API":
+                raise RuntimeError(
+                    "No registered isolated Gemini TTS SDK recovery; no paid request")
+            root=Path(os.environ.get("LOCALAPPDATA") or "")
+            if not root.is_dir() or root.is_symlink():
+                raise RuntimeError(
+                    "No safe AppData SDK runtime root; no paid request")
+            candidate=(root/"MicroGen_AI_Web_Checkpoints"/
+                "20261027_GEMINI38_SDK_ISOLATED_VENV"/"Scripts"/"python.exe")
+            if (not candidate.is_file() or candidate.is_symlink()
+                    or any(parent.is_symlink()
+                           for parent in candidate.parents
+                           if parent!=root.parent)):
+                raise RuntimeError(
+                    "Historical isolated Gemini SDK missing/linked; no paid request")
+            selected=str(candidate)
+        else:
+            return sys.executable
     python = Path(selected).expanduser().absolute()
     if not python.is_file() or python.is_symlink():
         raise RuntimeError(

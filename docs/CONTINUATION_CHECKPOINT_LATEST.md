@@ -1,3 +1,15 @@
+# 18 Nov 2026 — Reuse historical PDF-fraction and isolated TTS SDK recovery
+
+**Engineering blockers resolved and regression tested; original G2 P1 remains BLOCKED_EXTERNAL_DEPENDENCY (20/85 accepted, 65 pending).** A full Dell-115 local test at dynamic router commit `68fc031` exposed five failures: two model router issues corrected in `68fc031`, one 17-Nov math-fraction candidate rejected by the older source hints validator, and two mocked TTS request-ID tests run under protected legacy `google-genai==1.4.0` instead of the already installed October isolated 2.33.0 SDK. Do not report these as five live provider problems.
+
+**Existing historic remedy reused:** The normal `source_evidence_worklist` now reconstructs `math_fraction_review` from exact unchanged PDF glyphs and the ALREADY REGISTERED `SPLIT_PDF_NUMERATOR_DENOMINATOR_OR_SUPERSCRIPT_UNRANKED` mechanism. Genuine Serway 6.4 source worklist and forgery/retirement checks pass; no semantic approval or TTS. The normal `tts._modern_tts_worker_python` now reuses the October pre-enrolled isolated 2.33.0 SDK only if the parent SDK is incompatible and exact new `TTS_EXISTING_ISOLATED_SDK_RECOVERY` registry entry is enabled; explicit worker override wins, and the actual child is verified locally without provider requests, packages, credentials or authorizations. Request-ID fake-client and watchdog tests separately mock preflight, while independent compatibility checks stay strict.
+
+**Tests:** genuine source and SDK fault injection plus related tests **53 passed**; all five previously failed tests and related checks **47 passed**; broader G2/source/transport/TTS/one-Send suite **209 passed, 1 skipped, 0 failures**. Genuine historical isolated SDK's original offline TTS request-ID/wire tests **28 passed**. Exact-head hosted Windows CI and normal G2 restart to be reported after commit. `docs/HISTORICAL_SOURCE_FRACTION_AND_TTS_SDK_RECOVERY_20261118.md` contains source provenance and no-send acceptance limits.
+
+**Unresolved:** Gemini Medium/High verification for new UI, genuinely attributable original two-PDF response, source-science consensus, G2 65 pending, G3/video/audio acceptance. No original request replay, model Send, paid operation or student publication was used in this repair.
+
+---
+
 # 18 Nov 2026 — Official-catalog and live-UI dynamic task model routing
 
 **Critical path: P1 still BLOCKED_EXTERNAL_DEPENDENCY; 20/85 independently accepted Serway §1.3 utterances.** Historical original PDFs and exhausted synthetic capabilities were not replayed. No source-science, acoustic/video or G3 advancement; no new model Send or paid API.
