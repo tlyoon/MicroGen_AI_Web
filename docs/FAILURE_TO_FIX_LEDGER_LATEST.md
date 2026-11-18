@@ -6,7 +6,7 @@
 
 **Code-level remedy:** Registered `GITHUB_SCOPED_HEAD_CHAIN_RECOVERY` in live registry, added current-head exact base.ref/base.sha -> unique parent head.ref/head.sha traversal to the existing `windows_github_pr_stack_readonly_audit.audit`, and exposed it to the existing Windows release board plus a scoped CLI mode. No reimplementation of the old global audit. Failed/stale/missing/tampered parent and registry-retirement proofs all block scoped acceptance.
 
-**Genuine live source of truth:** Complete GitHub open-PR catalog 441, current chain **163 draft PRs / 162 verified links to main**, unrelated historical divergence retained but isolated. **56** targeted/broad local tests passed after fixing registry-entry positional compatibility and explicit finite retry wording. No merge, paid provider request, original Gemini claim replay, student publication or academic QA approval. Hosted Windows CI and PR are downstream engineering gates. See `docs/PR531_ACTIVE_HEAD_CHAIN_AUDIT_RECOVERY_20261118.md`.
+**Genuine live source of truth:** Complete GitHub open-PR catalog 441, current chain **163 draft PRs / 162 verified links to main**, unrelated historical divergence retained but isolated. **58** targeted/broad local tests passed after fixing registry-entry positional compatibility, explicit finite retry wording and future unrelated-newer-PR insertion. No merge, paid provider request, original Gemini claim replay, student publication or academic QA approval. Hosted Windows CI and PR are downstream engineering gates. See `docs/PR531_ACTIVE_HEAD_CHAIN_AUDIT_RECOVERY_20261118.md`.
 
 ---
 

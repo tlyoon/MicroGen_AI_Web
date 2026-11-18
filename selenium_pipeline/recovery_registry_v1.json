@@ -374,7 +374,7 @@
       "mechanism": "TRACE_CURRENT_HEAD_BY_EXACT_BASE_REF_SHA_IGNORE_UNRELATED_PR_ROWS",
       "classification": "FALSE_NEGATIVE_IN_NUMERIC_ADJACENCY_GLOBAL_AUDIT",
       "handler": "NORMAL_GITHUB_OPEN_PR_STACK_HEAD_CHAIN_AUDIT",
-      "preconditions": "complete bounded live GitHub open-PR catalog, exact latest head SHA, unique branch parent and matching base SHA; no merge approval",
+      "preconditions": "complete bounded live GitHub open-PR catalog, exactly one requested head SHA anywhere in catalog, unique branch parent and matching base SHA; no merge approval",
       "verification_test": "tests/test_windows_github_scoped_head_audit.py",
       "last_verified_date": "2026-11-18",
       "environment": "Dell-115 Windows source-free live PR metadata; no model, TTS or publication",

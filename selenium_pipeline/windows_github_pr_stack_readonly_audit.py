@@ -34,7 +34,7 @@ def _api_get(url: str) -> list[dict]:
 
 
 def _scoped_head_chain(selected: list[dict], *, complete: bool,
-                       expected_matches: bool) -> dict:
+                       expected_head_sha: str | None) -> dict:
     """Trace the current PR's real parent branch, not number-adjacent PRs.
 
     An unrelated historical PR may be numbered between two real parents.
@@ -49,14 +49,25 @@ def _scoped_head_chain(selected: list[dict], *, complete: bool,
         "verified_parent_links": 0,
         "traced_open_pr_count": 0,
         "stopped_at_base_branch": None,
+        "requested_head_sha_found_exactly_once": False,
+        "anchored_head_pr": None,
         "preview_pr_numbers": [],
         "code_review_and_qa_complete": False,
         "may_merge_automatically": False,
         "student_publication_authorized": False,
     }
-    if not complete or not selected or not expected_matches:
-        report["status"] = "INCOMPLETE_CATALOG_OR_STALE_HEAD_NO_SCOPED_PROOF"
+    if not complete or not selected:
+        report["status"] = "INCOMPLETE_CATALOG_NO_SCOPED_PROOF"
         return report
+    # Never assume an exact target branch is PR-number-maximal: newer PRs
+    # on unrelated workstreams may appear after the current task started.
+    anchors = ([x for x in selected if x["head_sha"] == expected_head_sha]
+               if expected_head_sha is not None else selected[:1])
+    if len(anchors) != 1:
+        report["status"] = "MISSING_OR_AMBIGUOUS_EXACT_HEAD_SHA_NO_SCOPED_PROOF"
+        return report
+    report["requested_head_sha_found_exactly_once"] = True
+    report["anchored_head_pr"] = anchors[0]["number"]
     # Exact code-reviewed remedy must be enabled in the normal registry.
     try:
         from .recovery_registry import lookup_mechanism
@@ -73,7 +84,7 @@ def _scoped_head_chain(selected: list[dict], *, complete: bool,
     by_branch = {}
     for item in selected:
         by_branch.setdefault(item["head_branch"], []).append(item)
-    current = selected[0]
+    current = anchors[0]
     visited = set()
     path = []
     for _ in range(len(selected) + 1):
@@ -201,7 +212,8 @@ def audit(*, repository: str,
     safe_topology = (complete and all_draft and not disagreements
                      and head_matches)
     scoped_head = _scoped_head_chain(
-        selected, complete=complete, expected_matches=head_matches)
+        selected, complete=complete,
+        expected_head_sha=expected_latest_head_sha)
     return {
         "schema_version": 1,
         "status": (

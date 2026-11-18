@@ -96,9 +96,33 @@ class ExactHeadChainTests(unittest.TestCase):
         self.assertEqual(chain["status"], "NON_DRAFT_PR_IN_ACTIVE_CHAIN")
         self.assertFalse(chain["linked_open_draft_chain_verified"])
 
+    def test_newer_unrelated_pr_does_not_displace_exact_head(self):
+        items = fixture()
+        items.append({"number": 531, "state": "open", "draft": False,
+                      "head": {"ref": "new-unrelated-topic", "sha": D},
+                      "base": {"ref": "main", "sha": E}})
+        result = self.run_case(items, expected=A)
+        self.assertFalse(result["expected_latest_head_sha_matches"])
+        chain = self.chain(result)
+        self.assertTrue(chain["requested_head_sha_found_exactly_once"])
+        self.assertEqual(chain["anchored_head_pr"], 530)
+        self.assertTrue(chain["linked_open_draft_chain_verified"])
+        self.assertEqual(chain["preview_pr_numbers"], [530, 529, 527])
+        self.assertFalse(chain["may_merge_automatically"])
+
+    def test_duplicate_exact_requested_head_sha_is_ambiguous(self):
+        items = fixture()
+        items.append({"number": 531, "state": "open", "draft": True,
+                      "head": {"ref": "competing-copy", "sha": A},
+                      "base": {"ref": "main", "sha": E}})
+        chain = self.chain(self.run_case(items, expected=A))
+        self.assertEqual(chain["status"],
+                         "MISSING_OR_AMBIGUOUS_EXACT_HEAD_SHA_NO_SCOPED_PROOF")
+        self.assertFalse(chain["linked_open_draft_chain_verified"])
+
     def test_stale_head_blocks_scoped_proof(self):
         chain = self.chain(self.run_case(expected=D))
-        self.assertEqual(chain["status"], "INCOMPLETE_CATALOG_OR_STALE_HEAD_NO_SCOPED_PROOF")
+        self.assertEqual(chain["status"], "MISSING_OR_AMBIGUOUS_EXACT_HEAD_SHA_NO_SCOPED_PROOF")
         self.assertFalse(chain["linked_open_draft_chain_verified"])
 
     def test_retired_registry_mechanism_blocks(self):
@@ -121,7 +145,7 @@ class ExactHeadChainTests(unittest.TestCase):
                        expected_latest_head_sha=A,max_pages=1,fetch=page)
         self.assertFalse(self.chain(result)["linked_open_draft_chain_verified"])
         self.assertEqual(self.chain(result)["status"],
-                         "INCOMPLETE_CATALOG_OR_STALE_HEAD_NO_SCOPED_PROOF")
+                         "INCOMPLETE_CATALOG_NO_SCOPED_PROOF")
 
 
     def test_active_cli_exit_is_not_global_merge_approval(self):
