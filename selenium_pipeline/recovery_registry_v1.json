@@ -394,6 +394,20 @@
       "environment": "Dell-115 native Windows Git read-only historical review; no Gemini, TTS, media or source mutation",
       "retry_policy": "finite local Git metadata read bounded by 5000 commits and at most 40 commits per review batch; fail closed on mismatch or untrusted Git evidence",
       "enabled": true
+    },
+    {
+      "id": "HISTORICAL_PDF_TEXT_PARSER_ABI_COMPAT",
+      "match_type": "historical_pdf_parser_abi",
+      "signature": "HISTORICAL_SOURCE_PDF_TEXT_PARSER_ABI_CHANGED",
+      "mechanism": "REVERIFY_SAME_IMMUTABLE_SOURCE_REVIEW_IN_EXISTING_COMPATIBLE_PYTHON",
+      "classification": "SAVED_SOURCE_REQUEST_HASH_DIFFERS_BETWEEN_PYMUPDF_TEXT_EXTRACTION_VERSIONS",
+      "handler": "NORMAL_ORIGINAL_SOURCE_E2E_READONLY_ABI_REVIEW",
+      "preconditions": "saved source/fallback triad and manifest SHA, old owned response identity, pre-enrolled same-user local compatible interpreter, no media or model responses",
+      "verification_test": "tests/test_historical_pdf_parser_abi_recovery.py",
+      "last_verified_date": "2026-11-18",
+      "environment": "Dell-115 Windows original source-only historical review, existing compatible parser; no provider requests, no TTS or release",
+      "retry_policy": "finite one compatible local subprocess per invocation, at most 120 seconds; original saved model claims immutable and unrepeatable",
+      "enabled": true
     }
   ]
 }
