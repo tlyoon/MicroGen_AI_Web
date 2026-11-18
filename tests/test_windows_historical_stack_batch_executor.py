@@ -114,6 +114,34 @@ class HistoricalBatchExecutionTests(unittest.TestCase):
         with self.assertRaises(CampaignRecoveryBlocked):
             self.audit(first_batch=1,last_batch=1)
 
+    def test_cached_quarantine_cannot_be_silently_reclassified_green(self):
+        from selenium_pipeline.windows_historical_stack_batch_executor import (
+            _record_integrity_hash,
+        )
+        self.add("selenium_pipeline/sample.py",
+                 "def value():\n    return 1   \n")
+        findings = self.audit(first_batch=2,last_batch=2)
+        self.assertEqual(findings["quarantined_batch_numbers"],[2])
+        receipt=Path(findings["batch_receipts"][0]["receipt_path"])
+        stored=json.loads(receipt.read_text(encoding="utf8"))
+        # Even a recomputed self-hash cannot change the exact internal
+        # warning-count/member-SHA consistency invariant.
+        stored["status"]="OFFLINE_HISTORICAL_PATCH_INTEGRITY_PASS_REVIEW_PENDING"
+        stored["patch_check_failure_count"]=0
+        stored["receipt_integrity_sha256"]=_record_integrity_hash(stored)
+        receipt.write_text(json.dumps(stored),encoding="utf8")
+        with self.assertRaises(CampaignRecoveryBlocked):
+            self.audit(first_batch=2,last_batch=2)
+
+    def test_cached_receipt_data_digest_detects_partial_corruption(self):
+        report=self.audit(first_batch=1,last_batch=1)
+        receipt=Path(report["batch_receipts"][0]["receipt_path"])
+        record=json.loads(receipt.read_text(encoding="utf8"))
+        record["check_results_sha256"]="0"*64
+        receipt.write_text(json.dumps(record),encoding="utf8")
+        with self.assertRaises(CampaignRecoveryBlocked):
+            self.audit(first_batch=1,last_batch=1)
+
     def test_exact_new_head_produces_new_immutable_receipt(self):
         old=self.audit()
         self.add("README.md", "new bounded commit\n")

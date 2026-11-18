@@ -6,7 +6,7 @@
 
 **Normal executable fix:** reuse the original SHA-verified `plan_stack` and `windows_release_readiness_board`; add `windows_historical_stack_batch_executor`, registered as `HISTORICAL_RESTARTABLE_BATCH_EXECUTION`, finite 30-second per-commit read-only `git show --check` validation, exact-head and batch SHA keyed immutable receipts, automatic resume and next-independent-batch progression. Failed whitespace patches quarantine precisely their batch, do not trigger a history rewrite or false release.
 
-**Tests:** 40 real source-stage historical commits previously verified with no Git whitespace errors; 44 selected Windows historical/release/registry regressions PASS, including synthetic temporary whitespace defect later reverted, dirty tree, registry retirement, timeout, stale/tampered checkpoint, exact new head and no-merge/no-publication gates. Genuine full-history execution and final GitHub CI required next. See `docs/PR534_RESTARTABLE_HISTORICAL_BATCH_EXECUTION_20261118.md`.
+**Tests and live verification:** real Dell audit finished all 948 historical commits / 48 batches, with six historical cosmetic Git whitespace warnings quarantined in batches 14, 23, 41; no unexamined batches. A second independent process reused all 48 SHA-bound receipts. Internal cache consistency was strengthened against partial forgery of warning counts/status (including test that recomputes self-hash). **46 selected Windows historical/release/registry regressions PASS**, with synthetic reverted whitespace, dirty tree, registry retirement, timeout, tampered checkpoint, changed exact head and no-merge/no-publication gates. Exact new checker HEAD real rerun and GitHub CI required next. See `docs/PR534_RESTARTABLE_HISTORICAL_BATCH_EXECUTION_20261118.md`.
 
 ---
 

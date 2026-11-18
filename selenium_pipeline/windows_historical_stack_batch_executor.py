@@ -67,6 +67,20 @@ def _check_commit(repo: Path, sha: str, *, run=None) -> dict:
     }
 
 
+def _record_integrity_hash(record: dict) -> str:
+    """Detect accidental or partial edits of a persisted batch receipt.
+
+    This is an internal consistency check, not an adversarial signature.
+    Exact Git provenance is independently pinned to the immutable plan.
+    """
+    payload = {k: v for k, v in record.items()
+               if k != "receipt_integrity_sha256"}
+    return hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":"),
+                   ensure_ascii=False).encode("utf8")
+    ).hexdigest()
+
+
 def _receipt_path(*, repo: Path, plan: dict, batch: dict,
                   local: Path) -> Path:
     own_version = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
@@ -150,16 +164,44 @@ def execute_batches(*, repo: Path, batch_size: int = 20,
         if receipt.exists():
             require(not receipt.is_symlink() and receipt.is_file(),
                     "Untrusted historical batch checkpoint")
+            require(0 < receipt.stat().st_size <= 100_000,
+                    "Historical batch receipt exceeds bounded size")
             existing = json.loads(receipt.read_text(encoding="utf8"))
+            failures = (existing.get("failure_commit_shas")
+                        if type(existing) is dict else None)
+            count_fail = (existing.get("patch_check_failure_count")
+                          if type(existing) is dict else None)
+            expected_status = (
+                "OFFLINE_HISTORICAL_PATCH_INTEGRITY_PASS_REVIEW_PENDING"
+                if count_fail == 0 else
+                "OFFLINE_HISTORICAL_PATCH_FINDINGS_QUARANTINED")
             require(type(existing) is dict
                     and existing.get("schema_version") == SCHEMA
                     and existing.get("exact_head_sha") == plan["exact_head_sha"]
                     and existing.get("batch_number") == index
+                    and existing.get("batch_start_exclusive_sha") ==
+                        batch["start_exclusive_sha"]
                     and existing.get("batch_end_sha") == unit[-1]
                     and existing.get("member_commit_sha256") == _hash_lines(unit)
                     and existing.get("touched_paths_sha256") ==
                         batch["all_touched_paths_sha256"]
+                    and existing.get("historical_transient_path_count") ==
+                        batch["transient_or_reverted_path_count"]
+                    and existing.get("checked_commit_count") == len(unit)
+                    and type(count_fail) is int
+                    and 0 <= count_fail <= len(unit)
+                    and type(failures) is list
+                    and len(failures) == count_fail
+                    and all(type(sha) is str and sha in unit for sha in failures)
+                    and len(set(failures)) == len(failures)
+                    and existing.get("status") == expected_status
+                    and re.fullmatch(r"[a-f0-9]{64}",
+                                     str(existing.get("check_results_sha256"))) is not None
+                    and existing.get("receipt_integrity_sha256") ==
+                        _record_integrity_hash(existing)
                     and existing.get("semantic_code_review_completed") is False
+                    and existing.get("independent_academic_qa_accepted") is False
+                    and existing.get("model_or_tts_calls") == 0
                     and existing.get("student_publication_authorized") is False
                     and existing.get("automatic_merge_authorized") is False,
                     "Saved historical batch receipt does not match source history")
@@ -194,6 +236,7 @@ def execute_batches(*, repo: Path, batch_size: int = 20,
             "student_publication_authorized": False,
             "model_or_tts_calls": 0,
         }
+        record["receipt_integrity_sha256"] = _record_integrity_hash(record)
         _persist_or_verify(receipt, record)
         batches.append({**record, "receipt_reused_after_restart": False,
                         "receipt_path": str(receipt)})
