@@ -1,5 +1,17 @@
 # MicroGen_AI_Web failure-to-fix ledger — current continuation
 
+## MG-HISTORY-ENDPOINT-DIFF-HIDES-REVERTED-CODE-V1 — 18 Nov 2026
+
+**Verified historical failure:** original normal `windows_historical_stack_batch_plan.plan_stack` used only per-batch endpoint diff; in the genuine 945-commit Dell-115 PR history it omitted 9 commit-touched paths in batch 45 and 6 in batch 46 (15 total). Source admission, Gemini UI/model policy, academic-source and regression files could therefore disappear from review scope when edits were later reverted.
+
+**Reusable executable recovery:** preserve the original native bounded reviewer; add complete exact per-commit Git path attribution and union with original endpoint diff. Register `HISTORICAL_BATCH_COMMIT_PATH_INVENTORY` in the normal `recovery_registry_v1.json`, require the same enabled mechanism before planning, and route the existing release board through the corrected planner without another stack. Missing/stale SHA markers, unanchored paths or retired registry block plan. Expose net and touched counts, transient path examples and digest; original merge/publication false gates preserved.
+
+**Evidence:** real 945 commits / 48 batches; batch45 71 -> 80, batch46 83 -> 89, exactly 15 recovered paths. Synthetic Windows Git create/delete PDF and other failure injections plus historical release/registry tests **62 passed**; no model or paid API operation. See `docs/PR532_HISTORICAL_COMMIT_TOUCHED_PATH_RECOVERY_20261118.md`. Await new exact-head CI after draft branch push.
+
+---
+
+# MicroGen_AI_Web failure-to-fix ledger — current continuation
+
 ## MG-PR-STACK-NUMERIC-NEIGHBOR-FALSE-NEGATIVE-V1 — 18 Nov 2026
 
 **Actual recurrence:** Normal live PR audit of current head f6af456 mixed 441 open PRs across older unrelated workstreams. Global number-adjacent comparison produced 10 mismatched links and 2 non-drafts, and incorrectly obscured the current recovery PR dependency chain. Existing global result and review warnings remain useful for historical backlogs and are not deleted.

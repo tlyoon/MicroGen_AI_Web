@@ -24,6 +24,7 @@ _HANDLERS = {
     "transport_selection": "NORMAL_ACADEMIC_OWNED_ROUTE_AND_VERIFIED_MODEL_THINKING_PREFLIGHT",
     "tts_runtime_repair": "NORMAL_ISOLATED_TTS_WORKER_SDK_PREFLIGHT",
     "pr_stack_audit": "NORMAL_GITHUB_OPEN_PR_STACK_HEAD_CHAIN_AUDIT",
+    "history_batch_inventory": "NORMAL_WINDOWS_HISTORICAL_STACK_BATCH_PLANNER",
 }
 _REQUIRED = {
     "id", "match_type", "signature", "mechanism", "classification",

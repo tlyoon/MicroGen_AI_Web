@@ -79,6 +79,63 @@ class HistoricalStackReadOnlyBatchPlanTests(unittest.TestCase):
         self.assertEqual(self.git("rev-parse", "HEAD"), before)
         self.assertEqual(self.git("status", "--porcelain"), "")
 
+    def test_real_git_create_then_delete_pdf_cannot_disappear_from_review(self):
+        # A file absent at both endpoints must still appear if it was
+        # introduced and removed in intermediate commit history.
+        self.commit("source_diagnostic.pdf", "synthetic only")
+        self.git("rm", "--", "source_diagnostic.pdf")
+        self.git("commit", "-m", "delete synthetic source diagnostic")
+        before = self.git("rev-parse", "HEAD")
+        a = plan_stack(repo=self.repo, batch_size=20)
+        b = plan_stack(repo=self.repo, batch_size=20)
+        self.assertEqual(a, b)
+        batch = a["batches"][0]
+        self.assertEqual(batch["commit_count"], 7)
+        self.assertIn("source_diagnostic.pdf",
+                      batch["transient_or_reverted_path_examples"])
+        self.assertGreaterEqual(batch["transient_or_reverted_path_count"], 1)
+        self.assertGreater(batch["historical_touched_path_count"],
+                           batch["net_diff_path_count"])
+        self.assertIn("SOURCE_OR_AUDIO_MEDIA_ASSET",
+                      batch["review_risk_categories"])
+        self.assertRegex(batch["all_touched_paths_sha256"], r"^[a-f0-9]{64}$")
+        self.assertFalse(batch["code_and_academic_review_complete"])
+        self.assertFalse(batch["merge_or_publication_authorized"])
+        self.assertEqual(before, self.git("rev-parse", "HEAD"))
+
+    def test_missing_commit_markers_blocks_entire_review_plan(self):
+        from selenium_pipeline import windows_historical_stack_batch_plan as mod
+        original = mod._git
+
+        def incomplete(repo, *args):
+            if args and args[0] == "log":
+                return "MICROGEN_COMMIT_SHA:" + "f" * 40 + "\n"
+            return original(repo, *args)
+
+        with patch.object(mod, "_git", side_effect=incomplete):
+            with self.assertRaises(CampaignRecoveryBlocked):
+                plan_stack(repo=self.repo)
+
+    def test_unanchored_changed_path_blocks_review_plan(self):
+        from selenium_pipeline import windows_historical_stack_batch_plan as mod
+        original = mod._git
+
+        def unanchored(repo, *args):
+            if args and args[0] == "log":
+                return "selenium_pipeline/unowned.py"
+            return original(repo, *args)
+
+        with patch.object(mod, "_git", side_effect=unanchored):
+            with self.assertRaises(CampaignRecoveryBlocked):
+                plan_stack(repo=self.repo)
+
+    def test_disabled_registry_prevents_incomplete_plan_fallback(self):
+        with patch("selenium_pipeline.recovery_registry.lookup_mechanism",
+                   return_value=None):
+            with self.assertRaisesRegex(
+                    CampaignRecoveryBlocked, "recovery missing or retired"):
+                plan_stack(repo=self.repo)
+
     def test_dirty_worktree_does_not_become_reviewed_or_released(self):
         (self.repo / "README.md").write_text("changed locally", encoding="utf8")
         report = plan_stack(repo=self.repo)
