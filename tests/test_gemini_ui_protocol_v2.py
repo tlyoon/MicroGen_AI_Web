@@ -22,7 +22,9 @@ class GeminiModelAndEffortProtocolV2(unittest.TestCase):
         self.assertEqual(normalized_family("Fast\n3.5 Flash-Lite"),"flash-lite")
         self.assertEqual(normalized_family("3.1 Pro\nThorough research"),"pro")
         self.assertIsNone(normalized_family("Flash\nFlash-Lite"))
-        self.assertIsNone(normalized_family("4 Hydrogen"))
+        # Recognition is separate from authorization: the new router still
+        # requires official Apps evidence, live unlocked UI and task minima.
+        self.assertEqual(normalized_family("4 Hydrogen"),"hydrogen")
         self.assertEqual(choose_family(
             requested="flash",offered=["pro","flash","flash-lite"],
             stage="slides").chosen,"flash")

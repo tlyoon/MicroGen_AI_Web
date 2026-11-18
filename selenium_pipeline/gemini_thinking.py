@@ -238,6 +238,14 @@ def _open_owned_mode_picker_with_verified_fallback(driver,handle,picker,*,
     visible=snapshot_options(driver)
     if visible:
         return
+    # Older Gemini/Chrome drivers may not expose an aria-expanded
+    # attribute, and some offline drivers do not implement atomic JS
+    # snapshots. A positively visible, individually selectable model menu
+    # is stronger evidence than absent aria state. Do not mislabel an
+    # already-open menu as an inert click or attempt a second click.
+    from .gemini_model import _visible_model_options
+    if _visible_model_options(driver):
+        return
     label=(picker.get_attribute("aria-label") or "")
     current=label.partition("currently ")[2]
     exact=(normalized_family(current) in MODEL_SPECS if allow_model_switch
@@ -489,7 +497,8 @@ def select_owned_gemini_thinking_with_recovery(
                 if active in STAGES:
                     from .gemini_model import configured_ui_mode
                     chosen=select_task_thinking(
-                        active,offered,mode=configured_ui_mode())
+                        active,offered,mode=configured_ui_mode(),
+                        requested=level)
                 else:
                     chosen=choose_thinking(
                         requested=level,offered=offered,stage=active)

@@ -144,23 +144,30 @@ def choose_task_model(*,stage,requested_family,visible_rows,catalog,
                     tuple(sorted(present)),catalog["source_state"],
                     catalog["help_sha256"])
 
-def select_task_thinking(stage,offered,*,mode=None):
+def select_task_thinking(stage,offered,*,mode=None,requested=None):
+    """Never downgrade an explicit caller request OR a task minimum."""
     profile=task_policy(stage)
+    if requested is not None and requested not in LEVELS:
+        raise DynamicGeminiRouteError("Unverified explicit Thinking request")
     if stage=="figures" and mode=="flash-lite":
+        if requested not in (None,"low"):
+            raise DynamicGeminiRouteError(
+                "Lite captions cannot satisfy an explicitly stronger effort")
         return "not_required"
     if (not isinstance(offered,(list,tuple))
             or any(x not in LEVELS for x in offered)):
         raise DynamicGeminiRouteError("Unverified Thinking menu options")
     available=set(offered)
-    preferred=profile["preferred_thinking"]
-    floor=profile["minimum_thinking"]
+    preferred=requested or profile["preferred_thinking"]
+    floor=max((profile["minimum_thinking"],preferred),
+              key=LEVELS.index)
     allowed={x for x in LEVELS if LEVELS.index(x)>=LEVELS.index(floor)}
     preferred_order=[preferred]+[x for x in LEVELS
                  if x!=preferred and LEVELS.index(x)>=LEVELS.index(preferred)]
     picked=next((x for x in preferred_order if x in available and x in allowed),None)
     if not picked:
         raise DynamicGeminiRouteError(
-            "NO_EXPLICIT_VERIFIABLE_TASK_THINKING_LEVEL_NO_SEND")
+            "NO_VERIFIABLE_NON_DOWNGRADING_THINKING_LEVEL_NO_SEND")
     return picked
 
 def save_verified_task_default(*,stage,family,visible_label,thinking_level,

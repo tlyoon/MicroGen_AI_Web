@@ -1400,7 +1400,13 @@ class GeminiSeleniumClient:
             )
 
         # Bind persisted task defaults to this authorized Chrome profile.
-        os.environ["MICROGEN_GEMINI_CHROME_PORT"]=str(self.cfg.debug_port)
+        # Older stage test configs predate debug_port and represent the
+        # historical primary owned profile. A real configured worker always
+        # supplies its explicit port; neither case permits a foreign tab.
+        runtime_port=int(getattr(self.cfg,"debug_port",9222))
+        if runtime_port not in (9222,9225):
+            raise RuntimeError("Unauthorized Gemini debugging port")
+        os.environ["MICROGEN_GEMINI_CHROME_PORT"]=str(runtime_port)
         # One canonical model selector for parent and ALL owned workers.
         # "Flash-Lite" is NOT Flash. Reject mixed/ambiguous menu entries
         # before the job has uploaded a source or made any Gemini Send.
@@ -1546,7 +1552,7 @@ class GeminiSeleniumClient:
             persisted=commit_verified_pending_route(
                 stage=active_stage,owned_selected_label=selected_mode,
                 thinking_level=verified_thinking,
-                port=int(self.cfg.debug_port),
+                port=runtime_port,
                 model_ui_checked=True,thinking_radio_checked=True)
             log("[GEMINI-MODE] TASK_DEFAULT_REVERIFIED_AND_PERSISTED "
                 f"task={active_stage} family={persisted['family']}")
