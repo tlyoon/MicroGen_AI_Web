@@ -190,6 +190,62 @@ class WindowsReleaseReadinessTests(unittest.TestCase):
         self.assertFalse(result["may_merge_historical_stack_automatically"])
         self.assertFalse(result["student_publication_authorized"])
 
+    def test_real_offline_batch_executor_is_wired_but_never_release_approved(self):
+        plan = {
+            "status": "HISTORICAL_STACK_READ_ONLY_BATCH_PLAN_AVAILABLE",
+            "historical_stack_review_completed": False,
+            "automatic_merge_or_release_authorized": False,
+            "student_publication_authorized": False,
+        }
+        integrity = {
+            "status": "OFFLINE_BATCH_PATCH_CHECKS_COMPLETE_CODE_REVIEW_PENDING",
+            "batch_count_completed": 2,
+            "quarantined_batch_numbers": [],
+            "semantic_code_review_completed": False,
+            "automatic_merge_authorized": False,
+            "student_publication_authorized": False,
+        }
+        with patch(
+            "selenium_pipeline.windows_release_readiness_board._git",
+            side_effect=self.fake_git
+        ), patch(
+            "selenium_pipeline.windows_release_readiness_board.audit",
+            return_value=self.recovery
+        ), patch(
+            "selenium_pipeline.windows_historical_stack_batch_plan.plan_stack",
+            return_value=plan
+        ), patch(
+            "selenium_pipeline.windows_historical_stack_batch_executor.execute_batches",
+            return_value=integrity
+        ) as executor:
+            result=inspect_release(
+                repo=self.repo, jobs_dir=Path("jobs"),
+                fresh_trial_dir=Path("trial"), include_stack_batches=True,
+                execute_historical_batch_checks=True)
+        executor.assert_called_once_with(repo=self.repo)
+        self.assertEqual(result["historical_offline_patch_execution"],integrity)
+        self.assertFalse(result["required_release_gates"][
+            "entire_historical_stack_dependency_and_review_completed"])
+        self.assertFalse(result["release_candidate_ready"])
+        self.assertFalse(result["student_publication_authorized"])
+        self.assertFalse(result["may_merge_historical_stack_automatically"])
+
+    def test_offline_executor_requires_authoritative_batch_plan(self):
+        from selenium_pipeline.original_multisource_recovery_campaign import (
+            CampaignRecoveryBlocked,
+        )
+        with patch(
+            "selenium_pipeline.windows_release_readiness_board._git",
+            side_effect=self.fake_git
+        ), patch(
+            "selenium_pipeline.windows_release_readiness_board.audit",
+            return_value=self.recovery
+        ):
+            with self.assertRaises(CampaignRecoveryBlocked):
+                inspect_release(repo=self.repo,jobs_dir=Path("jobs"),
+                                fresh_trial_dir=Path("trial"),
+                                execute_historical_batch_checks=True)
+
     def test_open_pr_dependency_catalog_never_authorizes_mass_merge(self):
         catalog = {
             "status": "OPEN_PR_STACK_INCOMPLETE_OR_REVIEW_REQUIRED",

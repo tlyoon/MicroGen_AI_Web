@@ -108,6 +108,7 @@ def inspect_release(*, repo: Path, jobs_dir: Path,
                     reuse_scoped_pr362: bool = False,
                     reviewed_media_dir: Path | None = None,
                     include_stack_batches: bool = False,
+                    execute_historical_batch_checks: bool = False,
                     verify_exact_head_ci_online: bool = False,
                     github_repository: str = "tlyoon/MicroGen_AI_Web",
                     audit_open_pr_stack_online: bool = False,
@@ -195,6 +196,18 @@ def inspect_release(*, repo: Path, jobs_dir: Path,
     if include_stack_batches:
         from .windows_historical_stack_batch_plan import plan_stack
         stack_plan = plan_stack(repo=repo)
+    historical_batch_checks = {
+        "status": "OFFLINE_HISTORICAL_BATCH_CHECKS_NOT_REQUESTED",
+        "batch_count_completed": 0,
+        "semantic_code_review_completed": False,
+        "automatic_merge_authorized": False,
+        "student_publication_authorized": False,
+    }
+    if execute_historical_batch_checks:
+        require(include_stack_batches,
+                "Offline historical patch checks require normal batch plan")
+        from .windows_historical_stack_batch_executor import execute_batches
+        historical_batch_checks = execute_batches(repo=repo)
     github_ci = {
         "status": "EXACT_HEAD_ONLINE_CI_CHECK_NOT_REQUESTED",
         "exact_head_windows_ci_verified": False,
@@ -273,6 +286,7 @@ def inspect_release(*, repo: Path, jobs_dir: Path,
         "second_independent_original_candidate": second_candidate,
         "autonomous_original_lecture_qa": autonomous_qa,
         "historical_stack_review_batch_plan": stack_plan,
+        "historical_offline_patch_execution": historical_batch_checks,
         "github_open_pr_dependency_catalog_read_only": open_pr_catalog,
         "exact_head_github_windows_ci_evidence": github_ci,
         "engineering_technical_release_candidate_ready": engineering_ready,
@@ -326,6 +340,8 @@ def main(argv=None) -> int:
                    help="Read-only revalidate PR506 original-source reviewed MP4 receipt and bytes")
     p.add_argument("--include-stack-batches", action="store_true",
                    help="Read-only bounded plan for historical commit review, never merge")
+    p.add_argument("--execute-historical-batch-checks", action="store_true",
+                   help="With batch plan, run and checkpoint all offline Git patch checks; no approval")
     p.add_argument("--verify-exact-head-ci-online", action="store_true",
                    help="Opt-in GitHub HTTPS read-only CI lookup, never publish")
     p.add_argument("--github-repository", default="tlyoon/MicroGen_AI_Web",
@@ -354,6 +370,7 @@ def main(argv=None) -> int:
                                  reuse_scoped_pr362=a.reuse_scoped_pr362,
                                  reviewed_media_dir=a.reviewed_media_dir,
                                  include_stack_batches=a.include_stack_batches,
+                                 execute_historical_batch_checks=a.execute_historical_batch_checks,
                                  verify_exact_head_ci_online=a.verify_exact_head_ci_online,
                                  github_repository=a.github_repository,
                                  audit_open_pr_stack_online=a.audit_open_pr_stack_online,
