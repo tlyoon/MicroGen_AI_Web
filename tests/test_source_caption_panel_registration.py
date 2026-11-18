@@ -108,6 +108,37 @@ class CaptionedPanelRegistration(unittest.TestCase):
         with self.assertRaises(FigureIdentityReviewRequired):
             source_evidence_worklist(folder=folder,candidates=fake)
 
+
+    def test_legacy_source_worklist_revalidates_fraction_from_unchanged_pdf(self):
+        """A physically detected new candidate must not break old worklists."""
+        folder=original()
+        result=candidate_map(folder=folder,queue=inspect_pre_tts_folder(folder))
+        fraction=next(
+            e for slide in result["slides"] for e in slide["candidate_visual_targets"]
+            if e["kind"]=="math_fraction_review")
+        self.assertTrue(fraction["original_pdf_fraction_geometry_verified"])
+        actual=source_evidence_worklist(folder=folder,candidates=result)
+        self.assertEqual(actual["utterance_count"],74)
+        self.assertFalse(actual["tts_authorized"])
+        self.assertFalse(actual["semantic_element_approval"])
+
+    def test_fraction_worklist_rejects_forged_geometry_and_retired_registry(self):
+        from unittest.mock import patch
+        folder=original()
+        result=candidate_map(folder=folder,queue=inspect_pre_tts_folder(folder))
+        fake=copy.deepcopy(result)
+        target=next(
+            e for slide in fake["slides"] for e in slide["candidate_visual_targets"]
+            if e["kind"]=="math_fraction_review")
+        target["anchor"]["fraction_spans_sha256"]="0"*64
+        with self.assertRaises(FigureIdentityReviewRequired):
+            source_evidence_worklist(folder=folder,candidates=fake)
+        with patch("selenium_pipeline.recovery_registry.lookup_mechanism",
+                   return_value=None):
+            with self.assertRaisesRegex(FigureIdentityReviewRequired,
+                                        "Unregistered physical fraction"):
+                source_evidence_worklist(folder=folder,candidates=result)
+
     def test_historical_rich_lecture_worklist_reuses_source_panel_provenance(self):
         from selenium_pipeline.element_plan_autodraft import propose
         from selenium_pipeline.rich_element_mapping_checkpoint import (

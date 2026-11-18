@@ -33,6 +33,8 @@ class GeminiSeleniumPreSendBlocked(GeminiSeleniumTemporaryFailure):
 def presend_failure_code(error: BaseException) -> str:
     """Safe failure classification; never copy the prompt or browser page."""
     detail = (type(error).__name__ + " " + str(error)).casefold()
+    if "existing_gemini_debug_session_unavailable_no_send" in detail:
+        return "GEMINI_EXISTING_DEBUG_SESSION_UNAVAILABLE_NO_SEND"
     if any(x in detail for x in ("login", "sign in", "authentication",
                                  "captcha", "challenge", "just a moment")):
         return "AUTHENTICATION_OR_BROWSER_VERIFICATION_REQUIRED"
@@ -42,6 +44,28 @@ def presend_failure_code(error: BaseException) -> str:
     if ("requested_gemini_model_not_available" in detail
             or "model_not_available_no_send" in detail):
         return "GEMINI_REQUESTED_MODEL_FAMILY_UNAVAILABLE"
+    # A positively selected model does not imply the optional nested
+    # Thinking menu exists. Differentiate an absent/ambiguous effort control
+    # from model-family failure; never infer Medium from a Pro label.
+    if any(x in detail for x in (
+        "pre_send_thinking_expander_not_unique_or_missing",
+        "pre_send_thinking_options_not_discoverable_no_send",
+        "pre_send_thinking_overlay_recovery_not_registered_no_send",
+        "pre_send_ambiguous_thinking_expander",
+        "pre_send_thinking_fallback_without_positive_absence",
+    )):
+        return "GEMINI_THINKING_CONTROL_UNAVAILABLE_OR_AMBIGUOUS"
+    if any(x in detail for x in (
+        "pre_send_requested_thinking_level_unavailable_no_send",
+        "pre_send_requested_thinking_level_disabled_no_send",
+        "no_verifiable_non_downgrading_thinking_level_no_send",
+    )):
+        return "GEMINI_THINKING_LEVEL_UNAVAILABLE_NO_SEND"
+    if any(x in detail for x in (
+        "pre_send_thinking_level_not_verified_no_send",
+        "pre_send_thinking_selection_not_confirmed_no_send",
+    )):
+        return "GEMINI_THINKING_SELECTION_UNVERIFIED_NO_SEND"
     if any(x in detail for x in ("mode", "picker", "flash", "pro",
                                  "thinking", "level")):
         return "GEMINI_MODEL_PICKER_NOT_READY"
@@ -84,6 +108,16 @@ def _nonretryable_presend(error: Exception) -> bool:
         "captcha", "source mismatch", "source changed", "unauthorized",
         "permission denied", "different source", "invalid source",
         "requested_gemini_model_not_available_no_send",
+        "existing_gemini_debug_session_unavailable_no_send",
+        # A full finite owned-menu inspection already concluded that its
+        # expander or options are inaccessible. Recreating the same client
+        # twice more cannot justify a Send and repeats a known failure.
+        "pre_send_thinking_expander_not_unique_or_missing",
+        "pre_send_thinking_options_not_discoverable_no_send",
+        "pre_send_thinking_overlay_recovery_not_registered_no_send",
+        "pre_send_mode_picker_native_click_inert_unverified_no_send",
+        "pre_send_mode_picker_js_fallback_not_verified_no_send",
+        "pre_send_mode_picker_still_closed_no_send",
     ))
 
 

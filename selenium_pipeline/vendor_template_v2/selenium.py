@@ -52,6 +52,9 @@ class Config:
 
     # If True, attach to an existing remote-debug Chrome when the port is already in use.
     use_persistent_chrome: bool = True
+    # Academic source preflight must not replace a disappeared authenticated
+    # browser with a disposable run_* Chrome profile between checks.
+    existing_session_only: bool = False
 
     # If True, keep v7 behaviour of force-killing Chrome to free the debug port.
     # Set env SAFE_CHROME=1 to disable killing all Chrome.
@@ -1086,6 +1089,17 @@ class GeminiSeleniumClient:
         cfg = self.cfg
 
         port_in_use = _is_port_in_use(cfg.debug_port)
+        if cfg.existing_session_only and not port_in_use:
+            # Even if the port disappeared AFTER preflight, reopen only the
+            # previously initialized authorized primary profile, under the
+            # exact versioned on-flight recovery registry. No fresh run_*.
+            from selenium_pipeline.gemini_existing_primary_recovery import (
+                recover_existing_primary_debug_session)
+            if not recover_existing_primary_debug_session(cfg.debug_port):
+                raise RuntimeError("EXISTING_GEMINI_DEBUG_SESSION_UNAVAILABLE_NO_SEND")
+            port_in_use = _is_port_in_use(cfg.debug_port)
+            if not port_in_use:
+                raise RuntimeError("EXISTING_GEMINI_DEBUG_SESSION_UNAVAILABLE_NO_SEND")
         if port_in_use and cfg.use_persistent_chrome:
             # Attach to existing session; do not "own" it.
             self._launched_profile_dir = None
@@ -1324,18 +1338,18 @@ class GeminiSeleniumClient:
         )
         from selenium_pipeline.gemini_stage_policy import browser_stage_needs_thinking
         # Adaptation is stage-scoped, never an arbitrary source-review or
-        # TTS provider substitution. Strict original academic preflights
-        # retain their exact-family gate. The *rich_mapping* proposal route
-        # has a separate source-global/academic-unit once-only ledger and
-        # may choose a visibly available full Pro + verified Medium when
-        # standard Flash is absent. Never substitute Flash-Lite for this
-        # academic-semantic mapping stage, or bypass an owned-tab check.
+        # TTS provider substitution. Existing source-locked academic-review
+        # and rich-mapping requests can choose an independently visible Pro
+        # plus verified Medium ONLY if preferred Flash is truly absent.
+        # Both retain their original one-Send and scientific-evidence gates.
+        # Never substitute Flash-Lite for semantic/math review.
         active_stage=os.getenv("MICROGEN_ACTIVE_GENERATION_STAGE","").strip().lower()
         adaptive_allowed=(active_stage in {"figures","slides","narration",
-                                           "rich_mapping"}
+                                           "rich_mapping","academic_review"}
                           and os.getenv("MICROGEN_DISABLE_ADAPTIVE_MODEL_FALLBACK")!="1")
         requires_thinking = browser_stage_needs_thinking(mode=target_mode)
-        if target_mode not in {"flash-lite", "flash", "pro"}:
+        from selenium_pipeline.gemini_model import MODEL_SPECS
+        if target_mode not in MODEL_SPECS:
             raise RuntimeError(f"Unsupported MICROGEN_GEMINI_UI_MODE={target_mode!r}")
         # Every mapping page gets a browser tab owned by this MicroGen instance.
         # Reusing an arbitrary authenticated user tab left stale image chips,
@@ -1385,6 +1399,14 @@ class GeminiSeleniumClient:
                 "refusing to use an unknown fallback tab."
             )
 
+        # Bind persisted task defaults to this authorized Chrome profile.
+        # Older stage test configs predate debug_port and represent the
+        # historical primary owned profile. A real configured worker always
+        # supplies its explicit port; neither case permits a foreign tab.
+        runtime_port=int(getattr(self.cfg,"debug_port",9222))
+        if runtime_port not in (9222,9225):
+            raise RuntimeError("Unauthorized Gemini debugging port")
+        os.environ["MICROGEN_GEMINI_CHROME_PORT"]=str(runtime_port)
         # One canonical model selector for parent and ALL owned workers.
         # "Flash-Lite" is NOT Flash. Reject mixed/ambiguous menu entries
         # before the job has uploaded a source or made any Gemini Send.
@@ -1519,7 +1541,21 @@ class GeminiSeleniumClient:
         else:
             # Flash-Lite's caption task needs no Thinking submenu, avoiding
             # the non-interactable Medium expander seen in Serway 7.8.
+            verified_thinking="not_required"
             log("[GEMINI-THINKING] FIGURES_FLASH_LITE_NOT_REQUIRED")
+        if os.getenv("MICROGEN_DYNAMIC_ROUTE_PENDING"):
+            # Persist only after New chat, exact current model and Thinking
+            # were positively reverified on the same owned tab. Never save a
+            # proposed fallback or infer Medium from model wording.
+            from selenium_pipeline.gemini_dynamic_task_router import (
+                commit_verified_pending_route)
+            persisted=commit_verified_pending_route(
+                stage=active_stage,owned_selected_label=selected_mode,
+                thinking_level=verified_thinking,
+                port=runtime_port,
+                model_ui_checked=True,thinking_radio_checked=True)
+            log("[GEMINI-MODE] TASK_DEFAULT_REVERIFIED_AND_PERSISTED "
+                f"task={active_stage} family={persisted['family']}")
         self._microgen_presend_stage = "OWNED_MODEL_THINKING_READY"
         log("Opened Gemini")
 

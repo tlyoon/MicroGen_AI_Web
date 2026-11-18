@@ -297,9 +297,12 @@ Use this base template:
 \definecolor{lightblue}{RGB}{173,216,230}
 \setbeamercolor{frametitle}{bg=lightblue, fg=black}
 \setbeamertemplate{headline}{%
-  \hfill%
-  \insertframenumber{} / \inserttotalframenumber%
-  \par%
+  \vskip7pt%
+  \leavevmode%
+  \hbox to \paperwidth{%
+    \hfill\scriptsize\insertframenumber{} / \inserttotalframenumber\hspace*{9pt}%
+  }%
+  \vskip5pt%
 }
 \setbeamertemplate{footline}{}
 \usepackage{amsmath}

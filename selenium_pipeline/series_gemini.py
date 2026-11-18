@@ -99,7 +99,8 @@ def _browser_request(instruction: str,attachments: list[Path],
     request_root=Path(attachments[0]).parent if attachments else cache
     cfg=vendor.Config(
         root=request_root,debug_port=port,
-        use_persistent_chrome=True,force_kill_chrome_to_free_port=False,
+        use_persistent_chrome=True,existing_session_only=True,
+        force_kill_chrome_to_free_port=False,
     )
     from .gemini_selenium_only_policy import (
         prepare_with_bounded_retries, emit_temporary_failure,
@@ -135,7 +136,7 @@ def _browser_request(instruction: str,attachments: list[Path],
                         allow_fallback=os.getenv(
                             "MICROGEN_ACTIVE_GENERATION_STAGE","") in (
                                 "figures","slides","narration",
-                                "rich_mapping"))
+                                "rich_mapping","academic_review"))
                 # New chats may reset Gemini's mode: independently recheck.
                 from .gemini_model import (
                     assert_owned_gemini_mode, browser_model_evidence)
@@ -199,6 +200,13 @@ def _browser_request(instruction: str,attachments: list[Path],
             assert_owned_gemini_mode(
                 client.driver, owned_handle, mode=configured_ui_mode(),wait_seconds=4)
             baseline=owned_gemini_send_baseline(client.driver,owned_handle)
+            # Passive, scoped performance counters are sampled before the
+            # one-Send boundary. This does not observe URLs/payloads, enable
+            # network capture, authorize a replay or change the Send policy.
+            from .gemini_owned_network_diagnostics import (
+                arm_owned_network_baseline)
+            network_before=arm_owned_network_baseline(
+                client.driver,owned_handle)
             send_boundary_entered=True
             clicked=click_one_owned_gemini_send(
                 client.driver,owned_handle)
@@ -329,8 +337,24 @@ def _browser_request(instruction: str,attachments: list[Path],
                     "strict_json_capture_exception" if capture_error is not None
                     else "strict_json_capture_timeout"
                 )
+                from .owned_gemini_dom_diagnostics import (
+                    observe_owned_dom_metadata)
+                # Capture read-only DOM *counts* on this exact owned tab
+                # BEFORE shutdown. This distinguishes an empty provider
+                # response container from a possible selector drift without
+                # interpreting either as a successful or safe-to-retry Send.
+                same_tab_dom = observe_owned_dom_metadata(
+                    client.driver, owned_handle, expected_url=expected_url)
+                from .gemini_owned_network_diagnostics import (
+                    observe_owned_network_timing)
+                same_tab_network = observe_owned_network_timing(
+                    client.driver,owned_handle,
+                    baseline=network_before,expected_url=expected_url)
                 try:
-                    receipt = quarantine_snapshot(snapshot, reason=reason)
+                    receipt = quarantine_snapshot(
+                        snapshot, reason=reason,
+                        owned_dom_diagnostic=same_tab_dom,
+                        owned_network_diagnostic=same_tab_network)
                 except OSError as exc:
                     raise SeriesBridgeError(
                         "Gemini JSON capture failed and recovery quarantine "
@@ -381,8 +405,14 @@ def _browser_request(instruction: str,attachments: list[Path],
                     latest_owned_response,quarantine_snapshot)
                 unproven=latest_owned_response(
                     client.driver,getattr(client,"_automation_tab",None))
-                quarantine_snapshot(unproven,
-                    reason="unverified_new_gemini_turn_after_one_send")
+                from .owned_gemini_dom_diagnostics import (
+                    observe_owned_dom_metadata)
+                same_tab_dom = observe_owned_dom_metadata(
+                    client.driver,owned_handle)
+                quarantine_snapshot(
+                    unproven,
+                    reason="unverified_new_gemini_turn_after_one_send",
+                    owned_dom_diagnostic=same_tab_dom)
                 raise SeriesBridgeError(
                     "Gemini reply text was captured without a positively "
                     "registered NEW user turn on the owned tab; preserved "

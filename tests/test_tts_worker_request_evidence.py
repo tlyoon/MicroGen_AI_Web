@@ -131,9 +131,14 @@ class WorkerRequestEvidenceTests(unittest.TestCase):
         client=SimpleNamespace(interactions=SimpleNamespace(
             create=lambda **kwargs: response))
         observed={}
-        payload=tts._gemini_say(
-            client,"lecture narration","gemini-3.8-flash-lite-tts","Kore",
-            request_observation=observed)
+        # This test verifies request-ID extraction from a fake response,
+        # not local SDK installation. SDK compatibility is separately
+        # checked in test_gemini38_tts_interactions_sdk.
+        with patch("selenium_pipeline.gemini38_tts_interactions.require_modern_tts_sdk",
+                   return_value="2.33.0"):
+            payload=tts._gemini_say(
+                client,"lecture narration","gemini-3.8-flash-lite-tts","Kore",
+                request_observation=observed)
         self.assertEqual(payload,wav_bytes())
         self.assertEqual(observed["provider_request_id"],
                          "sdk_http_request_abcdef01")
@@ -150,9 +155,11 @@ class WorkerRequestEvidenceTests(unittest.TestCase):
         client=SimpleNamespace(interactions=SimpleNamespace(
             create=lambda **kwargs: response))
         observed={}
-        self.assertEqual(tts._gemini_say(
-            client,"lecture narration","gemini-3.8-flash-lite-tts","Kore",
-            request_observation=observed),wav_bytes())
+        with patch("selenium_pipeline.gemini38_tts_interactions.require_modern_tts_sdk",
+                   return_value="2.33.0"):
+            self.assertEqual(tts._gemini_say(
+                client,"lecture narration","gemini-3.8-flash-lite-tts","Kore",
+                request_observation=observed),wav_bytes())
         self.assertIsNone(observed["provider_request_id"])
 
     def test_parent_watchdog_mocked_subprocess_collects_provider_id(self):
@@ -166,6 +173,8 @@ class WorkerRequestEvidenceTests(unittest.TestCase):
             return SimpleNamespace(returncode=0,stdout="",stderr="")
         with patch("selenium_pipeline.tts.subprocess.run",
                    side_effect=subprocess_success), \
+             patch("selenium_pipeline.tts._modern_tts_worker_python",
+                   return_value=sys.executable), \
              patch("selenium_pipeline.tts._tts_child_request_env",
                    return_value={}):
             result=tts._gemini_say_with_watchdog(
@@ -199,6 +208,8 @@ class WorkerRequestEvidenceTests(unittest.TestCase):
              patch.dict(os.environ,{"MICROGEN_TTS_QUEUE_DELAY_SECONDS":"0"}), \
              patch("selenium_pipeline.tts.subprocess.run",
                    side_effect=response) as send, \
+             patch("selenium_pipeline.tts._modern_tts_worker_python",
+                   return_value=sys.executable), \
              patch("selenium_pipeline.tts._tts_child_request_env",
                    return_value={}):
             tts.synthesize_folder(
@@ -221,6 +232,8 @@ class WorkerRequestEvidenceTests(unittest.TestCase):
             return SimpleNamespace(returncode=1,stdout="",stderr="503 synthetic error")
         with patch("selenium_pipeline.tts.subprocess.run",
                    side_effect=subprocess_error), \
+             patch("selenium_pipeline.tts._modern_tts_worker_python",
+                   return_value=sys.executable), \
              patch("selenium_pipeline.tts._tts_child_request_env",
                    return_value={}):
             with self.assertRaises(RuntimeError) as caught:

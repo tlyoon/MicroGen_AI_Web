@@ -114,6 +114,44 @@ if slides_tex.exists() and slides_pdf.exists():
             "WARN",
         )
     else:
+        # This early-exit is a separate ordinary entrypoint from runner.valid.
+        # Before skipping generation, apply the SAME read-only known-headline
+        # physical counter contract, so a cached N / 1 or clipped edge never
+        # masquerades as an accepted deck. Never rewrite a previously
+        # generated deck or perform a new Gemini Send to repair its identity.
+        from selenium_pipeline.slide_headline_geometry_recovery import (
+            verify_existing_slide_counter_contract)
+        try:
+            verify_existing_slide_counter_contract(
+                tex_file=slides_tex,pdf_file=slides_pdf)
+        except (ValueError, OSError) as exc:
+            # A known old counter template has a deterministic no-provider
+            # repair. Run it AUTOMATICALLY on a separate versioned candidate;
+            # the prior source and slide PDFs stay frozen until independent
+            # science/source acceptance can bind the changed candidate SHA.
+            from selenium_pipeline.slide_headline_geometry_recovery import (
+                normalize_legacy_headline, recover_versioned_legacy_counter_deck)
+            source_text=slides_tex.read_text(encoding="utf8")
+            _,known=normalize_legacy_headline(source_text)
+            if known=="KNOWN_LEGACY_HEADLINE_RECOVERED" and Path("source.pdf").is_file():
+                local=Path(os.environ.get("LOCALAPPDATA") or
+                           str(Path.home()/"AppData"/"Local"))
+                checkpoint=Path(os.environ.get(
+                    "MICROGEN_COUNTER_CANDIDATE_WORK_ROOT",
+                    str(local/"MicroGen_AI_Web_Checkpoints")))
+                try:
+                    candidate=recover_versioned_legacy_counter_deck(
+                        original_folder=Path.cwd(),checkpoint_root=checkpoint)
+                    log("Created/reused separately versioned known-counter "
+                        f"candidate, physical slides={candidate['original_page_count']}; "
+                        "frozen source and scientific QA still require separate review")
+                except (ValueError,OSError,RuntimeError) as local_error:
+                    log("Finite versioned counter repair unavailable: "
+                        +type(local_error).__name__,"WARN")
+            raise RuntimeError(
+                "Existing slides have unsafe known Beamer counter geometry; "
+                "do not reuse frozen artifacts until a separately versioned "
+                "counter candidate passes source-bound acceptance") from exc
         # Existing slides are NOT reusable merely because LaTeX compiles:
         # a promised worked textbook example may be wholly absent.
         from selenium_pipeline.source_numbered_example_coverage import (
@@ -136,21 +174,39 @@ if slides_tex.exists() and slides_pdf.exists():
 # Pre-check compile
 # ------------------------------------------------------------
 def pdflatex_compiles(tex_path: Path) -> bool:
-    """Return True if pdflatex compiles the file (single pass)."""
+    """Compile legacy sources once; safe headline twice for correct total.
+
+    The true slide total is resolved by Beamer's navigation auxiliary file,
+    and a one-pass compile may silently print N / 1. Keep the historical
+    behavior for unrecognized generators but never release a repaired
+    counter without two complete successful native PDF compilations.
+    """
     try:
-        cmd = ["pdflatex", "-interaction=nonstopmode", "-halt-on-error", tex_path.name]
-        proc = subprocess.run(
-            cmd,
-            cwd=str(tex_path.parent),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            timeout=180,
-        )
-        (tex_path.with_suffix(".compile0.log")).write_text(proc.stdout, encoding="utf-8", newline="\n")
-        return proc.returncode == 0
+        from selenium_pipeline.slide_headline_geometry_recovery import (
+            SAFE_HEADLINE, verify_slide_counter_pdf)
+        original=tex_path.read_text(encoding="utf-8")
+        safe=SAFE_HEADLINE in original
+        passes=2 if safe else 1
+        cmd=["pdflatex","-interaction=nonstopmode","-halt-on-error",
+             "-no-shell-escape",tex_path.name]
+        combined=[]
+        for passno in range(passes):
+            proc=subprocess.run(
+                cmd,cwd=str(tex_path.parent),stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,text=True,timeout=180)
+            combined.append(f"PASS {passno+1}/{passes}\n"+proc.stdout)
+            if proc.returncode!=0:
+                break
+        (tex_path.with_suffix(".compile0.log")).write_text(
+            "\n".join(combined),encoding="utf-8",newline="\n")
+        if proc.returncode!=0:
+            return False
+        if safe:
+            verify_slide_counter_pdf(tex_path.with_suffix(".pdf"))
+        return True
     except Exception as e:
-        (tex_path.with_suffix(".compile0.log")).write_text(f"[compile exception] {e}\n", encoding="utf-8")
+        (tex_path.with_suffix(".compile0.log")).write_text(
+            f"[compile exception] {type(e).__name__}: {e}\n",encoding="utf-8")
         return False
 
 
@@ -1290,6 +1346,13 @@ def generate_slides_tex(
         
         latex = sanitize_gemini_latex_response(response_text)
         latex = normalize_unicode_to_latex(latex)
+        # Automatic, local, no-provider repair of the historical out-of-page
+        # N / 1 Beamer metadata headline. Exact known template only.
+        from selenium_pipeline.slide_headline_geometry_recovery import (
+            normalize_legacy_headline)
+        latex, headline_recovery = normalize_legacy_headline(latex)
+        if headline_recovery=="KNOWN_LEGACY_HEADLINE_RECOVERED":
+            log("Recovered inset Beamer page counters before physical compile")
         
         from selenium_pipeline.latex_graphics_bounds import bound_beamer_graphics
         latex, bounded_count = bound_beamer_graphics(latex)

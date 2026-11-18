@@ -1748,6 +1748,23 @@ def map_and_rename_single_step(
         except UncaptionedSourceNotProven as exc:
             log(f"[UNCAPTIONED SOURCE] {page_png.name}: source evidence "
                 f"insufficient ({exc}); fail closed, no provider retry", "WARN")
+    mixed_source_witness = None
+    if (txt == "MAPPING_REVIEW_REQUIRED" and not parsed and len(fig_files) == 2):
+        # Distinguish an original printed Figure photograph from an adjacent
+        # independent source equation via original PDF xref/text/geometry.
+        # A model refusal does not justify guessing both crop labels.
+        from selenium_pipeline.figure_mixed_equation_caption_recovery import (
+            recover_mixed_source_equation_photo, MixedSourceMappingNotProven)
+        try:
+            parsed, mixed_source_witness = recover_mixed_source_equation_photo(
+                response=txt, source_pdf=CFG.root / "source.pdf",
+                page_png=page_png, crops_dir=crops_dir,
+                geometry_manifest=crops_dir / (page_png.stem + "_crop_geometry.json"))
+            log(f"[MIXED SOURCE] {page_png.name}: independently witnessed "
+                "source equation and printed photo caption; no additional Send")
+        except MixedSourceMappingNotProven as exc:
+            log(f"[MIXED SOURCE] {page_png.name}: not uniquely source-proven "
+                f"({exc}); no model resend", "WARN")
     if len(parsed) != len(fig_files) or _looks_like_gemini_failure_text(txt):
         mapping_txt.write_text((txt or "").strip() + "\n", encoding="utf-8")
         log(
@@ -1880,6 +1897,28 @@ def map_and_rename_single_step(
                 os.fsync(f.fileno())
             log(f"[UNCAPTIONED SOURCE] Source-only refusal and SHA-bound "
                 f"generic identity preserved in {proof_path.name}")
+        if mixed_source_witness is not None:
+            # Keep original owned refusal separate from verified local
+            # equation/photo mapping, without authorizing academic QA.
+            raw_path = page_png.with_name(
+                page_png.stem + "_mixed_source_model_reply.raw.txt")
+            with raw_path.open("x", encoding="utf-8") as f:
+                f.write(txt + "\n")
+                f.flush()
+                os.fsync(f.fileno())
+            import hashlib
+            mixed_source_witness["saved_model_reply_sha256"] = hashlib.sha256(
+                raw_path.read_bytes()).hexdigest()
+            witness_path = page_png.with_name(
+                page_png.stem + "_mixed_source_caption_evidence.json")
+            with witness_path.open("x", encoding="utf-8") as f:
+                json.dump(mixed_source_witness, f, sort_keys=True,
+                          indent=2, ensure_ascii=False)
+                f.write("\n")
+                f.flush()
+                os.fsync(f.fileno())
+            log(f"[MIXED SOURCE] SHA-bound original source proof saved at "
+                f"{witness_path.name}; no independent scientific QA")
         if panel_source_witness is not None:
             # New-file-only, fsync'd provenance BEFORE any mapped figure copy.
             # It records the original model response and independent source
@@ -2059,6 +2098,23 @@ def run_mapping(
                 log(f"[PRACTICE] page {idx} explicitly preserved as unreviewed exercise "
                     "graphics; skipping numbered-figure caption mapping")
                 continue
+
+            # Normal no-resend gate: two different subsection PDFs can contain
+            # exactly the SAME printed page/crops. Before any browser upload or
+            # Send, compare independently SHA-bound old refusal evidence.
+            if (CFG.root.name == ".microgen_work"
+                    and CFG.root.parent.parent.parent.name == "source_tree"):
+                from selenium_pipeline.figure_duplicate_page_presend import (
+                    block_duplicate_page_send)
+                duplicate_probe = block_duplicate_page_send(
+                    workspace=CFG.root, page_number=idx)
+                log(f"[SOURCE-PAGE-DEDUP] page={idx} status={duplicate_probe['status']} "
+                    "new_model_sends=0")
+            else:
+                # Standalone legacy mapping has no scoped Windows immutable
+                # trial registry. Its owned Send policy remains unchanged.
+                log("[SOURCE-PAGE-DEDUP] no original Windows trial registry; "
+                    "no cross-trial reuse claim")
 
             try:
                 _mapping_txt = None

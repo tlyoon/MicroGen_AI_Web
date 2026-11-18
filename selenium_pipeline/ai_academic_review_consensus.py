@@ -47,6 +47,44 @@ def _independently_check_saved_pass(*,folder:Path,job:dict,record:dict,mode:str)
         rows.append(guess)
     return rows
 
+def _actual_model_rows(record:dict, rows:list[dict])->int:
+    """Do not count machine-inserted UNRESOLVED placeholders as AI reviews."""
+    audit=record.get("source_only_downgrade_audit")
+    if audit is None:
+        return len(rows)  # original full-response receipts
+    # Existing pre-fix complete model replies used the earlier
+    # reviewed_original_utterances key and had no missing-row markers.
+    # Those legacy receipts are recognized ONLY as full raw row sets.
+    legacy="model_returned_utterance_count" not in audit
+    original_count=audit.get(
+        "original_narration_utterances",
+        audit.get("reviewed_original_utterances"))
+    count=audit.get("model_returned_utterance_count",len(rows))
+    missing=audit.get("model_omitted_original_utterance_ids",[])
+    require(type(audit) is dict
+            and audit.get("status")==
+                "DETERMINISTIC_DOWNGRADE_ONLY_SOURCE_RECONCILIATION"
+            and audit.get("student_publication_authorized") is False
+            and original_count==len(rows)
+            and type(count) is int
+            and type(missing) is list
+            and (not legacy or len(missing)==0)
+            and type(audit.get("original_model_response_canonical_sha256")) is str
+            and len(audit["original_model_response_canonical_sha256"])==64,
+            "Missing exact source-only model-vs-machine row evidence")
+    require(1<=count<=len(rows) and len(missing)==len(rows)-count
+            and len(missing)==len(set(missing)),
+            "Model utterance-count witness incomplete or dishonest")
+    by_id={x["utterance_id"]:x for x in rows}
+    require(all(x in by_id and by_id[x]["verdict"]=="UNRESOLVED"
+                and by_id[x]["target_id"] is None
+                and by_id[x]["exact_textbook_quote_verified"] is False
+                and by_id[x]["verbatim_source_quote"] is None
+                for x in missing),
+            "An absent model row must remain explicitly academically unresolved")
+    return count
+
+
 def _canonical_academic_rationale(text:str)->str:
     """Different casing and whitespace are NOT independent scientific reasoning."""
     if type(text) is not str:
@@ -74,14 +112,14 @@ def reconcile_actual_review_queue(*,queue_root:Path,folder:Path)->dict:
             continue
         primary=json.loads(first.read_text(encoding="utf8"))
         a=_independently_check_saved_pass(folder=folder,job=job,record=primary,mode="INITIAL_REVIEW")
-        first_completed+=len(a)
+        first_completed+=_actual_model_rows(primary,a)
         if not second.is_file():
             unresolved.extend({"utterance_id":u["id"],"reason":"MISSING_SECOND_INDEPENDENT_AI_PASS"}
                               for s in job["slides"] for u in s["utterances"])
             continue
         challenging=json.loads(second.read_text(encoding="utf8"))
         b=_independently_check_saved_pass(folder=folder,job=job,record=challenging,mode="INDEPENDENT_CHALLENGE")
-        challenge_completed+=len(b)
+        challenge_completed+=_actual_model_rows(challenging,b)
         require(_sha(first)!=_sha(second),"Identical AI response receipts cannot prove independence")
         for original,x,y in zip(job["slides"][0]["utterances"],a,b):
             agreed=(x["verdict"]==y["verdict"]=="SUPPORTED"

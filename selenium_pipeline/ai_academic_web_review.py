@@ -5,7 +5,7 @@ release authorization. Browser requests are explicit, isolated and read-only
 with respect to the original Thomas files.
 """
 from __future__ import annotations
-import argparse,json,re
+import argparse,json,re,os
 from pathlib import Path
 from .figure_source_identity import require,_sha
 from .incremental_element_candidate_map import candidate_map
@@ -175,14 +175,98 @@ def validate_model_review(*,folder:Path,job:dict,response:dict,mode:str,
             "academic_mathematics_independently_verified":False,
             "tts_authorized":False,"student_publication_authorized":False}
 
+def validate_source_demoted_review(*, folder: Path, job: dict,
+                                  response: dict, mode: str,
+                                  verified_source_evidence: dict | None = None) -> dict:
+    """Strict proof after conservative, citation-aware source-only downgrades.
+
+    This never upgrades any Gemini verdict. The unmodified original model
+    response is held in the immutable academic request checkpoint.
+    """
+    # Historical Gemini source reviews occasionally wrap the requested
+    # schema in one {"job":...} object. Only remove that exact transport
+    # envelope. Never repair or invent its scientific rows or citations.
+    from .academic_review_envelope_recovery import unwrap_exact_review_envelope
+    response, had_exact_envelope = unwrap_exact_review_envelope(response)
+    evidence = None
+    if verified_source_evidence is None and job.get(
+            "verified_source_quote_candidates_v1") is not None:
+        from .academic_quote_reconciliation import reconcile_untrusted_review
+        response, evidence = reconcile_untrusted_review(
+            job=job, response=response)
+    validated = validate_model_review(
+        folder=folder, job=job, response=response,
+        mode=mode, verified_source_evidence=verified_source_evidence)
+    if evidence is not None:
+        validated["source_only_downgrade_audit"] = evidence
+    if had_exact_envelope:
+        validated["original_model_envelope_audit"] = {
+            "schema_version": 1,
+            "status": "EXACT_JOB_ENVELOPE_UNWRAPPED_ONLY",
+            "verdicts_added": 0, "source_citations_added": 0,
+            "source_support_promoted": 0, "provider_requests": 0,
+            "student_publication_authorized": False,
+        }
+    return validated
+
+
+def _academic_browser_request(prompt: str, files: list[Path], *,
+                              chrome_port: int, wait_cap_s: int) -> str:
+    """Use the same Flash-first, Pro/Medium recovery as slides and narration.
+
+    This scoped stage is ONLY a model-family choice before a single claimed
+    request. Do not carry its Pro fallback into the next slide or the next
+    process; independently verify the actual owned picker on every Send.
+    """
+    keys = ("MICROGEN_ACTIVE_GENERATION_STAGE",
+            "MICROGEN_GEMINI_UI_MODE", "MICROGEN_LLM_MODEL",
+            "MICROGEN_MODEL_ROUTE_REASON", "MICROGEN_MODEL_ROUTE_REQUESTED",
+            "MICROGEN_MODEL_ROUTE_OFFERED")
+    original = {key: os.environ.get(key) for key in keys}
+    try:
+        os.environ["MICROGEN_ACTIVE_GENERATION_STAGE"] = "academic_review"
+        requested = os.environ.get("MICROGEN_GEMINI_UI_MODE", "flash").strip().lower()
+        if requested not in ("flash", "pro"):
+            requested = "flash"
+        os.environ["MICROGEN_GEMINI_UI_MODE"] = requested
+        os.environ["MICROGEN_LLM_MODEL"] = (
+            "gemini-3.8-flash" if requested == "flash" else "gemini-3.1-pro")
+        selected_port=chrome_port
+        if requested=="pro" and chrome_port==9222:
+            # Run a real OWNED model/Medium no-Send preflight. A separately
+            # authorized already-running Account B may be chosen only BEFORE
+            # this claim's one Send. This must never retry an earlier Send.
+            from .gemini_transport_router import (
+                verified_browser_route, GeminiTransportNotAuthorized)
+            from .gemini_selenium_only_policy import GeminiSeleniumPreSendBlocked
+            try:
+                route=verified_browser_route(
+                    family="pro",claimed_send_state="NEW_CLAIM_BEFORE_SEND")
+                selected_port=route.port
+            except GeminiTransportNotAuthorized as exc:
+                raise GeminiSeleniumPreSendBlocked(
+                    "NO_VERIFIED_OWNED_GEMINI_ROUTE_BEFORE_SEND",
+                    attempts_used=1,
+                    failure_phase="GEMINI_BROWSER_OR_WEBDRIVER_NOT_READY") from exc
+        return _browser_request(
+            prompt, files, port=selected_port,
+            wait_cap_s=wait_cap_s, min_chars=80)
+    finally:
+        for key, value in original.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+
+
 def run_web_review(*,folder:Path,job:dict,mode:str,
                    chrome_port:int=9222,wait_cap_s:int=240,transport=None,
                    response_observer=None,verified_source_evidence:dict|None=None,
                    checkpoint_dir:Path|None=None)->dict:
     require(chrome_port in range(1,65536) and 60<=wait_cap_s<=600,
             "Browser request must be bounded")
-    call=transport or (lambda prompt,files:_browser_request(
-        prompt,files,port=chrome_port,wait_cap_s=wait_cap_s,min_chars=80))
+    call=transport or (lambda prompt,files:_academic_browser_request(
+        prompt,files,chrome_port=chrome_port,wait_cap_s=wait_cap_s))
     instruction=review_instructions(job,mode=mode,
                         verified_source_evidence=verified_source_evidence)
     def strict_source_validator(raw):
@@ -195,7 +279,7 @@ def run_web_review(*,folder:Path,job:dict,mode:str,
                 raise
             # This is formatting-only; source validation still applies.
             decoded=recover_rendered_json_format_only(raw)
-        return validate_model_review(folder=folder,job=job,response=decoded,
+        return validate_source_demoted_review(folder=folder,job=job,response=decoded,
               mode=mode,verified_source_evidence=verified_source_evidence)
     if checkpoint_dir is not None:
         from .academic_review_checkpoint import submit_once

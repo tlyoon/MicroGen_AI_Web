@@ -51,6 +51,18 @@ def candidate_map(*,folder:Path, queue:dict|None=None)->dict:
                 registered_raster_targets, composite_math_targets)
             targets.extend(registered_raster_targets(page, index))
             targets.extend(composite_math_targets(page, index, targets))
+            # Original-PDF numerator/denominator/superscript geometry can
+            # supply a *fraction review choice*, never physics equivalence.
+            from .physical_fraction_review_targets import (
+                physical_fraction_review_targets)
+            from .recovery_registry import lookup_mechanism
+            mechanism=lookup_mechanism(
+                "source_mapping_repair",
+                "SPLIT_PDF_NUMERATOR_DENOMINATOR_OR_SUPERSCRIPT_UNRANKED")
+            if mechanism=="ORIGINAL_PDF_LITERAL_STACKED_FRACTION_REVIEW_TARGET_ONLY":
+                targets.extend(physical_fraction_review_targets(page, index))
+            # Retiring the registered recovery removes only these new review
+            # candidates. It cannot silently grant scientific approval.
             # Recycle the source-caption/panel-marker and dual-detector
             # correspondence evidence on-the-fly. The returned targets carry
             # exact caption meaning and independent PDF/image provenance,

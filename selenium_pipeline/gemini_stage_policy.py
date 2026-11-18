@@ -11,6 +11,7 @@ mapping, academic, science or evidence gate.
 from __future__ import annotations
 
 import os
+import json
 
 FIGURE_UI_MODE = "flash-lite"
 FIGURE_MODEL_ID = "gemini-3.5-flash-lite"
@@ -19,6 +20,35 @@ NONFIGURE_STAGES = frozenset(("slides", "narration", "rich_mapping"))
 
 class GeminiStagePolicyError(ValueError):
     pass
+
+
+def _new_family_route_is_verified_for_task(stage: str, family: str) -> bool:
+    """A new marketing family needs *actual* owned picker route evidence.
+
+    Merely including Hydrogen/Argon in MODEL_SPECS must not make the model
+    usable for any task. The historical figure-stage test caught this.
+    The normal selector records an exact stage/family before a new Send.
+    A subsequent worker can reuse only a separately persisted verified
+    model AND Thinking default for this exact account/task.
+    """
+    from .gemini_dynamic_task_router import (
+        MODEL_TIERS, read_task_default, dynamic_route_registered)
+    if family not in MODEL_TIERS or not dynamic_route_registered():
+        return False
+    try:
+        pending=json.loads(os.getenv("MICROGEN_DYNAMIC_ROUTE_PENDING") or "{}")
+    except (TypeError,ValueError):
+        pending={}
+    if (type(pending) is dict and pending.get("schema_version")==1
+            and pending.get("stage")==stage and pending.get("family")==family
+            and isinstance(pending.get("catalog_sha256"),str)
+            and len(pending["catalog_sha256"])==64):
+        return True
+    scope=("alternate" if os.getenv("MICROGEN_GEMINI_CHROME_PORT")=="9225"
+           else "primary")
+    prior=read_task_default(stage,scope=scope)
+    return bool(prior and prior.get("family")==family
+                and prior.get("status")=="EXACT_UI_MODEL_AND_TASK_THINKING_VERIFIED")
 
 
 def stage_ui_contract(stage: str, *, nonfigure_mode: str = "flash",
@@ -33,9 +63,13 @@ def stage_ui_contract(stage: str, *, nonfigure_mode: str = "flash",
         }
     if stage not in NONFIGURE_STAGES:
         raise GeminiStagePolicyError("No Gemini generation model for this stage")
-    if nonfigure_mode not in ("flash", "pro"):
+    from .gemini_model import MODEL_SPECS
+    if (nonfigure_mode not in MODEL_SPECS or nonfigure_mode=="flash-lite"
+            or (nonfigure_mode not in ("flash","pro")
+                and not _new_family_route_is_verified_for_task(
+                    stage,nonfigure_mode))):
         raise GeminiStagePolicyError(
-            "Slides/narration require Flash or an explicit Pro benchmark")
+            "Slides/narration require an independently verified reasoning-capable browser model")
     from .gemini_thinking import configured_thinking_level
     return {
         "stage": stage, "ui_mode": nonfigure_mode,
@@ -61,10 +95,19 @@ def browser_stage_needs_thinking(*, mode: str | None = None,
             return False
         if selected in ("flash","pro"):
             return True
+        if selected in ("hydrogen","hydrogen-thinking","argon","carbon"):
+            if _new_family_route_is_verified_for_task(active,selected):
+                return True
+            raise GeminiStagePolicyError(
+                "New figure-stage model has no registered task-specific UI proof")
         raise GeminiStagePolicyError("Unknown figure-stage fallback model")
     if selected == FIGURE_UI_MODE:
         raise GeminiStagePolicyError(
             "Flash-Lite without Thinking permitted ONLY for figures stage")
-    if selected not in ("flash", "pro"):
-        raise GeminiStagePolicyError("Unknown Gemini browser model")
+    if selected not in ("flash","pro"):
+        if selected not in ("hydrogen","hydrogen-thinking","argon","carbon"):
+            raise GeminiStagePolicyError("Unknown Gemini browser model")
+        if not _new_family_route_is_verified_for_task(active,selected):
+            raise GeminiStagePolicyError(
+                "New browser family requires verified task-specific routing")
     return True

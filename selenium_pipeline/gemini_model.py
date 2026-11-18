@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import re
 import time
+import json
 
 
 class GeminiModelError(RuntimeError):
@@ -22,6 +23,12 @@ MODEL_SPECS = {
         "menu_prefix": "Flash-Lite",
         "label_token": "flash-lite",
     },
+    # Named browser-only families are eligible ONLY after official app
+    # documentation and exact owned UI evidence in the dynamic router.
+    "hydrogen": {"menu_prefix": "4 Hydrogen", "label_token": "hydrogen"},
+    "hydrogen-thinking": {"menu_prefix": "4 Hydrogen Thinking", "label_token": "hydrogen-thinking"},
+    "argon": {"menu_prefix": "4 Argon", "label_token": "argon"},
+    "carbon": {"menu_prefix": "4 Carbon", "label_token": "carbon"},
 }
 
 
@@ -31,7 +38,7 @@ def configured_ui_mode() -> str:
     if explicit:
         if explicit not in MODEL_SPECS:
             raise GeminiModelError(
-                "MICROGEN_GEMINI_UI_MODE must be 'flash-lite', 'flash' or 'pro'."
+                "MICROGEN_GEMINI_UI_MODE must be a supported observed browser family."
             )
         return explicit
 
@@ -51,14 +58,10 @@ def _matches_mode(label: str, mode: str) -> bool:
     actual = re.search(r"\bcurrently\b\s+(.+)$", label, flags=re.I)
     if not actual:
         return False
-    selected = actual.group(1).casefold()
-    # A changed label or model version is harmless. Choosing Flash-Lite,
-    # Pro, Argon or Carbon under a Flash claim is NOT harmless.
-    tokens = re.findall(
-        r"(?<!\w)(?:flash[\s-]*lite|flash|pro|argon|carbon)(?!\w)",
-        selected, flags=re.I)
-    target = mode
-    return (len(tokens) == 1 and tokens[0].casefold().replace(' ', '-') == target)
+    from .gemini_ui_adaptive_protocol import normalized_family
+    # Exact family classification works with newer official browser labels
+    # while still rejecting mixed/wrapper labels and marketing descriptions.
+    return normalized_family(actual.group(1)) == mode
 
 
 def _eligible_mode_menu_text(text: str, mode: str) -> bool:
@@ -75,6 +78,18 @@ def _eligible_mode_menu_text(text: str, mode: str) -> bool:
     if not 1 <= len(lines) <= 4:
         return False
     flattened = " ".join(lines)
+    if mode in ("hydrogen","hydrogen-thinking","argon","carbon"):
+        names={
+            "hydrogen":r"(?:gemini\s+)?\d+(?:\.\d+)?\s+hydrogen",
+            "hydrogen-thinking":r"(?:gemini\s+)?\d+(?:\.\d+)?\s+hydrogen\s+thinking",
+            "argon":r"(?:gemini\s+)?\d+(?:\.\d+)?\s+argon",
+            "carbon":r"(?:gemini\s+)?\d+(?:\.\d+)?\s+carbon",
+        }
+        # Exactly ONE model label of the expected name; never accept a
+        # wrapper listing multiple alternative models as the option itself.
+        matched=[name for line in lines for name,regex in names.items()
+                 if re.fullmatch(regex,line,flags=re.I)]
+        return matched==[mode]
     # A wrapper that lists multiple modes must never masquerade as one
     # selectable option, even if it happens to include the requested mode.
     tokens = re.findall(
@@ -397,10 +412,19 @@ def select_owned_gemini_mode(driver, owned_handle: str | None, *,
     # A failed exact selection may leave the same model menu open. A retry
     # must NOT toggle an already-open menu shut before scanning its options.
     if (picker.get_attribute("aria-expanded") or "").casefold() != "true":
+        # The former bare native click could be inert while returning
+        # success. This is NOT evidence that the desired family disappeared.
+        # Reuse the registered exact-picker one-click recovery, even when
+        # switching *from* a different positively observed current family.
+        from .gemini_thinking import (
+            _open_owned_mode_picker_with_verified_fallback,
+            GeminiThinkingError)
         try:
-            picker.click()
-        except Exception:
-            driver.execute_script("arguments[0].click();", picker)
+            _open_owned_mode_picker_with_verified_fallback(
+                driver,owned_handle,picker,allow_model_switch=True)
+        except GeminiThinkingError as exc:
+            raise GeminiModelError(
+                "PRE_SEND_OWNED_MODEL_MENU_NOT_OPEN_VERIFIED_NO_SEND") from exc
     deadline = time.monotonic() + timeout
     target = None
     while time.monotonic() < deadline:
@@ -447,6 +471,31 @@ def select_owned_gemini_mode(driver, owned_handle: str | None, *,
     raise GeminiModelError("PRE_SEND_GEMINI_MODEL_FAMILY_NOT_CONFIRMED_NO_SEND")
 
 
+def update_dynamic_selected_family(decision) -> None:
+    """Update only this process's presend browser-contract metadata.
+
+    New marketing names are UI-only; never claim their exact API endpoint.
+    Persistence is deferred until the same owned tab verifies Thinking too.
+    """
+    model_ids={
+        "flash":"gemini-3.8-flash",
+        "flash-lite":"gemini-3.5-flash-lite",
+        "pro":"gemini-3.1-pro",
+    }
+    os.environ["MICROGEN_GEMINI_UI_MODE"]=decision.family
+    os.environ["MICROGEN_LLM_MODEL"]=model_ids.get(
+        decision.family,"ui-only-"+decision.family)
+    os.environ["MICROGEN_MODEL_ROUTE_REASON"]=decision.reason
+    os.environ["MICROGEN_MODEL_ROUTE_REQUESTED"]=decision.requested_family
+    os.environ["MICROGEN_MODEL_ROUTE_OFFERED"]=",".join(decision.observed_families)
+    os.environ["MICROGEN_DYNAMIC_ROUTE_PENDING"]=json.dumps({
+        "schema_version":1,"stage":decision.stage,
+        "family":decision.family,"label":decision.visible_label,
+        "catalog_sha256":decision.catalog_source_sha,
+        "reason":decision.reason,
+    },sort_keys=True)
+
+
 def select_owned_gemini_with_recovery(
         driver, owned_handle: str | None, *, mode: str = "flash",
         stage: str | None = None, timeout: float = 15,
@@ -464,6 +513,36 @@ def select_owned_gemini_with_recovery(
     import os
     from .gemini_ui_adaptive_protocol import (
         choose_family, GeminiAdaptivePolicyError)
+    active=(stage or os.getenv("MICROGEN_ACTIVE_GENERATION_STAGE","")
+            or os.getenv("MICROGEN_GEMINI_INTERACTION_STAGE","")
+            ).strip().casefold()
+    scope=("alternate" if os.getenv("MICROGEN_GEMINI_CHROME_PORT")=="9225"
+           else "primary")
+    # Persisted task defaults have priority on later worker launches, but
+    # never silently change an explicit Pro benchmark or an academic claim.
+    if allow_fallback and mode in ("flash","flash-lite") and active in (
+            "figures","slides","narration","rich_mapping"):
+        from .gemini_dynamic_task_router import (
+            read_task_default,Decision,dynamic_route_registered)
+        old=(read_task_default(active,scope=scope)
+             if dynamic_route_registered() else None)
+        if old and old["family"]!=mode and old["family"] in MODEL_SPECS:
+            try:
+                selected=select_owned_gemini_mode(
+                    driver,owned_handle,mode=old["family"],timeout=timeout)
+            except GeminiModelError as old_failure:
+                if not str(old_failure).startswith(
+                        "PRE_SEND_REQUESTED_GEMINI_MODEL_NOT_AVAILABLE_NO_SEND"):
+                    raise
+                # Old persisted default is no longer present: use the actual
+                # current menu and fresh official catalog below, not a guess.
+            else:
+                update_dynamic_selected_family(Decision(
+                    active,old["family"],old["visible_model_label"],mode,
+                    "PREVIOUS_VERIFIED_TASK_DEFAULT_REOBSERVED",
+                    old["thinking_level"],(old["family"],),
+                    "PERSISTED_AND_LIVE_REVERIFIED",old["catalog_sha256"]))
+                return selected
     try:
         return select_owned_gemini_mode(
             driver,owned_handle,mode=mode,timeout=timeout)
@@ -483,6 +562,31 @@ def select_owned_gemini_with_recovery(
             raise GeminiModelError(
                 "PRE_SEND_MODEL_FALLBACK_NOT_AUTHORIZED_WITHOUT_EXACT_MENU_EVIDENCE"
             ) from error
+        # New/renamed Gemini Apps families cannot be inferred from Flash
+        # marketing text or API endpoint names. Only a positive atomic
+        # UI menu AND a freshly documented Gemini Apps family may qualify.
+        # For already-supported families retain the historical selector.
+        from .gemini_dynamic_task_router import (
+            STAGES,find_dynamic_replacement,DynamicGeminiRouteError)
+        new_ui_families=set(offered)-{"flash","flash-lite","pro"}
+        if active in STAGES and new_ui_families:
+            rows=[{"family":f,"label":opt.label,"disabled":bool(opt.disabled)}
+                  for f,opt in _visible_model_options(driver)]
+            try:
+                decision=find_dynamic_replacement(
+                    stage=active,requested_family=mode,visible_rows=rows,
+                    scope=("alternate" if os.getenv(
+                        "MICROGEN_GEMINI_CHROME_PORT")=="9225" else "primary"))
+            except (DynamicGeminiRouteError,RuntimeError,OSError) as exc:
+                raise GeminiModelError(
+                    "PRE_SEND_DYNAMIC_TASK_MODEL_NOT_VERIFIABLE_NO_SEND") from exc
+            if decision.family != mode:
+                selected=select_owned_gemini_mode(
+                    driver,owned_handle,mode=decision.family,timeout=timeout)
+                update_dynamic_selected_family(decision)
+                return selected
+            raise GeminiModelError(
+                "PRE_SEND_DYNAMIC_TASK_MODEL_UNCHANGED_AFTER_ABSENCE_NO_SEND")
         try:
             route=choose_family(requested=mode,offered=offered,stage=active)
         except GeminiAdaptivePolicyError as exc:

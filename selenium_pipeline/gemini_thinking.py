@@ -14,6 +14,17 @@ import re
 import time
 
 LEVELS = frozenset(("low", "medium", "high"))
+_OVERLAY_SIGNATURE="THINKING_EXPANDER_MISSING_AFTER_OWNED_PICKER_OPEN_NO_SEND"
+_OVERLAY_MECHANISM="CLOSE_OWNED_PICKER_AND_RETRY_FINITE_PRESEND_DISCOVERY_NO_SEND"
+
+
+def _owned_overlay_recovery_registered()->bool:
+    try:
+        from .recovery_registry import lookup_mechanism
+        return (lookup_mechanism("presend_capability_repair",
+                 _OVERLAY_SIGNATURE)==_OVERLAY_MECHANISM)
+    except (ValueError,OSError):
+        return False
 
 # In-process, owned-tab-only, very short-lived proof. The *first* proof
 # always comes from the actual checked Thinking radio, not picker wording.
@@ -184,17 +195,114 @@ def _checked(item) -> bool:
     )
 
 
+def _registered_owned_picker_click_fallback()->bool:
+    """Only a code-reviewed alternate click on the SAME exact owned picker."""
+    try:
+        from .recovery_registry import lookup_mechanism
+        return lookup_mechanism(
+            "presend_capability_repair",
+            "OWNED_PRO_MODEL_PICKER_NATIVE_CLICK_NO_EFFECT_NO_SEND")==(
+            "EXACT_SAME_OWNED_MODEL_PICKER_SINGLE_JS_CLICK_THEN_VERIFY_NO_SEND")
+    except (ValueError,OSError):
+        return False
+
+
+def _open_owned_mode_picker_with_verified_fallback(driver,handle,picker,*,
+                                                   allow_model_switch=False):
+    """One native click; if *proven inert*, one exact-button DOM click.
+
+    The fallback is allowed only when no model options were rendered after
+    the native click and the exact picker label matches the configured model.
+    It never discovers or clicks a Send control or changes a model selection.
+    """
+    from .gemini_model import _matches_mode,configured_ui_mode,MODEL_SPECS
+    from .gemini_ui_adaptive_protocol import normalized_family
+    from .gemini_ui_semantic_controls import snapshot_options
+
+    def expanded():
+        _owned(driver,handle)
+        return (picker.get_attribute("aria-expanded") or "").lower()=="true"
+
+    if expanded():
+        return
+    picker.click()
+    deadline=time.monotonic()+0.5
+    while time.monotonic()<deadline:
+        if expanded():
+            return
+        time.sleep(0.05)
+    if expanded():
+        return
+    # An accessible menu may be present even when its outer aria-expanded is
+    # stale. Do not toggle it closed with a duplicate click in that case.
+    visible=snapshot_options(driver)
+    if visible:
+        return
+    # Older Gemini/Chrome drivers may not expose an aria-expanded
+    # attribute, and some offline drivers do not implement atomic JS
+    # snapshots. A positively visible, individually selectable model menu
+    # is stronger evidence than absent aria state. Do not mislabel an
+    # already-open menu as an inert click or attempt a second click.
+    from .gemini_model import _visible_model_options
+    if _visible_model_options(driver):
+        return
+    label=(picker.get_attribute("aria-label") or "")
+    current=label.partition("currently ")[2]
+    exact=(normalized_family(current) in MODEL_SPECS if allow_model_switch
+           else _matches_mode(label,configured_ui_mode()))
+    if ((picker.get_attribute("aria-expanded") or "").lower()!="false"
+            or not exact
+            or not _registered_owned_picker_click_fallback()):
+        raise GeminiThinkingError(
+            "PRE_SEND_MODE_PICKER_NATIVE_CLICK_INERT_UNVERIFIED_NO_SEND")
+    _owned(driver,handle)
+    try:
+        used=driver.execute_script(r"""
+            const e=arguments[0];
+            if(!e||e.tagName.toLowerCase()!=='button')return false;
+            const a=e.getAttribute('aria-label')||'';
+            if(!/^Open mode picker, currently (?:Flash|Pro|\d+(?:\.\d+)?\s+(?:Hydrogen|Argon|Carbon))/i.test(a))
+                return false;
+            const rect=e.getBoundingClientRect();
+            if(rect.width<=0||rect.height<=0||e.disabled)return false;
+            e.click(); return true;
+        """,picker)
+    except Exception as exc:
+        raise GeminiThinkingError(
+            "PRE_SEND_MODE_PICKER_JS_FALLBACK_NOT_VERIFIED_NO_SEND") from exc
+    # A click alone is never proof: the menu must actually open.
+    if used is not True:
+        raise GeminiThinkingError(
+            "PRE_SEND_MODE_PICKER_JS_FALLBACK_NOT_VERIFIED_NO_SEND")
+    deadline=time.monotonic()+0.7
+    while time.monotonic()<deadline:
+        if expanded():
+            return
+        time.sleep(0.05)
+    visible=snapshot_options(driver)
+    if not visible:
+        raise GeminiThinkingError(
+            "PRE_SEND_MODE_PICKER_STILL_CLOSED_NO_SEND")
+
+
 def _expand_for_thinking(driver, handle):
     from .gemini_model import _owned_picker
     _owned(driver, handle)
     picker = _owned_picker(driver, handle)
-    if (picker.get_attribute("aria-expanded") or "").casefold() != "true":
-        picker.click()
-    parent = _thinking_expander(driver)
-    if (parent.get_attribute("aria-expanded") or "").casefold() != "true":
-        parent.click()
-    _owned(driver, handle)
-    return picker
+    try:
+        _open_owned_mode_picker_with_verified_fallback(driver,handle,picker)
+        parent = _thinking_expander(driver)
+        if (parent.get_attribute("aria-expanded") or "").casefold() != "true":
+            parent.click()
+        _owned(driver, handle)
+        return picker
+    except Exception:
+        # If the expander discovery fails after opening the outer picker,
+        # the caller never receives 'picker' and cannot close it in finally.
+        # This historically left stale overlays open across attempts. It is
+        # safe to close only the already identified owned menu, never Send.
+        _close_picker(driver, handle, picker)
+        raise
 
 
 def _close_picker(driver, handle, picker) -> None:
@@ -245,6 +353,8 @@ def select_owned_gemini_thinking_level(driver, handle: str, *,
         raise GeminiThinkingError("Invalid thinking selector parameters")
     deadline = time.monotonic() + timeout
     picker = None
+    saw_reachable_expander = False
+    saw_other_selectable_levels = False
     try:
         while time.monotonic() < deadline:
             try:
@@ -255,8 +365,12 @@ def select_owned_gemini_thinking_level(driver, handle: str, *,
                 # never a wrong tab or ambiguous named option.
                 if "EXPANDER_NOT_UNIQUE_OR_MISSING" not in str(exc):
                     raise
+                if not _owned_overlay_recovery_registered():
+                    raise GeminiThinkingError(
+                        "PRE_SEND_THINKING_OVERLAY_RECOVERY_NOT_REGISTERED_NO_SEND") from exc
                 time.sleep(.25)
                 continue
+            saw_reachable_expander = True
             choices = _thinking_options(driver, level)
             if len(choices) > 1:
                 raise GeminiThinkingError("PRE_SEND_AMBIGUOUS_THINKING_LEVEL_MENU")
@@ -282,9 +396,22 @@ def select_owned_gemini_thinking_level(driver, handle: str, *,
                     time.sleep(min(0.2, remaining))
                 raise GeminiThinkingError(
                     "PRE_SEND_THINKING_SELECTION_NOT_CONFIRMED_NO_SEND")
+            # A hidden/empty semantic menu is not proof that the requested
+            # level is actually absent. Only another positively witnessed,
+            # selectable Thinking radio can establish true unavailability.
+            # This distinction was missing in the real Account B failure.
+            offered = visible_offered_thinking_levels(driver)
+            if offered:
+                saw_other_selectable_levels = True
             _close_picker(driver, handle, picker)
             picker = None
             time.sleep(.25)
+        if not saw_reachable_expander:
+            raise GeminiThinkingError(
+                "PRE_SEND_THINKING_EXPANDER_NOT_UNIQUE_OR_MISSING")
+        if not saw_other_selectable_levels:
+            raise GeminiThinkingError(
+                "PRE_SEND_THINKING_OPTIONS_NOT_DISCOVERABLE_NO_SEND")
         raise GeminiThinkingError(
             "PRE_SEND_REQUESTED_THINKING_LEVEL_UNAVAILABLE_NO_SEND")
     finally:
@@ -365,9 +492,17 @@ def select_owned_gemini_thinking_with_recovery(
                 raise GeminiThinkingError(
                     "PRE_SEND_THINKING_FALLBACK_WITHOUT_POSITIVE_ABSENCE")
             try:
-                chosen=choose_thinking(
-                    requested=level,offered=offered,stage=active)
-            except GeminiAdaptivePolicyError as exc:
+                from .gemini_dynamic_task_router import (
+                    STAGES,select_task_thinking,DynamicGeminiRouteError)
+                if active in STAGES:
+                    from .gemini_model import configured_ui_mode
+                    chosen=select_task_thinking(
+                        active,offered,mode=configured_ui_mode(),
+                        requested=level)
+                else:
+                    chosen=choose_thinking(
+                        requested=level,offered=offered,stage=active)
+            except (GeminiAdaptivePolicyError,DynamicGeminiRouteError) as exc:
                 raise GeminiThinkingError(str(exc)) from error
         finally:
             if picker is not None:

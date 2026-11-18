@@ -37,6 +37,7 @@ def source_evidence_worklist(*,folder:Path,candidates:dict|None=None)->dict:
             # against the unchanged original source and the actual slide
             # bitmap. A cached/forged image-panel rectangle is not evidence.
             verified_panels=None
+            verified_fractions=None
             for elem in slide["candidate_visual_targets"]:
                 kind=elem.get("kind")
                 if kind=="text_block":
@@ -49,6 +50,31 @@ def source_evidence_worklist(*,folder:Path,candidates:dict|None=None)->dict:
                 elif kind in ("image_whole","math_row_group"):
                     from .verified_slide_visual_candidates import verify_visual_target
                     verify_visual_target(deck[n-1],n,elem)
+                elif kind=="math_fraction_review":
+                    # The original PDF-physical fraction detector was
+                    # integrated into candidate_map on 17 November, but
+                    # source_evidence_worklist still rejected its targets as
+                    # unknown. Recompute glyph geometry from the unchanged
+                    # slide PDF; never trust a candidate's "verified" flag.
+                    from .physical_fraction_review_targets import (
+                        physical_fraction_review_targets)
+                    from .recovery_registry import lookup_mechanism
+                    require(lookup_mechanism(
+                        "source_mapping_repair",
+                        "SPLIT_PDF_NUMERATOR_DENOMINATOR_OR_SUPERSCRIPT_UNRANKED"
+                        )=="ORIGINAL_PDF_LITERAL_STACKED_FRACTION_REVIEW_TARGET_ONLY",
+                        "Unregistered physical fraction candidate")
+                    if verified_fractions is None:
+                        verified_fractions={
+                            p["draft_element_id"]:p for p in
+                            physical_fraction_review_targets(deck[n-1],n)}
+                    require(elem.get("draft_element_id") in verified_fractions
+                            and elem==verified_fractions[
+                                elem["draft_element_id"]]
+                            and elem.get("mathematical_semantics_verified") is False
+                            and elem.get("independent_fraction_meaning_review_required")
+                                is True,
+                            "Physical fraction candidate differs from original PDF")
                 elif kind=="image_caption_panel":
                     if verified_panels is None:
                         from .captioned_panel_target_router import panel_targets_for_slide

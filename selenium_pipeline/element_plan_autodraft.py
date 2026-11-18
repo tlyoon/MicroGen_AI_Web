@@ -87,6 +87,89 @@ def math_markers(text: str) -> set[str]:
             if re.search(pattern,text)}
 
 
+def _exact_spoken_math_operator_hint(speech: str, visible: str) -> float:
+    """Strict literal notation equivalents for *ranking only*.
+
+    Never infer mathematical truth, equivalence of arbitrary expressions,
+    figure semantics or timing. A recognized spoken operator must match
+    the IDENTICAL physical PDF operands and result. Incomplete glyphs,
+    missing denominators or a conflicting equation yield zero hint.
+    """
+    spoken=speech.casefold()
+    rendered=visible.casefold()
+    number={"zero":"0","one":"1","two":"2","three":"3"}
+    equation=re.search(
+        r"\b([a-z])\s+plus\s+([a-z])\s+equals\s+"
+        r"(zero|one|two|three|[0-9])\b",spoken)
+    if equation:
+        left,right,value=equation.groups()
+        value=number.get(value,value)
+        actual=(r"(?<![a-z0-9])"+re.escape(left)+r"\s*\+\s*"+
+                re.escape(right)+r"\s*=\s*"+re.escape(value)+r"(?![0-9])")
+        if re.search(actual,rendered):
+            return .92
+    # When speech discusses where the exponents come from, it may name
+    # the exact printed equation in an *opposite verbal order*. Propose
+    # that physical equation for independent review without asserting
+    # left/right interpretation or mathematical correctness.
+    partial=re.search(r"\b([a-z])\s+plus\s+([a-z])\b",spoken)
+    if (partial and re.search(r"\bexponents?\b",spoken)
+            and re.search(r"\b(?:left|right)\b",spoken)
+            and not re.search(r"\b(?:not|never|unequal|incorrect|wrong)\b",
+                              spoken)):
+        a,b=partial.groups()
+        for word,value in number.items():
+            if re.search(r"\b"+word+r"\b",spoken):
+                expression=(r"(?<![a-z0-9])"+re.escape(a)+r"\s*\+\s*"+
+                            re.escape(b)+r"\s*=\s*"+value+r"(?![0-9])")
+                if re.search(expression,rendered):
+                    return .68
+    proportional=re.search(
+        r"\b([a-z])\s+is\s+proportional\s+to\b"
+        r".{0,90}?\b([a-z])\s+times\b"
+        r".{0,90}?\b([a-z])\s+squared\b",spoken)
+    if proportional:
+        x,a,t=proportional.groups()
+        compact=re.sub(r"\s+","",rendered)
+        exact=re.escape(x)+r"∝"+re.escape(a)+re.escape(t)+r"(?:2|²)"
+        if re.search(exact,compact):
+            return .90
+    # An *explicit* literal unit ratio can provide a textual focus hint.
+    # Never infer a divisor from stacked PDF glyphs or conflate T with T².
+    if (re.search(r"\blength\s+divided\s+by\s+time\b",spoken)
+            and not re.search(r"\b(?:time\s+)?squared\b",spoken)
+            and re.search(r"(?<![a-z0-9])l\s*/\s*t(?![a-z0-9²])",
+                          rendered)):
+        return .63
+    return 0.0
+
+
+def _exact_dimensional_addition_rule_focus(speech: str, visible: str) -> float:
+    """Lexical rule-topic focus, NEVER a physical dimension equivalence proof.
+
+    A prohibition on mixing *different named fundamental quantities* may be
+    reviewed against the actually printed conditional addition rule. The
+    speech and original PDF must each contain explicit, narrowly matched
+    text; do not infer that any arbitrary pair of quantities are incompatible.
+    """
+    s=speech.casefold()
+    v=visible.casefold()
+    if not re.search(
+        r"\b(?:cannot|can't|can\s+not|must\s+not|do\s+not)\s+"
+        r"(?:add|subtract)\b",s):
+        return 0.0
+    mentioned={q for q in ("length","mass","time") if
+               re.search(r"\b"+q+r"\b",s)}
+    if len(mentioned)<2:
+        return 0.0
+    if not re.search(
+        r"\bquantities\s+can\s+be\s+added\s+or\s+"
+        r"subtracted\s+only\s+if\s+they\s+have\s+the\s+same\s+"
+        r"dimensions\b",re.sub(r"\s+"," ",v)):
+        return 0.0
+    return .72
+
+
 def stable_recommendations(speech: str, candidates: list[dict]) -> list[dict]:
     spoken_math=math_markers(speech)
     # Only SOURCE-WITNESSED caption panels may have a deterministic
@@ -97,8 +180,17 @@ def stable_recommendations(speech: str, candidates: list[dict]) -> list[dict]:
     ranked=[]
     for target in candidates:
         kind=target.get("kind")
-        if kind not in ("text_block","image_caption_panel","math_row_group"):
+        if kind not in ("text_block","image_caption_panel","math_row_group",
+                        "math_fraction_review"):
             continue
+        if kind=="math_fraction_review":
+            a=target.get("anchor") or {}
+            if (a.get("type")!="physical_fraction_spans"
+                    or target.get("original_pdf_fraction_geometry_verified") is not True
+                    or target.get("mathematical_semantics_verified") is not False
+                    or a.get("math_semantics_verified") is not False
+                    or target.get("independent_fraction_meaning_review_required") is not True):
+                continue
         if kind=="math_row_group":
             # Recycle physically reconstructed 2-8 glyph-fragment equations
             # as review targets, never claims of mathematical equivalence.
@@ -134,6 +226,48 @@ def stable_recommendations(speech: str, candidates: list[dict]) -> list[dict]:
             # Do not merely down-rank it: candidates may otherwise outrank
             # all correct expressions in the same rendered slide.
             continue
+        if kind=="math_fraction_review":
+            # Physical glyph geometry (not math source semantics) supports
+            # a fractional focus candidate for independent visual review.
+            # Negated/contradictory utterances do not earn this hint.
+            if re.search(r"\b(?:not|never|wrong|incorrect|unequal)\b",
+                         speech,re.I):
+                continue
+            if (visible=="1/2" and re.search(
+                    r"\bone\s+half\b",speech,re.I)):
+                score=max(score,.90)
+            elif (visible=="L/T^2" and re.search(
+                    r"\blength\s+divided\s+by\s+time\s+squared\b",
+                    speech,re.I)):
+                score=max(score,.90)
+        if kind=="text_block":
+            # Inflected "add"/"added" refer to the exact physical slide
+            # rule; this is a review-focus hint, not semantic approval of
+            # the quantity-specific narration or any audio timing.
+            rule_hint=_exact_dimensional_addition_rule_focus(speech,visible)
+            if rule_hint:
+                from .recovery_registry import lookup_mechanism
+                mechanism=lookup_mechanism(
+                    "source_mapping_repair",
+                    "SPOKEN_DIMENSIONAL_ADDITION_RULE_TOPICAL_PARAPHRASE")
+                if mechanism=="EXACT_VISIBLE_DIMENSIONAL_ADDITION_RULE_REVIEW_HINT_ONLY":
+                    score=max(score,rule_hint)
+        if kind in ("text_block","math_row_group"):
+            # This supplies a *physical literal notation hint* only, not an
+            # equation-equivalence or scientific-acceptance conclusion.
+            literal=_exact_spoken_math_operator_hint(speech,visible)
+            if literal:
+                from .recovery_registry import lookup_mechanism
+                try:
+                    registered=lookup_mechanism(
+                        "source_mapping_repair",
+                        "SPOKEN_LITERAL_OPERATOR_VS_RENDERED_MATH_SYMBOL")
+                except (ValueError,OSError):
+                    registered=None
+                if registered=="EXACT_PHYSICAL_PDF_OPERATOR_ALIAS_RANKING_HINT_ONLY":
+                    score=max(score,literal)
+                # A retired/missing/tampered historical repair cannot
+                # silently make extra PDF targets eligible for review.
         if kind=="image_caption_panel" and requested_panel:
             # Original textbook's unique visible (a)/(b)/(c) anchors
             # independently match source caption meanings to actual image

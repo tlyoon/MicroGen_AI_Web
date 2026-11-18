@@ -17,6 +17,7 @@ from .evidence_reuse_contract import file_sha256
 from .figure_composites import validate_and_prepare_mappings, require_non_destructive_destination
 from .figure_mapping_checkpoints import checkpoint_can_resume, save_checkpoint
 from .figure_uncaptioned_source_recovery import recover_source_uncaptioned_crop
+from .figure_mixed_equation_caption_recovery import recover_mixed_source_equation_photo
 
 
 def _load(path: Path) -> dict:
@@ -120,37 +121,51 @@ def recover(*, previous_trial: Path, new_trial: Path) -> dict:
     old_refusal_sha = file_sha256(original_mapping)
     # Validate original material BEFORE first copy; no Gemini or API calls.
     original_crops = previous_work / "crops" / f"page_{page_number}"
-    rows, witness = recover_source_uncaptioned_crop(
+    originals = list(original_crops.glob("fig_*.png"))
+    source_args = dict(
         response="MAPPING_REVIEW_REQUIRED",
         source_pdf=previous_work / "source.pdf",
         page_png=original_page, crops_dir=original_crops,
         geometry_manifest=original_crops / f"page_{page_number}_crop_geometry.json")
+    if len(originals) == 1:
+        rows, witness = recover_source_uncaptioned_crop(**source_args)
+        recovery_kind = "uncaptioned"
+    elif len(originals) == 2:
+        rows, witness = recover_mixed_source_equation_photo(**source_args)
+        recovery_kind = "mixed_source"
+    else:
+        raise ValueError("Only one captionless crop or exact mixed math/photo pair")
     rows = validate_and_prepare_mappings(rows)
-    if len(rows) != 1:
-        raise ValueError("Expected exactly one source-backed graphic")
+    if len(rows) != len(originals):
+        raise ValueError("Source-backed graphic count changed")
     shutil.copytree(previous_work, new_work, copy_function=shutil.copy2)
     page = (new_work / "pages" / f"page_{page_number}"
             / f"page_{page_number}.png")
     crops = new_work / "crops" / f"page_{page_number}"
     mapping = page.with_name(f"page_{page_number}_mapping.txt")
     original_trace = crops / "gemini_transport_attempts.json"
-    _new_bytes(page.with_name("page_6_mapping.original_refusal.txt"),
+    _new_bytes(page.with_name(f"page_{page_number}_mapping.original_refusal.txt"),
                mapping.read_bytes())
     _new_bytes(crops / "gemini_transport_attempts.original_failure.json",
                original_trace.read_bytes())
-    raw = page.with_name("page_6_uncaptioned_model_reply.raw.txt")
+    raw = page.with_name(
+        f"page_{page_number}_{recovery_kind}_model_reply.raw.txt")
     _new_bytes(raw, b"MAPPING_REVIEW_REQUIRED\n")
     witness["saved_model_reply_sha256"] = file_sha256(raw)
-    _new_json(page.with_name("page_6_uncaptioned_source_evidence.json"), witness)
-    crop_name, label, target = rows[0]
-    crop = crops / crop_name
-    dest = crops / target
-    require_non_destructive_destination(crop, dest)
-    shutil.copy2(crop, dest)
-    root_target = new_work / target
-    require_non_destructive_destination(crop, root_target)
-    shutil.copy2(crop, root_target)
-    mapping.write_text(f'{crop_name} : "{label}" : {target}\n', encoding="utf-8")
+    proof = page.with_name(
+        f"page_{page_number}_{recovery_kind}_source_evidence.json")
+    _new_json(proof, witness)
+    for crop_name, label, target in rows:
+        crop = crops / crop_name
+        dest = crops / target
+        require_non_destructive_destination(crop, dest)
+        shutil.copy2(crop, dest)
+        root_target = new_work / target
+        require_non_destructive_destination(crop, root_target)
+        shutil.copy2(crop, root_target)
+    mapping.write_text("".join(
+        f'{crop_name} : "{label}" : {target}\n'
+        for crop_name, label, target in rows), encoding="utf-8")
     original_transport = _load(crops / "gemini_transport_attempts.original_failure.json")
     trace = dict(original_transport)
     trace["completed"] = True
@@ -182,6 +197,8 @@ def recover(*, previous_trial: Path, new_trial: Path) -> dict:
         "new_trial": str(new_trial),
         "new_workspace": str(new_work),
         "source_page_recovered": page_number,
+        "source_local_recovery_kind": recovery_kind,
+        "source_local_witness_sha256": file_sha256(proof),
         "new_mapping_checkpoint_sha256": file_sha256(saved),
         "new_provider_sends": 0,
         "prior_failure_rewritten": False,
@@ -261,6 +278,42 @@ def verify_recovery_receipt(trial_dir: Path) -> Path:
                 report.get("new_mapping_checkpoint_sha256")
             and valid("figures", workspace)):
         raise ValueError("Local figure recovery content no longer valid")
+    kind = report.get("source_local_recovery_kind")
+    if kind is not None:
+        if kind not in ("uncaptioned", "mixed_source"):
+            raise ValueError("Unknown local captionless/mixed recovery mode")
+        original_page = (old_source.parent / ".microgen_work" / "pages"
+                         / f"page_{page_number}" / f"page_{page_number}.png")
+        original_crop = (old_source.parent / ".microgen_work" / "crops"
+                         / f"page_{page_number}")
+        identity = dict(
+            response="MAPPING_REVIEW_REQUIRED",
+            source_pdf=old_source.parent / ".microgen_work" / "source.pdf",
+            page_png=original_page, crops_dir=original_crop,
+            geometry_manifest=original_crop / f"page_{page_number}_crop_geometry.json")
+        if kind == "uncaptioned":
+            source_rows, source_witness = recover_source_uncaptioned_crop(**identity)
+        else:
+            source_rows, source_witness = recover_mixed_source_equation_photo(**identity)
+        source_rows = validate_and_prepare_mappings(source_rows)
+        new_page = workspace / "pages" / f"page_{page_number}"
+        refusal = new_page / f"page_{page_number}_{kind}_model_reply.raw.txt"
+        proof = new_page / f"page_{page_number}_{kind}_source_evidence.json"
+        if (not refusal.is_file() or refusal.is_symlink()
+                or refusal.read_bytes() != b"MAPPING_REVIEW_REQUIRED\n"
+                or not proof.is_file() or proof.is_symlink()
+                or file_sha256(proof) != report.get("source_local_witness_sha256")):
+            raise ValueError("Recovery source-only refusal or receipt tampered")
+        source_witness["saved_model_reply_sha256"] = file_sha256(refusal)
+        if _load(proof) != source_witness:
+            raise ValueError("Source-only recovery proof no longer matches original PDF")
+        written = new_page / f"page_{page_number}_mapping.txt"
+        expected = "".join(
+            f'{name} : "{label}" : {target}\n'
+            for name,label,target in source_rows)
+        if (written.is_symlink() or not written.is_file()
+                or written.read_text(encoding="utf8") != expected):
+            raise ValueError("Accepted source-only mapping changed")
     return receipt_path
 
 

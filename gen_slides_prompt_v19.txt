@@ -123,16 +123,19 @@ ULTRA-CRITICAL: Comparison and arrow symbols
     - For arrows indicating direction, continue to use `$\rightarrow$` and `$\leftarrow$`.
     - Treat this as mandatory ASCII-safety: raw ">" or "<" outside math mode is forbidden.
 
-Initial Slides Template (v6 preserved exactly; adjust content only)
+Initial Slides Template (v6 safely inset slide counters; preserve exact layout)
 - First line: \documentclass[10.5pt]{beamer}
 - \usetheme{Madrid}
 - \setbeamertemplate{frametitle}[default]
 - \definecolor{lightblue}{RGB}{173,216,230}
 - \setbeamercolor{frametitle}{bg=lightblue, fg=black}
 - \setbeamertemplate{headline}{%
-    \hfill%
-    \insertframenumber{} / \inserttotalframenumber%
-    \par%
+    \vskip7pt%
+    \leavevmode%
+    \hbox to \paperwidth{%
+      \hfill\scriptsize\insertframenumber{} / \inserttotalframenumber\hspace*{9pt}%
+    }%
+    \vskip5pt%
   }
 - \setbeamertemplate{footline}{}
 - \usepackage{amsmath}

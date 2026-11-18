@@ -114,9 +114,10 @@ def _saved_valid_result(checkpoint: Path, job: dict, folder: Path,
     require((checkpoint/"model_response_identity.json").is_file(),
             "No SHA-bound model reply; do not resend an uncertain submission")
     from .series_gemini import decode_storyboard_response
+    from .ai_academic_web_review import validate_source_demoted_review
     return validate_saved(
         checkpoint=checkpoint,expected_fingerprint=expected,
-        validator=lambda raw:validate_model_review(
+        validator=lambda raw:validate_source_demoted_review(
             folder=folder,job=job,
             response=decode_storyboard_response(raw),
             mode="INDEPENDENT_CHALLENGE"))
@@ -265,8 +266,16 @@ def run(*,plan_path: Path,root: Path,max_jobs: int=2,
                     "Campaign existing result not from planned original units")
             outcome=_saved_valid_result(checkpoint,job,folder,prompt)
             require(existing==outcome,"Saved model reply differs from campaign result")
-            completed.append({"job":position,"status":"REUSED_VERIFIED_RESULT",
-                              "reviewed":len(uids)})
+            supported=sum(row["verdict"]=="SUPPORTED"
+                          for row in outcome["rows"])
+            if supported:
+                completed.append({"job":position,
+                                  "status":"REUSED_VERIFIED_RESULT",
+                                  "reviewed":len(uids),"supported":supported})
+            else:
+                skipped.append({"job":position,
+                                "status":"SAVED_REVIEW_ZERO_SOURCE_SUPPORTED_NO_APPROVAL",
+                                "reviewed":len(uids),"supported":0})
             continue
         claimed=[uid for uid in uids if uid in previous_claimed]
         if claimed:
@@ -328,8 +337,16 @@ def run(*,plan_path: Path,root: Path,max_jobs: int=2,
             elif saved_state and (checkpoint/"model_response_identity.json").exists():
                 outcome=_saved_valid_result(checkpoint,job,folder,prompt)
                 _new(result_path,outcome)
-                completed.append({"job":position,"status":"RECOVERED_SAVED_REPLY",
-                                  "reviewed":len(uids)})
+                supported=sum(row["verdict"]=="SUPPORTED"
+                              for row in outcome["rows"])
+                if supported:
+                    completed.append({"job":position,
+                                      "status":"RECOVERED_SAVED_REPLY",
+                                      "reviewed":len(uids),"supported":supported})
+                else:
+                    skipped.append({"job":position,
+                                    "status":"RECOVERED_REPLY_ZERO_SOURCE_SUPPORTED_NO_APPROVAL",
+                                    "reviewed":len(uids),"supported":0})
                 continue
             else:
                 skipped.append({"job":position,
@@ -401,12 +418,22 @@ def run(*,plan_path: Path,root: Path,max_jobs: int=2,
                 "error_type":type(exc).__name__})
             break   # never continue paid batch after an unexplained failure
         _new(result_path,outcome)
-        completed.append({"job":position,"status":"NEW_VALID_SOURCE_REVIEW",
-                          "reviewed":len(uids),
-                          "supported":sum(r["verdict"]=="SUPPORTED"
-                                          for r in outcome["rows"]),
-                          "unresolved":sum(r["verdict"]=="UNRESOLVED"
-                                           for r in outcome["rows"])})
+        supported=sum(r["verdict"]=="SUPPORTED" for r in outcome["rows"])
+        unresolved=sum(r["verdict"]=="UNRESOLVED" for r in outcome["rows"])
+        if supported:
+            completed.append({"job":position,"status":"NEW_VALID_SOURCE_REVIEW",
+                              "reviewed":len(uids),"supported":supported,
+                              "unresolved":unresolved})
+        else:
+            # The validator correctly downgraded a fabricated quotation.
+            # Recording a technically received but zero-supported reply as
+            # completed academic work would hide the scientific gap.
+            skipped.append({"job":position,
+                            "status":"NEW_REVIEW_ZERO_SOURCE_SUPPORTED_NO_APPROVAL",
+                            "reviewed":len(uids),"supported":0,
+                            "unresolved":unresolved})
+            # No second request for this original unit is authorized.
+            break
     return {"schema_version":1,
             "status":"BOUNDED_CHANGED_SOURCE_REVIEW_NOT_G2_APPROVED",
             "original_source_sha256":plan["source_sha256"],
