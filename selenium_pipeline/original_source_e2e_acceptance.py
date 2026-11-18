@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import wave
 from pathlib import Path
 
@@ -29,7 +30,7 @@ def require(ok:bool, message:str)->None:
     if not ok:raise SourceReleaseBlocked(message)
 
 
-def inspect_source_e2e(*,lecture:Path,checkpoint:Path|None=None,
+def _inspect_source_e2e_native(*,lecture:Path,checkpoint:Path|None=None,
                        fallback_dir:Path|None=None,
                        queue_dir:Path|None=None,
                        model_responses:Path|None=None,
@@ -180,6 +181,37 @@ def inspect_source_e2e(*,lecture:Path,checkpoint:Path|None=None,
     }
 
 
+def inspect_source_e2e(*,lecture:Path,checkpoint:Path|None=None,
+                       fallback_dir:Path|None=None,
+                       queue_dir:Path|None=None,
+                       model_responses:Path|None=None,
+                       expected_publisher_sha256:str|None=None)->dict:
+    """Normal saved-source review with exact, no-Send PDF parser ABI fallback.
+
+    Only a known old request-hash mismatch is recoverable. Any changed source
+    or incomplete compatible recheck fails closed; never regenerate content.
+    """
+    try:
+        return _inspect_source_e2e_native(
+            lecture=lecture, checkpoint=checkpoint,
+            fallback_dir=fallback_dir, queue_dir=queue_dir,
+            model_responses=model_responses,
+            expected_publisher_sha256=expected_publisher_sha256)
+    except Exception as error:
+        if (type(error).__name__ != "RichMappingError"
+                or type(error).__module__ !=
+                    "selenium_pipeline.rich_element_model_alignment"
+                or str(error) !=
+                    "Model answer does not belong to this exact source/slides/narration request"):
+            raise
+        from .historical_pdf_parser_abi_recovery import recover_readonly
+        return recover_readonly(
+            cause=error, lecture=lecture,
+            checkpoint=checkpoint, fallback_dir=fallback_dir,
+            queue_dir=queue_dir, model_responses=model_responses,
+            expected_publisher_sha256=expected_publisher_sha256)
+
+
 def execute_prepared(*,lecture:Path,checkpoint:Path,fallback_dir:Path,
                      queue_dir:Path,model_responses:Path)->dict:
     report=inspect_source_e2e(lecture=lecture,checkpoint=checkpoint,
@@ -215,8 +247,19 @@ def main(argv=None):
     p.add_argument("--model-responses",type=Path)
     p.add_argument("--publisher-sha256")
     p.add_argument("--execute-prepared",action="store_true")
+    p.add_argument("--readonly-parser-abi-child",action="store_true")
     a=p.parse_args(argv)
-    if a.execute_prepared:
+    if a.readonly_parser_abi_child:
+        require(os.environ.get("MICROGEN_PARSER_ABI_CHILD") == "1"
+                and not a.execute_prepared
+                and a.model_responses is None,
+                "Compatible parser subprocess may only recheck saved source")
+        result=_inspect_source_e2e_native(
+            lecture=a.lecture,checkpoint=a.checkpoint,
+            fallback_dir=a.fallback_dir,queue_dir=a.queue_dir,
+            model_responses=None,
+            expected_publisher_sha256=a.publisher_sha256)
+    elif a.execute_prepared:
         require(all(x is not None for x in
             (a.checkpoint,a.fallback_dir,a.queue_dir,a.model_responses)),
             "Explicit source-bound mapping evidence mandatory before execution")

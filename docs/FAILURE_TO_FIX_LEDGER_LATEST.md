@@ -1,5 +1,17 @@
 # MicroGen_AI_Web failure-to-fix ledger — current continuation
 
+## MG-HISTORICAL-SOURCE-EXTRACTION-ABI-REUSE-V1 — 18 Nov 2026
+
+**Historical recurrence:** Dell-115 October source/figure failures already involved incompatible Python/PyMuPDF environments. Saved original Serway6.4 14-slide model request hashes match PyMuPDF1.25.2 but not current local isolated PyMuPDF1.27.2.3; 3 slide mismatches in bounded sample. Exact original source/slides/script file SHA and slide2 utterance/visible-target SHA are unchanged; only PyMuPDF `get_text` source-page excerpts vary. Do not rewrite old request claims or weaken model attribution.
+
+**Normal-path code remedy:** registered `HISTORICAL_PDF_TEXT_PARSER_ABI_COMPAT` in `recovery_registry_v1.json`; on only the exact old request-hash error, the ordinary read-only source gate checks all original source and fallback manifest SHA/authorizations and runs the same historical saved review through an already installed local compatible parser with a finite 120s subprocess. Accept only original blocked 7/74 + 67 unresolved status, without model/TTS/render/publication authorization, and persist a SHA-locked no-Send decision. Every run independently revalidates original claim and rows. A missing/retired parser or altered original fails closed.
+
+**Evidence:** genuine Dell isolated-worker historical test now PASS; adjacent isolated-worker tests **80 PASS**, compatible Python tests **24 PASS**. Fault injections exercise wrong SHA, saved manifest edits, child output promotion/forgery, source mutation, absent interpreter and registry retirement. No source mutation, request replay, paid call or media. Full design in `docs/PR533_HISTORICAL_PDF_PARSER_ABI_RECOVERY_20261118.md`. Hosted exact-head CI / draft PR status separate.
+
+---
+
+# MicroGen_AI_Web failure-to-fix ledger — current continuation
+
 ## MG-HISTORY-ENDPOINT-DIFF-HIDES-REVERTED-CODE-V1 — 18 Nov 2026
 
 **Verified historical failure:** original normal `windows_historical_stack_batch_plan.plan_stack` used only per-batch endpoint diff; in the genuine 945-commit Dell-115 PR history it omitted 9 commit-touched paths in batch 45 and 6 in batch 46 (15 total). Source admission, Gemini UI/model policy, academic-source and regression files could therefore disappear from review scope when edits were later reverted.
