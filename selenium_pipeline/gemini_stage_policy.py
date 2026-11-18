@@ -33,9 +33,10 @@ def stage_ui_contract(stage: str, *, nonfigure_mode: str = "flash",
         }
     if stage not in NONFIGURE_STAGES:
         raise GeminiStagePolicyError("No Gemini generation model for this stage")
-    if nonfigure_mode not in ("flash", "pro"):
+    from .gemini_model import MODEL_SPECS
+    if nonfigure_mode not in MODEL_SPECS or nonfigure_mode=="flash-lite":
         raise GeminiStagePolicyError(
-            "Slides/narration require Flash or an explicit Pro benchmark")
+            "Slides/narration require an independently verified reasoning-capable browser model")
     from .gemini_thinking import configured_thinking_level
     return {
         "stage": stage, "ui_mode": nonfigure_mode,
@@ -59,12 +60,12 @@ def browser_stage_needs_thinking(*, mode: str | None = None,
         # Flash/Pro fallback MUST pass the normal thinking/effort gate.
         if selected == FIGURE_UI_MODE:
             return False
-        if selected in ("flash","pro"):
+        if selected in ("flash","pro","hydrogen","hydrogen-thinking","argon","carbon"):
             return True
         raise GeminiStagePolicyError("Unknown figure-stage fallback model")
     if selected == FIGURE_UI_MODE:
         raise GeminiStagePolicyError(
             "Flash-Lite without Thinking permitted ONLY for figures stage")
-    if selected not in ("flash", "pro"):
+    if selected not in ("flash", "pro","hydrogen","hydrogen-thinking","argon","carbon"):
         raise GeminiStagePolicyError("Unknown Gemini browser model")
     return True

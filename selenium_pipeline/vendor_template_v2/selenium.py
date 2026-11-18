@@ -1348,7 +1348,8 @@ class GeminiSeleniumClient:
                                            "rich_mapping","academic_review"}
                           and os.getenv("MICROGEN_DISABLE_ADAPTIVE_MODEL_FALLBACK")!="1")
         requires_thinking = browser_stage_needs_thinking(mode=target_mode)
-        if target_mode not in {"flash-lite", "flash", "pro"}:
+        from selenium_pipeline.gemini_model import MODEL_SPECS
+        if target_mode not in MODEL_SPECS:
             raise RuntimeError(f"Unsupported MICROGEN_GEMINI_UI_MODE={target_mode!r}")
         # Every mapping page gets a browser tab owned by this MicroGen instance.
         # Reusing an arbitrary authenticated user tab left stale image chips,
@@ -1398,6 +1399,8 @@ class GeminiSeleniumClient:
                 "refusing to use an unknown fallback tab."
             )
 
+        # Bind persisted task defaults to this authorized Chrome profile.
+        os.environ["MICROGEN_GEMINI_CHROME_PORT"]=str(self.cfg.debug_port)
         # One canonical model selector for parent and ALL owned workers.
         # "Flash-Lite" is NOT Flash. Reject mixed/ambiguous menu entries
         # before the job has uploaded a source or made any Gemini Send.
@@ -1532,7 +1535,21 @@ class GeminiSeleniumClient:
         else:
             # Flash-Lite's caption task needs no Thinking submenu, avoiding
             # the non-interactable Medium expander seen in Serway 7.8.
+            verified_thinking="not_required"
             log("[GEMINI-THINKING] FIGURES_FLASH_LITE_NOT_REQUIRED")
+        if os.getenv("MICROGEN_DYNAMIC_ROUTE_PENDING"):
+            # Persist only after New chat, exact current model and Thinking
+            # were positively reverified on the same owned tab. Never save a
+            # proposed fallback or infer Medium from model wording.
+            from selenium_pipeline.gemini_dynamic_task_router import (
+                commit_verified_pending_route)
+            persisted=commit_verified_pending_route(
+                stage=active_stage,owned_selected_label=selected_mode,
+                thinking_level=verified_thinking,
+                port=int(self.cfg.debug_port),
+                model_ui_checked=True,thinking_radio_checked=True)
+            log("[GEMINI-MODE] TASK_DEFAULT_REVERIFIED_AND_PERSISTED "
+                f"task={active_stage} family={persisted['family']}")
         self._microgen_presend_stage = "OWNED_MODEL_THINKING_READY"
         log("Opened Gemini")
 

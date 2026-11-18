@@ -1,0 +1,113 @@
+{
+  "schema_version": 1,
+  "version": "2026-11-18",
+  "profiles": {
+    "figures": {
+      "preferred": [
+        "flash-lite",
+        "hydrogen",
+        "flash",
+        "pro"
+      ],
+      "minimum_tier": 1,
+      "preferred_thinking": "low",
+      "minimum_thinking": "low",
+      "thinking_required_for": [
+        "hydrogen",
+        "hydrogen-thinking",
+        "flash",
+        "pro",
+        "argon",
+        "carbon"
+      ],
+      "allow_integrated_thinking": false,
+      "allow_auto": false
+    },
+    "slides": {
+      "preferred": [
+        "flash",
+        "hydrogen",
+        "pro",
+        "argon"
+      ],
+      "minimum_tier": 2,
+      "preferred_thinking": "medium",
+      "minimum_thinking": "medium",
+      "thinking_required": true,
+      "allow_integrated_thinking": false,
+      "allow_auto": false
+    },
+    "narration": {
+      "preferred": [
+        "flash",
+        "hydrogen",
+        "pro",
+        "argon"
+      ],
+      "minimum_tier": 2,
+      "preferred_thinking": "medium",
+      "minimum_thinking": "medium",
+      "thinking_required": true,
+      "allow_integrated_thinking": false,
+      "allow_auto": false
+    },
+    "rich_mapping": {
+      "preferred": [
+        "flash",
+        "hydrogen",
+        "pro",
+        "argon"
+      ],
+      "minimum_tier": 2,
+      "preferred_thinking": "medium",
+      "minimum_thinking": "medium",
+      "thinking_required": true,
+      "allow_integrated_thinking": false,
+      "allow_auto": false
+    },
+    "academic_review": {
+      "preferred": [
+        "pro",
+        "argon",
+        "carbon",
+        "hydrogen-thinking"
+      ],
+      "minimum_tier": 3,
+      "preferred_thinking": "medium",
+      "minimum_thinking": "medium",
+      "thinking_required": true,
+      "allow_integrated_thinking": false,
+      "allow_auto": false,
+      "source_bound_route_requires_independent_requalification": true
+    },
+    "acoustic_qa": {
+      "preferred": [
+        "pro",
+        "argon",
+        "hydrogen-thinking",
+        "hydrogen",
+        "flash"
+      ],
+      "minimum_tier": 2,
+      "preferred_thinking": "medium",
+      "minimum_thinking": "medium",
+      "thinking_required": true,
+      "allow_integrated_thinking": false,
+      "allow_auto": false
+    },
+    "repair_analysis": {
+      "preferred": [
+        "argon",
+        "carbon",
+        "pro",
+        "hydrogen-thinking"
+      ],
+      "minimum_tier": 3,
+      "preferred_thinking": "high",
+      "minimum_thinking": "medium",
+      "thinking_required": true,
+      "allow_integrated_thinking": false,
+      "allow_auto": false
+    }
+  }
+}

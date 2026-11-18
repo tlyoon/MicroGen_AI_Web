@@ -1,3 +1,15 @@
+# 18 Nov 2026 — Official-catalog and live-UI dynamic task model routing
+
+**Critical path: P1 still BLOCKED_EXTERNAL_DEPENDENCY; 20/85 independently accepted Serway §1.3 utterances.** Historical original PDFs and exhausted synthetic capabilities were not replayed. No source-science, acoustic/video or G3 advancement; no new model Send or paid API.
+
+A task-aware registered resolver is now part of the normal Selenium model/Thinking selection path. When the task's previous default is proven absent from an exact owned menu, it consults timestamped OFFICIAL Gemini Apps Help (API catalog is context, not UI entitlement), intersecting eligible documented models with individually visible unlocked controls and task capability/Thinking floors. Exact selected UI identity and separately verified radio are mandatory before an account-scoped task default is atomically persisted. The existing model-picker inert-click recovery now precedes any missing-model decision. Other unknown/new marketing families fail closed, with no version-number hard-coding inside known families.
+
+**Actual Dell-115 Account B test:** old `Flash` default was missing; source-free normal model selector successfully selected and verified **4 Hydrogen** using official Help + live UI, then safely blocked on `PRE_SEND_THINKING_EXPANDER_NOT_UNIQUE_OR_MISSING`. No new default persisted, no uploads, no model requests, no paid usage and no source claim replay. This is real **model selection recovery**, not verified Medium Thinking or two-PDF scientific-review restoration. Real receipt: `MicroGen_AI_Web_Checkpoints/real_dynamic_gemini_accountB_slides_presend_20261118.receipt.json`. Full design, provenance, tests, exact extension points: `docs/GEMINI_DYNAMIC_TASK_MODEL_ROUTER_20261118.md`.
+
+**Status:** PATCH_INTEGRATED / TESTED_OFFLINE for model routing, genuine live model-switch proof. Academic source-science and task Medium remain blocked; G2 20/85, G3 open. Draft PR/commit and hosted CI evidence must be recorded separately after tests.
+
+---
+
 # 18 Nov 2026 — Inert Gemini model-picker click repaired through exact owned DOM fallback
 
 **CRITICAL PATH: BLOCKED_EXTERNAL_DEPENDENCY; no G2 scientific acceptance increase, still 20/85 accepted (65 unresolved).** The old Serway PDF requests and prior two synthetic PDF incidents remain exhausted and immutable. No upload, Gemini Send, paid API, G3/media or student release is authorized.

@@ -207,14 +207,16 @@ def _registered_owned_picker_click_fallback()->bool:
         return False
 
 
-def _open_owned_mode_picker_with_verified_fallback(driver,handle,picker):
+def _open_owned_mode_picker_with_verified_fallback(driver,handle,picker,*,
+                                                   allow_model_switch=False):
     """One native click; if *proven inert*, one exact-button DOM click.
 
     The fallback is allowed only when no model options were rendered after
     the native click and the exact picker label matches the configured model.
     It never discovers or clicks a Send control or changes a model selection.
     """
-    from .gemini_model import _matches_mode,configured_ui_mode
+    from .gemini_model import _matches_mode,configured_ui_mode,MODEL_SPECS
+    from .gemini_ui_adaptive_protocol import normalized_family
     from .gemini_ui_semantic_controls import snapshot_options
 
     def expanded():
@@ -237,18 +239,21 @@ def _open_owned_mode_picker_with_verified_fallback(driver,handle,picker):
     if visible:
         return
     label=(picker.get_attribute("aria-label") or "")
+    current=label.partition("currently ")[2]
+    exact=(normalized_family(current) in MODEL_SPECS if allow_model_switch
+           else _matches_mode(label,configured_ui_mode()))
     if ((picker.get_attribute("aria-expanded") or "").lower()!="false"
-            or not _matches_mode(label,configured_ui_mode())
+            or not exact
             or not _registered_owned_picker_click_fallback()):
         raise GeminiThinkingError(
             "PRE_SEND_MODE_PICKER_NATIVE_CLICK_INERT_UNVERIFIED_NO_SEND")
     _owned(driver,handle)
     try:
-        used=driver.execute_script("""
+        used=driver.execute_script(r"""
             const e=arguments[0];
             if(!e||e.tagName.toLowerCase()!=='button')return false;
             const a=e.getAttribute('aria-label')||'';
-            if(!/^Open mode picker, currently (?:Flash|Pro)/i.test(a))
+            if(!/^Open mode picker, currently (?:Flash|Pro|\d+(?:\.\d+)?\s+(?:Hydrogen|Argon|Carbon))/i.test(a))
                 return false;
             const rect=e.getBoundingClientRect();
             if(rect.width<=0||rect.height<=0||e.disabled)return false;
@@ -479,9 +484,16 @@ def select_owned_gemini_thinking_with_recovery(
                 raise GeminiThinkingError(
                     "PRE_SEND_THINKING_FALLBACK_WITHOUT_POSITIVE_ABSENCE")
             try:
-                chosen=choose_thinking(
-                    requested=level,offered=offered,stage=active)
-            except GeminiAdaptivePolicyError as exc:
+                from .gemini_dynamic_task_router import (
+                    STAGES,select_task_thinking,DynamicGeminiRouteError)
+                if active in STAGES:
+                    from .gemini_model import configured_ui_mode
+                    chosen=select_task_thinking(
+                        active,offered,mode=configured_ui_mode())
+                else:
+                    chosen=choose_thinking(
+                        requested=level,offered=offered,stage=active)
+            except (GeminiAdaptivePolicyError,DynamicGeminiRouteError) as exc:
                 raise GeminiThinkingError(str(exc)) from error
         finally:
             if picker is not None:

@@ -200,6 +200,20 @@
       "enabled": true
     },
     {
+      "id": "GEMINI_DYNAMIC_TASK_MODEL_ROUTER",
+      "match_type": "presend_capability_repair",
+      "signature": "TASK_DEFAULT_GEMINI_UI_MODEL_ABSENT_OFFICIAL_REPLACEMENT_REQUIRED",
+      "mechanism": "OFFICIAL_GEMINI_APPS_HELP_AND_ATOMIC_OWNED_UI_TASK_POLICY_ROUTING",
+      "classification": "DOCUMENTED_MODEL_REPLACED_OR_TASK_THINKING_UNAVAILABLE",
+      "handler": "NORMAL_EXISTING_OWNED_GEMINI_ACCOUNT_CAPABILITY_PREFLIGHT",
+      "preconditions": "default absent from exact owned menu; official Gemini Apps Help (not API entitlement) and bounded cache; visible documented option and task Thinking floor; no source claim replay",
+      "verification_test": "tests/test_gemini_dynamic_task_router.py; tests/test_gemini_dynamic_route_integration.py",
+      "last_verified_date": "2026-11-18",
+      "environment": "Dell-115 Chrome Gemini authenticated Account B; real missing Flash and live 4 Hydrogen selection without model Send",
+      "retry_policy": "finite one task-scoped official catalog lookup and one exact owned menu replacement; persist only after model+Thinking radio proof; no API cost, source replay or forced academic-model substitution",
+      "enabled": true
+    },
+    {
       "id": "GEMINI_EXACT_PICKER_CLICK_FALLBACK",
       "match_type": "presend_capability_repair",
       "signature": "OWNED_PRO_MODEL_PICKER_NATIVE_CLICK_NO_EFFECT_NO_SEND",

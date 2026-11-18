@@ -88,7 +88,7 @@ class VersionSixRecoveryRegistryTests(unittest.TestCase):
         for e in self.original["entries"]:
             self.assertTrue(e["verification_test"].startswith("tests/"))
             self.assertLessEqual(
-                date.fromisoformat(e["last_verified_date"]), date(2026,11,17))
+                date.fromisoformat(e["last_verified_date"]), date.today())
             self.assertGreaterEqual(
                 date.fromisoformat(e["last_verified_date"]),date(2026,11,16))
             self.assertIn("finite",e["retry_policy"])
