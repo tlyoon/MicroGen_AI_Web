@@ -33,6 +33,100 @@ def _api_get(url: str) -> list[dict]:
     return parsed
 
 
+def _scoped_head_chain(selected: list[dict], *, complete: bool,
+                       expected_head_sha: str | None) -> dict:
+    """Trace the current PR's real parent branch, not number-adjacent PRs.
+
+    An unrelated historical PR may be numbered between two real parents.
+    A branch match alone is insufficient: GitHub's target base SHA must equal
+    the live parent PR head SHA. Missing, duplicated or cycled parents fail
+    closed. This is strictly a metadata audit, never a merge approval.
+    """
+    report = {
+        "status": "ACTIVE_HEAD_CHAIN_UNVERIFIED",
+        "root_reached_main": False,
+        "linked_open_draft_chain_verified": False,
+        "verified_parent_links": 0,
+        "traced_open_pr_count": 0,
+        "stopped_at_base_branch": None,
+        "requested_head_sha_found_exactly_once": False,
+        "anchored_head_pr": None,
+        "preview_pr_numbers": [],
+        "code_review_and_qa_complete": False,
+        "may_merge_automatically": False,
+        "student_publication_authorized": False,
+    }
+    if not complete or not selected:
+        report["status"] = "INCOMPLETE_CATALOG_NO_SCOPED_PROOF"
+        return report
+    # Never assume an exact target branch is PR-number-maximal: newer PRs
+    # on unrelated workstreams may appear after the current task started.
+    anchors = ([x for x in selected if x["head_sha"] == expected_head_sha]
+               if expected_head_sha is not None else selected[:1])
+    if len(anchors) != 1:
+        report["status"] = "MISSING_OR_AMBIGUOUS_EXACT_HEAD_SHA_NO_SCOPED_PROOF"
+        return report
+    report["requested_head_sha_found_exactly_once"] = True
+    report["anchored_head_pr"] = anchors[0]["number"]
+    # Exact code-reviewed remedy must be enabled in the normal registry.
+    try:
+        from .recovery_registry import lookup_mechanism
+        mechanism = lookup_mechanism(
+            "pr_stack_audit",
+            "OPEN_PR_ADJACENCY_POLLUTED_BY_UNRELATED_HISTORICAL_BRANCHES")
+        if mechanism != (
+            "TRACE_CURRENT_HEAD_BY_EXACT_BASE_REF_SHA_IGNORE_UNRELATED_PR_ROWS"):
+            report["status"] = "SCOPED_HEAD_CHAIN_REMEDY_NOT_REGISTERED"
+            return report
+    except (ValueError, OSError):
+        report["status"] = "SCOPED_HEAD_CHAIN_REMEDY_DISABLED_OR_INVALID"
+        return report
+    by_branch = {}
+    for item in selected:
+        by_branch.setdefault(item["head_branch"], []).append(item)
+    current = anchors[0]
+    visited = set()
+    path = []
+    for _ in range(len(selected) + 1):
+        no = current["number"]
+        if no in visited:
+            report["status"] = "CYCLIC_PR_PARENT_LINKS_REJECTED"
+            break
+        visited.add(no)
+        path.append(no)
+        if not current["draft"]:
+            report["status"] = "NON_DRAFT_PR_IN_ACTIVE_CHAIN"
+            break
+        base = current["base_branch"]
+        if base == "main":
+            report["status"] = "ACTIVE_DRAFT_CHAIN_VERIFIED_TO_MAIN_NOT_MERGE_APPROVED"
+            report["root_reached_main"] = True
+            break
+        parents = by_branch.get(base, [])
+        if len(parents) > 1:
+            report["status"] = "AMBIGUOUS_MULTIPLE_OPEN_PARENT_HEADS"
+            break
+        if not parents:
+            report["status"] = "ACTIVE_DRAFT_CHAIN_UNLISTED_BASE_UNVERIFIED"
+            report["stopped_at_base_branch"] = base
+            break
+        parent = parents[0]
+        if (not current.get("base_sha")
+                or current["base_sha"] != parent["head_sha"]):
+            report["status"] = "ACTIVE_PARENT_BRANCH_SHA_MISMATCH"
+            break
+        report["verified_parent_links"] += 1
+        current = parent
+    else:
+        report["status"] = "PR_PARENT_CHAIN_LENGTH_LIMIT_REACHED"
+    report["traced_open_pr_count"] = len(path)
+    report["preview_pr_numbers"] = path[:20]
+    report["linked_open_draft_chain_verified"] = (
+        report["root_reached_main"]
+        and report["verified_parent_links"] == len(path) - 1)
+    return report
+
+
 def audit(*, repository: str,
           expected_latest_head_sha: str | None = None,
           max_pages: int = 7, fetch=None) -> dict:
@@ -87,6 +181,7 @@ def audit(*, repository: str,
             "head_branch": head["ref"],
             "head_sha": head["sha"],
             "base_branch": base["ref"],
+            "base_sha": base.get("sha"),
             "draft": pr["draft"],
         })
     selected.sort(key=lambda x: x["number"], reverse=True)
@@ -116,6 +211,9 @@ def audit(*, repository: str,
     all_draft = bool(selected) and all(x["draft"] for x in selected)
     safe_topology = (complete and all_draft and not disagreements
                      and head_matches)
+    scoped_head = _scoped_head_chain(
+        selected, complete=complete,
+        expected_head_sha=expected_latest_head_sha)
     return {
         "schema_version": 1,
         "status": (
@@ -142,6 +240,7 @@ def audit(*, repository: str,
         "adjacent_open_pr_branch_disagreements": disagreements[:30],
         "total_adjacent_disagreement_count": len(disagreements),
         "chain_consistent_only_for_audited_open_prs": safe_topology,
+        "active_exact_head_dependency_chain": scoped_head,
         "latest_open_pr_chain_preview": [
             {"number": x["number"], "base_branch": x["base_branch"],
              "head_branch": x["head_branch"], "draft": x["draft"]}
@@ -161,6 +260,8 @@ def main(argv=None) -> int:
     parser.add_argument("--repository", default="tlyoon/MicroGen_AI_Web")
     parser.add_argument("--expected-latest-head-sha")
     parser.add_argument("--max-pages", type=int, default=7)
+    parser.add_argument("--active-head-chain-only", action="store_true",
+                        help="Check only the exact current head-to-main draft chain; never grants merge approval")
     opts = parser.parse_args(argv)
     try:
         report = audit(repository=opts.repository, max_pages=opts.max_pages,
@@ -176,6 +277,9 @@ def main(argv=None) -> int:
         print(json.dumps(report, indent=2))
         return 2
     print(json.dumps(report, indent=2))
+    if opts.active_head_chain_only:
+        return (0 if report["active_exact_head_dependency_chain"]
+                ["linked_open_draft_chain_verified"] else 2)
     return 0 if report["chain_consistent_only_for_audited_open_prs"] else 2
 
 
