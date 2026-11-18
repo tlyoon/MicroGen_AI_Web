@@ -1,3 +1,9 @@
+# 18 Nov 2026 — PR535 hosted CI synthetic release fixture mismatch
+
+**Verified CI failure:** exact initial PR535 HEAD `da3f17b`, hosted Windows workflow #817 offline-regressions: 1 error / 1475 tests, in `test_windows_release_media_receipt_gate`. The fake `.git` release-board media fixture mocked older `_git` but not the new real-format `origin/main` preflight, which correctly blocked invalid Git. **Targeted existing-test repair only:** mock a nonauthorizing clean patch report in this fixture, preserving strict actual preflight. Add independent real native missing-origin/main ref fault injection, which still fails closed. Dell selected media/release/format/registry suite **43/43 PASS**, local diff checks pass. Next exact-head push, new hosted CI, and release-board restart. User's automatic-recovery contract retained; science/media release gate still blocked.
+
+---
+
 # 18 Nov 2026 — Native cumulative-head Git patch-format boundary
 
 **New isolated Dell-115 branch:** `feature/pr535-current-head-format-provenance-20261118`, stacked on PR534 CI-passed `94c5bfc`. The latest real release-readiness board at exact PR534 head was `engineering_technical_release_candidate_ready=true` and student release blocked. Yet a separate real cumulative `git diff --check origin/main..HEAD` found **five still-present working-head formatting defects**, four Python extra blank EOF lines and one documentation single trailing space. The previous batch41 Markdown warning is historical only, not in current cumulative diff. None proves wrong science or a runtime issue.

@@ -140,6 +140,16 @@ class CumulativeHeadWhitespaceRecoveryTests(unittest.TestCase):
         self.assertFalse(r["student_publication_authorized"])
         self.assertEqual(self.git("status","--porcelain"),"")
 
+    def test_real_preflight_missing_main_ref_still_fails_closed(self):
+        self.put("selenium_pipeline/x.py", b"x=1\n")
+        self.commit_files()
+        self.git("update-ref", "-d", "refs/remotes/origin/main")
+        with self.assertRaises(CampaignRecoveryBlocked):
+            inspect_head_patch(repo=self.repo)
+        with self.assertRaises(CampaignRecoveryBlocked):
+            repair_safe_current_source(repo=self.repo)
+        self.assertEqual(self.git("status", "--porcelain"), "")
+
     def test_unexpected_git_stderr_cannot_be_silently_accepted(self):
         from selenium_pipeline import windows_head_whitespace_recovery as mod
         self.put("selenium_pipeline/x.py", b"x=1\n")

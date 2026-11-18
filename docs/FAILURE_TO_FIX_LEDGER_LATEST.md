@@ -1,5 +1,15 @@
 # MicroGen_AI_Web failure-to-fix ledger — current continuation
 
+## MG-CI-SYNTHETIC-GIT-FIXTURE-MISSING-NEW-PREFLIGHT-V1 — 18 Nov 2026
+
+**Grounded failure:** initial PR535 commit `da3f17b`, GitHub Actions run 44289471580, historical offline regression job has exactly 1 error among 1475 tests: synthetic `tests.test_windows_release_media_receipt_gate.WindowsReleaseMediaProofIntegrationTests.test_full_release_board_reads_real_receipt_but_still_blocks_release`. It uses a fake `.git` and fake release `_git` and therefore lacked real origin/main for the newly integrated head patch preflight. Previous release-board synthetic tests had already solved this exact fixture dependency by mocking `inspect_head_patch` nonauthoritatively.
+
+**Fix/reuse:** apply identical explicit source-free mocked preflight result to the existing synthetic media test only; production Git SHA/format validator remains unchanged. Add a new independent native real-Git fault-injection test that deletes tracked origin/main and confirms the real source preflight plus safe development repair still refuse it. Tests: selected media/release/format/registry Dell **43/43 PASS**, diff clean. No source/paid/media side effects. Follow-up exact-head hosted CI + pipeline restart required. See `docs/PR535_SAFE_CURRENT_HEAD_PATCH_FORMAT_RECOVERY_20261118.md`.
+
+---
+
+# MicroGen_AI_Web failure-to-fix ledger — current continuation
+
 ## MG-CURRENT-HEAD-CUMULATIVE-WHITESPACE-WARNINGS-V1 — 18 Nov 2026
 
 **Repeated historical failure:** PR534 completed the exact 949-commit history patch audit but surfaced six immutable old Git format warnings; independent current HEAD `git diff --check origin/main..HEAD` still found five real source-patch warnings (four Python extra blank EOF lines and one checkpoint Markdown trailing single space). Existing final release-board engineering gate was previously green without checking cumulative patch format; missing release preflight, not a G2/G3 media/science issue.
