@@ -195,13 +195,89 @@ def _checked(item) -> bool:
     )
 
 
+def _registered_owned_picker_click_fallback()->bool:
+    """Only a code-reviewed alternate click on the SAME exact owned picker."""
+    try:
+        from .recovery_registry import lookup_mechanism
+        return lookup_mechanism(
+            "presend_capability_repair",
+            "OWNED_PRO_MODEL_PICKER_NATIVE_CLICK_NO_EFFECT_NO_SEND")==(
+            "EXACT_SAME_OWNED_MODEL_PICKER_SINGLE_JS_CLICK_THEN_VERIFY_NO_SEND")
+    except (ValueError,OSError):
+        return False
+
+
+def _open_owned_mode_picker_with_verified_fallback(driver,handle,picker):
+    """One native click; if *proven inert*, one exact-button DOM click.
+
+    The fallback is allowed only when no model options were rendered after
+    the native click and the exact picker label matches the configured model.
+    It never discovers or clicks a Send control or changes a model selection.
+    """
+    from .gemini_model import _matches_mode,configured_ui_mode
+    from .gemini_ui_semantic_controls import snapshot_options
+
+    def expanded():
+        _owned(driver,handle)
+        return (picker.get_attribute("aria-expanded") or "").lower()=="true"
+
+    if expanded():
+        return
+    picker.click()
+    deadline=time.monotonic()+0.5
+    while time.monotonic()<deadline:
+        if expanded():
+            return
+        time.sleep(0.05)
+    if expanded():
+        return
+    # An accessible menu may be present even when its outer aria-expanded is
+    # stale. Do not toggle it closed with a duplicate click in that case.
+    visible=snapshot_options(driver)
+    if visible:
+        return
+    label=(picker.get_attribute("aria-label") or "")
+    if ((picker.get_attribute("aria-expanded") or "").lower()!="false"
+            or not _matches_mode(label,configured_ui_mode())
+            or not _registered_owned_picker_click_fallback()):
+        raise GeminiThinkingError(
+            "PRE_SEND_MODE_PICKER_NATIVE_CLICK_INERT_UNVERIFIED_NO_SEND")
+    _owned(driver,handle)
+    try:
+        used=driver.execute_script("""
+            const e=arguments[0];
+            if(!e||e.tagName.toLowerCase()!=='button')return false;
+            const a=e.getAttribute('aria-label')||'';
+            if(!/^Open mode picker, currently (?:Flash|Pro)/i.test(a))
+                return false;
+            const rect=e.getBoundingClientRect();
+            if(rect.width<=0||rect.height<=0||e.disabled)return false;
+            e.click(); return true;
+        """,picker)
+    except Exception as exc:
+        raise GeminiThinkingError(
+            "PRE_SEND_MODE_PICKER_JS_FALLBACK_NOT_VERIFIED_NO_SEND") from exc
+    # A click alone is never proof: the menu must actually open.
+    if used is not True:
+        raise GeminiThinkingError(
+            "PRE_SEND_MODE_PICKER_JS_FALLBACK_NOT_VERIFIED_NO_SEND")
+    deadline=time.monotonic()+0.7
+    while time.monotonic()<deadline:
+        if expanded():
+            return
+        time.sleep(0.05)
+    visible=snapshot_options(driver)
+    if not visible:
+        raise GeminiThinkingError(
+            "PRE_SEND_MODE_PICKER_STILL_CLOSED_NO_SEND")
+
+
 def _expand_for_thinking(driver, handle):
     from .gemini_model import _owned_picker
     _owned(driver, handle)
     picker = _owned_picker(driver, handle)
     try:
-        if (picker.get_attribute("aria-expanded") or "").casefold() != "true":
-            picker.click()
+        _open_owned_mode_picker_with_verified_fallback(driver,handle,picker)
         parent = _thinking_expander(driver)
         if (parent.get_attribute("aria-expanded") or "").casefold() != "true":
             parent.click()

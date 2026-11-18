@@ -115,6 +115,9 @@ def _nonretryable_presend(error: Exception) -> bool:
         "pre_send_thinking_expander_not_unique_or_missing",
         "pre_send_thinking_options_not_discoverable_no_send",
         "pre_send_thinking_overlay_recovery_not_registered_no_send",
+        "pre_send_mode_picker_native_click_inert_unverified_no_send",
+        "pre_send_mode_picker_js_fallback_not_verified_no_send",
+        "pre_send_mode_picker_still_closed_no_send",
     ))
 
 

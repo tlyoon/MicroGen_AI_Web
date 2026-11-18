@@ -200,6 +200,20 @@
       "enabled": true
     },
     {
+      "id": "GEMINI_EXACT_PICKER_CLICK_FALLBACK",
+      "match_type": "presend_capability_repair",
+      "signature": "OWNED_PRO_MODEL_PICKER_NATIVE_CLICK_NO_EFFECT_NO_SEND",
+      "mechanism": "EXACT_SAME_OWNED_MODEL_PICKER_SINGLE_JS_CLICK_THEN_VERIFY_NO_SEND",
+      "classification": "OWNED_PRO_PICKER_NATIVE_CLICK_LEFT_MENU_CLOSED",
+      "handler": "NORMAL_EXISTING_OWNED_GEMINI_ACCOUNT_CAPABILITY_PREFLIGHT",
+      "preconditions": "only the same unique owned model-picker button, visible exact configured family, native click left aria-expanded false and no semantic options, never composer or Send",
+      "verification_test": "tests/test_gemini_adaptive_ui_thinking.py; tests/test_gemini_selenium_only_policy.py",
+      "last_verified_date": "2026-11-17",
+      "environment": "Dell-115 Account B authenticated Gemini Pro owned Selenium tab, source-free structural live click",
+      "retry_policy": "finite one registered JS click of exact existing model button after inert native click, require positive menu opened or stop, zero provider Send or paid operations",
+      "enabled": true
+    },
+    {
       "id": "GEMINI_OWNED_THINKING_OVERLAY_RECOVERY",
       "match_type": "presend_capability_repair",
       "signature": "THINKING_EXPANDER_MISSING_AFTER_OWNED_PICKER_OPEN_NO_SEND",

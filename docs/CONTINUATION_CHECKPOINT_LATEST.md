@@ -1,3 +1,15 @@
+# 18 Nov 2026 — Inert Gemini model-picker click repaired through exact owned DOM fallback
+
+**CRITICAL PATH: BLOCKED_EXTERNAL_DEPENDENCY; no G2 scientific acceptance increase, still 20/85 accepted (65 unresolved).** The old Serway PDF requests and prior two synthetic PDF incidents remain exhausted and immutable. No upload, Gemini Send, paid API, G3/media or student release is authorized.
+
+The history showed Account B Pro's **native Selenium picker click** sometimes left the model menu closed; the previous submenu diagnosis could therefore not establish Medium. A newly bounded real Dell-115 test demonstrated that **one JS click on the same exact verified owned Pro model-picker button** opened the menu, with 3 distinct model options. Actual labels: 4 Hydrogen, 4 Hydrogen Thinking, 3.1 Pro. None is a selectable Medium Thinking radio; **model-integrated “Thinking” cannot satisfy the original requested effort level**.
+
+A registry-gated one-click fallback is integrated in normal `gemini_thinking._expand_for_thinking` before submenu discovery. If and only if native click was positively inert, no semantic options were visible, original authorized tab/model identity persists and exact registry mechanism is enabled, click that *same* model-picker DOM button once and require positive expanded/visible menu. No arbitrary click, model switch, Send, extra provider budget or downgrade. The existing stale-overlay closer and finite Thinking-menu recovery remain integrated. Explicit failure paths fail closed.
+
+Real demonstration: `MicroGen_AI_Web_Checkpoints/accountB_verified_picker_js_click_once_20261117.json` and `gemini_accountB_exact_menu_semantics_20261118.receipt.json`. The normal Account B Pro/Medium preflight `accountB_js_fallback_presend_20261118.receipt.json` still ended `GEMINI_THINKING_CONTROL_UNAVAILABLE_OR_AMBIGUOUS`, **zero model requests/uploads**; this is not a verified two-PDF response. Focused **67 passed**, broad **180 passed, 2 skipped, 0 failures** Dell-115. Complete history, source identity and tests: `docs/G2_P1_OWNED_MODEL_PICKER_JS_RECOVERY_20261118.md`. This is **PATCH_INTEGRATED/TESTED_OFFLINE** for the click repair, not **ORIGINAL_OPERATION_RECOVERED** or **NEXT_MILESTONE_ADVANCED**. Host CI and production merge/deploy to verify separately.
+
+---
+
 # 17 Nov 2026 — Registered stale Gemini Thinking-overlay cleanup and correct capability classification
 
 **CRITICAL PATH: STILL BLOCKED_EXTERNAL_DEPENDENCY; 20/85 real Serway §1.3 source-science units accepted.** Historical original two-PDF requests and both PDF-capability probes have no attributable answer; no request replay, paid operation, scientific review, media generation, or G3 advancement authorized.
