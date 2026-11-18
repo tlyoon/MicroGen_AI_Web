@@ -408,6 +408,20 @@
       "environment": "Dell-115 Windows original source-only historical review, existing compatible parser; no provider requests, no TTS or release",
       "retry_policy": "finite one compatible local subprocess per invocation, at most 120 seconds; original saved model claims immutable and unrepeatable",
       "enabled": true
+    },
+    {
+      "id": "HISTORICAL_RESTARTABLE_BATCH_EXECUTION",
+      "match_type": "historical_batch_execution",
+      "signature": "HISTORICAL_STACK_PLAN_HAS_NO_RESTARTABLE_BATCH_EXECUTION",
+      "mechanism": "VERIFY_EACH_HISTORICAL_COMMIT_PATCH_AND_ADVANCE_SAFE_BATCHES",
+      "classification": "PLANNED_BUT_UNEXECUTED_HISTORICAL_CODE_INTEGRITY",
+      "handler": "NORMAL_WINDOWS_HISTORICAL_BATCH_EXECUTOR",
+      "preconditions": "SHA-verified clean native Dell isolated history, complete authoritative batch plan and committed source implementation; no merge, content or provider calls",
+      "verification_test": "tests/test_windows_historical_stack_batch_executor.py",
+      "last_verified_date": "2026-11-18",
+      "environment": "Dell-115 native Windows read-only Git commit patch checks and isolated SHA receipts",
+      "retry_policy": "finite 1 to 5000 commit history, at most 40 commits per batch, 30 second per commit subprocess, each failed batch quarantined while independent batches advance",
+      "enabled": true
     }
   ]
 }

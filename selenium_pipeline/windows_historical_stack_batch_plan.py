@@ -212,10 +212,21 @@ def main(argv=None) -> int:
                     default=Path(__file__).resolve().parent.parent)
     ap.add_argument("--batch-size", type=int, default=20)
     ap.add_argument("--max-commits", type=int, default=2500)
+    ap.add_argument("--execute-offline-history-checks", action="store_true",
+                    help="Run source-free SHA-locked Git integrity checks, never approve code or merge")
+    ap.add_argument("--first-batch", type=int, default=1)
+    ap.add_argument("--last-batch", type=int, default=None)
     a = ap.parse_args(argv)
     try:
-        data = plan_stack(repo=a.repo, batch_size=a.batch_size,
-                          max_commits=a.max_commits)
+        if a.execute_offline_history_checks:
+            from .windows_historical_stack_batch_executor import execute_batches
+            data = execute_batches(repo=a.repo, batch_size=a.batch_size,
+                                   first_batch=a.first_batch,
+                                   last_batch=a.last_batch,
+                                   max_commits=a.max_commits)
+        else:
+            data = plan_stack(repo=a.repo, batch_size=a.batch_size,
+                              max_commits=a.max_commits)
     except (CampaignRecoveryBlocked, OSError, ValueError,
             subprocess.TimeoutExpired) as exc:
         data = {"status": "HISTORICAL_STACK_BATCH_REVIEW_REJECTED",
@@ -225,7 +236,7 @@ def main(argv=None) -> int:
         print(json.dumps(data, indent=2))
         return 2
     print(json.dumps(data, indent=2))
-    return 0
+    return 2 if data.get("quarantined_batch_numbers") else 0
 
 
 if __name__ == "__main__":

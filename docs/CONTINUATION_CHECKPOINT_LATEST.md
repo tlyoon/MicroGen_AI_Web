@@ -1,3 +1,11 @@
+# 18 Nov 2026 — Restartable offline historical batch execution
+
+**New Dell-115 isolated draft branch:** `feature/pr534-historical-batch-execution-20261118`, parent PR533 `ff3da4a`. After PR532 repaired per-commit touched-file inventory, the normal historical stack still had only a 48-batch PLAN, no executable verified batch-integrity progression. The existing `windows_historical_stack_batch_plan` now routes opt-in offline checks to a finite, SHA-locked `windows_historical_stack_batch_executor` and the existing release board exposes the same stage. Added `HISTORICAL_RESTARTABLE_BATCH_EXECUTION` to the real executable registry, immutable exact source/tool/batch keyed receipts, automatic resume of completed batches, and automatic advancement across independent batches. Any bad historical Git patch is quarantined; no source history rewrite, no semantic approval or merge. Native Windows synthetic fault injection + historical planner/release registry regressions **44/44 PASS**; real history execution, commit and hosted exact-head CI to be checked next. Full evidence `docs/PR534_RESTARTABLE_HISTORICAL_BATCH_EXECUTION_20261118.md`.
+
+**Science/media boundaries unchanged:** Serway1.3 original P1 two-PDF response lacks independently attributable model reply; G2 20/85 accepted; G3 open. Serway6.4 7/74 known safe prose, 67 ambiguous. No Send/TTS/publisher edits or student release.
+
+---
+
 # 18 Nov 2026 — Reuse exact historical source parser ABI safely (no Send)
 
 **New Dell-115 isolated branch:** `feature/pr533-historical-parser-abi-recovery-20261118`, parent draft PR532 `ddf7cd5`. Historical failure review found the October PyMuPDF / environment problem had returned in a different form: older stored Serway §6.4 source-review request hashes validate 14/14 with PyMuPDF **1.25.2**, but some mismatch with installed isolated-worker PyMuPDF **1.27.2.3** solely because `source_page_excerpts` extraction differs. The original source/slides/script SHA hashes, target-geometry descriptors and utterance hashes are unchanged. Strict refusal to accept changed request SHA remains correct.

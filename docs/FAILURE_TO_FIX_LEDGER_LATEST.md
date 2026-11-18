@@ -1,5 +1,17 @@
 # MicroGen_AI_Web failure-to-fix ledger — current continuation
 
+## MG-HISTORICAL-BATCH-PLAN-WITHOUT-EXECUTION-V1 — 18 Nov 2026
+
+**Historical audit:** PR532 corrected 15 temporarily reverted Git paths, but its 48-batch Windows review planner only enumerated code-risk windows. PR533 hosted exact-head CI green did not independently review the hundreds of historical Git commits. Existing release board contained planning and code-release gates but no persistent offline per-commit checker or auto-advance from completed batch to next.
+
+**Normal executable fix:** reuse the original SHA-verified `plan_stack` and `windows_release_readiness_board`; add `windows_historical_stack_batch_executor`, registered as `HISTORICAL_RESTARTABLE_BATCH_EXECUTION`, finite 30-second per-commit read-only `git show --check` validation, exact-head and batch SHA keyed immutable receipts, automatic resume and next-independent-batch progression. Failed whitespace patches quarantine precisely their batch, do not trigger a history rewrite or false release.
+
+**Tests:** 40 real source-stage historical commits previously verified with no Git whitespace errors; 44 selected Windows historical/release/registry regressions PASS, including synthetic temporary whitespace defect later reverted, dirty tree, registry retirement, timeout, stale/tampered checkpoint, exact new head and no-merge/no-publication gates. Genuine full-history execution and final GitHub CI required next. See `docs/PR534_RESTARTABLE_HISTORICAL_BATCH_EXECUTION_20261118.md`.
+
+---
+
+# MicroGen_AI_Web failure-to-fix ledger — current continuation
+
 ## MG-HISTORICAL-SOURCE-EXTRACTION-ABI-REUSE-V1 — 18 Nov 2026
 
 **Historical recurrence:** Dell-115 October source/figure failures already involved incompatible Python/PyMuPDF environments. Saved original Serway6.4 14-slide model request hashes match PyMuPDF1.25.2 but not current local isolated PyMuPDF1.27.2.3; 3 slide mismatches in bounded sample. Exact original source/slides/script file SHA and slide2 utterance/visible-target SHA are unchanged; only PyMuPDF `get_text` source-page excerpts vary. Do not rewrite old request claims or weaken model attribution.
