@@ -124,6 +124,12 @@ def inspect_release(*, repo: Path, jobs_dir: Path,
     ahead = int(_git(repo, "rev-list", "--count", "origin/main..HEAD"))
     behind = int(_git(repo, "rev-list", "--count", "HEAD..origin/main"))
     dirty = bool(_git(repo, "status", "--porcelain"))
+    # Historical individual commits may retain formatting warnings, but a
+    # candidate current HEAD must also have a clean cumulative Git patch.
+    # This check is READ-ONLY; the safe registered remedy is applied only in
+    # isolated code-development mode, never by the release-readiness board.
+    from .windows_head_whitespace_recovery import inspect_head_patch
+    head_patch_format = inspect_head_patch(repo=repo)
     ci = _windows_ci_only(repo)
     recovery = audit(jobs_dir=jobs_dir, fresh_trial_dir=fresh_trial_dir)
     worker = inspect_worker_install(repo=repo, python=worker_python)
@@ -231,6 +237,8 @@ def inspect_release(*, repo: Path, jobs_dir: Path,
     gates = {
         "native_windows_only": True,
         "current_worktree_clean": not dirty,
+        "current_cumulative_git_patch_format_clean":
+            head_patch_format["clean"] is True,
         "tracked_origin_main_ancestor_no_divergence": behind == 0,
         "windows_ci_workflows_only": ci["all_runner_declarations_windows"],
         "source_checkpoint_integrity": safe_checkpoint,
@@ -260,6 +268,7 @@ def inspect_release(*, repo: Path, jobs_dir: Path,
     # academic acceptance. A successful build NEVER authorizes release.
     engineering_keys = (
         "native_windows_only", "current_worktree_clean",
+        "current_cumulative_git_patch_format_clean",
         "tracked_origin_main_ancestor_no_divergence",
         "windows_ci_workflows_only", "source_checkpoint_integrity",
         "clean_isolated_windows_worker_install_verified",
@@ -281,6 +290,7 @@ def inspect_release(*, repo: Path, jobs_dir: Path,
         "local_main_is_stale_informational_only":
             local_main != tracked_origin_main,
         "worker_installation": worker,
+        "current_head_cumulative_patch_format": head_patch_format,
         "prior_scoped_original_acceptance": prior_reference,
         "reviewed_sourcebound_mp4_evidence": media,
         "second_independent_original_candidate": second_candidate,

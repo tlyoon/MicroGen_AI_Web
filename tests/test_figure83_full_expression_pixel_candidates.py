@@ -37,4 +37,3 @@ class PortableEquationReviewBoundaryTests(unittest.TestCase):
             extract_real_equation_pixel_matrix(
                 source=Path("definitely_missing_source_figure83.pdf"),
                 slides=Path("definitely_missing_slides_figure83.pdf"))
-

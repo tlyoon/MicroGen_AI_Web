@@ -1,5 +1,27 @@
 # MicroGen_AI_Web failure-to-fix ledger — current continuation
 
+## MG-CI-SYNTHETIC-GIT-FIXTURE-MISSING-NEW-PREFLIGHT-V1 — 18 Nov 2026
+
+**Grounded failure:** initial PR535 commit `da3f17b`, GitHub Actions run 44289471580, historical offline regression job has exactly 1 error among 1475 tests: synthetic `tests.test_windows_release_media_receipt_gate.WindowsReleaseMediaProofIntegrationTests.test_full_release_board_reads_real_receipt_but_still_blocks_release`. It uses a fake `.git` and fake release `_git` and therefore lacked real origin/main for the newly integrated head patch preflight. Previous release-board synthetic tests had already solved this exact fixture dependency by mocking `inspect_head_patch` nonauthoritatively.
+
+**Fix/reuse:** apply identical explicit source-free mocked preflight result to the existing synthetic media test only; production Git SHA/format validator remains unchanged. Add a new independent native real-Git fault-injection test that deletes tracked origin/main and confirms the real source preflight plus safe development repair still refuse it. Tests: selected media/release/format/registry Dell **43/43 PASS**, diff clean. No source/paid/media side effects. Follow-up exact-head hosted CI + pipeline restart required. See `docs/PR535_SAFE_CURRENT_HEAD_PATCH_FORMAT_RECOVERY_20261118.md`.
+
+---
+
+# MicroGen_AI_Web failure-to-fix ledger — current continuation
+
+## MG-CURRENT-HEAD-CUMULATIVE-WHITESPACE-WARNINGS-V1 — 18 Nov 2026
+
+**Repeated historical failure:** PR534 completed the exact 949-commit history patch audit but surfaced six immutable old Git format warnings; independent current HEAD `git diff --check origin/main..HEAD` still found five real source-patch warnings (four Python extra blank EOF lines and one checkpoint Markdown trailing single space). Existing final release-board engineering gate was previously green without checking cumulative patch format; missing release preflight, not a G2/G3 media/science issue.
+
+**Repair integrated in actual normal path:** `windows_head_whitespace_recovery.inspect_head_patch` performs native isolated read-only cumulative Git check and is now required by `windows_release_readiness_board` engineering gate. A separately callable registered `CURRENT_HEAD_SAFE_FORMAT_RECOVERY` can safely normalize only AST-invariant trailing Python EOF blank lines or single Markdown trailing spaces on clean isolated source development checkout; preserves BOM/CRLF and Markdown hardbreak pairs, refuses unknown source/media, dirty or unsafe repo. Release board never modifies source. Windows Git LF-CRLF stderr notice is allowlisted precisely. Original historical commits/receipts preserved.
+
+**Tests:** real Dell check reproduced five current warnings and separately identified the six historic formatting warnings. 56 first-pass native Windows synthetic Git/fault-injection/release-board/registry tests PASS. Registered actual repair on isolated clean Dell source normalized five current warnings; `git diff --check origin/main` clean, all four source Python ASTs exactly unchanged, source media unmodified. Current local Figure8.3 source tests **20/20** and combined Miniconda-capable suite **76/76** passed; a six-error run in the old minimal worker was solely absent cv2 (already documented environment mismatch), no package install. Added fail-closed stderr regression. Next: commit, latest HEAD hosted Windows CI, normal release-board restart. See `docs/PR535_SAFE_CURRENT_HEAD_PATCH_FORMAT_RECOVERY_20261118.md`.
+
+---
+
+# MicroGen_AI_Web failure-to-fix ledger — current continuation
+
 ## MG-HISTORICAL-BATCH-PLAN-WITHOUT-EXECUTION-V1 — 18 Nov 2026
 
 **Historical audit:** PR532 corrected 15 temporarily reverted Git paths, but its 48-batch Windows review planner only enumerated code-risk windows. PR533 hosted exact-head CI green did not independently review the hundreds of historical Git commits. Existing release board contained planning and code-release gates but no persistent offline per-commit checker or auto-advance from completed batch to next.

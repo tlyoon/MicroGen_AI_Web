@@ -84,6 +84,15 @@ class WindowsReleaseMediaProofIntegrationTests(unittest.TestCase):
                    side_effect=_git), patch(
             "selenium_pipeline.windows_release_readiness_board.audit",
             return_value=recovery,
+        ), patch(
+            "selenium_pipeline.windows_head_whitespace_recovery.inspect_head_patch",
+            return_value={
+                "status": "CUMULATIVE_HEAD_PATCH_FORMAT_CLEAN",
+                "clean": True,
+                "patch_warning_count": 0,
+                "automatic_merge_authorized": False,
+                "student_publication_authorized": False,
+            },
         ), patch("selenium_pipeline.runner.check_valid", return_value=True):
             report = inspect_release(
                 repo=repo, jobs_dir=self.case.seed.root / "synthetic_jobs",

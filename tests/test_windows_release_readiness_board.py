@@ -20,6 +20,18 @@ class WindowsReleaseReadinessTests(unittest.TestCase):
         (workflow / "windows.yml").write_text(
             "name: smoke\njobs:\n  test:\n    runs-on: windows-latest\n",
             encoding="utf8")
+        # Most legacy tests use an in-memory fake .git, not a real checkout.
+        # Mock only the new read-only source patch preflight in that fixture.
+        self.format_mock = patch(
+            "selenium_pipeline.windows_head_whitespace_recovery.inspect_head_patch",
+            return_value={
+                "status": "CUMULATIVE_HEAD_PATCH_FORMAT_CLEAN",
+                "clean": True, "patch_warning_count": 0,
+                "automatic_merge_authorized": False,
+                "student_publication_authorized": False,
+            })
+        self.format_mock.start()
+        self.addCleanup(self.format_mock.stop)
         self.recovery = {
             "source_job_receipts_security_or_version_rejected": 0,
             "source_job_receipts_current_and_sha_verified": 2,
@@ -159,6 +171,33 @@ class WindowsReleaseReadinessTests(unittest.TestCase):
             "second_distinct_new_original_full_lecture_accepted"])
         self.assertFalse(report["release_candidate_ready"])
         self.assertFalse(report["student_publication_authorized"])
+
+    def test_format_warning_blocks_engineering_without_allowing_release(self):
+        report_format = {
+            "status": "CUMULATIVE_HEAD_PATCH_FORMAT_REQUIRES_REVIEW",
+            "clean": False, "patch_warning_count": 1,
+            "automatic_merge_authorized": False,
+            "student_publication_authorized": False,
+        }
+        with patch(
+            "selenium_pipeline.windows_head_whitespace_recovery.inspect_head_patch",
+            return_value=report_format
+        ), patch(
+            "selenium_pipeline.windows_release_readiness_board._git",
+            side_effect=self.fake_git
+        ), patch(
+            "selenium_pipeline.windows_release_readiness_board.audit",
+            return_value=self.recovery
+        ):
+            result = inspect_release(
+                repo=self.repo, jobs_dir=Path("jobs"),
+                fresh_trial_dir=Path("trial"))
+        self.assertFalse(result["required_release_gates"][
+            "current_cumulative_git_patch_format_clean"])
+        self.assertFalse(result["engineering_technical_release_candidate_ready"])
+        self.assertFalse(result["release_candidate_ready"])
+        self.assertFalse(result["may_merge_historical_stack_automatically"])
+        self.assertFalse(result["student_publication_authorized"])
 
     def test_historical_stack_batch_plan_is_not_merge_or_approval(self):
         plan = {
