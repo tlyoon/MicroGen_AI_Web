@@ -1,5 +1,17 @@
 # MicroGen_AI_Web failure-to-fix ledger — current continuation
 
+## MG-CURRENT-HEAD-CUMULATIVE-WHITESPACE-WARNINGS-V1 — 18 Nov 2026
+
+**Repeated historical failure:** PR534 completed the exact 949-commit history patch audit but surfaced six immutable old Git format warnings; independent current HEAD `git diff --check origin/main..HEAD` still found five real source-patch warnings (four Python extra blank EOF lines and one checkpoint Markdown trailing single space). Existing final release-board engineering gate was previously green without checking cumulative patch format; missing release preflight, not a G2/G3 media/science issue.
+
+**Repair integrated in actual normal path:** `windows_head_whitespace_recovery.inspect_head_patch` performs native isolated read-only cumulative Git check and is now required by `windows_release_readiness_board` engineering gate. A separately callable registered `CURRENT_HEAD_SAFE_FORMAT_RECOVERY` can safely normalize only AST-invariant trailing Python EOF blank lines or single Markdown trailing spaces on clean isolated source development checkout; preserves BOM/CRLF and Markdown hardbreak pairs, refuses unknown source/media, dirty or unsafe repo. Release board never modifies source. Windows Git LF-CRLF stderr notice is allowlisted precisely. Original historical commits/receipts preserved.
+
+**Tests:** real Dell check reproduced five current warnings and separately identified the six historic formatting warnings. 56 focused native Windows synthetic Git/fault-injection/release-board/registry tests PASS. Actual source repair, final-head cumulative check, CI and normal pipeline restart follow. See `docs/PR535_SAFE_CURRENT_HEAD_PATCH_FORMAT_RECOVERY_20261118.md`.
+
+---
+
+# MicroGen_AI_Web failure-to-fix ledger — current continuation
+
 ## MG-HISTORICAL-BATCH-PLAN-WITHOUT-EXECUTION-V1 — 18 Nov 2026
 
 **Historical audit:** PR532 corrected 15 temporarily reverted Git paths, but its 48-batch Windows review planner only enumerated code-risk windows. PR533 hosted exact-head CI green did not independently review the hundreds of historical Git commits. Existing release board contained planning and code-release gates but no persistent offline per-commit checker or auto-advance from completed batch to next.

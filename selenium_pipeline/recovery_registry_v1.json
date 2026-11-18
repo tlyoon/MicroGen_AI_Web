@@ -422,6 +422,20 @@
       "environment": "Dell-115 native Windows read-only Git commit patch checks and isolated SHA receipts",
       "retry_policy": "finite 1 to 5000 commit history, at most 40 commits per batch, 30 second per commit subprocess, each failed batch quarantined while independent batches advance",
       "enabled": true
+    },
+    {
+      "id": "CURRENT_HEAD_SAFE_FORMAT_RECOVERY",
+      "match_type": "head_patch_format",
+      "signature": "CUMULATIVE_HEAD_PATCH_HAS_SAFE_COSMETIC_WHITESPACE",
+      "mechanism": "NORMALIZE_AST_INVARIANT_PYTHON_EOF_AND_SINGLE_MARKDOWN_SPACE",
+      "classification": "SOURCE_PATCH_HAS_REVERSIBLE_SYNTAX_NEUTRAL_WHITESPACE",
+      "handler": "NORMAL_WINDOWS_CUMULATIVE_PATCH_FORMAT_PREFLIGHT",
+      "preconditions": "isolated clean Dell-115 source checkout under LOCALAPPDATA, exact Git diff diagnostics, bounded safe Python EOF or one Markdown trailing space; never overwrite textbook/source media",
+      "verification_test": "tests/test_windows_head_whitespace_recovery.py",
+      "last_verified_date": "2026-11-18",
+      "environment": "native Dell-115 Windows Git, Git diff preflight and syntax-preserving targeted recovery",
+      "retry_policy": "finite one local scan and at most 50 safe diagnostics; reject unknown type, dirty tree, source AST changes, or Markdown hard breaks; no automatic commits",
+      "enabled": true
     }
   ]
 }
