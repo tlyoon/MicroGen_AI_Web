@@ -1,3 +1,15 @@
+# 18 Nov 2026 — Existing primary Pro/Medium UI recovery verified; original two-PDF response still blocked
+
+**Last verified head entering this check:** `1431a585c2ddba6ac0b31bf2b9618b685a1f5bf2`, draft PR #530, clean worktree; all three GitHub hosted checks PASS. Do NOT restart the old failed model-picker repair loop: today's authorized primary port **9222** read-only Selenium audit found a uniquely accessible `Thinking level` expander with `Pro` selected. One genuine normal primary `academic_gemini_presend_preflight.inspect` then positively verified **Pro + Medium Thinking** from the owned controls after New chat, with zero uploads, prompts, model requests or paid operations. The historical selector mechanism already handles this; no redundant runtime patch is necessary.
+
+The previously enrolled Account B was automatically reopened through its existing registered profile-recovery path, but account B's Pro/Medium proof still failed because its UI has no verifiable Thinking expander or radio. A bounded read-only exact-token chat-history search for the exhausted v2 two-PDF diagnostic found **zero** matching result routes or exact nonce hits, not an attributable late answer. No old original or synthetic PDF Send was replayed.
+
+The real normal `g2_forward_recovery_engine --execute --max-cycles 1 --no-auto-media` after the positive primary gate returned `G2_FORWARD_STOPPED_AT_VERIFIED_ELIGIBILITY_BOUNDARY`, `DEFERRED_SYNTHETIC_PDF_CAPABILITY_EXHAUSTED_NO_RESEND`, `critical_path_recovery_proof.status=BLOCKED_EXTERNAL_DEPENDENCY`. **G2 20/85 accepted, 65 disputed/pending, 2 ambiguous fraction choices, 0 unranked visual review candidates, slide 12 untouched, G3 open, zero new model requests.** The primary model/Thinking UI issue is recovered; actual two-PDF response transport is NOT. Do not manufacture an arbitrary v3 challenge on the same exhausted incident.
+
+Source-free read-only, real preflight, Account B and restart receipts plus required next eligibility: `docs/G2_PRIMARY_PRO_MEDIUM_RECOVERED_PDF_RESPONSE_BOUNDARY_20261118.md`. The existing executable registry and one-Send circuit breakers are authoritative; no student publication, source-science approval, paid API or G3 advancement has occurred.
+
+---
+
 # 18 Nov 2026 — Reuse historical PDF-fraction and isolated TTS SDK recovery
 
 **Engineering blockers resolved and regression tested; original G2 P1 remains BLOCKED_EXTERNAL_DEPENDENCY (20/85 accepted, 65 pending).** A full Dell-115 local test at dynamic router commit `68fc031` exposed five failures: two model router issues corrected in `68fc031`, one 17-Nov math-fraction candidate rejected by the older source hints validator, and two mocked TTS request-ID tests run under protected legacy `google-genai==1.4.0` instead of the already installed October isolated 2.33.0 SDK. Do not report these as five live provider problems.

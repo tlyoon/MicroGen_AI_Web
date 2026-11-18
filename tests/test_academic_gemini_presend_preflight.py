@@ -65,6 +65,39 @@ class ExactAcademicGeminiCapabilities(unittest.TestCase):
         self.assertFalse(list(self.root.rglob("dispatch_attempted.claim")))
         self.assertFalse(list(self.root.rglob("job_*_result.json")))
 
+    def test_recovered_primary_pro_medium_never_inspects_unavailable_alt(self):
+        """Real Dell-115 18 Nov: primary Pro/Medium, Account B lacks radio.
+
+        Historical alternate failure must never override a positive exact
+        owned-primary source-free capability preflight.
+        """
+        from selenium_pipeline.academic_gemini_presend_preflight import (
+            select_ready_existing_session)
+        observed=[]
+        def owned_preflight(*,port):
+            observed.append(port)
+            if port!=9222:
+                raise AssertionError("Healthy primary route must avoid Account B")
+            return {
+                "status":"EXACT_OWNED_GEMINI_MODEL_AND_THINKING_READY_NO_SEND",
+                "model_family":"pro","thinking_level":"medium",
+                "gemini_requests_submitted":0,"files_uploaded":0,
+                "model_prompt_typed":False,
+                "academic_approval":False,
+                "student_publication_authorized":False,
+            }
+        with patch("selenium_pipeline.academic_gemini_presend_preflight.inspect",
+                   side_effect=owned_preflight):
+            route=select_ready_existing_session(primary_port=9222)
+        self.assertEqual(observed,[9222])
+        self.assertEqual(route["verified_port"],9222)
+        self.assertFalse(route["alternate_account_used"])
+        self.assertTrue(route["existing_profile_only"])
+        self.assertEqual(route["thinking_level"],"medium")
+        self.assertEqual(route["gemini_requests_submitted"],0)
+        self.assertEqual(route["files_uploaded"],0)
+        self.assertFalse(route["academic_approval"])
+
     def test_already_running_authorized_alt_reuses_exact_flash_without_switch(self):
         from selenium_pipeline.academic_gemini_presend_preflight import (
             select_ready_existing_session)
