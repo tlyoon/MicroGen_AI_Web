@@ -1,5 +1,17 @@
 # MicroGen_AI_Web failure-to-fix ledger — current continuation
 
+## MG-PR-STACK-NUMERIC-NEIGHBOR-FALSE-NEGATIVE-V1 — 18 Nov 2026
+
+**Actual recurrence:** Normal live PR audit of current head f6af456 mixed 441 open PRs across older unrelated workstreams. Global number-adjacent comparison produced 10 mismatched links and 2 non-drafts, and incorrectly obscured the current recovery PR dependency chain. Existing global result and review warnings remain useful for historical backlogs and are not deleted.
+
+**Code-level remedy:** Registered `GITHUB_SCOPED_HEAD_CHAIN_RECOVERY` in live registry, added current-head exact base.ref/base.sha -> unique parent head.ref/head.sha traversal to the existing `windows_github_pr_stack_readonly_audit.audit`, and exposed it to the existing Windows release board plus a scoped CLI mode. No reimplementation of the old global audit. Failed/stale/missing/tampered parent and registry-retirement proofs all block scoped acceptance.
+
+**Genuine live source of truth:** Complete GitHub open-PR catalog 441, current chain **163 draft PRs / 162 verified links to main**, unrelated historical divergence retained but isolated. **56** targeted/broad local tests passed after fixing registry-entry positional compatibility and explicit finite retry wording. No merge, paid provider request, original Gemini claim replay, student publication or academic QA approval. Hosted Windows CI and PR are downstream engineering gates. See `docs/PR531_ACTIVE_HEAD_CHAIN_AUDIT_RECOVERY_20261118.md`.
+
+---
+
+# MicroGen_AI_Web failure-to-fix ledger — current continuation
+
 ## MG-G2-FORWARD-DIFFERENT-SOURCE-DRYRUN-ENGINE-V1 — 15 Nov 2026
 
 **Generalization rather than PDF perfection:** Serway 6.4 had 3 immutable rich uncertain original slide claims and post-canary rich capacity admission halted. The codebase can still progress on distinct source-independent source-only work without model requests or owner intervention.

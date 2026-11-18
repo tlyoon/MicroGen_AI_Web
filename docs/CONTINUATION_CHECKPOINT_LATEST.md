@@ -1,3 +1,11 @@
+# 18 Nov 2026 — Current-head PR stack recovered from unrelated historical adjacency
+
+**Fresh isolated Dell-115 branch:** `feature/pr531-live-head-chain-audit-20261118`, parent `f6af456` (draft PR #530). Original base and dirty shared main checkout preserved. Live GitHub metadata before the repair showed 441 open PRs, 10 globally divergent number-neighbor links and 2 non-drafts. The old global audit therefore incorrectly used unrelated historical work to classify the **current** dependency chain as incomplete. Normal read-only PR audit now follows unique exact base.ref and base.sha -> parent head.ref/head.sha, registry-gated, with finite fault-injection and no merge authority. The real newest draft chain comprises **163 connected open PRs and 162 exact SHA-matched parent links to main**; old global warnings remain visible. The standard release-board audit receives the scoped report without a separate route, and Windows CI now includes the new regression suite.
+
+**Local verified:** 56 selected registry, scope, historical, release-board, hosted-CI and stack-plan tests PASS; compile and diff check PASS. The next checkpoint must record the new PR/head and exact-head hosted Windows CI after the branch is pushed. No Gemini request, source PDF replay, paid TTS or release. **P1 two-PDF response remains BLOCKED_EXTERNAL_DEPENDENCY; Serway 1.3 G2 20/85 accepted, G3 open.** Full provenance: `docs/PR531_ACTIVE_HEAD_CHAIN_AUDIT_RECOVERY_20261118.md`.
+
+---
+
 # 18 Nov 2026 — Existing primary Pro/Medium UI recovery verified; original two-PDF response still blocked
 
 **Last verified head entering this check:** `1431a585c2ddba6ac0b31bf2b9618b685a1f5bf2`, draft PR #530, clean worktree; all three GitHub hosted checks PASS. Do NOT restart the old failed model-picker repair loop: today's authorized primary port **9222** read-only Selenium audit found a uniquely accessible `Thinking level` expander with `Pro` selected. One genuine normal primary `academic_gemini_presend_preflight.inspect` then positively verified **Pro + Medium Thinking** from the owned controls after New chat, with zero uploads, prompts, model requests or paid operations. The historical selector mechanism already handles this; no redundant runtime patch is necessary.
