@@ -380,6 +380,20 @@
       "environment": "Dell-115 Windows source-free live PR metadata; no model, TTS or publication",
       "retry_policy": "finite one bounded read-only traversal of exact current chain; ambiguous parents or incomplete pages fail closed",
       "enabled": true
+    },
+    {
+      "id": "HISTORICAL_BATCH_COMMIT_PATH_INVENTORY",
+      "match_type": "history_batch_inventory",
+      "signature": "HISTORICAL_BATCH_NET_DIFF_HIDES_REVERTED_PATHS",
+      "mechanism": "EXACT_COMMIT_TOUCHED_PATH_UNION_WITH_NET_DIFF_GUARD",
+      "classification": "TRANSIENT_CODE_OR_SOURCE_CHANGE_HIDDEN_BY_NET_STATE_DIFF",
+      "handler": "NORMAL_WINDOWS_HISTORICAL_STACK_BATCH_PLANNER",
+      "preconditions": "exact isolated Windows Git history, original SHA-verified rev-list, complete commit-marked touched paths, no permission to merge or publish",
+      "verification_test": "tests/test_windows_historical_stack_batch_plan.py",
+      "last_verified_date": "2026-11-18",
+      "environment": "Dell-115 native Windows Git read-only historical review; no Gemini, TTS, media or source mutation",
+      "retry_policy": "finite local Git metadata read bounded by 5000 commits and at most 40 commits per review batch; fail closed on mismatch or untrusted Git evidence",
+      "enabled": true
     }
   ]
 }

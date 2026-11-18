@@ -7,6 +7,7 @@ be independently refreshed/verified before formal release decisions.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -45,6 +46,48 @@ def _risk_paths(paths: list[str]) -> list[str]:
         if p.endswith((".pdf", ".wav", ".mp4", ".env")):
             flags.add("SOURCE_OR_AUDIO_MEDIA_ASSET")
     return sorted(flags or {"MISCELLANEOUS"})
+
+
+def _commit_touched_inventory(repo: Path, commits: list[str]) -> dict[str, set[str]]:
+    """Read one bounded Git history stream, preserving reverted intermediate edits.
+
+    The historical batch planner used only `git diff start end`: a path
+    edited and restored during the batch disappeared from its review scope.
+    The normal planner now accounts for every exact SHA from rev-list.
+    -m includes paths changed by merge commits relative to their parents.
+    It is a conservative inspection inventory, never a code review approval.
+    """
+    wanted = set(commits)
+    if not commits:
+        return {}
+    raw = _git(repo, "log", "--no-color", "-m", "--no-renames",
+               "--format=MICROGEN_COMMIT_SHA:%H", "--name-only",
+               "origin/main..HEAD")
+    mapping: dict[str, set[str]] = {sha: set() for sha in commits}
+    seen: set[str] = set()
+    active: str | None = None
+    for raw_line in raw.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        if line.startswith("MICROGEN_COMMIT_SHA:"):
+            sha = line.removeprefix("MICROGEN_COMMIT_SHA:")
+            require(re.fullmatch(r"[a-f0-9]{40}", sha) is not None
+                    and sha in wanted,
+                    "Unrecognized Git commit in touched-path inventory")
+            active = sha
+            seen.add(sha)
+        else:
+            # Unknown, unanchored or synthetic history text cannot be
+            # silently misclassified as an inspected source path.
+            require(active is not None and len(line) <= 1024
+                    and not line.startswith("-")
+                    and "\x00" not in line and "\r" not in line,
+                    "Unanchored or unsafe changed path in Git history")
+            mapping[active].add(line)
+    require(seen == wanted,
+            "Git touched-path inventory incomplete or stale against rev-list")
+    return mapping
 
 
 def plan_stack(*, repo: Path, batch_size: int = 20,
@@ -89,14 +132,30 @@ def plan_stack(*, repo: Path, batch_size: int = 20,
     require(all(re.fullmatch(r"[a-f0-9]{40}", commit)
                 for commit in commits), "Invalid SHA from local Git history")
     # A review batch is a contiguous SHA window, NOT a merged/reviewed PR.
-    # Each batch can be inspected without changing checkout refs.
+    # The independent per-commit file witness catches files subsequently
+    # reverted in the same batch and avoids non-linear range ambiguity.
+    # Recovery must exist in the durable executable registry: missing or
+    # retired remedies fail closed instead of returning an incomplete plan.
+    from .recovery_registry import lookup_mechanism
+    mechanism = lookup_mechanism(
+        "history_batch_inventory",
+        "HISTORICAL_BATCH_NET_DIFF_HIDES_REVERTED_PATHS")
+    require(mechanism == "EXACT_COMMIT_TOUCHED_PATH_UNION_WITH_NET_DIFF_GUARD",
+            "Historical touched-path recovery missing or retired")
+    touched_by_commit = _commit_touched_inventory(repo, commits)
     batches = []
     previous = base
     for start in range(0, len(commits), batch_size):
         chunk = commits[start:start + batch_size]
         last = chunk[-1]
         changed = _git(repo, "diff", "--name-only", previous, last)
-        paths = [x for x in changed.splitlines() if x]
+        net_paths = set(x for x in changed.splitlines() if x)
+        touched_paths = sorted(set().union(*(touched_by_commit[sha]
+                                           for sha in chunk)))
+        # A net difference may reflect a branch merge edge; conservatively
+        # retain BOTH path sets and never hide historical source changes.
+        paths = sorted(set(touched_paths) | net_paths)
+        transient_paths = sorted(set(touched_paths) - net_paths)
         batches.append({
             "batch_number": len(batches) + 1,
             "start_exclusive_sha": previous,
@@ -104,6 +163,13 @@ def plan_stack(*, repo: Path, batch_size: int = 20,
             "end_inclusive_sha": last,
             "commit_count": len(chunk),
             "changed_path_count": len(paths),
+            "net_diff_path_count": len(net_paths),
+            "historical_touched_path_count": len(touched_paths),
+            "transient_or_reverted_path_count": len(transient_paths),
+            "transient_or_reverted_path_examples": transient_paths[:12],
+            "all_touched_paths_sha256": hashlib.sha256(
+                json.dumps(paths, ensure_ascii=False,
+                           separators=(",", ":")).encode("utf8")).hexdigest(),
             "review_risk_categories": _risk_paths(paths),
             "individual_pr_dependencies_independently_verified": False,
             "code_and_academic_review_complete": False,
