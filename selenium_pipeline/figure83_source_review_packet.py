@@ -64,4 +64,3 @@ def export_review_packet(packet:dict,*,output:Path,originals:list[Path])->Path:
     with output.open("x",encoding="utf-8",newline="\n") as f:
         f.write(data+"\n")
     return output
-

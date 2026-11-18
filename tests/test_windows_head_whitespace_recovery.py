@@ -140,6 +140,25 @@ class CumulativeHeadWhitespaceRecoveryTests(unittest.TestCase):
         self.assertFalse(r["student_publication_authorized"])
         self.assertEqual(self.git("status","--porcelain"),"")
 
+    def test_unexpected_git_stderr_cannot_be_silently_accepted(self):
+        from selenium_pipeline import windows_head_whitespace_recovery as mod
+        self.put("selenium_pipeline/x.py", b"x=1\n")
+        self.commit_files()
+        original = mod._git
+
+        def bad_git(repo, *args):
+            if args[0] == "diff":
+                return subprocess.CompletedProcess(
+                    args, 0, "", "fatal: unsupported object or source conflict")
+            return original(repo, *args)
+
+        with patch.object(mod, "_git", side_effect=bad_git):
+            with self.assertRaises(CampaignRecoveryBlocked):
+                inspect_head_patch(repo=self.repo)
+            with self.assertRaises(CampaignRecoveryBlocked):
+                repair_safe_current_source(repo=self.repo)
+        self.assertEqual(self.git("status", "--porcelain"), "")
+
     def test_source_pdf_cannot_be_normalized(self):
         self.put("slides.pdf",b"%PDF-1.4\n \n")
         self.commit_files()

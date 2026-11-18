@@ -77,4 +77,3 @@ class PortableSyntheticFractionGeometryTests(unittest.TestCase):
         p[2]["original_printed_tokens"].pop()
         with self.assertRaises(FigureIdentityReviewRequired):
             disambiguate_original_fraction(p)
-

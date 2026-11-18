@@ -70,4 +70,3 @@ class PortableOriginalOperatorCrossRegistrationTests(unittest.TestCase):
         b["original_source_sha256"]="c"*64
         with self.assertRaises(FigureIdentityReviewRequired):
             compare_equation_operator_anchors(a,b)
-
