@@ -74,6 +74,95 @@ class DualPdfCapabilityTests(TestCase):
             source_sha=SHA,prior_slides=slides or [10,11],
             family=family,now=moment)
 
+    def production_probe(self, family="flash"):
+        return probe_once(
+            queue_root=self.queue, checkpoint_parent=self.root,
+            source_sha=SHA, prior_slides=[10, 11], family=family,
+            now=NOW, transport=None)
+
+    def test_live_absent_flash_blocks_before_any_synthetic_claim(self):
+        from selenium_pipeline.academic_gemini_presend_preflight import (
+            AcademicGeminiPreSendBlocked)
+        with patch(
+                "selenium_pipeline.academic_gemini_presend_preflight.select_ready_existing_session",
+                side_effect=AcademicGeminiPreSendBlocked(
+                    "GEMINI_REQUESTED_MODEL_FAMILY_UNAVAILABLE")) as owned:
+            result = self.production_probe(family="flash")
+        self.assertEqual(result["status"],
+                         "V1_SYNTHETIC_PDF_PRESEND_UNAVAILABLE_NO_CLAIM")
+        self.assertEqual(result["failure_phase"],
+                         "GEMINI_REQUESTED_MODEL_FAMILY_UNAVAILABLE")
+        self.assertFalse(result["new_source_review_send_allowed"])
+        self.assertEqual(result["new_provider_requests"],0)
+        self.assertEqual(owned.call_args.kwargs,dict(
+            primary_port=9222,allow_active_alternate=False))
+        self.assertFalse((self.root/ROOT).exists())
+        self.assertEqual(self.sends,[])
+
+    def test_wrong_model_or_alternate_proof_cannot_burn_claim(self):
+        result={"verified_port":9225,"model_family":"flash",
+                "thinking_level":"medium","gemini_requests_submitted":0,
+                "files_uploaded":0,"model_prompt_typed":False,
+                "student_publication_authorized":False,"G2_approved":False}
+        with patch(
+                "selenium_pipeline.academic_gemini_presend_preflight.select_ready_existing_session",
+                return_value=result):
+            blocked=self.production_probe("flash")
+        self.assertEqual(blocked["failure_phase"],"PRESEND_EVIDENCE_MISMATCH")
+        self.assertFalse((self.root/ROOT).exists())
+        # Pro family proof cannot count for a claimed Flash-family diagnostic.
+        result.update(verified_port=9222,model_family="pro")
+        with patch(
+                "selenium_pipeline.academic_gemini_presend_preflight.select_ready_existing_session",
+                return_value=result):
+            blocked=self.production_probe("flash")
+        self.assertEqual(blocked["new_provider_requests"],0)
+        self.assertFalse((self.root/ROOT).exists())
+
+    def test_real_pro_verified_preflight_then_one_owned_synthetic_transport(self):
+        verified={"verified_port":9222,"model_family":"pro",
+                  "thinking_level":"medium","gemini_requests_submitted":0,
+                  "files_uploaded":0,"model_prompt_typed":False,
+                  "student_publication_authorized":False,
+                  "G2_approved":False}
+        with patch(
+                "selenium_pipeline.academic_gemini_presend_preflight.select_ready_existing_session",
+                return_value=verified) as owned:
+            with patch("selenium_pipeline.series_gemini._browser_request",
+                       side_effect=lambda prompt, files, **kwargs:
+                           self.good_transport(prompt, files)) as browser:
+                first=self.production_probe("pro")
+                second=self.production_probe("pro")
+        self.assertEqual(first["status"],"DUAL_SYNTHETIC_PDF_RESPONSE_VERIFIED")
+        self.assertEqual(first["new_provider_requests"],1)
+        self.assertEqual(second["new_provider_requests"],0)
+        self.assertTrue(second["new_source_review_send_allowed"])
+        self.assertEqual(browser.call_count,1)
+        self.assertEqual(owned.call_count,1)
+        self.assertEqual(len(list((self.root/ROOT).rglob("claim.json"))),1)
+        self.assertEqual(len(self.sends),1)
+
+    def test_disabled_preclaim_registry_never_calls_model_or_send(self):
+        with patch("selenium_pipeline.recovery_registry.lookup_mechanism",
+                   return_value=None):
+            with patch(
+                "selenium_pipeline.academic_gemini_presend_preflight.select_ready_existing_session"
+            ) as inspector:
+                with self.assertRaisesRegex(
+                        ValueError,"pre-claim recovery disabled"):
+                    self.production_probe("flash")
+                inspector.assert_not_called()
+        self.assertFalse((self.root/ROOT).exists())
+
+    def test_preflight_generic_exception_cannot_consume_claim(self):
+        with patch(
+                "selenium_pipeline.academic_gemini_presend_preflight.select_ready_existing_session",
+                side_effect=RuntimeError("unsafe arbitrary browser page content")):
+            result=self.production_probe("flash")
+        self.assertEqual(result["failure_phase"],"PRESEND_VERIFICATION_FAILED")
+        self.assertNotIn("browser page",str(result))
+        self.assertFalse((self.root/ROOT).exists())
+
     def test_real_pdf_tokens_prove_both_attachments_without_source(self):
         answer=self.probe()
         self.assertEqual(answer["status"],

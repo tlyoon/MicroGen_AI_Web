@@ -18,6 +18,20 @@
       "enabled": true
     },
     {
+      "id": "G2_V1_SYNTHETIC_PDF_MODEL_PRESEND_GUARD",
+      "match_type": "presend_capability_repair",
+      "signature": "V1_DUAL_PDF_CLAIM_BURNED_ON_RETIRED_GEMINI_MODEL",
+      "mechanism": "REQUIRE_EXACT_OWNED_MODEL_THINKING_BEFORE_V1_SYNTHETIC_CLAIM",
+      "classification": "RETired_GEMINI_FLASH_MODEL_UNAVAILABLE_NO_SEND_ON_SOURCE_FREE_DIAGNOSTIC",
+      "handler": "NORMAL_EXISTING_OWNED_GEMINI_ACCOUNT_CAPABILITY_PREFLIGHT",
+      "preconditions": "original immutable two-Send source incident; unsent new v1 synthetic probe only; primary existing Gemini owned tab must positively verify exact requested model and Medium Thinking",
+      "verification_test": "tests/test_academic_dual_pdf_capability.py",
+      "last_verified_date": "2026-11-19",
+      "environment": "Dell-115 existing authenticated Gemini primary 9222, 2026-11 Flash family removed; original G2 source claims immutable",
+      "retry_policy": "finite source-free no-Send model/Thinking preflight before one synthetic PDF claim; no alternate-account Send, no original source replay, failed preflight consumes zero new claims or paid operations",
+      "enabled": true
+    },
+    {
       "id": "G2_SYNTHETIC_TWO_PDF_CAPABILITY",
       "match_type": "selection_action",
       "signature": "SYNTHETIC_DUAL_PDF_CAPABILITY_PROBE",
@@ -491,6 +505,20 @@
       "last_verified_date": "2026-11-19",
       "environment": "Dell-115 read-only source-bound current Git patch integrity checks and immutable LOCALAPPDATA receipts",
       "retry_policy": "finite at most 4 contiguous later Git batches beyond source-locked B48 per exact-head supervisor, no retry of uncertain external work, no semantic approval or student release",
+      "enabled": true
+    },
+    {
+      "id": "V71_G2_V1_MODEL_PRESEND_CAPABILITY_HANDOFF",
+      "match_type": "global_checkpoint_handoff",
+      "signature": "V71_G2_V1_MODEL_PRESEND_INVENTORY_NOT_DISPATCHED",
+      "mechanism": "OBSERVABLE_GLOBAL_STAGE_HANDOFF_WITH_SOURCE_LOCKED_EVENTS",
+      "classification": "SOURCE_REVIEW_MODEL_PICKER_CHANGED_AND_ONE_SHOT_DIAGNOSTIC_CLAIM_CONSUMED",
+      "handler": "NORMAL_V71_PROJECT_WIDE_OBSERVABLE_SUPERVISOR",
+      "preconditions": "clean exact Dell native Git source; earlier G2 original 85-segment read-only reconciliation recorded; no source/Synthetic PDF Send or academic approval; existing authenticated primary owned browser",
+      "verification_test": "tests/test_windows_v71_project_supervisor.py; tests/test_academic_dual_pdf_capability.py",
+      "last_verified_date": "2026-11-19",
+      "environment": "native Dell-115 real v7.1 source-locked six-stage pipeline and original G2 v1 immutable diagnostic incident",
+      "retry_policy": "finite one no-Send model/Thinking readiness inspection after source-only G2; never retry earlier claimed source/probe requests; unavailable model is recorded, not treated as science success",
       "enabled": true
     },
     {

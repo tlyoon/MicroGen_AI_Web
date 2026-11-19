@@ -287,6 +287,59 @@ def _create_pdf(path: Path, code: str, label: str) -> str:
     return _sha(raw)
 
 
+PRESEND_SIGNATURE = "V1_DUAL_PDF_CLAIM_BURNED_ON_RETIRED_GEMINI_MODEL"
+PRESEND_MECHANISM = "REQUIRE_EXACT_OWNED_MODEL_THINKING_BEFORE_V1_SYNTHETIC_CLAIM"
+
+
+def _production_probe_presend_ready(family: str) -> dict:
+    """Zero Send and zero original source upload BEFORE a unique diagnostic claim.
+
+    Reuse the same owned-tab academic model and Medium Thinking verifier as
+    the already-repaired v2 probe. The actual v1 browser transport uses 9222,
+    so a verified alternate account never licenses a Send on the primary.
+    """
+    from .recovery_registry import lookup_mechanism
+    require(lookup_mechanism("presend_capability_repair",
+                             PRESEND_SIGNATURE) == PRESEND_MECHANISM,
+            "V1 Gemini synthetic PDF pre-claim recovery disabled")
+    from .academic_queue_fresh_send_health import _full_family_scope
+    from .academic_gemini_presend_preflight import (
+        select_ready_existing_session, AcademicGeminiPreSendBlocked)
+    try:
+        with _full_family_scope(family):
+            result = select_ready_existing_session(
+                primary_port=9222, allow_active_alternate=False)
+    except AcademicGeminiPreSendBlocked as error:
+        return {"status": "V1_SYNTHETIC_PDF_PRESEND_UNAVAILABLE_NO_CLAIM",
+                "failure_phase": error.failure_phase,
+                "new_provider_requests": 0,
+                "new_source_review_send_allowed": False}
+    except Exception:
+        # Do not leak model screenshots, account labels, prompts or credentials.
+        return {"status": "V1_SYNTHETIC_PDF_PRESEND_UNAVAILABLE_NO_CLAIM",
+                "failure_phase": "PRESEND_VERIFICATION_FAILED",
+                "new_provider_requests": 0,
+                "new_source_review_send_allowed": False}
+    passed = (
+        isinstance(result, dict)
+        and result.get("verified_port") == 9222
+        and result.get("model_family") == family
+        and result.get("thinking_level") == "medium"
+        and result.get("gemini_requests_submitted") == 0
+        and result.get("files_uploaded") == 0
+        and result.get("model_prompt_typed") is False
+        and result.get("student_publication_authorized") is False
+        and result.get("G2_approved") is False
+    )
+    return {
+        "status": ("EXACT_SYNTHETIC_PDF_MODEL_PRESEND_VERIFIED_NO_SEND"
+                   if passed else "V1_SYNTHETIC_PDF_PRESEND_UNAVAILABLE_NO_CLAIM"),
+        "failure_phase": (None if passed else "PRESEND_EVIDENCE_MISMATCH"),
+        "new_provider_requests": 0,
+        "new_source_review_send_allowed": False,
+    }
+
+
 def probe_once(*, queue_root: Path, checkpoint_parent: Path,
                source_sha: str, prior_slides: list[int], family: str,
                now: float | None = None, transport=None) -> dict:
@@ -314,6 +367,13 @@ def probe_once(*, queue_root: Path, checkpoint_parent: Path,
                     "new_source_review_send_allowed": False}
     require(not slot.exists() and not slot.is_symlink(),
             "Synthetic probe claim must never overwrite a prior incident")
+    if transport is None:
+        presend = _production_probe_presend_ready(family)
+        if presend["status"] != (
+                "EXACT_SYNTHETIC_PDF_MODEL_PRESEND_VERIFIED_NO_SEND"):
+            # Crucial: no slot, PDFs, intent, Send claim, daily-budget usage
+            # or source upload is created when the requested family is gone.
+            return presend
     slot.mkdir(parents=True)
     expected = _expected(source_sha, family, incident)
     a = slot / "SyntheticA.pdf"
