@@ -444,11 +444,11 @@
       "mechanism": "NORMALIZE_AST_INVARIANT_PYTHON_EOF_AND_SINGLE_MARKDOWN_SPACE",
       "classification": "SOURCE_PATCH_HAS_REVERSIBLE_SYNTAX_NEUTRAL_WHITESPACE",
       "handler": "NORMAL_WINDOWS_CUMULATIVE_PATCH_FORMAT_PREFLIGHT",
-      "preconditions": "isolated clean Dell-115 source checkout under LOCALAPPDATA, exact Git diff diagnostics, bounded safe Python EOF or one Markdown trailing space; never overwrite textbook/source media",
+      "preconditions": "isolated Dell-115 source checkout, exact Git patch and source AST, write-ahead SHA-bound journal and process lock; recover only expected pre/post bytes, never publisher/media",
       "verification_test": "tests/test_windows_head_whitespace_recovery.py",
-      "last_verified_date": "2026-11-18",
+      "last_verified_date": "2026-11-19",
       "environment": "native Dell-115 Windows Git, Git diff preflight and syntax-preserving targeted recovery",
-      "retry_policy": "finite one local scan and at most 50 safe diagnostics; reject unknown type, dirty tree, source AST changes, or Markdown hard breaks; no automatic commits",
+      "retry_policy": "finite 50 safe diagnostics, bound 4MB journal and 2MB/source, one SHA-bound write-ahead intent and completion receipt; resume only exact old/new bytes, reject foreign dirty source; no automatic commits",
       "enabled": true
     }
   ]

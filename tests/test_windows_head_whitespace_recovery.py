@@ -169,6 +169,143 @@ class CumulativeHeadWhitespaceRecoveryTests(unittest.TestCase):
                 repair_safe_current_source(repo=self.repo)
         self.assertEqual(self.git("status", "--porcelain"), "")
 
+    def _simulate_interrupted_two_file_write(self):
+        from selenium_pipeline import windows_head_format_repair_journal as journal
+        py = "tests/interrupted.py"
+        md = "docs/interrupted.md"
+        self.put(py, b"value = 3\n\n")
+        self.put(md, b"Unintended single space \n")
+        self.commit_files()
+        head = self.git("rev-parse", "HEAD")
+        actual_install = journal._atomic_install
+        state = {"count": 0}
+
+        def simulated_process_termination(*args, **kwargs):
+            state["count"] += 1
+            if state["count"] == 2:
+                raise KeyboardInterrupt("Injected crash after first atomic source edit")
+            return actual_install(*args, **kwargs)
+
+        with patch.object(journal, "_atomic_install",
+                          side_effect=simulated_process_termination):
+            with self.assertRaises(KeyboardInterrupt):
+                repair_safe_current_source(repo=self.repo)
+        self.assertEqual(self.git("rev-parse", "HEAD"), head)
+        intent, done = journal.journal_paths(self.repo, head)
+        self.assertTrue(intent.is_file())
+        self.assertFalse(done.exists())
+        # Git diagnostics are sorted by path: docs/ is processed before
+        # tests/. The injected crash occurs before installing file two.
+        self.assertEqual((self.repo/py).read_bytes(), b"value = 3\n\n")
+        self.assertEqual((self.repo/md).read_bytes(),
+                         b"Unintended single space\n")
+        return py, md, intent, done
+
+    def test_crash_after_first_atomic_file_resumes_next_process(self):
+        py, md, intent, done = self._simulate_interrupted_two_file_write()
+        result = repair_safe_current_source(repo=self.repo)
+        self.assertTrue(result["journal_recovered_or_reused_after_restart"])
+        self.assertFalse(result["previous_run_completed"])
+        self.assertEqual(result["normalized_file_count"], 2)
+        self.assertTrue(done.is_file())
+        self.assertEqual((self.repo/py).read_bytes(), b"value = 3\n")
+        self.assertEqual((self.repo/md).read_bytes(),
+                         b"Unintended single space\n")
+        self.assertEqual(self.git("rev-parse", "HEAD"),
+                         result["source_head_sha_before_repair"])
+        again = repair_safe_current_source(repo=self.repo)
+        self.assertTrue(again["journal_recovered_or_reused_after_restart"])
+        self.assertTrue(again["previous_run_completed"])
+        self.assertFalse(again["automatic_merge_authorized"])
+        self.assertFalse(again["student_publication_authorized"])
+
+    def test_unrelated_dirty_source_after_crash_fails_closed(self):
+        _, md, intent, _ = self._simulate_interrupted_two_file_write()
+        self.put("README.md", b"Unrelated edit after crash\n")
+        with self.assertRaises(CampaignRecoveryBlocked):
+            repair_safe_current_source(repo=self.repo)
+        self.assertEqual((self.repo/md).read_bytes(),
+                         b"Unintended single space\n")
+
+    def test_tampered_intent_after_process_death_refused(self):
+        from selenium_pipeline import windows_head_format_repair_journal as journal
+        self.put("tests/interrupted.py", b"value=3\n\n")
+        self.commit_files()
+        old = journal._atomic_install
+        with patch.object(journal, "_atomic_install",
+                          side_effect=KeyboardInterrupt("die after journal")):
+            with self.assertRaises(KeyboardInterrupt):
+                repair_safe_current_source(repo=self.repo)
+        intent, done = journal.journal_paths(
+            self.repo, self.git("rev-parse", "HEAD"))
+        self.assertTrue(intent.is_file())
+        self.assertFalse(done.exists())
+        intent.write_bytes(b'{"fake":"approved"}')
+        with self.assertRaises((CampaignRecoveryBlocked, ValueError, KeyError)):
+            repair_safe_current_source(repo=self.repo)
+        self.assertEqual((self.repo/"tests/interrupted.py").read_bytes(),
+                         b"value=3\n\n")
+
+    def test_real_independent_process_death_restarts_atomic_repair(self):
+        import sys
+        from selenium_pipeline import windows_head_format_repair_journal as journal
+        self.put("tests/process_kill.py", b"value=4\n\n")
+        self.put("docs/process_kill.md", b"One space \n")
+        self.commit_files()
+        head = self.git("rev-parse", "HEAD")
+        source_root = str(Path(__file__).resolve().parent.parent)
+        code = (
+            "import os,sys;from pathlib import Path;"
+            "from selenium_pipeline import windows_head_format_repair_journal as j;"
+            "from selenium_pipeline.windows_head_whitespace_recovery "
+            "import repair_safe_current_source;"
+            "orig=j._atomic_install;"
+            "def_marker='REAL_EXIT';"
+            "exec('def kill_after_write(*a,**k):\\n"
+            "  orig(*a,**k)\\n"
+            "  os._exit(87)\\n');"
+            "j._atomic_install=kill_after_write;"
+            "repair_safe_current_source(repo=Path(sys.argv[1]))"
+        )
+        env = os.environ.copy()
+        env["PYTHONPATH"] = source_root + os.pathsep + env.get("PYTHONPATH", "")
+        child = subprocess.run(
+            [sys.executable, "-c", code, str(self.repo)],
+            capture_output=True, text=True, timeout=50, env=env,
+            cwd=self.repo,
+        )
+        self.assertEqual(child.returncode, 87, child.stderr)
+        intent, result = journal.journal_paths(self.repo, head)
+        self.assertTrue(intent.is_file())
+        self.assertFalse(result.exists())
+        resumed = repair_safe_current_source(repo=self.repo)
+        self.assertTrue(resumed["journal_recovered_or_reused_after_restart"])
+        self.assertTrue(result.is_file())
+        self.assertEqual((self.repo/"tests/process_kill.py").read_bytes(),
+                         b"value=4\n")
+        self.assertEqual((self.repo/"docs/process_kill.md").read_bytes(),
+                         b"One space\n")
+        self.assertFalse(resumed["student_publication_authorized"])
+
+    def test_completed_journal_rejects_later_manual_source_reversion(self):
+        py = "tests/completed.py"
+        self.put(py, b"value=3\n\n")
+        self.commit_files()
+        first = repair_safe_current_source(repo=self.repo)
+        self.assertEqual(first["normalized_file_count"], 1)
+        self.put(py, b"value=3\n\n")
+        with self.assertRaises(CampaignRecoveryBlocked):
+            repair_safe_current_source(repo=self.repo)
+        self.assertEqual((self.repo/py).read_bytes(), b"value=3\n\n")
+
+    def test_journal_refuses_new_staged_change_after_crash(self):
+        _, md, _, _ = self._simulate_interrupted_two_file_write()
+        self.put("tests/other.py", b"fresh separate source\n")
+        with self.assertRaises(CampaignRecoveryBlocked):
+            repair_safe_current_source(repo=self.repo)
+        self.assertEqual((self.repo/md).read_bytes(),
+                         b"Unintended single space\n")
+
     def test_source_pdf_cannot_be_normalized(self):
         self.put("slides.pdf",b"%PDF-1.4\n \n")
         self.commit_files()
