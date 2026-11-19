@@ -214,8 +214,8 @@ def main(argv=None) -> int:
     ap.add_argument("--max-commits", type=int, default=2500)
     ap.add_argument("--advance-offline-development", action="store_true",
                     help="Opt-in source-only persistent roadmap: execute and automatically advance bounded historical regression tasks; never send or publish")
-    ap.add_argument("--max-offline-development-tasks", type=int, default=3,
-                    help="Finite number of newly eligible source-only tasks per invocation (1-3)")
+    ap.add_argument("--max-offline-development-tasks", type=int, default=None,
+                    help="Finite newly eligible source-only tasks per invocation; defaults to the entire verified local roadmap")
     ap.add_argument("--execute-offline-history-checks", action="store_true",
                     help="Run source-free SHA-locked Git integrity checks, never approve code or merge")
     ap.add_argument("--first-batch", type=int, default=1)
@@ -227,9 +227,11 @@ def main(argv=None) -> int:
                     and a.batch_size == 20 and a.max_commits == 2500
                     and a.first_batch == 1 and a.last_batch is None,
                     "Opt-in autonomous offline code review must use fixed 20-commit source policy")
-            from .windows_offline_development_forward_controller import advance_offline
+            from .windows_offline_development_forward_controller import advance_offline, MAX_STEPS
             data = advance_offline(
-                repo=a.repo, max_steps=a.max_offline_development_tasks)
+                repo=a.repo,
+                max_steps=(MAX_STEPS if a.max_offline_development_tasks is None
+                           else a.max_offline_development_tasks))
         elif a.execute_offline_history_checks:
             from .windows_historical_stack_batch_executor import execute_batches
             data = execute_batches(repo=a.repo, batch_size=a.batch_size,

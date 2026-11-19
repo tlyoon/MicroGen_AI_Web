@@ -64,6 +64,138 @@ TASKS = (
             "tests.test_original_slide4_pcm_provenance_pilot",
         ),
     },
+    {
+        "id": "historical_source_regressions_batch_37",
+        "batch": 37,
+        "first_commit_prefix": "59e3c09",
+        "last_commit_prefix": "42cce57",
+        "modules": (
+            "tests.test_rich_element_mapping_checkpoint",
+            "tests.test_video_handoff_script_optional",
+            "tests.test_versioned_scholarly_accepted_scope_board",
+        ),
+    },
+    {
+        "id": "historical_source_regressions_batch_38",
+        "batch": 38,
+        "first_commit_prefix": "21d1cbe",
+        "last_commit_prefix": "8f9c096",
+        "modules": (
+            "tests.test_sourcebound_completion_guard",
+            "tests.test_rich_unresolved_model_queue",
+            "tests.test_original_multisource_recovery_campaign",
+        ),
+    },
+    {
+        "id": "historical_source_regressions_batch_39",
+        "batch": 39,
+        "first_commit_prefix": "43424ed",
+        "last_commit_prefix": "b7ed966",
+        "modules": (
+            "tests.test_windows_lecture_progression_coordinator",
+            "tests.test_windows_provider_readiness_probe",
+            "tests.test_windows_bounded_stage_process",
+        ),
+    },
+    {
+        "id": "historical_source_regressions_batch_40",
+        "batch": 40,
+        "first_commit_prefix": "92f55ce",
+        "last_commit_prefix": "a390578",
+        "modules": (
+            "tests.test_windows_historical_stack_batch_plan",
+            "tests.test_windows_github_pr_stack_readonly_audit",
+            "tests.test_windows_crop_converter_reuse",
+        ),
+    },
+    {
+        "id": "historical_source_regressions_batch_41",
+        "batch": 41,
+        "first_commit_prefix": "ad461f4",
+        "last_commit_prefix": "73d72d7",
+        "modules": (
+            "tests.test_ai_academic_review_auto_next",
+            "tests.test_gemini_postsubmit_no_resend",
+            "tests.test_pre_tts_source_math_review_without_wav",
+        ),
+    },
+    {
+        "id": "historical_source_regressions_batch_42",
+        "batch": 42,
+        "first_commit_prefix": "a45c693",
+        "last_commit_prefix": "f57e552",
+        "modules": (
+            "tests.test_gemini_selenium_only_policy",
+            "tests.test_gemini_response_recovery",
+            "tests.test_durable_tts_observed_failure_resume",
+        ),
+    },
+    {
+        "id": "historical_source_regressions_batch_43",
+        "batch": 43,
+        "first_commit_prefix": "241ccbf",
+        "last_commit_prefix": "edcb3a8",
+        "modules": (
+            "tests.test_gemini_adaptive_ui_thinking",
+            "tests.test_gemini_model_atomic_picker",
+            "tests.test_original_review_ambiguous_response_receipts",
+        ),
+    },
+    {
+        "id": "historical_source_regressions_batch_44",
+        "batch": 44,
+        "first_commit_prefix": "846ff43",
+        "last_commit_prefix": "c2e5656",
+        "modules": (
+            "tests.test_figure_uncaptioned_source_recovery",
+            "tests.test_source_quote_section_scope",
+            "tests.test_pcm_signal_integrity",
+        ),
+    },
+    {
+        "id": "historical_source_regressions_batch_45",
+        "batch": 45,
+        "first_commit_prefix": "40ec7b1",
+        "last_commit_prefix": "734ec9e",
+        "modules": (
+            "tests.test_academic_provider_requalification",
+            "tests.test_gemini_ui_protocol_v2",
+            "tests.test_windows_new_source_browser_admission",
+        ),
+    },
+    {
+        "id": "historical_source_regressions_batch_46",
+        "batch": 46,
+        "first_commit_prefix": "827043e",
+        "last_commit_prefix": "6c3299e",
+        "modules": (
+            "tests.test_g2_forward_recovery_engine",
+            "tests.test_academic_dual_pdf_capability",
+            "tests.test_windows_forward_source_campaign",
+        ),
+    },
+    {
+        "id": "historical_source_regressions_batch_47",
+        "batch": 47,
+        "first_commit_prefix": "9e57b93",
+        "last_commit_prefix": "219a4e5",
+        "modules": (
+            "tests.test_gemini_dynamic_task_router",
+            "tests.test_gemini_owned_picker_js_fallback",
+            "tests.test_series_existing_browser_profile_policy",
+        ),
+    },
+    {
+        "id": "historical_source_regressions_batch_48",
+        "batch": 48,
+        "first_commit_prefix": "68fc031",
+        "last_commit_prefix": "<CURRENT_HEAD>",
+        "modules": (
+            "tests.test_windows_offline_development_forward_controller",
+            "tests.test_windows_historical_stack_batch_executor",
+            "tests.test_historical_pdf_parser_abi_recovery",
+        ),
+    },
 )
 MAX_STEPS = len(TASKS)
 MAX_ATTEMPTS = 2
@@ -299,8 +431,13 @@ def _execute_task(repo: Path, head: str, batch: dict, task: dict,
     require(batch["batch_number"] == task["batch"]
             and batch["first_commit_sha"].startswith(
                 task["first_commit_prefix"])
-            and batch["end_inclusive_sha"].startswith(
-                task["last_commit_prefix"]),
+            and (
+                (task["last_commit_prefix"] == "<CURRENT_HEAD>"
+                 and task["batch"] == 48
+                 and batch["end_inclusive_sha"] == head)
+                or (task["last_commit_prefix"] != "<CURRENT_HEAD>"
+                    and batch["end_inclusive_sha"].startswith(
+                        task["last_commit_prefix"]))),
             "Developer task does not belong to original SHA-bound history")
     modules = _source_modules(repo, task)
     identity = _task_identity(repo, head, batch, task, modules)
@@ -415,7 +552,7 @@ def advance_offline(*, repo: Path, max_steps: int = MAX_STEPS,
         "offline_dev_autoforward", SIGNATURE) == MECHANISM,
         "Continuous offline code-review recovery mechanism disabled")
     require(type(max_steps) is int and 1 <= max_steps <= MAX_STEPS,
-            "Bounded development runner requires 1–3 tasks per invocation")
+            "Bounded development runner requires a finite 1–15 tasks per invocation")
     repo = Path(repo).absolute()
     _verify_repo(repo)
     plan = plan_stack(repo=repo)
