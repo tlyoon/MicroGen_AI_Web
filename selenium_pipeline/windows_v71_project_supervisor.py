@@ -1,7 +1,7 @@
 """v7.1: durable, observable handoff across safe project workstreams.
 
 This *outer* controller, unlike a one-stage worker, must dispatch a genuinely
-eligible subsequent workstream after a checkpoint. It has three fixed,
+eligible subsequent workstream after a checkpoint. It has four fixed,
 read-only/offline tasks and explicit source/QA/release blocks. No provider Send,
 paid API, automatic merge, student publication, or invisible background claim.
 """
@@ -36,6 +36,7 @@ STAGES = (
     {"id": "independent_readonly_release_board", "deps": (
         "curated_offline_source_regressions",
         "global_historical_source_gap_inventory"), "timeout": 600},
+    {"id": "original_g2_readonly_claim_reconciliation", "deps": (), "timeout": 180},
 )
 MAX_EVENTS_BYTES = 2_000_000
 
@@ -201,6 +202,64 @@ def _worker_stage(stage: str, repo: Path) -> dict:
             "curated_batches": len(selected),
             "uncovered_historical_batch_numbers": gaps,
             "independent_semantic_review_completed": False,
+        }
+    if stage == "original_g2_readonly_claim_reconciliation":
+        # Original Serway 1.3 source is independently pinned; never browse or
+        # resend a previous dual-PDF Gemini claim to force G2 progress.
+        # This stage ONLY reconciles existing immutable source/queue evidence.
+        from .g2_forward_recovery_engine import run as inspect_g2
+        from .recovery_registry import lookup_mechanism
+        require(lookup_mechanism(
+            "global_checkpoint_handoff",
+            "V71_ORIGINAL_G2_READONLY_HANDOFF_NOT_ENROLLED") == MECHANISM,
+            "Original G2 no-Send handoff recovery missing or disabled")
+        base = Path(os.environ["LOCALAPPDATA"]).absolute()
+        checkpoint = base / "MicroGen_AI_Web_Checkpoints"
+        folder = (checkpoint /
+                  "auto_captionless_6528f3cfd9929c3706de" /
+                  "source_tree" / "1" / "1.3")
+        queue = checkpoint / "G2_20261115_SERWAY13_AI_ACADEMIC_REVIEW"
+        require(folder.is_dir() and queue.is_dir()
+                and not folder.is_symlink() and not queue.is_symlink()
+                and folder.resolve().is_relative_to(checkpoint.resolve())
+                and queue.resolve().is_relative_to(checkpoint.resolve()),
+                "Original G2 source/claim inventory not safely accessible")
+        checked = inspect_g2(
+            folder=folder, queue_root=queue, work_root=checkpoint,
+            execute=False, max_cycles=1, health_family="pro",
+            auto_media=False)
+        report = checked.get("current_report")
+        require(checked.get("status") == "READONLY_G2_FORWARD_RECOVERY_PLAN"
+                and checked.get("new_provider_requests") is False
+                and checked.get("new_paid_tts_dispatched") is False
+                and type(report) is dict
+                and report.get("original_source_sha256")
+                == "181f0f361809d90daf72fce1bf50bcf2b88fbf37fc59ed181411266b53cb5ae8"
+                and report.get("student_publication_authorized") is False
+                and report.get("G2_academic_scientific_acceptance_claimed") is False,
+                "G2 reconciliation cannot send, modify source or approve science")
+        accepted = report.get("two_pass_ai_source_agreed_segments")
+        pending = report.get("pending_or_disputed_segments")
+        total = report.get("expected_original_utterances")
+        require(type(accepted) is int and type(pending) is int
+                and type(total) is int
+                and accepted >= 0 and pending >= 0
+                and total == accepted + pending and total == 85,
+                "Incomplete or inconsistent original G2 evidence; cannot promote")
+        action = report.get("next_safe_academic_action") or {}
+        require(type(action) is dict, "Unrecognized G2 source-recovery selection")
+        return {
+            "accepted": True,
+            "status": "ORIGINAL_G2_READONLY_RECONCILED_NOT_ACADEMIC_APPROVED",
+            "source_sha256": report["original_source_sha256"],
+            "original_utterances": total,
+            "two_pass_agreed": accepted,
+            "pending_or_disputed": pending,
+            "next_eligibility": action.get("status"),
+            "new_model_or_paid_requests": False,
+            "original_claim_replayed": False,
+            "g2_academic_acceptance": False,
+            "student_publication_authorized": False,
         }
     if stage == "independent_readonly_release_board":
         from .windows_release_readiness_board import inspect_release

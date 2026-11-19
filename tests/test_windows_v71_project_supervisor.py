@@ -74,9 +74,9 @@ class OuterSupervisorContinuityTests(unittest.TestCase):
         result = v71.supervise(self.repo)
         self.assertEqual(self.calls,
                          [x["id"] for x in v71.STAGES])
-        self.assertEqual(result["new_stage_dispatches_this_process"], 3)
+        self.assertEqual(result["new_stage_dispatches_this_process"], 4)
         self.assertEqual(result["observable_dispatch_pids"],
-                         [1001, 1002, 1003])
+                         [1001, 1002, 1003, 1004])
         self.assertEqual(result["next_not_started_stages"], [])
         count, hash_value = v71._validated_log(
             Path(result["events_file"]))
@@ -104,6 +104,7 @@ class OuterSupervisorContinuityTests(unittest.TestCase):
         self.assertEqual(self.calls, [
             "curated_offline_source_regressions",
             "global_historical_source_gap_inventory",
+            "original_g2_readonly_claim_reconciliation",
         ])
         self.assertIn("independent_readonly_release_board",
                       result["next_not_started_stages"])
@@ -120,9 +121,11 @@ class OuterSupervisorContinuityTests(unittest.TestCase):
         ])
         third = v71.supervise(self.repo, max_new_dispatches=1)
         self.assertEqual(third["new_stage_dispatches_this_process"], 1)
-        fourth = v71.supervise(self.repo)
-        self.assertEqual(fourth["new_stage_dispatches_this_process"], 0)
-        self.assertEqual(len(self.calls), 3)
+        fourth = v71.supervise(self.repo, max_new_dispatches=1)
+        self.assertEqual(fourth["new_stage_dispatches_this_process"], 1)
+        fifth = v71.supervise(self.repo)
+        self.assertEqual(fifth["new_stage_dispatches_this_process"], 0)
+        self.assertEqual(len(self.calls), 4)
 
     def test_uncertain_claim_does_not_replay_dispatch_and_fans_out(self):
         self._install_fake_dispatcher()
@@ -216,12 +219,74 @@ class OuterSupervisorContinuityTests(unittest.TestCase):
         self.assertEqual(self.calls, [
             "curated_offline_source_regressions",
             "global_historical_source_gap_inventory",
+            "original_g2_readonly_claim_reconciliation",
         ])
         self.assertIn("independent_readonly_release_board",
                       result["next_not_started_stages"])
         self.assertFalse(result["background_continuation_verified"])
         self.assertIn("mandatory_stop",
                       Path(result["events_file"]).read_text())
+
+    def test_g2_reconciliation_protects_original_provider_no_resend(self):
+        from types import SimpleNamespace
+        checkpoint = self.local / "MicroGen_AI_Web_Checkpoints"
+        source = (checkpoint / "auto_captionless_6528f3cfd9929c3706de"
+                  / "source_tree" / "1" / "1.3")
+        queue = checkpoint / "G2_20261115_SERWAY13_AI_ACADEMIC_REVIEW"
+        source.mkdir(parents=True)
+        queue.mkdir()
+        report = {
+            "status": "READONLY_G2_FORWARD_RECOVERY_PLAN",
+            "new_provider_requests": False,
+            "new_paid_tts_dispatched": False,
+            "current_report": {
+                "original_source_sha256":
+                    "181f0f361809d90daf72fce1bf50bcf2b88fbf37fc59ed181411266b53cb5ae8",
+                "two_pass_ai_source_agreed_segments": 20,
+                "pending_or_disputed_segments": 65,
+                "expected_original_utterances": 85,
+                "student_publication_authorized": False,
+                "G2_academic_scientific_acceptance_claimed": False,
+                "next_safe_academic_action": {
+                    "status": "DEFERRED_SYNTHETIC_PDF_CAPABILITY_EXHAUSTED_NO_RESEND"
+                },
+            },
+        }
+        with patch.object(v71.subprocess, "run",
+                          return_value=SimpleNamespace(stdout=self.head + "\\n")):
+            with patch("selenium_pipeline.g2_forward_recovery_engine.run",
+                       return_value=report) as runner:
+                result = v71._worker_stage(
+                    "original_g2_readonly_claim_reconciliation", self.repo)
+                self.assertTrue(result["accepted"])
+                self.assertFalse(result["g2_academic_acceptance"])
+                self.assertEqual(result["pending_or_disputed"], 65)
+                self.assertFalse(result["original_claim_replayed"])
+                self.assertFalse(result["new_model_or_paid_requests"])
+                kwargs = runner.call_args.kwargs
+                self.assertIs(kwargs["execute"], False)
+                self.assertIs(kwargs["auto_media"], False)
+                self.assertEqual(kwargs["max_cycles"], 1)
+            with patch("selenium_pipeline.g2_forward_recovery_engine.run",
+                       return_value={**report, "new_provider_requests": True}):
+                with self.assertRaises(CampaignRecoveryBlocked):
+                    v71._worker_stage(
+                        "original_g2_readonly_claim_reconciliation", self.repo)
+            with patch("selenium_pipeline.g2_forward_recovery_engine.run",
+                       return_value={**report, "current_report": {
+                           **report["current_report"],
+                           "G2_academic_scientific_acceptance_claimed": True
+                       }}):
+                with self.assertRaises(CampaignRecoveryBlocked):
+                    v71._worker_stage(
+                        "original_g2_readonly_claim_reconciliation", self.repo)
+            with patch("selenium_pipeline.recovery_registry.lookup_mechanism",
+                       return_value=None):
+                with self.assertRaisesRegex(
+                        CampaignRecoveryBlocked,
+                        "G2 no-Send handoff recovery missing"):
+                    v71._worker_stage(
+                        "original_g2_readonly_claim_reconciliation", self.repo)
 
     def test_worker_cli_rejects_foreign_receipt_path(self):
         from selenium_pipeline.windows_v71_project_supervisor import main
