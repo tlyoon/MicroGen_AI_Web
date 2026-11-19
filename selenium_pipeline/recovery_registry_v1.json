@@ -462,7 +462,21 @@
       "verification_test": "tests/test_windows_v71_project_supervisor.py",
       "last_verified_date": "2026-11-19",
       "environment": "Dell-115 native Windows finite offline/read-only outer supervisor and durable actual child PID event evidence",
-      "retry_policy": "finite 3 known project stages, 1 dispatch claim per source task; uncertain child or external action never replayed, independent tasks continue",
+      "retry_policy": "finite 4 known project stages, 1 dispatch claim per source task; uncertain child or external action never replayed, independent tasks continue",
+      "enabled": true
+    },
+    {
+      "id": "V71_ORIGINAL_G2_READONLY_PROJECT_HANDOFF",
+      "match_type": "global_checkpoint_handoff",
+      "signature": "V71_ORIGINAL_G2_READONLY_HANDOFF_NOT_ENROLLED",
+      "mechanism": "OBSERVABLE_GLOBAL_STAGE_HANDOFF_WITH_SOURCE_LOCKED_EVENTS",
+      "classification": "SAFE_ORIGINAL_G2_SOURCE_RECONCILIATION_MISSING_FROM_GLOBAL_ROADMAP",
+      "handler": "NORMAL_V71_PROJECT_WIDE_OBSERVABLE_SUPERVISOR",
+      "preconditions": "exact original Serway G2 source and immutable source queue, no provider Send and source-science acceptance remains blocked",
+      "verification_test": "tests/test_windows_v71_project_supervisor.py",
+      "last_verified_date": "2026-11-19",
+      "environment": "Dell-115 Windows G2 source-only read-only original queue reconciliation under the existing global supervisor",
+      "retry_policy": "finite one read-only source-locked G2 stage per exact Git head, never retry uncertain provider Send, never approve audio/video or release",
       "enabled": true
     },
     {

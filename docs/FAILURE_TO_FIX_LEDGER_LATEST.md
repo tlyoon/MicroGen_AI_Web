@@ -1,5 +1,17 @@
 # MicroGen_AI_Web failure-to-fix ledger — current continuation
 
+## MG-V71-G2-SOURCE-RECONCILIATION-OMITTED-FROM-GLOBAL-HANDOFF — 19 Nov 2026
+
+**Original failure class:** PR545 combined v7.1 global supervisor was limited to 3 safe workstreams; after verifying original code regressions, history-gap inventory and the release board, it recorded `LOCAL_SAFE_ROADMAP_EXHAUSTED_PROJECT_QA_REMAINS_BLOCKED`. The real G2 original-source queue remained eligible for **read-only claim reconciliation**, but no global stage existed for it. The prior original Gemini synthetic dual-PDF Send is ambiguous/exhausted and cannot be automatically resent.
+
+**Existing verified remedy reused:** `g2_forward_recovery_engine.run(execute=False, max_cycles=1, health_family="pro", auto_media=False)` invokes the existing immutable original source/slides/script and queue verification without any external model Send. Genuine Dell-115 PR545 parent run: 20/85 accepted source-agreed utterances, 65 pending, source SHA `181f0f361809d90daf72fce1bf50bcf2b88fbf37fc59ed181411266b53cb5ae8`, 20 historical cycles, no provider request or paid TTS, original scientific acceptance false.
+
+**Integrated source-level repair:** Add fourth independent allowlisted `original_g2_readonly_claim_reconciliation` to registered `windows_v71_project_supervisor.STAGES`; same observable PID and hash-chained dispatch/receipt architecture. New `V71_ORIGINAL_G2_READONLY_PROJECT_HANDOFF` registry signature maps only to the existing supervisor handler. The normal CLI derives finite dispatch budget from `len(STAGES)` rather than fixed 3; G2 audit can run independently if CI board is still blocked. Source SHA, original 85-segment accounting, no-Send/no-TTS/no-academic-approval/no-publication gates remain mandatory; invalid/unregistered/retired evidence fails closed.
+
+**Failure during development:** a one-line Python command had Windows PowerShell nested-string parsing, so switched to external source-bound test script. The genuine worker refused to run from a dirty PR546 source tree `Any unrecognized local/staged source edit blocks autonomous review`; existing safety behaved correctly. Do NOT weaken `_verify_repo`: only exercise true production worker from a clean committed exact Git head. Synthetic source/no-Send negative tests, global dispatch/restart/fan-out/CI-gated regression and real original source recheck are mandatory. Current G2 academic recovery remains BLOCKED until valid new independently accepted source evidence exists; no academic audio/video approvals claimed.
+
+---
+
 ## MG-V7-EARLY-HISTORICAL-WINDOWS-NOT-ENQUEUED-V1 — 19 Nov 2026
 
 **Historical failure:** PR541's registered static 30-task offline source-regression roadmap covered B19–48 but left the first 18 equally SHA-grounded original commit windows outside executable automatic forward. v7 forbids repeatedly requiring an operator to manually invoke eligible independent development milestones. Do not interpret this as missing G2/G3 scientific review.

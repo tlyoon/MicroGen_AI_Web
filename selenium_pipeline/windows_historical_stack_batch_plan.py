@@ -247,8 +247,8 @@ def main(argv=None) -> int:
     ap.add_argument("--max-commits", type=int, default=2500)
     ap.add_argument("--supervise-project-v71", action="store_true",
                     help="Run registered outer project supervisor; actual child dispatch and durable handoff events, no provider Send or publication")
-    ap.add_argument("--max-v71-new-dispatches", type=int, default=3,
-                    help="Finite 1–3 new source-only/read-only project workstreams per call")
+    ap.add_argument("--max-v71-new-dispatches", type=int, default=None,
+                    help="Finite bounded source-only/read-only project workstreams per call; defaults to all registered stages")
     ap.add_argument("--advance-offline-development", action="store_true",
                     help="Opt-in source-only persistent roadmap: execute and automatically advance bounded historical regression tasks; never send or publish")
     ap.add_argument("--max-offline-development-tasks", type=int, default=None,
@@ -266,9 +266,11 @@ def main(argv=None) -> int:
                     and a.first_batch == 1 and a.last_batch is None
                     and a.max_offline_development_tasks is None,
                     "v7.1 global supervisor cannot mix independent historical modes")
-            from .windows_v71_project_supervisor import supervise
+            from .windows_v71_project_supervisor import supervise, STAGES
             data = supervise(
-                a.repo, max_new_dispatches=a.max_v71_new_dispatches)
+                a.repo, max_new_dispatches=(len(STAGES)
+                                             if a.max_v71_new_dispatches is None
+                                             else a.max_v71_new_dispatches))
         elif a.advance_offline_development:
             require(not a.execute_offline_history_checks
                     and a.batch_size == 20 and a.max_commits == 2500
