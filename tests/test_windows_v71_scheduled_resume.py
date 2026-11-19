@@ -174,6 +174,32 @@ class SourceOnlyWindowsSchedulerTests(unittest.TestCase):
                     with self.assertRaises(RuntimeError):
                         schedule._audit_installed(self.repo,self.home)
 
+    def test_native_direct_script_registry_import_without_package_context(self):
+        # The scheduled .cmd invokes a Python file, not python -m.
+        script=Path(schedule.__file__).resolve()
+        source = """
+from pathlib import Path
+import runpy
+import sys
+from unittest.mock import patch
+ns = runpy.run_path(sys.argv[1], run_name="not_a_package")
+assert ns["_audit_installed"].__globals__["__package__"] == ""
+with patch("selenium_pipeline.recovery_registry.lookup_mechanism",
+           return_value=None):
+    try:
+        ns["_audit_installed"](Path("."), Path("."))
+    except RuntimeError as error:
+        assert "direct-script scheduler recovery missing" in str(error)
+    else:
+        raise AssertionError("Source-only gate did not reject retired registry")
+print("NONPACKAGE_SCRIPT_ENTRY_SAFE")
+"""
+        finished=subprocess.run(
+            [schedule.sys.executable,"-B","-c",source,str(script)],
+            cwd=script.parent.parent,capture_output=True,text=True,timeout=40)
+        self.assertEqual(finished.returncode,0,finished.stderr)
+        self.assertIn("NONPACKAGE_SCRIPT_ENTRY_SAFE",finished.stdout)
+
     def test_real_native_schtasks_padded_state_and_root_name_pass(self):
         # Observed on Dell-115: 'TaskName: \\MicroGen...'; many spaces
         # between the Scheduled Task State colon and Enabled.
@@ -205,10 +231,13 @@ class SourceOnlyWindowsSchedulerTests(unittest.TestCase):
                 schedule._audit_installed(self.repo,self.home)
 
     def test_retired_native_path_alias_registry_blocks_before_task_query(self):
+        from selenium_pipeline.recovery_registry import lookup_mechanism as real_lookup
         self._wrapper()
         with patch(
             "selenium_pipeline.recovery_registry.lookup_mechanism",
-            return_value=None):
+            side_effect=lambda kind, signature: (None if signature ==
+                "V71_WINDOWS_SCHEDULE_TASK_ACTION_PATH_ALIAS_UNVERIFIED"
+                else real_lookup(kind, signature))):
             with patch.object(schedule.subprocess,"run") as task:
                 with self.assertRaisesRegex(
                         RuntimeError,"path-alias recovery missing"):
