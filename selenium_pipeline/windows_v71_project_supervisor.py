@@ -1,7 +1,7 @@
 """v7.1: durable, observable handoff across safe project workstreams.
 
 This *outer* controller, unlike a one-stage worker, must dispatch a genuinely
-eligible subsequent workstream after a checkpoint. It has four fixed,
+eligible subsequent workstream after a checkpoint. It has six bounded,
 read-only/offline tasks and explicit source/QA/release blocks. No provider Send,
 paid API, automatic merge, student publication, or invisible background claim.
 """
@@ -39,6 +39,8 @@ STAGES = (
     {"id": "original_g2_readonly_claim_reconciliation", "deps": (), "timeout": 180},
     {"id": "recent_uncovered_historical_patch_checks", "deps": (
         "global_historical_source_gap_inventory",), "timeout": 600},
+    {"id": "original_g2_v1_synthetic_presend_inventory", "deps": (
+        "original_g2_readonly_claim_reconciliation",), "timeout": 180},
 )
 MAX_EVENTS_BYTES = 2_000_000
 LONG_QUEUE_TIMEOUT_SIGNATURE = "V71_LONG_OFFLINE_QUEUE_PREMATURE_TIMEOUT"
@@ -324,6 +326,56 @@ def _worker_stage(stage: str, repo: Path) -> dict:
             "new_model_or_paid_requests": False,
             "original_claim_replayed": False,
             "g2_academic_acceptance": False,
+            "student_publication_authorized": False,
+        }
+    if stage == "original_g2_v1_synthetic_presend_inventory":
+        # A diagnostic request claim must never be spent on a model already
+        # missing from the owned UI. This is a source-free, no-Send check.
+        # Previously consumed v1 claims can only be read, not resent.
+        from .recovery_registry import lookup_mechanism
+        require(lookup_mechanism(
+            "global_checkpoint_handoff",
+            "V71_G2_V1_MODEL_PRESEND_INVENTORY_NOT_DISPATCHED") == MECHANISM,
+            "G2 v1 source-free no-Send handoff missing or disabled")
+        from .academic_dual_pdf_capability import (
+            existing_outcome, _production_probe_presend_ready)
+        checkpoint = (Path(os.environ["LOCALAPPDATA"]).absolute()
+                      / "MicroGen_AI_Web_Checkpoints")
+        queue = checkpoint / "G2_20261115_SERWAY13_AI_ACADEMIC_REVIEW"
+        require(checkpoint.is_dir() and queue.is_dir()
+                and not queue.is_symlink()
+                and queue.resolve().is_relative_to(checkpoint.resolve()),
+                "Original no-Send model inventory cannot inspect G2 source")
+        scope = dict(
+            queue_root=queue, checkpoint_parent=checkpoint,
+            source_sha=("181f0f361809d90daf72fce1bf50bcf2b88fbf37fc59ed"
+                        "181411266b53cb5ae8"),
+            prior_slides=[10, 11], family="flash")
+        previous = existing_outcome(**scope)
+        result = _production_probe_presend_ready("flash")
+        require(result["status"] in {
+            "EXACT_SYNTHETIC_PDF_MODEL_PRESEND_VERIFIED_NO_SEND",
+            "V1_SYNTHETIC_PDF_PRESEND_UNAVAILABLE_NO_CLAIM",
+        } and result["new_provider_requests"] == 0
+            and result["new_source_review_send_allowed"] is False,
+            "Source-free v1 model inspection must never send or approve")
+        after = existing_outcome(**scope)
+        require(previous == after,
+                "A source-free model inspection altered a consumed claim")
+        return {
+            "accepted": True,
+            "status": "G2_V1_SOURCE_FREE_MODEL_QUALIFICATION_INSPECTED_NO_SEND",
+            "original_incident_claim_consumed": previous is not None,
+            "previous_claim_status": (
+                previous.get("status") if previous is not None else None),
+            "fresh_flash_model_available": (
+                result["status"] ==
+                "EXACT_SYNTHETIC_PDF_MODEL_PRESEND_VERIFIED_NO_SEND"),
+            "failure_phase": result.get("failure_phase"),
+            "new_provider_requests": False,
+            "new_diagnostic_claim": False,
+            "original_source_request_replayed": False,
+            "academic_scientific_acceptance": False,
             "student_publication_authorized": False,
         }
     if stage == "independent_readonly_release_board":

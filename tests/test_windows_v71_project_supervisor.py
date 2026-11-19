@@ -75,9 +75,9 @@ class OuterSupervisorContinuityTests(unittest.TestCase):
         result = v71.supervise(self.repo)
         self.assertEqual(self.calls,
                          [x["id"] for x in v71.STAGES])
-        self.assertEqual(result["new_stage_dispatches_this_process"], 5)
+        self.assertEqual(result["new_stage_dispatches_this_process"], 6)
         self.assertEqual(result["observable_dispatch_pids"],
-                         [1001, 1002, 1003, 1004, 1005])
+                         [1001, 1002, 1003, 1004, 1005, 1006])
         self.assertEqual(result["next_not_started_stages"], [])
         count, hash_value = v71._validated_log(
             Path(result["events_file"]))
@@ -107,6 +107,7 @@ class OuterSupervisorContinuityTests(unittest.TestCase):
             "global_historical_source_gap_inventory",
             "original_g2_readonly_claim_reconciliation",
             "recent_uncovered_historical_patch_checks",
+            "original_g2_v1_synthetic_presend_inventory",
         ])
         self.assertIn("independent_readonly_release_board",
                       result["next_not_started_stages"])
@@ -127,9 +128,11 @@ class OuterSupervisorContinuityTests(unittest.TestCase):
         self.assertEqual(fourth["new_stage_dispatches_this_process"], 1)
         fifth = v71.supervise(self.repo, max_new_dispatches=1)
         self.assertEqual(fifth["new_stage_dispatches_this_process"], 1)
-        sixth = v71.supervise(self.repo)
-        self.assertEqual(sixth["new_stage_dispatches_this_process"], 0)
-        self.assertEqual(len(self.calls), 5)
+        sixth = v71.supervise(self.repo, max_new_dispatches=1)
+        self.assertEqual(sixth["new_stage_dispatches_this_process"], 1)
+        seventh = v71.supervise(self.repo)
+        self.assertEqual(seventh["new_stage_dispatches_this_process"], 0)
+        self.assertEqual(len(self.calls), 6)
 
     def test_uncertain_claim_does_not_replay_dispatch_and_fans_out(self):
         self._install_fake_dispatcher()
@@ -225,12 +228,85 @@ class OuterSupervisorContinuityTests(unittest.TestCase):
             "global_historical_source_gap_inventory",
             "original_g2_readonly_claim_reconciliation",
             "recent_uncovered_historical_patch_checks",
+            "original_g2_v1_synthetic_presend_inventory",
         ])
         self.assertIn("independent_readonly_release_board",
                       result["next_not_started_stages"])
         self.assertFalse(result["background_continuation_verified"])
         self.assertIn("mandatory_stop",
                       Path(result["events_file"]).read_text())
+
+    def test_new_sixth_stage_inspects_current_v1_model_without_send(self):
+        from types import SimpleNamespace
+        checkpoint = self.local / "MicroGen_AI_Web_Checkpoints"
+        (checkpoint / "G2_20261115_SERWAY13_AI_ACADEMIC_REVIEW").mkdir(
+            parents=True)
+        old={"status":"DUAL_SYNTHETIC_PDF_RESPONSE_UNVERIFIED",
+             "new_provider_requests":0,"new_source_review_send_allowed":False}
+        preflight={"status":"V1_SYNTHETIC_PDF_PRESEND_UNAVAILABLE_NO_CLAIM",
+                   "failure_phase":"GEMINI_MODEL_PICKER_NOT_READY",
+                   "new_provider_requests":0,
+                   "new_source_review_send_allowed":False}
+        with patch.object(v71.subprocess,"run",return_value=SimpleNamespace(
+                stdout=self.head+"\\n",returncode=0)):
+            with patch(
+                "selenium_pipeline.academic_dual_pdf_capability.existing_outcome",
+                return_value=old) as previous:
+                with patch(
+                    "selenium_pipeline.academic_dual_pdf_capability._production_probe_presend_ready",
+                    return_value=preflight) as inspected:
+                    result=v71._worker_stage(
+                        "original_g2_v1_synthetic_presend_inventory",
+                        self.repo)
+        self.assertTrue(result["accepted"])
+        self.assertFalse(result["fresh_flash_model_available"])
+        self.assertEqual(result["previous_claim_status"],
+                         "DUAL_SYNTHETIC_PDF_RESPONSE_UNVERIFIED")
+        self.assertFalse(result["new_diagnostic_claim"])
+        self.assertFalse(result["original_source_request_replayed"])
+        self.assertFalse(result["academic_scientific_acceptance"])
+        self.assertEqual(previous.call_count,2)
+        inspected.assert_called_once_with("flash")
+
+    def test_new_sixth_stage_rejects_forged_provider_send_result(self):
+        from types import SimpleNamespace
+        cp=self.local/"MicroGen_AI_Web_Checkpoints"
+        (cp/"G2_20261115_SERWAY13_AI_ACADEMIC_REVIEW").mkdir(parents=True)
+        invalid={"status":"EXACT_SYNTHETIC_PDF_MODEL_PRESEND_VERIFIED_NO_SEND",
+                 "new_provider_requests":1,
+                 "new_source_review_send_allowed":False}
+        with patch.object(v71.subprocess,"run",return_value=SimpleNamespace(
+                stdout=self.head+"\\n",returncode=0)):
+            with patch(
+                "selenium_pipeline.academic_dual_pdf_capability.existing_outcome",
+                return_value=None):
+                with patch(
+                    "selenium_pipeline.academic_dual_pdf_capability._production_probe_presend_ready",
+                    return_value=invalid):
+                    with self.assertRaises(CampaignRecoveryBlocked):
+                        v71._worker_stage(
+                            "original_g2_v1_synthetic_presend_inventory",
+                            self.repo)
+
+    def test_v1_sixth_stage_registry_disabled_blocks_before_model_check(self):
+        from types import SimpleNamespace
+        cp=self.local/"MicroGen_AI_Web_Checkpoints"
+        (cp/"G2_20261115_SERWAY13_AI_ACADEMIC_REVIEW").mkdir(parents=True)
+        with patch.object(v71.subprocess,"run",return_value=SimpleNamespace(
+                stdout=self.head+"\\n",returncode=0)):
+            with patch(
+                    "selenium_pipeline.recovery_registry.lookup_mechanism",
+                    return_value=None):
+                with patch(
+                    "selenium_pipeline.academic_dual_pdf_capability._production_probe_presend_ready"
+                ) as inspected:
+                    with self.assertRaisesRegex(
+                            CampaignRecoveryBlocked,
+                            "no-Send handoff missing"):
+                        v71._worker_stage(
+                            "original_g2_v1_synthetic_presend_inventory",
+                            self.repo)
+                    inspected.assert_not_called()
 
     def test_g2_reconciliation_protects_original_provider_no_resend(self):
         from types import SimpleNamespace
@@ -389,7 +465,7 @@ class OuterSupervisorContinuityTests(unittest.TestCase):
         self.assertEqual(code, 0)
         invoked.assert_called_once_with(
             self.repo, max_new_dispatches=len(v71.STAGES))
-        self.assertEqual(len(v71.STAGES), 5)
+        self.assertEqual(len(v71.STAGES), 6)
 
     def test_worker_cli_rejects_foreign_receipt_path(self):
         from selenium_pipeline.windows_v71_project_supervisor import main
@@ -495,7 +571,7 @@ class OuterSupervisorContinuityTests(unittest.TestCase):
             with patch.object(v71, "_dispatch", side_effect=select):
                 report = v71.supervise(self.repo)
         cleanup.assert_called_once()
-        self.assertEqual(report["new_stage_dispatches_this_process"], 4)
+        self.assertEqual(report["new_stage_dispatches_this_process"], 5)
         state=v71._state_dir(self.repo, self.head)
         old=v71._verified_result(state,self.repo,self.head,v71.STAGES[0])
         self.assertFalse(old["accepted"])
