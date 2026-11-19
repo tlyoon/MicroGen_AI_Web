@@ -1,5 +1,17 @@
 # MicroGen_AI_Web failure-to-fix ledger — current continuation
 
+## MG-HISTORICAL-PACKAGED-TEST-SIBLING-IMPORT-RECURS-V1 — 19 Nov 2026
+
+**Real recurring history:** During source-bound offline Batch2 safety regression, the repo-root package-style unittest invocation failed to resolve bare `import test_element_plan_autodraft`; during Batch4–6 it similarly failed resolving `test_tts_qa_promotion`. Under discovery style or manual PYTHONPATH pointing to `tests`, both sets passed (106 Batch2 / 93 Batch4–6), so these were harness compatibility defects, not provider/model/media defects. A current source AST scan verified 516 repo test files with **67** bare sibling imports referencing **19** existing local test helpers; fixing only two by hand would reintroduce recurring failures.
+
+**Baked executable resolution:** registered `HISTORICAL_TEST_HELPER_IMPORT_RECOVERY` with handler `NORMAL_TEST_PACKAGE_SIBLING_IMPORT_RECOVERY`, invoked automatically from existing package `tests/__init__.py` through `windows_test_helper_import_recovery.bootstrap`. It bounds and source-verifies all sibling references, adds one verified repository-local tests-only path, refuses missing external helper/symlink/invalid AST/disabled registry and never touches provider/paid/academic/media operations. Enrolled new Windows CI regression. No operator shell environment setup required.
+
+**Tests:** genuine independent process with cleared PYTHONPATH imported all previously failing tests; separate system/Miniconda and two Dell isolated Python interpreters checked package bootstrap; invalid/missing fixture injection, fake package path, registry retirement and repeated import stress tests PASS. Full historical format, source journal, release board and review handoff selected **78/78 PASS** (one Windows symlink privilege skip). Git diff clean. Final head CI and normal board restart still required. No historic PR merges/release. See `docs/PR538_HISTORICAL_TEST_HELPER_IMPORT_RECOVERY_20261119.md`.
+
+---
+
+# MicroGen_AI_Web failure-to-fix ledger — current continuation
+
 ## MG-SOURCE-REPAIR-MULTIFILE-PROCESS-CRASH-LEAVES-DIRTY-REPO-V1 — 19 Nov 2026
 
 **Historical link:** user contract requires code-level crash-safe automatic forward progress. PR535 format repair already checked all defects and caught normal Python exceptions but sequentially wrote multiple files with `write_bytes`. On abrupt process exit between writes no Python exception handler runs and subsequent standard clean-checkout guard blocks recovery. Existing `g2_forward_recovery_engine` write-ahead receipts and `three_pc_worker.LocalInstanceLock` already demonstrate the reusable verified pattern.

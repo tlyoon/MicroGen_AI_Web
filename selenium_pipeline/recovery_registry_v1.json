@@ -438,6 +438,20 @@
       "enabled": true
     },
     {
+      "id": "HISTORICAL_TEST_HELPER_IMPORT_RECOVERY",
+      "match_type": "test_helper_imports",
+      "signature": "HISTORICAL_TEST_SIBLING_IMPORTS_REQUIRE_PACKAGE_DISCOVERY_REPAIR",
+      "mechanism": "VERIFY_LOCAL_SIBLING_TEST_IMPORTS_AND_INSTALL_BOUNDED_PACKAGE_PATH",
+      "classification": "PACKAGED_TEST_FIXTURE_IMPORT_PATH_MISMATCH",
+      "handler": "NORMAL_TEST_PACKAGE_SIBLING_IMPORT_RECOVERY",
+      "preconditions": "repository-local tests package, enabled verified recovery registry, all sibling imports source-resolve and source AST scan bounded; no provider or test execution",
+      "verification_test": "tests/test_windows_test_helper_import_recovery.py",
+      "last_verified_date": "2026-11-19",
+      "environment": "native Dell-115 offline package-style unittest and historical package source inspection",
+      "retry_policy": "finite 1000 test files, 3 MB per source and 1000 sibling references; fail closed on missing or linked test helper; never import unknown third party",
+      "enabled": true
+    },
+    {
       "id": "CURRENT_HEAD_SAFE_FORMAT_RECOVERY",
       "match_type": "head_patch_format",
       "signature": "CUMULATIVE_HEAD_PATCH_HAS_SAFE_COSMETIC_WHITESPACE",

@@ -100,6 +100,7 @@ jobs:
             "tests.test_windows_historical_stack_batch_executor"
             "tests.test_windows_historical_format_disposition"
             "tests.test_windows_head_whitespace_recovery"
+            "tests.test_windows_test_helper_import_recovery"
             "tests.test_windows_github_pr_stack_readonly_audit"
             "tests.test_windows_github_scoped_head_audit"
             "tests.test_windows_exact_head_github_ci"
