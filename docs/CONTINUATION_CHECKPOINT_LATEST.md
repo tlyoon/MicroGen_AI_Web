@@ -1,3 +1,11 @@
+# 19 November 2026 — V7 historical offline queue extended safely
+
+**PR540 isolated Dell-115 source branch:** `feature/pr540-historical-recovery-roadmap-20261119`, stacked on draft PR539 exact `048c0cf18d35c08d577baafa38e5a1c1d110c728`. User supplied second duplicate `auto_cont_dev_prompt_v7.md` Drive file ID `1DyTFYcjE4ledq7CUGDpiwSpOZ2fvreSW`; content unchanged from v7. Existing PR539 registered offline controller completed its initial only-three-task roadmap, while next safe historical source windows remained eligible. Reused the proven code/registry rather than creating another controller.
+
+**Historical source review:** independently inspected original Git commit/task paths for batches 37–48 and ran source-grounded network-denied current-code suites, **342/342 tests PASS, zero skips**. Extended executable `TASKS` to curated 15 tasks (19–21 and 37–48), retaining exact head, commit membership, source-test hashes, write-ahead receipts, OS lock, finite two source-only claims, no paid/provider/Gemini Send or release. Final batch48 follows exact HEAD deliberately; stale future history must fail closed. Existing historical review CLI `--advance-offline-development` now defaults to all eligible finite roadmap tasks, not only three. Controller/planner/registry synthetic and fault injection **39/39 PASS**, including first-three receipt reuse followed by the automatic next 12 and final-batch SHA tampering. Commits, real source execution, restarted reuse, CI and release board to follow. See `docs/PR540_V7_REMAINING_HISTORICAL_OFFLINE_AUTOFORWARD_20261119.md`.
+
+---
+
 # 19 November 2026 — v7 verified offline-development forward controller
 
 **New isolated Dell-115 branch:** `feature/pr539-offline-development-autoforward-20261119` stacked on draft PR538 exact head `7d696baa36fb19e1a5f8a28fd02b0097bd7b992c`. User supplied `auto_cont_dev_prompt_v7.md` (Drive ID `14m_5wvXMlqhxGEbTF_kfZLSlMFx8zZzp`), requiring real code-level repeated milestone advancement, persistent roadmap, checkpointed recovery and no repeated operator 'proceed' between eligible steps.

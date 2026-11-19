@@ -45,13 +45,15 @@ class OfflineDevelopmentAutoforwardTests(unittest.TestCase):
             "exact_head_sha": self.head,
             "batches": [],
         }
-        for i in range(1, 22):
+        for i in range(1, 49):
             t = next((task for task in dev.TASKS
                       if task["batch"] == i), None)
             first = ((t["first_commit_prefix"] if t else "f" * 7)
                      + "a" * 33)[:40]
             end = ((t["last_commit_prefix"] if t else "e" * 7)
                    + "b" * 33)[:40]
+            if t and t["last_commit_prefix"] == "<CURRENT_HEAD>":
+                end = self.head
             self.plan["batches"].append({
                 "batch_number": i, "first_commit_sha": first,
                 "end_inclusive_sha": end,
@@ -65,7 +67,7 @@ class OfflineDevelopmentAutoforwardTests(unittest.TestCase):
         self.addCleanup(plan.stop)
         def check_history(*, repo, first_batch, last_batch):
             self.assertEqual(first_batch, last_batch)
-            self.assertIn(first_batch, (19, 20, 21))
+            self.assertIn(first_batch, tuple(t["batch"] for t in dev.TASKS))
             return {
                 "exact_head_sha": self.head,
                 "batch_count_completed": 1,
@@ -82,7 +84,7 @@ class OfflineDevelopmentAutoforwardTests(unittest.TestCase):
         def observed(repo, modules):
             calls.append(modules)
             return _accepted(repo, modules)
-        first = dev.advance_offline(repo=self.repo, runner=observed)
+        first = dev.advance_offline(repo=self.repo, max_steps=3, runner=observed)
         self.assertEqual(first["tasks_executed_or_reused"], 3)
         self.assertEqual(first["new_tasks_completed_this_process"], 3)
         self.assertEqual(first["offline_source_regression_pass_count"], 3)
@@ -91,14 +93,16 @@ class OfflineDevelopmentAutoforwardTests(unittest.TestCase):
         self.assertFalse(first["automatic_merge_authorized"])
         self.assertFalse(first["historical_semantic_review_completed"])
         self.assertFalse(first["student_publication_authorized"])
-        # Next process trusts source-bound receipts only after revalidation.
+        # Next process reuses the first three receipts and automatically
+        # advances the next three independent milestones without replaying.
         again = dev.advance_offline(
-            repo=self.repo,
-            runner=lambda *_: self.fail("Saved source task wrongly replayed"),
+            repo=self.repo, max_steps=3, runner=observed,
         )
-        self.assertEqual(again["new_tasks_completed_this_process"], 0)
+        self.assertEqual(again["new_tasks_completed_this_process"], 3)
+        self.assertEqual(again["tasks_executed_or_reused"], 6)
+        self.assertEqual(len(calls), 6)
         self.assertTrue(all(x["receipt_reused_after_restart"]
-                            for x in again["tasks"]))
+                            for x in again["tasks"][:3]))
 
     def test_one_step_per_invocation_resumes_to_next_pending(self):
         seen = []
@@ -292,6 +296,49 @@ class OfflineDevelopmentAutoforwardTests(unittest.TestCase):
         self.assertIn("HISTORICAL_STACK_BATCH_REVIEW_REJECTED",
                       output.getvalue())
 
+    def test_verified_earlier_milestones_automatically_advance_to_final_history(self):
+        observed = []
+        def run(repo, modules):
+            observed.append(modules)
+            return _accepted(repo, modules)
+        start = dev.advance_offline(
+            repo=self.repo, max_steps=3, runner=run)
+        self.assertEqual(start["tasks_executed_or_reused"], 3)
+        self.assertEqual(start["new_tasks_completed_this_process"], 3)
+        self.assertEqual(len(observed), 3)
+        next_run = dev.advance_offline(
+            repo=self.repo, max_steps=12, runner=run)
+        self.assertEqual(next_run["tasks_executed_or_reused"], len(dev.TASKS))
+        self.assertEqual(next_run["new_tasks_completed_this_process"], 12)
+        self.assertEqual(next_run["offline_source_regression_pass_count"],
+                         len(dev.TASKS))
+        self.assertEqual(len(observed), len(dev.TASKS))
+        self.assertEqual([x["batch_number"] for x in next_run["tasks"]],
+                         [19, 20, 21] + list(range(37, 49)))
+        self.assertFalse(next_run["historical_semantic_review_completed"])
+        self.assertFalse(next_run["student_publication_authorized"])
+        again = dev.advance_offline(
+            repo=self.repo,
+            runner=lambda *_: self.fail("Finished milestone replayed"))
+        self.assertEqual(again["new_tasks_completed_this_process"], 0)
+        self.assertTrue(all(t["receipt_reused_after_restart"]
+                            for t in again["tasks"]))
+
+    def test_last_historical_window_follows_exact_head_only(self):
+        final = dev.TASKS[-1]
+        self.assertEqual(final["batch"], 48)
+        self.assertEqual(final["last_commit_prefix"], "<CURRENT_HEAD>")
+        self.plan["batches"][47]["end_inclusive_sha"] = "e" * 40
+        with self.assertRaises(CampaignRecoveryBlocked):
+            dev.advance_offline(
+                repo=self.repo, runner=_accepted)
+
+    def test_bounded_max_tasks_rejects_unlimited_work(self):
+        with self.assertRaises(CampaignRecoveryBlocked):
+            dev.advance_offline(
+                repo=self.repo, max_steps=len(dev.TASKS)+1,
+                runner=lambda *_: self.fail("Unbounded developer work"))
+
     def test_all_skipped_runner_cannot_claim_pass(self):
         def empty(repo, modules):
             return {
@@ -313,7 +360,7 @@ class OfflineDevelopmentAutoforwardTests(unittest.TestCase):
                         "reported_test_count": 2, "reported_skip_count": 0,
                         "captured_output_sha256": "4" * 64}
             return _accepted(_repo, modules)
-        out = dev.advance_offline(repo=self.repo, runner=one_fails)
+        out = dev.advance_offline(repo=self.repo, max_steps=3, runner=one_fails)
         self.assertEqual(len(observed), 3)
         self.assertEqual(out["offline_source_regression_pass_count"], 2)
         self.assertEqual(out["status"],

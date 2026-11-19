@@ -1,5 +1,17 @@
 # MicroGen_AI_Web failure-to-fix ledger — current continuation
 
+## MG-V7-FINITE-ROADMAP-EXHAUSTED-WHILE-ELIGIBLE-HISTORICAL-WORK-REMAINS-V1 — 19 Nov 2026
+
+**Recurring gap:** PR539 implemented verified automatic forward and restart for batches 19–21 (50 PASS 10 skips and hosted CI #824 successful), but its fixed three-task roadmap exhausted while other original historical source code security/recovery tasks remained eligible, causing new chat prompts to trigger one-off manual batch regression. Historical failure registry and PR539 executable logic show the same type of continuation boundary; do not create a separate model/provider worker to solve it.
+
+**Reused executable remedy:** extend existing `windows_offline_development_forward_controller` original-source curated `TASKS` with 12 eligible, independently baseline-tested batch37–48 suites, preserve exact source/HEAD identity and current controlled batch source test hashes, auto-forward next task after saved results, and consume at most two source-only attempts each. Existing normal historical planner CLI now selects full finite authorized task roadmap by default when explicit offline auto-forward mode is chosen. For final batch48, require current exact HEAD rather than assuming a last SHA constant while committing more code. Never rerun ambiguous old Gemini/PDF requests or mark source G2/G3 academic/audio accepted.
+
+**Real baseline:** original PR539 source SHA native Dell-115 network-disabled 12 batches **342 selected tests PASS, zero skips**. Updated controller/planner/registry regressions **39 PASS**, including first 3 saved tasks -> 12 new automatically, anti-replay, tampered final SHA rejection; source diff clean. PR540 exact-head committed production run, hosted CI, independent restart and release board still required. See `docs/PR540_V7_REMAINING_HISTORICAL_OFFLINE_AUTOFORWARD_20261119.md`.
+
+---
+
+# MicroGen_AI_Web failure-to-fix ledger — current continuation
+
 ## MG-V7-OFFLINE-CODE-DEVELOPMENT-STOPS-BETWEEN-ELIGIBLE-MILESTONES-V1 — 19 Nov 2026
 
 **Historical incident/contract:** Prior 48-batch structural source audit automatically advanced between Git patch checks, but subsequent code-regression and stage-by-stage developer tasks were invoked individually from conversations. The user-supplied `auto_cont_dev_prompt_v7.md` requires self-advancing executable, persisted development roadmap rather than repeated 'proceed'. Existing `windows_lecture_progression_coordinator` intentionally limits actual source-bearing provider stages to one per call to protect original Send, so must not relax that limit.
