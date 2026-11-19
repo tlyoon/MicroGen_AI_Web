@@ -211,6 +211,28 @@ class OuterSupervisorContinuityTests(unittest.TestCase):
         with self.assertRaises(CampaignRecoveryBlocked):
             v71.supervise(self.repo)
 
+    def test_scheduled_source_only_skips_browser_owned_model_stage(self):
+        self._install_fake_dispatcher()
+        with patch.dict(os.environ,
+                        {"MICROGEN_V71_BACKGROUND_SOURCE_ONLY": "1"}):
+            result = v71.supervise(self.repo)
+        self.assertEqual(result["new_stage_dispatches_this_process"], 5)
+        self.assertNotIn(
+            "original_g2_v1_synthetic_presend_inventory", self.calls)
+        self.assertIn(
+            "original_g2_v1_synthetic_presend_inventory",
+            result["next_not_started_stages"])
+        with patch.dict(os.environ,
+                        {"MICROGEN_V71_BACKGROUND_SOURCE_ONLY": "1"}):
+            second = v71.supervise(self.repo)
+        self.assertEqual(second["new_stage_dispatches_this_process"], 0)
+        interactive = v71.supervise(self.repo)
+        self.assertEqual(interactive["new_stage_dispatches_this_process"], 1)
+        self.assertEqual(self.calls.count(
+            "original_g2_v1_synthetic_presend_inventory"), 1)
+        again = v71.supervise(self.repo)
+        self.assertEqual(again["new_stage_dispatches_this_process"], 0)
+
     def test_no_imaginary_persistent_runner_claim(self):
         self._install_fake_dispatcher()
         outcome = v71.supervise(self.repo, max_new_dispatches=1)
