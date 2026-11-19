@@ -184,7 +184,7 @@ class OfflineDevelopmentAutoforwardTests(unittest.TestCase):
         self.assertTrue(all(len(x["source_sha256"]) == 64 for x in source))
 
     def test_forged_batch_membership_stops_before_test(self):
-        self.plan["batches"][18]["first_commit_sha"] = "0" * 40
+        self.plan["batches"][0]["first_commit_sha"] = "0" * 40
         with self.assertRaises(CampaignRecoveryBlocked):
             dev.advance_offline(
                 repo=self.repo, runner=lambda *_:
@@ -252,7 +252,7 @@ class OfflineDevelopmentAutoforwardTests(unittest.TestCase):
         again = dev.advance_offline(repo=self.repo, max_steps=1, runner=fails)
         self.assertEqual(n["count"], 2)
         self.assertTrue(again["tasks"][0]["receipt_reused_after_restart"])
-        self.assertEqual(again["tasks"][1]["batch_number"], 20)
+        self.assertEqual(again["tasks"][1]["batch_number"], 2)
 
     def test_normal_historical_plan_cli_routes_to_executable_controller(self):
         from contextlib import redirect_stdout
@@ -311,14 +311,14 @@ class OfflineDevelopmentAutoforwardTests(unittest.TestCase):
         self.assertEqual(start["new_tasks_completed_this_process"], 3)
         self.assertEqual(len(observed), 3)
         next_run = dev.advance_offline(
-            repo=self.repo, max_steps=27, runner=run)
+            repo=self.repo, max_steps=45, runner=run)
         self.assertEqual(next_run["tasks_executed_or_reused"], len(dev.TASKS))
-        self.assertEqual(next_run["new_tasks_completed_this_process"], 27)
+        self.assertEqual(next_run["new_tasks_completed_this_process"], 45)
         self.assertEqual(next_run["offline_source_regression_pass_count"],
                          len(dev.TASKS))
         self.assertEqual(len(observed), len(dev.TASKS))
         self.assertEqual([x["batch_number"] for x in next_run["tasks"]],
-                         list(range(19, 49)))
+                         list(range(1, 49)))
         self.assertFalse(next_run["historical_semantic_review_completed"])
         self.assertFalse(next_run["student_publication_authorized"])
         again = dev.advance_offline(
@@ -327,6 +327,22 @@ class OfflineDevelopmentAutoforwardTests(unittest.TestCase):
         self.assertEqual(again["new_tasks_completed_this_process"], 0)
         self.assertTrue(all(t["receipt_reused_after_restart"]
                             for t in again["tasks"]))
+
+    def test_all_48_historical_windows_are_source_enrolled(self):
+        self.assertEqual([t["batch"] for t in dev.TASKS], list(range(1, 49)))
+        self.assertEqual(dev.MAX_STEPS, 48)
+        self.assertEqual(len({t["id"] for t in dev.TASKS}), 48)
+        for task in dev.TASKS:
+            self.assertRegex(task["first_commit_prefix"], r"^[0-9a-f]{7}$")
+            if task["batch"] != 48:
+                self.assertRegex(task["last_commit_prefix"], r"^[0-9a-f]{7}$")
+            self.assertGreaterEqual(len(task["modules"]), 1)
+            self.assertLessEqual(len(task["modules"]), 4)
+            if task["batch"] <= 18:
+                self.assertEqual(len(task["modules"]), 2)
+            self.assertTrue(all(name.startswith(("tests.", "selenium_pipeline.tests."))
+                                for name in task["modules"]))
+        self.assertFalse(self.plan.get("historical_stack_review_completed", False))
 
     def test_original_terminal_window_accepts_later_head_and_rechecks_anchor(self):
         final = dev.TASKS[-1]
@@ -342,7 +358,7 @@ class OfflineDevelopmentAutoforwardTests(unittest.TestCase):
         })
         passed = dev.advance_offline(
             repo=self.repo, runner=_accepted)
-        self.assertEqual(passed["tasks_executed_or_reused"], 30)
+        self.assertEqual(passed["tasks_executed_or_reused"], 48)
         with patch.object(dev, "_require_historical_anchor",
                           side_effect=CampaignRecoveryBlocked(
                               "old anchor not in original batch")):

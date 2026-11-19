@@ -476,7 +476,7 @@
       "verification_test": "tests/test_windows_offline_development_forward_controller.py",
       "last_verified_date": "2026-11-19",
       "environment": "Dell-115 native Windows local offline development and source-bound historical task checkpoints",
-      "retry_policy": "finite 30 source-verified historical offline tasks per call, 2 source-only attempts each; original source review and paid/media authorization remain separate",
+      "retry_policy": "finite 48 source-verified historical offline tasks per call, 2 source-only attempts each; original source review and paid/media authorization remain separate",
       "enabled": true
     },
     {
