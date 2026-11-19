@@ -75,9 +75,9 @@ class OuterSupervisorContinuityTests(unittest.TestCase):
         result = v71.supervise(self.repo)
         self.assertEqual(self.calls,
                          [x["id"] for x in v71.STAGES])
-        self.assertEqual(result["new_stage_dispatches_this_process"], 4)
+        self.assertEqual(result["new_stage_dispatches_this_process"], 5)
         self.assertEqual(result["observable_dispatch_pids"],
-                         [1001, 1002, 1003, 1004])
+                         [1001, 1002, 1003, 1004, 1005])
         self.assertEqual(result["next_not_started_stages"], [])
         count, hash_value = v71._validated_log(
             Path(result["events_file"]))
@@ -106,6 +106,7 @@ class OuterSupervisorContinuityTests(unittest.TestCase):
             "curated_offline_source_regressions",
             "global_historical_source_gap_inventory",
             "original_g2_readonly_claim_reconciliation",
+            "recent_uncovered_historical_patch_checks",
         ])
         self.assertIn("independent_readonly_release_board",
                       result["next_not_started_stages"])
@@ -124,9 +125,11 @@ class OuterSupervisorContinuityTests(unittest.TestCase):
         self.assertEqual(third["new_stage_dispatches_this_process"], 1)
         fourth = v71.supervise(self.repo, max_new_dispatches=1)
         self.assertEqual(fourth["new_stage_dispatches_this_process"], 1)
-        fifth = v71.supervise(self.repo)
-        self.assertEqual(fifth["new_stage_dispatches_this_process"], 0)
-        self.assertEqual(len(self.calls), 4)
+        fifth = v71.supervise(self.repo, max_new_dispatches=1)
+        self.assertEqual(fifth["new_stage_dispatches_this_process"], 1)
+        sixth = v71.supervise(self.repo)
+        self.assertEqual(sixth["new_stage_dispatches_this_process"], 0)
+        self.assertEqual(len(self.calls), 5)
 
     def test_uncertain_claim_does_not_replay_dispatch_and_fans_out(self):
         self._install_fake_dispatcher()
@@ -221,6 +224,7 @@ class OuterSupervisorContinuityTests(unittest.TestCase):
             "curated_offline_source_regressions",
             "global_historical_source_gap_inventory",
             "original_g2_readonly_claim_reconciliation",
+            "recent_uncovered_historical_patch_checks",
         ])
         self.assertIn("independent_readonly_release_board",
                       result["next_not_started_stages"])
@@ -254,7 +258,7 @@ class OuterSupervisorContinuityTests(unittest.TestCase):
             },
         }
         with patch.object(v71.subprocess, "run",
-                          return_value=SimpleNamespace(stdout=self.head + "\\n")):
+                          return_value=SimpleNamespace(stdout=self.head + "\n")):
             with patch("selenium_pipeline.g2_forward_recovery_engine.run",
                        return_value=report) as runner:
                 result = v71._worker_stage(
@@ -288,6 +292,104 @@ class OuterSupervisorContinuityTests(unittest.TestCase):
                         "G2 no-Send handoff recovery missing"):
                     v71._worker_stage(
                         "original_g2_readonly_claim_reconciliation", self.repo)
+
+    def test_new_history_patch_window_dispatches_existing_source_checker(self):
+        from types import SimpleNamespace
+        from selenium_pipeline.windows_offline_development_forward_controller import TASKS
+        self.assertEqual(len(TASKS), 48)
+        with patch.object(v71.subprocess, "run",
+                          return_value=SimpleNamespace(stdout=self.head + "\n")):
+            with patch.object(v71, "plan_stack", return_value={
+                "status": "HISTORICAL_STACK_READ_ONLY_BATCH_PLAN_AVAILABLE",
+                "local_worktree_clean": True, "exact_head_sha": self.head,
+                "batches": [{"batch_number": i} for i in range(1, 50)]}):
+                good = {
+                    "status": "OFFLINE_BATCH_PATCH_CHECKS_COMPLETE_CODE_REVIEW_PENDING",
+                    "exact_head_sha": self.head,
+                    "first_batch": 49, "last_batch": 49,
+                    "batch_count_completed": 1,
+                    "commits_checked_or_reused": 6,
+                    "quarantined_batch_numbers": [],
+                    "model_or_tts_calls": 0,
+                    "semantic_code_review_completed": False,
+                    "automatic_merge_authorized": False,
+                    "student_publication_authorized": False}
+                with patch(
+                    "selenium_pipeline.windows_historical_stack_batch_executor.execute_batches",
+                    return_value=good) as executor:
+                    result = v71._worker_stage(
+                        "recent_uncovered_historical_patch_checks", self.repo)
+                executor.assert_called_once_with(
+                    repo=self.repo, first_batch=49, last_batch=49)
+                self.assertTrue(result["accepted"])
+                self.assertEqual(result["reviewed_source_windows"], [49])
+                self.assertEqual(result["commits_checked_or_reused"], 6)
+                self.assertFalse(result["semantic_code_review_completed"])
+                self.assertFalse(result["student_publication_authorized"])
+                self.assertEqual(result["model_or_tts_calls"], 0)
+                with patch(
+                    "selenium_pipeline.windows_historical_stack_batch_executor.execute_batches",
+                    return_value={**good, "model_or_tts_calls": 1}):
+                    with self.assertRaises(CampaignRecoveryBlocked):
+                        v71._worker_stage(
+                            "recent_uncovered_historical_patch_checks", self.repo)
+
+    def test_source_history_gap_absent_needs_no_unsafe_git_patch_execution(self):
+        from types import SimpleNamespace
+        with patch.object(v71.subprocess, "run",
+                          return_value=SimpleNamespace(stdout=self.head + "\n")):
+            with patch.object(v71, "plan_stack", return_value={
+                "status": "HISTORICAL_STACK_READ_ONLY_BATCH_PLAN_AVAILABLE",
+                "local_worktree_clean": True, "exact_head_sha": self.head,
+                "batches": [{"batch_number": i} for i in range(1, 49)]}):
+                with patch(
+                    "selenium_pipeline.windows_historical_stack_batch_executor.execute_batches",
+                    side_effect=AssertionError("No uncurated window exists")):
+                    result = v71._worker_stage(
+                        "recent_uncovered_historical_patch_checks", self.repo)
+                self.assertTrue(result["accepted"])
+                self.assertEqual(result["reviewed_source_windows"], [])
+                self.assertFalse(result["semantic_code_review_completed"])
+
+    def test_unbounded_or_unregistered_history_gap_never_runs_checks(self):
+        from types import SimpleNamespace
+        with patch.object(v71.subprocess, "run",
+                          return_value=SimpleNamespace(stdout=self.head + "\n")):
+            source = {"status": "HISTORICAL_STACK_READ_ONLY_BATCH_PLAN_AVAILABLE",
+                      "local_worktree_clean": True, "exact_head_sha": self.head,
+                      "batches": [{"batch_number": i} for i in range(1, 54)]}
+            with patch.object(v71, "plan_stack", return_value=source):
+                with patch(
+                    "selenium_pipeline.windows_historical_stack_batch_executor.execute_batches",
+                    side_effect=AssertionError("Unbounded scan dispatched")):
+                    with self.assertRaisesRegex(
+                            CampaignRecoveryBlocked, "finite review bound"):
+                        v71._worker_stage(
+                            "recent_uncovered_historical_patch_checks", self.repo)
+            with patch("selenium_pipeline.recovery_registry.lookup_mechanism",
+                       return_value=None):
+                with self.assertRaisesRegex(
+                        CampaignRecoveryBlocked, "uncovered history handoff"):
+                    v71._worker_stage(
+                        "recent_uncovered_historical_patch_checks", self.repo)
+
+    def test_normal_global_cli_default_includes_fifth_registered_stage(self):
+        from selenium_pipeline.windows_historical_stack_batch_plan import main
+        sentinel = {
+            "status": "V71_GLOBAL_HANDOFF_VERIFIED_REVIEW_PENDING",
+            "new_stage_dispatches_this_process": len(v71.STAGES),
+            "next_not_started_stages": [],
+            "student_publication_authorized": False,
+        }
+        buffer = io.StringIO()
+        with patch.object(v71, "supervise", return_value=sentinel) as invoked:
+            with redirect_stdout(buffer):
+                code = main(["--repo", str(self.repo),
+                             "--supervise-project-v71"])
+        self.assertEqual(code, 0)
+        invoked.assert_called_once_with(
+            self.repo, max_new_dispatches=len(v71.STAGES))
+        self.assertEqual(len(v71.STAGES), 5)
 
     def test_worker_cli_rejects_foreign_receipt_path(self):
         from selenium_pipeline.windows_v71_project_supervisor import main
@@ -393,7 +495,7 @@ class OuterSupervisorContinuityTests(unittest.TestCase):
             with patch.object(v71, "_dispatch", side_effect=select):
                 report = v71.supervise(self.repo)
         cleanup.assert_called_once()
-        self.assertEqual(report["new_stage_dispatches_this_process"], 3)
+        self.assertEqual(report["new_stage_dispatches_this_process"], 4)
         state=v71._state_dir(self.repo, self.head)
         old=v71._verified_result(state,self.repo,self.head,v71.STAGES[0])
         self.assertFalse(old["accepted"])

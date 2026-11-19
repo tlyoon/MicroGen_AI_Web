@@ -462,7 +462,7 @@
       "verification_test": "tests/test_windows_v71_project_supervisor.py",
       "last_verified_date": "2026-11-19",
       "environment": "Dell-115 native Windows finite offline/read-only outer supervisor and durable actual child PID event evidence",
-      "retry_policy": "finite 4 known project stages, 1 dispatch claim per source task; uncertain child or external action never replayed, independent tasks continue",
+      "retry_policy": "finite 5 known project stages, 1 dispatch claim per source task; uncertain child or external action never replayed, independent tasks continue",
       "enabled": true
     },
     {
@@ -477,6 +477,20 @@
       "last_verified_date": "2026-11-19",
       "environment": "Dell-115 48-task source-only Git regression worker in the real global v7.1 supervisor",
       "retry_policy": "finite 2400-second outer wait versus historical 900-second premature timeout; existing per-task 150-second and two source-only attempts retained, kill full Windows descendant tree on exhausted timeout; source-locked claim never replayed",
+      "enabled": true
+    },
+    {
+      "id": "V71_UNCOVERED_GIT_SOURCE_PATCH_HANDOFF",
+      "match_type": "global_checkpoint_handoff",
+      "signature": "V71_UNCOVERED_HISTORICAL_BATCH_PATCH_CHECK_NOT_DISPATCHED",
+      "mechanism": "OBSERVABLE_GLOBAL_STAGE_HANDOFF_WITH_SOURCE_LOCKED_EVENTS",
+      "classification": "LATER_HISTORICAL_BATCHES_NOT_AUTOMATICALLY_CHECKED",
+      "handler": "NORMAL_V71_PROJECT_WIDE_OBSERVABLE_SUPERVISOR",
+      "preconditions": "clean exact SHA native Dell Windows source worktree, original Git history beyond curated B48, no network, model, paid or publication operations",
+      "verification_test": "tests/test_windows_v71_project_supervisor.py",
+      "last_verified_date": "2026-11-19",
+      "environment": "Dell-115 read-only source-bound current Git patch integrity checks and immutable LOCALAPPDATA receipts",
+      "retry_policy": "finite at most 4 contiguous later Git batches beyond source-locked B48 per exact-head supervisor, no retry of uncertain external work, no semantic approval or student release",
       "enabled": true
     },
     {

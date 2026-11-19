@@ -1,5 +1,15 @@
 # MicroGen_AI_Web failure-to-fix ledger — current continuation
 
+## MG-V71-UNCOVERED-GIT-SOURCE-WINDOW-NOT-DISPATCHED — 19 Nov 2026
+
+**Historical failure:** PR547's v7.1 global supervisor can catalog original history windows B49+ after the manually source-curated 48-task code-regression queue, but no executable global stage automatically checks the SHA-verified Git patch integrity of later uncovered windows. The fixed local queue ends while another independent source-only review action remains eligible. Normal original Git read-only planner at exact PR547 commit `348515ed` proved B49 contained six newly committed revisions, and the project's existing `execute_batches --first-batch 49 --last-batch 49` accepted the genuine source-only batch patch integrity check; code/scientific review and student publication remain FALSE.
+
+**Existing verified remedy reused:** New `recent_uncovered_historical_patch_checks` added to the already registered outer `windows_v71_project_supervisor` stage list. It requires the independent history-gap inventory and calculates only *contiguous* new original Git windows beyond the SHA-curated historical TASKS, bounded to four windows and one exact source HEAD. It delegates to the existing `windows_historical_stack_batch_executor.execute_batches` (no new Git parser), reusing immutable SHA/checker-version batch receipts and source-change protections. Missing `V71_UNCOVERED_GIT_SOURCE_PATCH_HANDOFF` registry, source drift, out-of-range, fake model calls, semantic claims or receipt mismatch fails closed, and actual patch warnings quarantine without suppressing independent tasks.
+
+**Verification:** Synthetic source/history-mock fault injection verifies real executor selection, no-gap no-op, five-window rejection, retired registry, forged model/TTS activity; outer controller success/failure/anti-replay, CLI default dispatch fanout and Windows descendant cleanup preserved. First focused suite found mocked Git HEAD response encoded as literal backslash-n, and a historical 3-stage-count assertion; fixed only those test fixtures, not the production SHA guard. Focused **31/31 PASS**, diff check clean. Broader regression, exact commit, actual source-bound fifth-stage worker, hosted CI, real normal five-stage supervisor, restart zero-repeat and read-only board required before engineering acceptance. See `docs/PR548_V71_DYNAMIC_UNCOVERED_HISTORY_SOURCE_PATCH_HANDOFF_20261119.md`.
+
+---
+
 ## MG-V71-G2-SOURCE-RECONCILIATION-OMITTED-FROM-GLOBAL-HANDOFF — 19 Nov 2026
 
 **Original failure class:** PR545 combined v7.1 global supervisor was limited to 3 safe workstreams; after verifying original code regressions, history-gap inventory and the release board, it recorded `LOCAL_SAFE_ROADMAP_EXHAUSTED_PROJECT_QA_REMAINS_BLOCKED`. The real G2 original-source queue remained eligible for **read-only claim reconciliation**, but no global stage existed for it. The prior original Gemini synthetic dual-PDF Send is ambiguous/exhausted and cannot be automatically resent.
