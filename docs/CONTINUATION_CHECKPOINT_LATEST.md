@@ -1,3 +1,13 @@
+# 19 November 2026 — all eligible historical offline source tasks and stable B48 anchor
+
+**Draft PR541 in isolated Dell-115 worktree** `%LOCALAPPDATA%\MicroGen_PR541_20261119`, based on accepted engineering PR540 exact `4d6ece23fee1ba3cf689f64d4284914ea541d2f8`. PR540 completed genuine 15/15 task run (395 source-only tests, 10 skips), separate process reused 15/15 with no test rerun, GitHub Windows CI #825 both jobs SUCCESS and exact-head read-only release board engineering-ready TRUE/release BLOCKED. Original PR540 board retained 48 historical Git patch checks/8 warnings and 6 unaccepted scientific/media/release gates.
+
+**Historical gap and remedy:** PR540 task roadmap covered B19–21 and B37–48 but not 22–36. Source Git SHA and original touched files for all 15 missing windows reviewed; no-network current-code baselines **210 tests PASS, 19 skips**. Existing registered offline v7 queue expanded to *all 30 SHA-bound B19–48 source regression tasks*, no new parallel runner or Gemini Send. Resolved future changing HEAD invariant from fragile `<CURRENT_HEAD>` on B48 into original **048c0cf** member in B48 verified by bounded real Git `rev-list`, preserving original B48 first SHA and exact 20-member receipt. This avoids repeat repair as future PRs create B49. Fault-injection and real-Git anchor test now run unmocked, while synthetic repo modules still use injected fake Git planner. Controller/planner/registry targeted **40/40 tests PASS**, source Git patch check clean. Next: commit, real full 30-task on exact committed source, second restart, Windows hosted CI, release-board restart. Keep scientific G2/G3 and independent media gates FALSE; all PRs draft/unmerged, source files untouched.
+
+See `docs/PR541_V7_COMPLETE_ELIGIBLE_HISTORICAL_ROADMAP_20261119.md`.
+
+---
+
 # 19 November 2026 — V7 historical offline queue extended safely
 
 **PR540 isolated Dell-115 source branch:** `feature/pr540-historical-recovery-roadmap-20261119`, stacked on draft PR539 exact `048c0cf18d35c08d577baafa38e5a1c1d110c728`. User supplied second duplicate `auto_cont_dev_prompt_v7.md` Drive file ID `1DyTFYcjE4ledq7CUGDpiwSpOZ2fvreSW`; content unchanged from v7. Existing PR539 registered offline controller completed its initial only-three-task roadmap, while next safe historical source windows remained eligible. Reused the proven code/registry rather than creating another controller.

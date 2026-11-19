@@ -1,5 +1,17 @@
 # MicroGen_AI_Web failure-to-fix ledger — current continuation
 
+## MG-V7-MISSING-ORIGINAL-HISTORICAL-WINDOWS_AND_CHANGING_TERMINAL-HEAD-V1 — 19 Nov 2026
+
+**Historical root causes:** PR540 code controller registered source-only auto-forward over 15 windows B19–21 and B37–48, leaving already-reviewed B22–36 outside executable roadmap. B48 terminal condition required current Git HEAD to be the B48 end SHA, so one more PR could move HEAD into B49 and block old historical window recheck despite original code still unchanged.
+
+**Verified bounded remedy:** Reuse `HISTORICAL_OFFLINE_DEVELOPMENT_AUTOFORWARD` existing normal v7 executable controller, add all 15 source/SHA-verified missing windows B22–36 after each independent network-denied baseline PASS (210 tests, 19 skips), total 30 B19–48 tasks. Change B48 to a *stable committed 048c0cf SHA anchor* verified against original exact 20-member B48 Git range, preserving full original touched-path evidence and avoiding future HEAD drift repair. Original B48 first SHA checked, outside/malformed anchors and wrong counts fail closed. Finite two source-only retries, hard no-network, no model/TTS/Cloud/publish, source-bound receipts, stage auto-forward and retries unchanged.
+
+**Fault injection:** Synthetic 30-task transition after 3 completed task receipts, simulated B49 future HEAD, corrupt anchor, real temp Git wrong prefix and wrong member count. Initial test accidentally used a global mock for the real Git case; fixed test to call the unmocked helper. Controller/planner/registry **40/40 tests PASS**; no source modification or external charges. Full exact-head commit/CI/restart and board next. Do not confuse regression coverage with 48-batch semantic acceptance or original G2/G3 science/media approval.
+
+---
+
+# MicroGen_AI_Web failure-to-fix ledger — current continuation
+
 ## MG-V7-FINITE-ROADMAP-EXHAUSTED-WHILE-ELIGIBLE-HISTORICAL-WORK-REMAINS-V1 — 19 Nov 2026
 
 **Recurring gap:** PR539 implemented verified automatic forward and restart for batches 19–21 (50 PASS 10 skips and hosted CI #824 successful), but its fixed three-task roadmap exhausted while other original historical source code security/recovery tasks remained eligible, causing new chat prompts to trigger one-off manual batch regression. Historical failure registry and PR539 executable logic show the same type of continuation boundary; do not create a separate model/provider worker to solve it.
