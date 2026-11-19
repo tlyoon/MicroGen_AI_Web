@@ -5,6 +5,7 @@ from contextlib import redirect_stdout
 import io
 import json
 import os
+import subprocess
 from pathlib import Path
 import tempfile
 import unittest
@@ -339,6 +340,91 @@ class OuterSupervisorContinuityTests(unittest.TestCase):
         self.assertEqual(rc, 2)
         self.assertIn("HISTORICAL_STACK_BATCH_REVIEW_REJECTED",
                       buf.getvalue())
+
+
+    def test_real_curated_launcher_receives_registered_long_bounded_wait(self):
+        from selenium_pipeline.recovery_registry import lookup_mechanism
+        task = v71.STAGES[0]
+        self.assertGreater(task["timeout"], 900)
+        self.assertLessEqual(task["timeout"], 3600)
+        self.assertEqual(lookup_mechanism(
+            "global_checkpoint_handoff", v71.LONG_QUEUE_TIMEOUT_SIGNATURE),
+            v71.LONG_QUEUE_TIMEOUT_MECHANISM)
+        state = v71._state_dir(self.repo, self.head)
+        class SlowButCompletes:
+            pid = 9129
+            def wait(child, timeout):
+                self.assertEqual(timeout, 2400)
+                v71._atomic_create(
+                    state / (task["id"] + ".worker-result.json"),
+                    {
+                        "schema_version": v71.SCHEMA,
+                        "status": "WORKER_SOURCE_STAGE_RECORDED",
+                        "stage_id": task["id"],
+                        "worker_source_policy_sha256": v71._policy_hash(),
+                        "outcome": {"accepted": True,
+                                    "status": "OFFLINE_QUEUE_CHECKED",
+                                    "selected_tasks": 48, "passed": 48},
+                        "student_publication_authorized": False,
+                    })
+                return 0
+        result = self.real_dispatch(
+            self.repo, state, self.head, task, state / "events.jsonl",
+            launcher=lambda command, **kwargs: SlowButCompletes())
+        self.assertTrue(result["accepted"])
+        self.assertEqual(result["observed_pid"], 9129)
+        events=(state / "events.jsonl").read_text()
+        self.assertIn("next_task_dispatched", events)
+        self.assertIn("checkpoint_committed", events)
+
+    def test_curated_timeout_cleans_descendants_and_fans_out(self):
+        self.calls = []
+        class StalledChild:
+            pid = 9228
+            def wait(self, timeout):
+                raise subprocess.TimeoutExpired("offline-curated", timeout)
+        def select(repo, state, head, task, events):
+            if task["id"] == "curated_offline_source_regressions":
+                return self.real_dispatch(
+                    repo, state, head, task, events,
+                    launcher=lambda command, **kwargs: StalledChild())
+            return self._fake_remaining(repo, state, head, task, events)
+        with patch.object(v71, "kill_descendants") as cleanup:
+            with patch.object(v71, "_dispatch", side_effect=select):
+                report = v71.supervise(self.repo)
+        cleanup.assert_called_once()
+        self.assertEqual(report["new_stage_dispatches_this_process"], 3)
+        state=v71._state_dir(self.repo, self.head)
+        old=v71._verified_result(state,self.repo,self.head,v71.STAGES[0])
+        self.assertFalse(old["accepted"])
+        self.assertEqual(old["stage_evidence"]["exit_code"], 124)
+        self.assertIn("global_historical_source_gap_inventory",self.calls)
+        self.assertIn("original_g2_readonly_claim_reconciliation",self.calls)
+        self.assertIn("independent_readonly_release_board",
+                      report["next_not_started_stages"])
+
+    def test_long_queue_timeout_registry_disabled_fails_before_child_claim(self):
+        state=v71._state_dir(self.repo,self.head)
+        events=state/"events.jsonl"
+        with patch("selenium_pipeline.recovery_registry.lookup_mechanism",
+                   return_value=None):
+            with self.assertRaisesRegex(
+                    CampaignRecoveryBlocked,"source-queue watchdog"):
+                self.real_dispatch(
+                    self.repo,state,self.head,v71.STAGES[0],events,
+                    launcher=lambda *args,**kwargs:
+                        self.fail("Unregistered worker must not be launched"))
+        self.assertFalse((state/(v71.STAGES[0]["id"]+".intent.json")).exists())
+
+    def test_old_premature_timeout_is_not_an_admissible_curated_policy(self):
+        old={**v71.STAGES[0],"timeout":900}
+        state=v71._state_dir(self.repo,self.head)
+        with self.assertRaisesRegex(
+                CampaignRecoveryBlocked,"source-queue watchdog"):
+            self.real_dispatch(
+                self.repo,state,self.head,old,state/"events.jsonl",
+                launcher=lambda *args,**kwargs:
+                    self.fail("900-second worker must fail before launch"))
 
 
 if __name__ == "__main__":

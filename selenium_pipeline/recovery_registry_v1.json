@@ -466,6 +466,20 @@
       "enabled": true
     },
     {
+      "id": "V71_LONG_OFFLINE_QUEUE_TIMEOUT_RECOVERY",
+      "match_type": "global_checkpoint_handoff",
+      "signature": "V71_LONG_OFFLINE_QUEUE_PREMATURE_TIMEOUT",
+      "mechanism": "BOUNDED_LONG_OFFLINE_QUEUE_AND_DESCENDANT_CLEANUP",
+      "classification": "SOURCE_ONLY_48_TASKS_PROGRESSING_PAST_PREMATURE_900_SECOND_GLOBAL_TIMEOUT",
+      "handler": "NORMAL_V71_PROJECT_WIDE_OBSERVABLE_SUPERVISOR",
+      "preconditions": "exact clean isolated Dell Windows source SHA, registered curated 48-task offline queue, no network/model/TTS operations, existing immutable task receipts",
+      "verification_test": "tests/test_windows_v71_project_supervisor.py",
+      "last_verified_date": "2026-11-19",
+      "environment": "Dell-115 48-task source-only Git regression worker in the real global v7.1 supervisor",
+      "retry_policy": "finite 2400-second outer wait versus historical 900-second premature timeout; existing per-task 150-second and two source-only attempts retained, kill full Windows descendant tree on exhausted timeout; source-locked claim never replayed",
+      "enabled": true
+    },
+    {
       "id": "V71_ORIGINAL_G2_READONLY_PROJECT_HANDOFF",
       "match_type": "global_checkpoint_handoff",
       "signature": "V71_ORIGINAL_G2_READONLY_HANDOFF_NOT_ENROLLED",

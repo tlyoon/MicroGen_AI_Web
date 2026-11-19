@@ -20,7 +20,7 @@ import time
 from .original_multisource_recovery_campaign import (
     CampaignRecoveryBlocked, require,
 )
-from .three_pc_worker import LocalInstanceLock
+from .three_pc_worker import LocalInstanceLock, kill_descendants
 from .windows_offline_development_forward_controller import (
     MAX_STEPS, TASKS, advance_offline, _verify_repo,
     _atomic_create, _check_envelope,
@@ -31,7 +31,7 @@ SCHEMA = 1
 SIGNATURE = "V71_CHECKPOINT_WITHOUT_VERIFIED_PROJECT_NEXT_DISPATCH"
 MECHANISM = "OBSERVABLE_GLOBAL_STAGE_HANDOFF_WITH_SOURCE_LOCKED_EVENTS"
 STAGES = (
-    {"id": "curated_offline_source_regressions", "deps": (), "timeout": 900},
+    {"id": "curated_offline_source_regressions", "deps": (), "timeout": 2400},
     {"id": "global_historical_source_gap_inventory", "deps": (), "timeout": 180},
     {"id": "independent_readonly_release_board", "deps": (
         "curated_offline_source_regressions",
@@ -39,6 +39,8 @@ STAGES = (
     {"id": "original_g2_readonly_claim_reconciliation", "deps": (), "timeout": 180},
 )
 MAX_EVENTS_BYTES = 2_000_000
+LONG_QUEUE_TIMEOUT_SIGNATURE = "V71_LONG_OFFLINE_QUEUE_PREMATURE_TIMEOUT"
+LONG_QUEUE_TIMEOUT_MECHANISM = "BOUNDED_LONG_OFFLINE_QUEUE_AND_DESCENDANT_CLEANUP"
 
 BLOCKED_WORKSTREAMS = (
     {"id": "historical_semantic_review", "reason": "selected tests do not constitute independent review of all historical changes"},
@@ -349,8 +351,26 @@ def _commit_stage(state: Path, repo: Path, head: str, task: dict,
     return payload
 
 
+def _admit_long_source_queue_timeout(task: dict) -> None:
+    """Registered source-only recovery after 47/48 tasks hit the old 900-s limit.
+
+    This changes a bounded no-network *local* wait, not any Gemini/TTS Send,
+    academic approval, original-source claim, or student release boundary.
+    """
+    if task["id"] != "curated_offline_source_regressions":
+        return
+    from .recovery_registry import lookup_mechanism
+    require(lookup_mechanism("global_checkpoint_handoff",
+                             LONG_QUEUE_TIMEOUT_SIGNATURE)
+            == LONG_QUEUE_TIMEOUT_MECHANISM
+            and type(task["timeout"]) is int
+            and 900 < task["timeout"] <= 3600,
+            "Long offline source-queue watchdog absent or outside finite bounds")
+
+
 def _dispatch(repo: Path, state: Path, head: str, task: dict,
               event_file: Path, *, launcher=subprocess.Popen) -> dict:
+    _admit_long_source_queue_timeout(task)
     identity = _identity(repo, head, task["id"])
     intent = state / (task["id"] + ".intent.json")
     worker_result = state / (task["id"] + ".worker-result.json")
@@ -399,8 +419,10 @@ def _dispatch(repo: Path, state: Path, head: str, task: dict,
         try:
             code = proc.wait(timeout=task["timeout"])
         except subprocess.TimeoutExpired:
-            proc.kill()
-            proc.wait(timeout=10)
+            # Historical 900-s failure killed the outer worker while its
+            # final source-only test child was still outstanding. Reuse
+            # the existing Windows process-tree cleanup, not PID-only kill.
+            kill_descendants(proc)
             code = 124
     _verify_repo(repo)
     verified = _reconcile_worker_result(worker_result, task["id"])
