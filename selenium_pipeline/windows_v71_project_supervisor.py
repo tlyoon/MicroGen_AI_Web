@@ -582,6 +582,13 @@ def supervise(repo: Path, *, max_new_dispatches: int = len(STAGES)) -> dict:
             if saved is not None:
                 prior.append(saved)
                 continue
+            if (os.environ.get("MICROGEN_V71_BACKGROUND_SOURCE_ONLY") == "1"
+                    and task["id"] ==
+                    "original_g2_v1_synthetic_presend_inventory"):
+                # An unattended scheduled source checker cannot take over
+                # a user's authenticated browser, even for a no-Send gate.
+                # The stage remains visibly pending for an interactive run.
+                continue
             dependencies = [s for s in (*prior, *executed)
                             if s["stage_id"] in task["deps"]]
             if len(dependencies) != len(task["deps"]) or any(

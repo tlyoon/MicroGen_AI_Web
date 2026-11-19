@@ -522,6 +522,20 @@
       "enabled": true
     },
     {
+      "id": "V71_PERSISTENT_LIMITED_USER_SOURCE_ONLY_SCHEDULER",
+      "match_type": "global_checkpoint_handoff",
+      "signature": "V71_PERSISTENT_SOURCE_ONLY_RUNNER_NOT_INSTALLED",
+      "mechanism": "SCHEDULED_SOURCE_LOCKED_WINDOWS_RESTART_WITH_NO_GUI",
+      "classification": "V71_FINITE_SUPERVISOR_EXITS_WITH_NO_VERIFIED_AFTER_SESSION_EXECUTION",
+      "handler": "NORMAL_V71_PROJECT_WIDE_OBSERVABLE_SUPERVISOR",
+      "preconditions": "native Dell-115 same non-elevated logged-in authorized user; clean exact-HEAD isolated AppData worktree; immutable v7.1 source stage registry and background GUI exclusion; existing known task may not be overwritten",
+      "verification_test": "tests/test_windows_v71_scheduled_resume.py; tests/test_windows_v71_project_supervisor.py",
+      "last_verified_date": "2026-11-19",
+      "environment": "Dell-115 user-scoped Windows Task Scheduler 30-minute check and real normal six-stage source-only launcher",
+      "retry_policy": "finite source-only stage runner max 4800 seconds; exact-HEAD checkpoint reuse and per-stage dispatch lock; fresh schedule check verifies enabled task/action; no original Gemini academic/send/TTS/media/publish stages in background",
+      "enabled": true
+    },
+    {
       "id": "V71_ORIGINAL_G2_READONLY_PROJECT_HANDOFF",
       "match_type": "global_checkpoint_handoff",
       "signature": "V71_ORIGINAL_G2_READONLY_HANDOFF_NOT_ENROLLED",
