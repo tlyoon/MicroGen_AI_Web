@@ -109,6 +109,7 @@ def inspect_release(*, repo: Path, jobs_dir: Path,
                     reviewed_media_dir: Path | None = None,
                     include_stack_batches: bool = False,
                     execute_historical_batch_checks: bool = False,
+                    classify_historical_format_findings: bool = False,
                     verify_exact_head_ci_online: bool = False,
                     github_repository: str = "tlyoon/MicroGen_AI_Web",
                     audit_open_pr_stack_online: bool = False,
@@ -214,6 +215,17 @@ def inspect_release(*, repo: Path, jobs_dir: Path,
                 "Offline historical patch checks require normal batch plan")
         from .windows_historical_stack_batch_executor import execute_batches
         historical_batch_checks = execute_batches(repo=repo)
+    historical_format_disposition = {
+        "status": "HISTORICAL_SOURCE_FORMAT_DISPOSITION_NOT_REQUESTED",
+        "semantic_code_review_completed": False,
+        "automatic_merge_authorized": False,
+        "student_publication_authorized": False,
+    }
+    if classify_historical_format_findings:
+        require(include_stack_batches and execute_historical_batch_checks,
+                "Historical source disposition requires completed normal batch check")
+        from .windows_historical_format_disposition import classify_history
+        historical_format_disposition = classify_history(repo=repo)
     github_ci = {
         "status": "EXACT_HEAD_ONLINE_CI_CHECK_NOT_REQUESTED",
         "exact_head_windows_ci_verified": False,
@@ -297,6 +309,7 @@ def inspect_release(*, repo: Path, jobs_dir: Path,
         "autonomous_original_lecture_qa": autonomous_qa,
         "historical_stack_review_batch_plan": stack_plan,
         "historical_offline_patch_execution": historical_batch_checks,
+        "historical_source_format_disposition": historical_format_disposition,
         "github_open_pr_dependency_catalog_read_only": open_pr_catalog,
         "exact_head_github_windows_ci_evidence": github_ci,
         "engineering_technical_release_candidate_ready": engineering_ready,
@@ -352,6 +365,8 @@ def main(argv=None) -> int:
                    help="Read-only bounded plan for historical commit review, never merge")
     p.add_argument("--execute-historical-batch-checks", action="store_true",
                    help="With batch plan, run and checkpoint all offline Git patch checks; no approval")
+    p.add_argument("--classify-historical-format-findings", action="store_true",
+                   help="Opt-in source-bound Git warning disposition after batch execution; no semantic approval")
     p.add_argument("--verify-exact-head-ci-online", action="store_true",
                    help="Opt-in GitHub HTTPS read-only CI lookup, never publish")
     p.add_argument("--github-repository", default="tlyoon/MicroGen_AI_Web",
@@ -381,6 +396,7 @@ def main(argv=None) -> int:
                                  reviewed_media_dir=a.reviewed_media_dir,
                                  include_stack_batches=a.include_stack_batches,
                                  execute_historical_batch_checks=a.execute_historical_batch_checks,
+                                 classify_historical_format_findings=a.classify_historical_format_findings,
                                  verify_exact_head_ci_online=a.verify_exact_head_ci_online,
                                  github_repository=a.github_repository,
                                  audit_open_pr_stack_online=a.audit_open_pr_stack_online,

@@ -1,3 +1,13 @@
+# 19 November 2026 — Source-grounded historical Git warning disposition
+
+**PR536 (isolated Dell-115 branch):** `feature/pr536-historical-format-disposition-20261119` stacked on draft PR535 exact `96efb198594c6c75491e4ed279b61137a96d9ad2`. Real Git historic batch14,23,41 source investigations show six warning-producing commit SHAs but **eight warning diagnostics**: four Python extra blank EOF lines (AST-neutral), one single Markdown trailing space (corrected in current cumulative patch), three deliberate two-space Markdown hard line breaks (not defects). No old Git commit rewritten, no source/media modifications, and no student publication.
+
+**New executable source-bound remedy:** `selenium_pipeline/windows_historical_format_disposition.py`, `HISTORICAL_SOURCE_FORMAT_DISPOSITION` registry, optional release-board `--classify-historical-format-findings` after full Git batch integrity checks. Each diagnostic is verified against exact committed blob source; preflight requires clean current cumulative diff; immutable source-head/checker keyed receipts reused across independent restarts and tampering fails closed. Classifications are NEVER code semantic approval or academic/media QA. See `docs/PR536_SOURCE_BOUND_HISTORICAL_FORMAT_DISPOSITION_20261119.md`.
+
+**Next:** finish focused regression suite, commit draft PR536, genuinely run against entire Dell history and independent process restart, then verify exact-head GitHub Windows CI and restart normal read-only release board. After cosmetic disposition, conduct bounded risk-prioritized semantic history review; all historic PRs still unmerged and G2/G3 source/audio/media QA incomplete.
+
+---
+
 # 18 Nov 2026 — PR535 hosted CI synthetic release fixture mismatch
 
 **Verified CI failure:** exact initial PR535 HEAD `da3f17b`, hosted Windows workflow #817 offline-regressions: 1 error / 1475 tests, in `test_windows_release_media_receipt_gate`. The fake `.git` release-board media fixture mocked older `_git` but not the new real-format `origin/main` preflight, which correctly blocked invalid Git. **Targeted existing-test repair only:** mock a nonauthorizing clean patch report in this fixture, preserving strict actual preflight. Add independent real native missing-origin/main ref fault injection, which still fails closed. Dell selected media/release/format/registry suite **43/43 PASS**, local diff checks pass. Next exact-head push, new hosted CI, and release-board restart. User's automatic-recovery contract retained; science/media release gate still blocked.

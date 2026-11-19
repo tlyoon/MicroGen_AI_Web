@@ -98,6 +98,7 @@ jobs:
             "tests.test_windows_original_source_candidate_inventory"
             "tests.test_windows_historical_stack_batch_plan"
             "tests.test_windows_historical_stack_batch_executor"
+            "tests.test_windows_historical_format_disposition"
             "tests.test_windows_head_whitespace_recovery"
             "tests.test_windows_github_pr_stack_readonly_audit"
             "tests.test_windows_github_scoped_head_audit"
