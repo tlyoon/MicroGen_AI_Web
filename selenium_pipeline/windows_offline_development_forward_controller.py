@@ -32,6 +32,186 @@ MECHANISM = "SOURCE_LOCKED_CURATED_OFFLINE_TASK_QUEUE_AND_RESTART"
 # academic/media acceptance tests or billable provider integration tests.
 TASKS = (
     {
+        "id": "historical_source_regressions_batch_1",
+        "batch": 1,
+        "first_commit_prefix": "d42413c",
+        "last_commit_prefix": "98cbbae",
+        "modules": (
+            "tests.test_asr_layout_carryover",
+            "tests.test_asr_scene_visual_gates",
+        ),
+    },
+    {
+        "id": "historical_source_regressions_batch_2",
+        "batch": 2,
+        "first_commit_prefix": "e47c570",
+        "last_commit_prefix": "b2be156",
+        "modules": (
+            "tests.test_browser_tts_preflight",
+            "tests.test_element_plan_autodraft",
+        ),
+    },
+    {
+        "id": "historical_source_regressions_batch_3",
+        "batch": 3,
+        "first_commit_prefix": "433bf0f",
+        "last_commit_prefix": "fa3bbd7",
+        "modules": (
+            "tests.test_element_narration_gemini",
+            "tests.test_tts_cli_bootstrap",
+        ),
+    },
+    {
+        "id": "historical_source_regressions_batch_4",
+        "batch": 4,
+        "first_commit_prefix": "0627ca4",
+        "last_commit_prefix": "cd034fb",
+        "modules": (
+            "tests.test_tts_candidate_integrity",
+            "tests.test_tts_paid_entrypoint_authorization",
+        ),
+    },
+    {
+        "id": "historical_source_regressions_batch_5",
+        "batch": 5,
+        "first_commit_prefix": "d15c82c",
+        "last_commit_prefix": "282ce5a",
+        "modules": (
+            "tests.test_tts_pcm_contract",
+            "tests.test_tts_reviewed_element_compat",
+        ),
+    },
+    {
+        "id": "historical_source_regressions_batch_6",
+        "batch": 6,
+        "first_commit_prefix": "32334d1",
+        "last_commit_prefix": "b0413a9",
+        "modules": (
+            "tests.test_tts_fallback_downstream_provenance",
+            "tests.test_tts_restored_fallback_policy",
+        ),
+    },
+    {
+        "id": "historical_source_regressions_batch_7",
+        "batch": 7,
+        "first_commit_prefix": "6645679",
+        "last_commit_prefix": "cc7fdf5",
+        "modules": (
+            "tests.test_tts_attempt_evidence",
+            "tests.test_tts_qa_promotion",
+        ),
+    },
+    {
+        "id": "historical_source_regressions_batch_8",
+        "batch": 8,
+        "first_commit_prefix": "bb5847f",
+        "last_commit_prefix": "ff80a1e",
+        "modules": (
+            "tests.test_tts_provider_reconciliation",
+            "tests.test_tts_worker_request_evidence",
+        ),
+    },
+    {
+        "id": "historical_source_regressions_batch_9",
+        "batch": 9,
+        "first_commit_prefix": "86a468c",
+        "last_commit_prefix": "cd7bff8",
+        "modules": (
+            "tests.test_element_draft_drift_audit",
+            "tests.test_read_only_video_review_audit",
+        ),
+    },
+    {
+        "id": "historical_source_regressions_batch_10",
+        "batch": 10,
+        "first_commit_prefix": "8c0aa6d",
+        "last_commit_prefix": "af0058d",
+        "modules": (
+            "tests.test_automatic_multielement_narration",
+            "tests.test_automatic_element_audio_stage",
+        ),
+    },
+    {
+        "id": "historical_source_regressions_batch_11",
+        "batch": 11,
+        "first_commit_prefix": "ecd2308",
+        "last_commit_prefix": "f1bb4bf",
+        "modules": (
+            "tests.test_figure_panel_geometry",
+            "tests.test_figure_caption_column_audit",
+        ),
+    },
+    {
+        "id": "historical_source_regressions_batch_12",
+        "batch": 12,
+        "first_commit_prefix": "a175cf6",
+        "last_commit_prefix": "6ac6e26",
+        "modules": (
+            "tests.test_figure_declared_panel_reflow",
+            "tests.test_figure_layout_recovery_dispatch",
+        ),
+    },
+    {
+        "id": "historical_source_regressions_batch_13",
+        "batch": 13,
+        "first_commit_prefix": "0b671ba",
+        "last_commit_prefix": "8c0f3a9",
+        "modules": (
+            "tests.test_batch_element_sync_acceptance",
+            "tests.test_element_tts_safe_handoff",
+        ),
+    },
+    {
+        "id": "historical_source_regressions_batch_14",
+        "batch": 14,
+        "first_commit_prefix": "d500880",
+        "last_commit_prefix": "bd5083f",
+        "modules": (
+            "tests.test_figure83_fraction_spatial_identity",
+            "tests.test_figure83_operator_scale_coherence",
+        ),
+    },
+    {
+        "id": "historical_source_regressions_batch_15",
+        "batch": 15,
+        "first_commit_prefix": "fe17b9b",
+        "last_commit_prefix": "aa10802",
+        "modules": (
+            "tests.test_figure83_combined_acceptance",
+            "tests.test_figure83_element_audio_integrity",
+        ),
+    },
+    {
+        "id": "historical_source_regressions_batch_16",
+        "batch": 16,
+        "first_commit_prefix": "b699112",
+        "last_commit_prefix": "3a6b32f",
+        "modules": (
+            "tests.test_ai_academic_review_consensus",
+            "tests.test_ai_academic_review_queue",
+        ),
+    },
+    {
+        "id": "historical_source_regressions_batch_17",
+        "batch": 17,
+        "first_commit_prefix": "0f4d81e",
+        "last_commit_prefix": "a6c38ad",
+        "modules": (
+            "tests.test_ai_compact_original_challenge",
+            "tests.test_gemini_ambiguous_response_resolution",
+        ),
+    },
+    {
+        "id": "historical_source_regressions_batch_18",
+        "batch": 18,
+        "first_commit_prefix": "b57d355",
+        "last_commit_prefix": "7ed71b1",
+        "modules": (
+            "tests.test_encoded_part_audio_fidelity",
+            "tests.test_gemini_bridge_failure_triage",
+        ),
+    },
+    {
         "id": "historical_source_regressions_batch_19",
         "batch": 19,
         "first_commit_prefix": "6d1af85",

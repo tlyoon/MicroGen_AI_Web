@@ -1,5 +1,15 @@
 # MicroGen_AI_Web failure-to-fix ledger — current continuation
 
+## MG-V7-EARLY-HISTORICAL-WINDOWS-NOT-ENQUEUED-V1 — 19 Nov 2026
+
+**Historical failure:** PR541's registered static 30-task offline source-regression roadmap covered B19–48 but left the first 18 equally SHA-grounded original commit windows outside executable automatic forward. v7 forbids repeatedly requiring an operator to manually invoke eligible independent development milestones. Do not interpret this as missing G2/G3 scientific review.
+
+**Historical reuse and targeted repair:** Review original exact Git B1–18 touched-path inventory from existing source-locked normal history planner (including both `tests/` and `selenium_pipeline/tests/`). Select two genuinely changed current-code existing tests per batch, verify exact source bytes and original history before any test. Original 18/18 socket-denied and credential-scrubbed subprocess source baseline PASS, **304 tests, one skip, zero failures**. Enrol B1–18 as 18 new static source-SHA/original Git-anchored tasks in the SAME normal `windows_offline_development_forward_controller`, alongside original B19–48, total **48 sequential finite tasks**. Existing `HISTORICAL_OFFLINE_DEVELOPMENT_AUTOFORWARD` registry remains the handler, metadata updated for finite 48 tasks. OS lock, write-ahead SHA-bound intents/results, 2 source-only claims per task, no unsafe external model duplicate Send, network-denied subprocess and no student-release powers unchanged.
+
+**Verification:** Synthetic progression 3+45, real source and Git membership, stable old B48 member check through new B49, receipt anti-replay, registry disable and source tamper tests. Exact committed-head 48-task normal CLI run, independent second-process zero-replay verification, hosted Windows CI and read-only release board required before declaring the engineering boundary accepted; historical semantic code review and independent G2/G3 science/audio/video acceptance remain blocked. See `docs/PR543_V7_EARLY_HISTORICAL_OFFLINE_AUTOFORWARD_20261119.md`.
+
+---
+
 ## MG-V7-NESTED-HISTORICAL-TEST-ROOT-OMISSION-V1 — 19 Nov 2026
 
 **Historical failure:** A manual, root-only audit of the SHA-locked B22–36 Git windows omitted `selenium_pipeline/tests/` and wrongly reported no original test changes in B34 and B35. The corrected source-grounded read-only second audit found **18** and **21** respective historically touched regression-test files (all nested), with source paths and SHA witnesses. Preserve the false v1 audit as a diagnostic; do not silently treat its zero counts as evidence.
