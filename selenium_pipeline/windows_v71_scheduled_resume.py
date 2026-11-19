@@ -61,7 +61,12 @@ def _wrapper_content(repo: Path, py: Path) -> str:
 
 def _audit_installed(repo: Path, home: Path) -> None:
     """No schedule claim without the real enabled limited-user task."""
-    from .recovery_registry import lookup_mechanism
+    from selenium_pipeline.recovery_registry import lookup_mechanism
+    _require(lookup_mechanism(
+        "global_checkpoint_handoff",
+        "V71_NATIVE_CMD_DIRECT_SCRIPT_RELATIVE_IMPORT_CRASH") ==
+        "ABSOLUTE_REGISTRY_IMPORT_FOR_NATIVE_SCHEDULED_SCRIPT_ENTRY",
+        "Native direct-script scheduler recovery missing from registry")
     _require(lookup_mechanism(
         "global_checkpoint_handoff",
         "V71_WINDOWS_SCHEDULE_TASK_ACTION_PATH_ALIAS_UNVERIFIED") ==
@@ -75,7 +80,7 @@ def _audit_installed(repo: Path, home: Path) -> None:
     audit = subprocess.run(
         ["schtasks.exe", "/Query", "/TN", TASK_NAME, "/V", "/FO", "LIST"],
         capture_output=True, text=True, timeout=30)
-    from .recovery_registry import lookup_mechanism
+    from selenium_pipeline.recovery_registry import lookup_mechanism
     _require(lookup_mechanism(
         "global_checkpoint_handoff",
         "V71_WINDOWS_SCHEDULED_TASK_STATE_PADDED_VALUE_UNREADABLE") ==

@@ -522,6 +522,20 @@
       "enabled": true
     },
     {
+      "id": "V71_NATIVE_CMD_DIRECT_SCRIPT_IMPORT_RECOVERY",
+      "match_type": "global_checkpoint_handoff",
+      "signature": "V71_NATIVE_CMD_DIRECT_SCRIPT_RELATIVE_IMPORT_CRASH",
+      "mechanism": "ABSOLUTE_REGISTRY_IMPORT_FOR_NATIVE_SCHEDULED_SCRIPT_ENTRY",
+      "classification": "SCHEDULED_CMD_INVOKES_PYTHON_FILE_WITHOUT_PACKAGE_CONTEXT",
+      "handler": "NORMAL_V71_PROJECT_WIDE_OBSERVABLE_SUPERVISOR",
+      "preconditions": "Dell-115 source-only limited user Task Scheduler action; exact authenticated user and source-locked wrapper; normal direct file invocation must load recovery registry by absolute package import",
+      "verification_test": "tests/test_windows_v71_scheduled_resume.py",
+      "last_verified_date": "2026-11-20",
+      "environment": "native Dell-115 disabled task plus real cmd wrapper; original relative import caused ImportError before any source-only checkpoint",
+      "retry_policy": "finite fail-closed normal source-only scheduled file dispatch; never retry original provider sends; disable schedule on unexpected import failure; no academic or student release",
+      "enabled": true
+    },
+    {
       "id": "V71_NATIVE_SCHEDTASK_PADDED_STATE_PARSER",
       "match_type": "global_checkpoint_handoff",
       "signature": "V71_WINDOWS_SCHEDULED_TASK_STATE_PADDED_VALUE_UNREADABLE",
