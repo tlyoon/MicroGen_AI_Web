@@ -37,6 +37,8 @@ STAGES = (
         "curated_offline_source_regressions",
         "global_historical_source_gap_inventory"), "timeout": 600},
     {"id": "original_g2_readonly_claim_reconciliation", "deps": (), "timeout": 180},
+    {"id": "recent_uncovered_historical_patch_checks", "deps": (
+        "global_historical_source_gap_inventory",), "timeout": 600},
 )
 MAX_EVENTS_BYTES = 2_000_000
 LONG_QUEUE_TIMEOUT_SIGNATURE = "V71_LONG_OFFLINE_QUEUE_PREMATURE_TIMEOUT"
@@ -204,6 +206,67 @@ def _worker_stage(stage: str, repo: Path) -> dict:
             "curated_batches": len(selected),
             "uncovered_historical_batch_numbers": gaps,
             "independent_semantic_review_completed": False,
+        }
+    if stage == "recent_uncovered_historical_patch_checks":
+        # The fixed curated B1-B48 regression queue is not the whole source
+        # history: each later PR creates a new, still-unreviewed Git window.
+        # Reuse the normal source-only SHA-locked patch receipt executor.
+        from .recovery_registry import lookup_mechanism
+        require(lookup_mechanism(
+            "global_checkpoint_handoff",
+            "V71_UNCOVERED_HISTORICAL_BATCH_PATCH_CHECK_NOT_DISPATCHED")
+            == MECHANISM,
+            "Source-only uncovered history handoff missing or retired")
+        p = plan_stack(repo=repo)
+        require(p["status"] == "HISTORICAL_STACK_READ_ONLY_BATCH_PLAN_AVAILABLE"
+                and p["exact_head_sha"] == head
+                and p["local_worktree_clean"] is True,
+                "Uncovered original history not source verified")
+        covered = {t["batch"] for t in TASKS}
+        windows = {b["batch_number"] for b in p["batches"]}
+        require(covered.issubset(windows), "Curated historical batch no longer exists")
+        gaps = sorted(windows - covered)
+        require(not gaps or (
+                gaps == list(range(max(covered) + 1, max(windows) + 1))
+                and len(gaps) <= 4),
+                "History gap is noncontiguous or exceeds finite review bound")
+        if not gaps:
+            return {
+                "accepted": True,
+                "status": "NO_UNCOVERED_HISTORY_PATCH_WINDOW",
+                "reviewed_source_windows": [],
+                "semantic_code_review_completed": False,
+                "student_publication_authorized": False,
+            }
+        from .windows_historical_stack_batch_executor import execute_batches
+        record = execute_batches(repo=repo, first_batch=gaps[0],
+                                 last_batch=gaps[-1])
+        require(record["exact_head_sha"] == head
+                and record["first_batch"] == gaps[0]
+                and record["last_batch"] == gaps[-1]
+                and record["batch_count_completed"] == len(gaps)
+                and record["model_or_tts_calls"] == 0
+                and record["semantic_code_review_completed"] is False
+                and record["automatic_merge_authorized"] is False
+                and record["student_publication_authorized"] is False
+                and record["status"] in {
+                    "OFFLINE_BATCH_PATCH_CHECKS_COMPLETE_CODE_REVIEW_PENDING",
+                    "OFFLINE_BATCH_PATCH_FINDINGS_REVIEW_REQUIRED",
+                },
+                "Uncovered historical patch evidence inconsistent or unsafe")
+        valid = record["status"] == (
+            "OFFLINE_BATCH_PATCH_CHECKS_COMPLETE_CODE_REVIEW_PENDING")
+        return {
+            "accepted": valid,
+            "status": ("UNCOVERED_GIT_SOURCE_PATCHES_VERIFIED_REVIEW_PENDING"
+                       if valid else "UNCOVERED_GIT_PATCH_FINDINGS_QUARANTINED"),
+            "reviewed_source_windows": gaps,
+            "commits_checked_or_reused": record["commits_checked_or_reused"],
+            "quarantined_batch_numbers": record["quarantined_batch_numbers"],
+            "source_head_sha": head,
+            "semantic_code_review_completed": False,
+            "student_publication_authorized": False,
+            "model_or_tts_calls": 0,
         }
     if stage == "original_g2_readonly_claim_reconciliation":
         # Original Serway 1.3 source is independently pinned; never browse or
