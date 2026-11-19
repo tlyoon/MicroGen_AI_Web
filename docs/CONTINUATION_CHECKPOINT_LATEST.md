@@ -1,3 +1,15 @@
+# 19 November 2026 — v7 historical test-root inventory source repair (PR542)
+
+**Parent proven boundary:** PR541 exact committed SHA `c794e2d81477a262cb18116db10ff2495f61512b` completed true Dell-115 normal source-only 30/30 historical tasks (**606 tests, 29 skips**, zero failed tasks); independent second process reused all 30 exact-head verified receipts, zero duplicate tasks or new model requests; hosted Windows CI #826 both jobs PASS; normal read-only board engineering-ready TRUE but release BLOCKED, full historical PR semantic/dependency review, source-distinct academic science/audio/media G2/G3 FALSE. G2 genuine read-only Serway 1.3 20/85 accepted, 65 unresolved; old uncertain Gemini dual-PDF requests must not be replayed.
+
+**Next historical failure:** Root-only B22–36 test inventory incorrectly reported zero historically touched tests in batches 34 and 35. Original Git history has nested `selenium_pipeline/tests/` with B34=18 and B35=21 test paths. The v2 exact-parent audit corrected the record; the first flawed report remains as diagnostic. Existing normal Git touched-path / reversed transient inventory already supported both roots, so PR542 extracts source SHA-linked test count, per-root counts, bounded examples and full path hash from the same source-bound normal planner, registered as `HISTORICAL_TEST_ROOT_COVERAGE` with strict allowlisted existing planner handler.
+
+**New source-only test evidence:** first new-registry entry produced fail-closed admission blocker; explicit `_HANDLERS` whitelist fixed only that type. Genuine native Windows Git fault tests for nested and transient deleted files + registry disabled, **22/22** focused, **73/73** broader tests PASS, SHA-bound actual B34/B35 independent live report confirms 18/21 and semantic approval FALSE. No paid, model, audio, video or student publication.
+
+**PR542 status:** isolated Dell-115 `%LOCALAPPDATA%\MicroGen_PR542_20261119`, branch `feature/pr542-historical-test-roots-20261119`, based exact PR541 SHA. Pending commit, push stacked draft, exact-new-HEAD Windows CI and read-only release-board checkpoint. See `docs/PR542_V7_HISTORICAL_TEST_ROOT_RECOVERY_20261119.md`.
+
+---
+
 # 19 November 2026 — all eligible historical offline source tasks and stable B48 anchor
 
 **Draft PR541 in isolated Dell-115 worktree** `%LOCALAPPDATA%\MicroGen_PR541_20261119`, based on accepted engineering PR540 exact `4d6ece23fee1ba3cf689f64d4284914ea541d2f8`. PR540 completed genuine 15/15 task run (395 source-only tests, 10 skips), separate process reused 15/15 with no test rerun, GitHub Windows CI #825 both jobs SUCCESS and exact-head read-only release board engineering-ready TRUE/release BLOCKED. Original PR540 board retained 48 historical Git patch checks/8 warnings and 6 unaccepted scientific/media/release gates.
