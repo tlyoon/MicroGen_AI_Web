@@ -86,6 +86,108 @@ class SourceOnlyWindowsSchedulerTests(unittest.TestCase):
         self.assertEqual(len(list(self.home.glob("run_*.json"))),1)
         self.assertEqual(len(list(self.home.glob("*.claim"))),0)
 
+    def test_scheduler_action_lexical_path_alias_canonicalized(self):
+        # Windows CI tempfile may show an unnormalized/short alias while
+        # the authorized wrapper has a canonical resolved source location.
+        self._wrapper()
+        alias_dir=self.home/"source_alias"
+        alias_dir.mkdir()
+        original=self._proc()
+        alias=alias_dir/".."/"sourceonly_v71.cmd"
+        def task_query(cmd,**kwargs):
+            result=original(cmd,**kwargs)
+            if cmd[0]=="schtasks.exe":
+                result.stdout=result.stdout.replace(
+                    str(self.home/"sourceonly_v71.cmd"),str(alias))
+            return result
+        with patch.object(schedule.subprocess,"run",side_effect=task_query):
+            schedule._audit_installed(self.repo,self.home)
+        self.assertEqual(alias.resolve(),
+                         (self.home/"sourceonly_v71.cmd").resolve())
+
+    def test_foreign_and_argument_bearing_task_actions_fail_closed(self):
+        self._wrapper()
+        base=self._proc()
+        for action in (
+            str(self.home/"foreign.cmd"),
+            str(self.home/"sourceonly_v71.cmd")+" --send",
+            str(self.home/"sourceonly_v71.cmd.bak"),
+        ):
+            def changed(cmd,**kwargs):
+                response=base(cmd,**kwargs)
+                if cmd[0]=="schtasks.exe":
+                    response.stdout=response.stdout.replace(
+                        str(self.home/"sourceonly_v71.cmd"),action)
+                return response
+            with self.subTest(action=action):
+                with patch.object(schedule.subprocess,"run",
+                                  side_effect=changed):
+                    with self.assertRaisesRegex(
+                            RuntimeError,"not exact and enabled"):
+                        schedule._audit_installed(self.repo,self.home)
+
+    def test_duplicate_or_disabled_scheduler_action_rejected(self):
+        self._wrapper()
+        base=self._proc()
+        for duplicate in (True,False):
+            def corrupted(cmd,**kwargs):
+                response=base(cmd,**kwargs)
+                if cmd[0]=="schtasks.exe":
+                    if duplicate:
+                        response.stdout+=("Task To Run: "+
+                            str(self.home/"sourceonly_v71.cmd")+"\n")
+                    else:
+                        response.stdout=response.stdout.replace(
+                            "Scheduled Task State: Enabled",
+                            "Scheduled Task State: Disabled")
+                return response
+            with self.subTest(duplicate=duplicate):
+                with patch.object(schedule.subprocess,"run",
+                                  side_effect=corrupted):
+                    with self.assertRaises(RuntimeError):
+                        schedule._audit_installed(self.repo,self.home)
+
+    def test_real_native_schtasks_padded_state_and_root_name_pass(self):
+        # Observed on Dell-115: 'TaskName: \\MicroGen...'; many spaces
+        # between the Scheduled Task State colon and Enabled.
+        self._wrapper()
+        native=self._proc()
+        def padded(cmd,**kwargs):
+            response=native(cmd,**kwargs)
+            if cmd[0]=="schtasks.exe":
+                response.stdout=response.stdout.replace(
+                    "TaskName: "+schedule.TASK_NAME,
+                    "TaskName: \\"+schedule.TASK_NAME)
+                response.stdout=response.stdout.replace(
+                    "Scheduled Task State: Enabled",
+                    "Scheduled Task State:                     Enabled")
+            return response
+        with patch.object(schedule.subprocess,"run",side_effect=padded):
+            schedule._audit_installed(self.repo,self.home)
+
+    def test_duplicate_state_field_fails_closed(self):
+        self._wrapper()
+        native=self._proc()
+        def duplicate(cmd,**kwargs):
+            response=native(cmd,**kwargs)
+            if cmd[0]=="schtasks.exe":
+                response.stdout += "Scheduled Task State:     Enabled\n"
+            return response
+        with patch.object(schedule.subprocess,"run",side_effect=duplicate):
+            with self.assertRaisesRegex(RuntimeError,"not independently enabled"):
+                schedule._audit_installed(self.repo,self.home)
+
+    def test_retired_native_path_alias_registry_blocks_before_task_query(self):
+        self._wrapper()
+        with patch(
+            "selenium_pipeline.recovery_registry.lookup_mechanism",
+            return_value=None):
+            with patch.object(schedule.subprocess,"run") as task:
+                with self.assertRaisesRegex(
+                        RuntimeError,"path-alias recovery missing"):
+                    schedule._audit_installed(self.repo,self.home)
+                task.assert_not_called()
+
     def test_uninstalled_task_does_not_claim_background_progress(self):
         self._wrapper()
         with patch.object(schedule.subprocess,"run",

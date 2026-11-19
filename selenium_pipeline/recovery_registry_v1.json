@@ -522,6 +522,34 @@
       "enabled": true
     },
     {
+      "id": "V71_NATIVE_SCHEDTASK_PADDED_STATE_PARSER",
+      "match_type": "global_checkpoint_handoff",
+      "signature": "V71_WINDOWS_SCHEDULED_TASK_STATE_PADDED_VALUE_UNREADABLE",
+      "mechanism": "PARSE_EXACT_NATIVE_TASK_STATE_KEY_VALUE_INSTEAD_OF_SPACED_LITERAL",
+      "classification": "WINDOWS_SCHTASKS_HUMAN_READABLE_ENABLED_FIELD_PADDED_WITH_MULTIPLE_SPACES",
+      "handler": "NORMAL_V71_PROJECT_WIDE_OBSERVABLE_SUPERVISOR",
+      "preconditions": "native exact Dell-115 schtasks /Query /V /FO LIST response; require one uniquely named task, one enabled status field and one canonical exact source-bound task action",
+      "verification_test": "tests/test_windows_v71_scheduled_resume.py",
+      "last_verified_date": "2026-11-19",
+      "environment": "native Dell-115 limited-user Windows Task Scheduler real executable action audit; TaskName backslash prefix and padded Enabled state",
+      "retry_policy": "finite one key-value parse with exact trimmed field checks; duplicate field/disabled status/missing action fail closed and neither source nor model is submitted",
+      "enabled": true
+    },
+    {
+      "id": "V71_HOSTED_NATIVE_SCHEDULE_TASK_PATH_ALIAS",
+      "match_type": "global_checkpoint_handoff",
+      "signature": "V71_WINDOWS_SCHEDULE_TASK_ACTION_PATH_ALIAS_UNVERIFIED",
+      "mechanism": "RESOLVE_EXACT_SCHEDULE_ACTION_PATH_WITH_NO_ARGUMENTS",
+      "classification": "HOSTED_WINDOWS_TEMP_LEXICAL_ALIAS_FALSE_NEGATIVE_IN_SCHEDULED_TASK_ACTION_AUDIT",
+      "handler": "NORMAL_V71_PROJECT_WIDE_OBSERVABLE_SUPERVISOR",
+      "preconditions": "native Dell-115 exact source-only scheduled wrapper and task enabled; exactly one Task To Run value; physical resolved executable matches owner wrapper, no arbitrary arguments or foreign executable",
+      "verification_test": "tests/test_windows_v71_scheduled_resume.py",
+      "last_verified_date": "2026-11-19",
+      "environment": "hosted Windows Python 3.12 full pytest and Dell-115 local Task Scheduler, lexical path alias vs canonical worktree",
+      "retry_policy": "finite single fail-closed canonical action comparison without additional provider Send, no relaxed authorization/Task Scheduler account, never overwrite unknown task; reject duplicates, disabled state, extra arguments and foreign actions",
+      "enabled": true
+    },
+    {
       "id": "V71_PERSISTENT_LIMITED_USER_SOURCE_ONLY_SCHEDULER",
       "match_type": "global_checkpoint_handoff",
       "signature": "V71_PERSISTENT_SOURCE_ONLY_RUNNER_NOT_INSTALLED",
