@@ -1,3 +1,13 @@
+# 19 November 2026 — v7 verified offline-development forward controller
+
+**New isolated Dell-115 branch:** `feature/pr539-offline-development-autoforward-20261119` stacked on draft PR538 exact head `7d696baa36fb19e1a5f8a28fd02b0097bd7b992c`. User supplied `auto_cont_dev_prompt_v7.md` (Drive ID `14m_5wvXMlqhxGEbTF_kfZLSlMFx8zZzp`), requiring real code-level repeated milestone advancement, persistent roadmap, checkpointed recovery and no repeated operator 'proceed' between eligible steps.
+
+**Existing historical remedy reviewed:** PR534 already advances SHA-bound source integrity batches. `windows_lecture_progression_coordinator` intentionally executes one provider stage per invocation and must not be loosened to resend uncertain original Gemini requests. The new safe independent development path is `windows_offline_development_forward_controller`: registered `HISTORICAL_OFFLINE_DEVELOPMENT_AUTOFORWARD`, static source-bound batch19–21 offline test queue, immutable source/HEAD-locked roadmap and task intent, two finite source-only retry claims, cross-process OS lock, socket-denied test runner, automatic next independent task after pass/failure/quarantine, untrusted/missing worktree and forged evidence fail closed. No model/TTS/Cloud/academic/media/release activity. The existing 20-G2-accepted/65-pending and G3 gates remain unchanged.
+
+**Testing so far:** before implementation, native current-code batch19–21 tests 50 tests passed (10 legitimate skips). Synthetic targeted controller tests **16/16 pass**, including network-denied test, absent/retired registry, source tampering, two failed attempts and advancing past quarantine. Registry/controller combined suite **22/22 pass**. Initial larger 77-test test suite exposed a registry metadata contract requiring the word `finite` in retry policy; corrected and reverified. Broader rerun, commit exact-head real controller execution and independent restart, hosted CI, release board remain next. See `docs/PR539_V7_OFFLINE_DEVELOPMENT_AUTOFORWARD_20261119.md`.
+
+---
+
 # 19 November 2026 — Normal test helper import portability recovery
 
 **PR538 isolated Dell-115 branch:** `feature/pr538-test-helper-import-recovery-20261119`, stacked on draft PR537 exact `cca0534ab16afd1e9998a63e91d152e37333bd55`. While conducting bounded Batch 2 and Batch 4–6 historical code QA, package-style `python -m unittest tests.test_...` twice failed importing unqualified sibling fixtures. Re-running with explicit `PYTHONPATH=tests` confirmed these were test harness/discovery mismatches rather than code or scientific failures: Batch2 **106/106 PASS** (one skip), Batch4–6 **93/93 PASS**. AST audit of actual repo tests found 516 test sources, 67 unqualified sibling imports targeting 19 local helpers.

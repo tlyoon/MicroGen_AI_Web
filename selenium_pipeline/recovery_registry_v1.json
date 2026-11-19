@@ -438,6 +438,20 @@
       "enabled": true
     },
     {
+      "id": "HISTORICAL_OFFLINE_DEVELOPMENT_AUTOFORWARD",
+      "match_type": "offline_dev_autoforward",
+      "signature": "OFFLINE_HISTORICAL_CODE_REVIEW_NEEDS_RESTARTABLE_AUTOFORWARD",
+      "mechanism": "SOURCE_LOCKED_CURATED_OFFLINE_TASK_QUEUE_AND_RESTART",
+      "classification": "HISTORICAL_OFFLINE_CODE_DEVELOPMENT_MILESTONE_STOPS_AFTER_ONE_BATCH",
+      "handler": "NORMAL_WINDOWS_OFFLINE_CODE_DEVELOPMENT_CONTROLLER",
+      "preconditions": "clean isolated Dell Windows worktree, exact SHA history, vetted no-network unit tests, immutable task intent, bounded attempts, no model or paid calls",
+      "verification_test": "tests/test_windows_offline_development_forward_controller.py",
+      "last_verified_date": "2026-11-19",
+      "environment": "Dell-115 native Windows local offline development and source-bound historical task checkpoints",
+      "retry_policy": "finite 3 offline tasks per call, 2 source-only attempts each; no uncertain external Send replay, paid operation, or student publication",
+      "enabled": true
+    },
+    {
       "id": "HISTORICAL_TEST_HELPER_IMPORT_RECOVERY",
       "match_type": "test_helper_imports",
       "signature": "HISTORICAL_TEST_SIBLING_IMPORTS_REQUIRE_PACKAGE_DISCOVERY_REPAIR",

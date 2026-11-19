@@ -29,6 +29,7 @@ _HANDLERS = {
     "historical_batch_execution": "NORMAL_WINDOWS_HISTORICAL_BATCH_EXECUTOR",
     "historical_format_disposition": "NORMAL_WINDOWS_SOURCE_BOUND_HISTORY_FORMAT_DISPOSITION",
     "test_helper_imports": "NORMAL_TEST_PACKAGE_SIBLING_IMPORT_RECOVERY",
+    "offline_dev_autoforward": "NORMAL_WINDOWS_OFFLINE_CODE_DEVELOPMENT_CONTROLLER",
     "head_patch_format": "NORMAL_WINDOWS_CUMULATIVE_PATCH_FORMAT_PREFLIGHT",
 }
 _REQUIRED = {
