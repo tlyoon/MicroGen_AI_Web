@@ -1,5 +1,17 @@
 # MicroGen_AI_Web failure-to-fix ledger — current continuation
 
+## MG-SOURCE-REPAIR-MULTIFILE-PROCESS-CRASH-LEAVES-DIRTY-REPO-V1 — 19 Nov 2026
+
+**Historical link:** user contract requires code-level crash-safe automatic forward progress. PR535 format repair already checked all defects and caught normal Python exceptions but sequentially wrote multiple files with `write_bytes`. On abrupt process exit between writes no Python exception handler runs and subsequent standard clean-checkout guard blocks recovery. Existing `g2_forward_recovery_engine` write-ahead receipts and `three_pc_worker.LocalInstanceLock` already demonstrate the reusable verified pattern.
+
+**Remedy in normal executable recovery:** `windows_head_format_repair_journal` writes exact original/accepted content intent outside Git, locks the checkout, applies atomic source replacements with fsync, records completion and resumes an interrupted repair BEFORE the ordinary dirty-checkout check only when every source SHA, original Git warning, Python AST and foreign-worktree status match; otherwise fails closed. Updated active `CURRENT_HEAD_SAFE_FORMAT_RECOVERY` registry, no extra approval or provider retry. Existing release-board inspection remains read-only.
+
+**Real fault-injection:** one separate Python child actually terminated with exit code 87 after the first atomic source-file install, leaving a verified pending journal. Fresh parent process safely finished the second source replacement, checked bytes/source HEAD and no release. Additional source-free tests cover journal corruption, unknown external dirty source, already-completed source reversion, safe Python/Markdown-only edits and registry retirement. Two further independent real death tests killed the process before intent or result receipt finalization (exit 88/89), and staged atomic receipt writing successfully recovered without a torn authoritative journal. The final combined native historical/release/registry suite **77/77 passed**. New exact-head hosted CI and normal release-board restart still required. See `docs/PR537_CRASH_SAFE_SOURCE_FORMAT_REPAIR_JOURNAL_20261119.md`.
+
+---
+
+# MicroGen_AI_Web failure-to-fix ledger — current continuation
+
 ## MG-HISTORIC-FAILED-COMMITS-VS-DIAGNOSTICS-MISCLASSIFIED-V1 — 19 Nov 2026
 
 **Historical incident:** PR534 and PR535 initially summarized six historical failed Git commits as six format warnings. Actual source-bound examination of saved batch14/23/41 SHA list and direct `git show --check` verified **eight diagnostics across six commits**: four Python EOF extra newlines, one single accidental Markdown space and three intentional double-space Markdown line breaks. Historical patch-integrity checker correctly quarantined all warning commits but did not distinguish intentional Markdown formatting from defects. Original findings and commits preserved; current cumulative patch corrected five present warnings and stayed clean.

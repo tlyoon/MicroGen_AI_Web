@@ -156,46 +156,59 @@ def repair_safe_current_source(*, repo: Path) -> dict:
     from .recovery_registry import lookup_mechanism
     require(lookup_mechanism("head_patch_format", SIGNATURE) == MECHANISM,
             "Executable safe formatting remedy missing or retired")
-    state = _git(repo, "status", "--porcelain")
-    require(state.returncode == 0 and not state.stdout.strip(),
-            "Do not rewrite a dirty or concurrently changing source checkout")
-    initial = inspect_head_patch(repo=repo)
-    findings = initial["findings"]
-    require(len(findings) <= 50,
-            "Too many cumulative formatting findings for bounded safe repair")
-    prepared: dict[Path, tuple[bytes, bytes]] = {}
-    for finding in findings:
-        path = repo / Path(*PurePosixPath(finding["path"]).parts)
-        before = prepared[path][0] if path in prepared else path.read_bytes()
-        current = prepared[path][1] if path in prepared else before
-        after = _normalize(repo, finding, current)
-        prepared[path] = (before, after)
-    # Prepare all files and validate *before* making any change.
-    try:
-        for path, (_, after) in prepared.items():
-            path.write_bytes(after)
-        remaining = _get_patch_warnings(repo, include_worktree=True)
-        require(not remaining,
-                "Cumulative patch still contains unsafe unremoved whitespace")
-    except (OSError, ValueError, CampaignRecoveryBlocked):
-        for path, (before, _) in prepared.items():
-            path.write_bytes(before)
-        raise
-    return {
-        "status": "CURRENT_ISOLATED_SOURCE_SAFE_WHITESPACE_NORMALIZED"
-                  if findings else "CURRENT_CUMULATIVE_PATCH_ALREADY_CLEAN",
-        "source_head_sha_before_repair": initial["exact_head_sha"],
-        "normalized_file_count": len(prepared),
-        "repaired_historical_patch_warning_count": len(findings),
-        "original_patch_warnings_retained_as_evidence": findings,
-        "python_ast_unchanged": True,
-        "historical_commits_rewritten": False,
-        "git_commit_created": False,
-        "new_model_or_tts_calls": False,
-        "automatic_merge_authorized": False,
-        "student_publication_authorized": False,
-        "new_worktree_dirty_for_review_and_commit": bool(prepared),
-    }
+    from .three_pc_worker import LocalInstanceLock
+    from .windows_head_format_repair_journal import (
+        resume_pending, apply_prepared,
+    )
+    local = Path(os.environ["LOCALAPPDATA"]).absolute()
+    lock_key = hashlib.sha256(str(repo).lower().encode("utf-8")).hexdigest()[:20]
+    with LocalInstanceLock(
+        "format_repair_" + lock_key,
+        local / "MicroGen_AI_Web_Checkpoints" / "head_format_repair_locks",
+    ):
+        initial = inspect_head_patch(repo=repo)
+        # Resume a prior crash BEFORE the normal clean-worktree preflight.
+        # Dirty source is permitted only when byte-for-byte accounted for in
+        # an immutable exact-HEAD write-ahead intent.
+        resumed = resume_pending(
+            repo=repo, head=initial["exact_head_sha"],
+            checker=_get_patch_warnings,
+        )
+        if resumed is not None:
+            return resumed
+        state = _git(repo, "status", "--porcelain")
+        require(state.returncode == 0 and not state.stdout.strip(),
+                "Do not rewrite a dirty or concurrently changing source checkout")
+        findings = initial["findings"]
+        require(len(findings) <= 50,
+                "Too many cumulative formatting findings for bounded safe repair")
+        prepared: dict[Path, tuple[bytes, bytes]] = {}
+        for finding in findings:
+            path = repo / Path(*PurePosixPath(finding["path"]).parts)
+            before = prepared[path][0] if path in prepared else path.read_bytes()
+            current = prepared[path][1] if path in prepared else before
+            after = _normalize(repo, finding, current)
+            prepared[path] = (before, after)
+        if prepared:
+            return apply_prepared(
+                repo=repo, head=initial["exact_head_sha"],
+                prepared=prepared, original_warnings=findings,
+                checker=_get_patch_warnings,
+            )
+        return {
+            "status": "CURRENT_CUMULATIVE_PATCH_ALREADY_CLEAN",
+            "source_head_sha_before_repair": initial["exact_head_sha"],
+            "normalized_file_count": 0,
+            "repaired_historical_patch_warning_count": 0,
+            "original_patch_warnings_retained_as_evidence": [],
+            "python_ast_unchanged": True,
+            "historical_commits_rewritten": False,
+            "git_commit_created": False,
+            "new_model_or_tts_calls": False,
+            "automatic_merge_authorized": False,
+            "student_publication_authorized": False,
+            "new_worktree_dirty_for_review_and_commit": False,
+        }
 
 
 def main(argv=None) -> int:
