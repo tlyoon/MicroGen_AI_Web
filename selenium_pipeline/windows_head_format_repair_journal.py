@@ -161,10 +161,25 @@ def _new_receipt(path: Path, value: dict) -> None:
     raw = _encode(value)
     require(0 < len(raw) <= MAX_JOURNAL_BYTES,
             "Source journal size exceeds explicit bound")
-    with path.open("xb") as out:
+    # A crash during intent/result fsync must not leave a torn *authoritative*
+    # receipt. Only a staging file outside source may remain, and the
+    # per-repository OS lock ensures the next attempt can safely discard it.
+    stage = path.with_name(path.name + ".staging")
+    require(not stage.is_symlink() and not stage.is_dir(),
+            "Unsafe source journal staged receipt")
+    if stage.exists():
+        require(stage.is_file()
+                and stage.stat().st_size <= MAX_JOURNAL_BYTES,
+                "Unrecognized staged source journal evidence")
+        stage.unlink()
+    with stage.open("xb") as out:
         out.write(raw)
         out.flush()
         os.fsync(out.fileno())
+    require(stage.read_bytes() == raw
+            and not path.exists() and not path.is_symlink(),
+            "Staged source journal receipt conflicts with final destination")
+    os.replace(stage, path)
 
 
 def _atomic_install(target: Path, content: bytes, intent: Path,

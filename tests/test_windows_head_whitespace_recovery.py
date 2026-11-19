@@ -287,6 +287,70 @@ class CumulativeHeadWhitespaceRecoveryTests(unittest.TestCase):
                          b"One space\n")
         self.assertFalse(resumed["student_publication_authorized"])
 
+    def _simulate_real_receipt_commit_process_death(self, suffix: str, exit_code: int):
+        import sys
+        from selenium_pipeline import windows_head_format_repair_journal as journal
+        self.put("tests/receipt_interrupted.py", b"value=5\n\n")
+        self.put("docs/receipt_interrupted.md", b"One single space \n")
+        self.commit_files()
+        head = self.git("rev-parse", "HEAD")
+        source_root = str(Path(__file__).resolve().parent.parent)
+        code = (
+            "import os,sys;from pathlib import Path;"
+            "from selenium_pipeline import windows_head_format_repair_journal as j;"
+            "from selenium_pipeline.windows_head_whitespace_recovery "
+            "import repair_safe_current_source;"
+            "old=j.os.replace;"
+            "suffix=sys.argv[2];exit_code=int(sys.argv[3]);"
+            "exec('def kill_receipt_commit(a,b):\\n"
+            "  if str(b).endswith(suffix): os._exit(exit_code)\\n"
+            "  return old(a,b)\\n');"
+            "j.os.replace=kill_receipt_commit;"
+            "repair_safe_current_source(repo=Path(sys.argv[1]))"
+        )
+        env = os.environ.copy()
+        env["PYTHONPATH"] = source_root + os.pathsep + env.get("PYTHONPATH", "")
+        killed = subprocess.run(
+            [sys.executable, "-c", code, str(self.repo),
+             suffix, str(exit_code)],
+            capture_output=True, text=True, timeout=45, env=env,
+            cwd=self.repo,
+        )
+        self.assertEqual(killed.returncode, exit_code, killed.stderr)
+        intent, result = journal.journal_paths(self.repo, head)
+        self.assertTrue((self.repo/"tests/receipt_interrupted.py").is_file())
+        self.assertEqual(self.git("rev-parse", "HEAD"), head)
+        return intent, result
+
+    def test_real_process_death_during_intent_receipt_commit_is_recoverable(self):
+        intent, result = self._simulate_real_receipt_commit_process_death(
+            ".intent.json", 88)
+        self.assertFalse(intent.exists())
+        self.assertFalse(result.exists())
+        self.assertTrue(intent.with_name(intent.name+".staging").is_file())
+        self.assertEqual((self.repo/"tests/receipt_interrupted.py").read_bytes(),
+                         b"value=5\n\n")
+        recovered = repair_safe_current_source(repo=self.repo)
+        self.assertEqual(recovered["normalized_file_count"], 2)
+        self.assertTrue(intent.is_file())
+        self.assertTrue(result.is_file())
+        self.assertFalse(recovered["student_publication_authorized"])
+
+    def test_real_process_death_during_result_receipt_commit_is_recoverable(self):
+        intent, result = self._simulate_real_receipt_commit_process_death(
+            ".result.json", 89)
+        self.assertTrue(intent.is_file())
+        self.assertFalse(result.exists())
+        self.assertTrue(result.with_name(result.name+".staging").is_file())
+        self.assertEqual((self.repo/"tests/receipt_interrupted.py").read_bytes(),
+                         b"value=5\n")
+        recovered = repair_safe_current_source(repo=self.repo)
+        self.assertTrue(recovered["journal_recovered_or_reused_after_restart"])
+        self.assertTrue(result.is_file())
+        self.assertEqual((self.repo/"docs/receipt_interrupted.md").read_bytes(),
+                         b"One single space\n")
+        self.assertFalse(recovered["automatic_merge_authorized"])
+
     def test_completed_journal_rejects_later_manual_source_reversion(self):
         py = "tests/completed.py"
         self.put(py, b"value=3\n\n")
