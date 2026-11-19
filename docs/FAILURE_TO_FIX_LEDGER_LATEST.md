@@ -1,5 +1,17 @@
 # MicroGen_AI_Web failure-to-fix ledger — current continuation
 
+## MG-HISTORIC-FAILED-COMMITS-VS-DIAGNOSTICS-MISCLASSIFIED-V1 — 19 Nov 2026
+
+**Historical incident:** PR534 and PR535 initially summarized six historical failed Git commits as six format warnings. Actual source-bound examination of saved batch14/23/41 SHA list and direct `git show --check` verified **eight diagnostics across six commits**: four Python EOF extra newlines, one single accidental Markdown space and three intentional double-space Markdown line breaks. Historical patch-integrity checker correctly quarantined all warning commits but did not distinguish intentional Markdown formatting from defects. Original findings and commits preserved; current cumulative patch corrected five present warnings and stayed clean.
+
+**Code-level remedy:** `windows_historical_format_disposition` source-verifies the exact Git blob, line sample and Python AST; never classifies Markdown two-space hard-breaks as accidental defects. Strict registry mechanism and restartable exact-head receipts, read-only integration into normal release-board opt-in. Missing Git source/blob, unknown extension, invalid/forged samples, disabled registry, unsafe paths or changed receipt all fail closed. Source classification cannot grant scientific/semantic/merge/student release approval.
+
+**Tests/evidence:** native Dell synthetic real-Git three-warning cases and fault injections; full historical real test, exact-head CI and subsequent board verification must complete separately. See `docs/PR536_SOURCE_BOUND_HISTORICAL_FORMAT_DISPOSITION_20261119.md`.
+
+---
+
+# MicroGen_AI_Web failure-to-fix ledger — current continuation
+
 ## MG-CI-SYNTHETIC-GIT-FIXTURE-MISSING-NEW-PREFLIGHT-V1 — 18 Nov 2026
 
 **Grounded failure:** initial PR535 commit `da3f17b`, GitHub Actions run 44289471580, historical offline regression job has exactly 1 error among 1475 tests: synthetic `tests.test_windows_release_media_receipt_gate.WindowsReleaseMediaProofIntegrationTests.test_full_release_board_reads_real_receipt_but_still_blocks_release`. It uses a fake `.git` and fake release `_git` and therefore lacked real origin/main for the newly integrated head patch preflight. Previous release-board synthetic tests had already solved this exact fixture dependency by mocking `inspect_head_patch` nonauthoritatively.

@@ -424,6 +424,20 @@
       "enabled": true
     },
     {
+      "id": "HISTORICAL_SOURCE_FORMAT_DISPOSITION",
+      "match_type": "historical_format_disposition",
+      "signature": "HISTORICAL_GIT_FORMAT_FINDINGS_NEED_SOURCE_DISPOSITION",
+      "mechanism": "VERIFY_HISTORICAL_DIAGNOSTICS_AGAINST_EXACT_GIT_BLOBS",
+      "classification": "EXACT_HISTORICAL_GIT_FORMAT_WARNINGS_NEED_SOURCE_SPECIFIC_TRIAGE",
+      "handler": "NORMAL_WINDOWS_SOURCE_BOUND_HISTORY_FORMAT_DISPOSITION",
+      "preconditions": "native Dell-115 clean isolated worktree, registered exact-SHA Git batch receipts, committed Git blob and Git warning output, clean current cumulative patch",
+      "verification_test": "tests/test_windows_historical_format_disposition.py",
+      "last_verified_date": "2026-11-19",
+      "environment": "native Windows Git source-bound read-only historical diagnostics and persistent LOCALAPPDATA evidence",
+      "retry_policy": "finite 100-diagnostic bound and 30-second subprocess per Git call; no old Git rewrites, only source-verified Python EOF AST and Markdown spaces; unknown types fail closed",
+      "enabled": true
+    },
+    {
       "id": "CURRENT_HEAD_SAFE_FORMAT_RECOVERY",
       "match_type": "head_patch_format",
       "signature": "CUMULATIVE_HEAD_PATCH_HAS_SAFE_COSMETIC_WHITESPACE",
