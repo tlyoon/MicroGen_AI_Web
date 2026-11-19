@@ -158,7 +158,7 @@ def _source_modules(repo: Path, task: dict) -> list[dict]:
                 "Arbitrary dynamic Python module refused")
         path = repo / (name.replace(".", "/") + ".py")
         require(path.is_file() and not path.is_symlink()
-                and path.resolve().is_relative_to(repo)
+                and path.resolve().is_relative_to(repo.resolve())
                 and path.stat().st_size <= 3_000_000,
                 "Missing, linked or unbounded curated test source")
         result.append({"name": name, "source_sha256": _sha(path.read_bytes())})

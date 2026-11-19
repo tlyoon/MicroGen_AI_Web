@@ -164,6 +164,17 @@ class OfflineDevelopmentAutoforwardTests(unittest.TestCase):
         with self.assertRaises(CampaignRecoveryBlocked):
             dev.advance_offline(repo=self.repo, max_steps=1, runner=_accepted)
 
+    def test_git_root_containing_dotdot_is_canonicalized_for_source_boundary(self):
+        # Hosted Windows CI temp paths may be exposed via short-path aliases.
+        # A lexical containment check rejects legitimate local test source
+        # even when both paths resolve to the SAME verified repository.
+        nested = self.repo / "source_alias"
+        nested.mkdir()
+        noncanonical = nested / ".."
+        source = dev._source_modules(noncanonical, dev.TASKS[0])
+        self.assertEqual(len(source), len(dev.TASKS[0]["modules"]))
+        self.assertTrue(all(len(x["source_sha256"]) == 64 for x in source))
+
     def test_forged_batch_membership_stops_before_test(self):
         self.plan["batches"][18]["first_commit_sha"] = "0" * 40
         with self.assertRaises(CampaignRecoveryBlocked):
