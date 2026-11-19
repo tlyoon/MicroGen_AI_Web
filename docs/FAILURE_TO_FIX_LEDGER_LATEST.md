@@ -1,5 +1,21 @@
 # MicroGen_AI_Web failure-to-fix ledger — current continuation
 
+## MG-V7-OFFLINE-CODE-DEVELOPMENT-STOPS-BETWEEN-ELIGIBLE-MILESTONES-V1 — 19 Nov 2026
+
+**Historical incident/contract:** Prior 48-batch structural source audit automatically advanced between Git patch checks, but subsequent code-regression and stage-by-stage developer tasks were invoked individually from conversations. The user-supplied `auto_cont_dev_prompt_v7.md` requires self-advancing executable, persisted development roadmap rather than repeated 'proceed'. Existing `windows_lecture_progression_coordinator` intentionally limits actual source-bearing provider stages to one per call to protect original Send, so must not relax that limit.
+
+**Reusable executable resolution:** Registered `HISTORICAL_OFFLINE_DEVELOPMENT_AUTOFORWARD` mechanism implemented by `windows_offline_development_forward_controller`. Exact-head immutable roadmap, no paid provider/model/media tasks, source-verified finite 19–21 offline task set, task write-ahead claims and immutable results, independent-next-task advancement after PASS or quarantined failure, at most two offline attempts and no external uncertain retry; cross-process lock and network denied. Stale source, forged source receipts, unknown test path, disabled registry, dirty tree and offline socket attempt all fail closed. Any future across-session execution must be established through an authorized actual persistent runner/scheduler, not promised by this conversation.
+
+**First real execution:** on committed SHA `ee740271` one original CLI run advanced all three milestones (50 tests, 10 skips), and second independent process reused three exact-source results, no test reruns. Git worktree clean, no model/paid activity.
+
+**Hosted Windows CI new blocker and historical remedy reused:** GitHub run #823 fast suite failed 10 tests because `_source_modules` had `path.resolve().is_relative_to(repo)`, comparing a canonicalized test file to a noncanonical GitHub TEMP checkout path. Prior PR533/535 already handled related canonical path mismatches. Targeted fix `path.resolve().is_relative_to(repo.resolve())` retains strict containment, accepts legitimate Windows short/aliased spelling, and rejects outside sources. Added noncanonical repo `source_alias/..` regression. New selected controller/historical planner/registry suite 36 PASS; requeue exact SHA CI. No external attempt was repeated.
+
+**Evidence:** Dell source baseline 50 tests PASS (10 skips). Synthetic source-grounded and failure-injection controller suite 16/16 PASS, including existing normal historical CLI opt-in integration and rejection of all-skipped false acceptance. Combined registry 22/22 PASS. Initial extended historical/registry 77-test suite found one metadata-contract test requiring literal word `finite` in retry policy; fixed and reran passing. Exact-HEAD commit + live task progression and hosted CI still required. No source-related Gemini Send replay, paid charges, merger, G2/G3 promotion or student publication.
+
+---
+
+# MicroGen_AI_Web failure-to-fix ledger — current continuation
+
 ## MG-HISTORICAL-PACKAGED-TEST-SIBLING-IMPORT-RECURS-V1 — 19 Nov 2026
 
 **Real recurring history:** During source-bound offline Batch2 safety regression, the repo-root package-style unittest invocation failed to resolve bare `import test_element_plan_autodraft`; during Batch4–6 it similarly failed resolving `test_tts_qa_promotion`. Under discovery style or manual PYTHONPATH pointing to `tests`, both sets passed (106 Batch2 / 93 Batch4–6), so these were harness compatibility defects, not provider/model/media defects. A current source AST scan verified 516 repo test files with **67** bare sibling imports referencing **19** existing local test helpers; fixing only two by hand would reintroduce recurring failures.
