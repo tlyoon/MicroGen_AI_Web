@@ -103,6 +103,60 @@ class HistoricalStackReadOnlyBatchPlanTests(unittest.TestCase):
         self.assertFalse(batch["merge_or_publication_authorized"])
         self.assertEqual(before, self.git("rev-parse", "HEAD"))
 
+    def test_both_exact_historical_test_roots_are_counted(self):
+        # Reproduce the B34/B35 reporting mistake: a root-only audit
+        # incorrectly concluded no tests changed in nested test windows.
+        self.commit("selenium_pipeline/tests/test_nested_history.py", "nested")
+        self.commit("tests/test_root_history.py", "root")
+        self.commit("selenium_pipeline/test_not_a_test.py", "runtime")
+        before = self.git("rev-parse", "HEAD")
+        batch = plan_stack(repo=self.repo, batch_size=20)["batches"][0]
+        self.assertEqual(
+            batch["historically_touched_regression_test_root_counts"],
+            {"tests/": 2, "selenium_pipeline/tests/": 1})
+        self.assertEqual(
+            batch["historically_touched_regression_test_path_count"], 3)
+        self.assertIn("selenium_pipeline/tests/test_nested_history.py",
+                      batch["historically_touched_regression_test_path_examples"])
+        self.assertIn("tests/test_root_history.py",
+                      batch["historically_touched_regression_test_path_examples"])
+        self.assertNotIn("selenium_pipeline/test_not_a_test.py",
+                         batch["historically_touched_regression_test_path_examples"])
+        self.assertRegex(
+            batch["historically_touched_regression_test_path_sha256"],
+            r"^[a-f0-9]{64}$")
+        self.assertTrue(
+            batch["historical_test_path_inventory_not_semantic_acceptance"])
+        self.assertFalse(batch["code_and_academic_review_complete"])
+        self.assertEqual(before, self.git("rev-parse", "HEAD"))
+
+    def test_deleted_nested_test_retained_as_original_history_evidence(self):
+        self.commit("selenium_pipeline/tests/test_deleted.py", "synthetic")
+        self.git("rm", "--", "selenium_pipeline/tests/test_deleted.py")
+        self.git("commit", "-m", "remove synthetic nested test")
+        batch = plan_stack(repo=self.repo, batch_size=20)["batches"][0]
+        self.assertIn("selenium_pipeline/tests/test_deleted.py",
+                      batch["historically_touched_regression_test_path_examples"])
+        self.assertEqual(
+            batch["historically_touched_regression_test_root_counts"][
+                "selenium_pipeline/tests/"], 1)
+        self.assertFalse(batch["merge_or_publication_authorized"])
+
+    def test_disabled_new_root_coverage_registry_fails_closed(self):
+        from selenium_pipeline import windows_historical_stack_batch_plan as mod
+
+        def only_old_mechanism(match_type, signature):
+            if match_type == "history_batch_inventory":
+                return "EXACT_COMMIT_TOUCHED_PATH_UNION_WITH_NET_DIFF_GUARD"
+            return None
+
+        with patch("selenium_pipeline.recovery_registry.lookup_mechanism",
+                   side_effect=only_old_mechanism):
+            with self.assertRaisesRegex(
+                    CampaignRecoveryBlocked,
+                    "Historical test-root inventory recovery missing"):
+                mod.plan_stack(repo=self.repo)
+
     def test_missing_commit_markers_blocks_entire_review_plan(self):
         from selenium_pipeline import windows_historical_stack_batch_plan as mod
         original = mod._git

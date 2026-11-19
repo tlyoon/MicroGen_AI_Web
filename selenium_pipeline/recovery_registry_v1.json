@@ -396,6 +396,20 @@
       "enabled": true
     },
     {
+      "id": "HISTORICAL_TEST_ROOT_COVERAGE",
+      "match_type": "history_test_root_inventory",
+      "signature": "HISTORICAL_NESTED_TEST_PATHS_OMITTED_FROM_BATCH_REVIEW",
+      "mechanism": "EXACT_GIT_TOUCHED_TEST_ROOT_COUNTS_AND_HASH",
+      "classification": "HISTORICAL_TEST_COVERAGE_FALSE_ZERO_FROM_ROOT_ONLY_AUDIT",
+      "handler": "NORMAL_WINDOWS_HISTORICAL_STACK_BATCH_PLANNER",
+      "preconditions": "exact SHA-verified native Windows Git touched-path inventory from both tests/ and selenium_pipeline/tests/ roots; no manual fabricated count or source mutation",
+      "verification_test": "tests/test_windows_historical_stack_batch_plan.py",
+      "last_verified_date": "2026-11-19",
+      "environment": "Dell-115 Windows source-only historical review; no model, paid, media, merge or student publication",
+      "retry_policy": "finite bounded read-only historical Git traversal; fail closed if missing or disabled; retain reverted and deleted test paths in original commit evidence",
+      "enabled": true
+    },
+    {
       "id": "HISTORICAL_PDF_TEXT_PARSER_ABI_COMPAT",
       "match_type": "historical_pdf_parser_abi",
       "signature": "HISTORICAL_SOURCE_PDF_TEXT_PARSER_ABI_CHANGED",

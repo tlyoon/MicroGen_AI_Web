@@ -1,5 +1,19 @@
 # MicroGen_AI_Web failure-to-fix ledger — current continuation
 
+## MG-V7-NESTED-HISTORICAL-TEST-ROOT-OMISSION-V1 — 19 Nov 2026
+
+**Historical failure:** A manual, root-only audit of the SHA-locked B22–36 Git windows omitted `selenium_pipeline/tests/` and wrongly reported no original test changes in B34 and B35. The corrected source-grounded read-only second audit found **18** and **21** respective historically touched regression-test files (all nested), with source paths and SHA witnesses. Preserve the false v1 audit as a diagnostic; do not silently treat its zero counts as evidence.
+
+**Existing remediation reused:** Normal `windows_historical_stack_batch_plan.plan_stack` already combined per-commit touched Git paths, tracked reverted/deleted paths and recognized both roots for coarse risk categories. PR542 reuses those exact source-verified paths to generate SHA-linked per-root regression-test counts, bounded examples and a full path-list digest in every historical batch returned by the **normal executable planner**. Registered `HISTORICAL_TEST_ROOT_COVERAGE` under the strictly allowlisted existing planner handler. Missing/retired entry fails closed rather than continuing with an incomplete historical review.
+
+**Actual blocker and repair during implementation:** First targeted run rejected the new entry as `Unverified or unsafe recovery registry entry` because the `_HANDLERS` allowlist did not include `history_test_root_inventory`. Reused the existing strict handler-admission pattern and allowed only `NORMAL_WINDOWS_HISTORICAL_STACK_BATCH_PLANNER` for that type; did not weaken the registry validator.
+
+**Testing:** Synthetic real-Git nested/root/false lookalike tests, deleted historical nested path and missing-handler fault injection; 22/22 focused and 73/73 extended controller/registry/historical/release tests PASS. Real unmodified parent-history readback: B34 `tests/` 0, `selenium_pipeline/tests/` 18; B35 0 and 21; exact source-path SHA digests reported, neither semantic approval nor student release inferred. Exact new committed-head Windows CI and normal release-board restart required before engineering acceptance. See `docs/PR542_V7_HISTORICAL_TEST_ROOT_RECOVERY_20261119.md`.
+
+---
+
+# MicroGen_AI_Web failure-to-fix ledger — current continuation
+
 ## MG-V7-MISSING-ORIGINAL-HISTORICAL-WINDOWS_AND_CHANGING_TERMINAL-HEAD-V1 — 19 Nov 2026
 
 **Historical root causes:** PR540 code controller registered source-only auto-forward over 15 windows B19–21 and B37–48, leaving already-reviewed B22–36 outside executable roadmap. B48 terminal condition required current Git HEAD to be the B48 end SHA, so one more PR could move HEAD into B49 and block old historical window recheck despite original code still unchanged.

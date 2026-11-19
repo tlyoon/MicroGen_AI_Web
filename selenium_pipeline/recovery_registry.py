@@ -25,6 +25,7 @@ _HANDLERS = {
     "tts_runtime_repair": "NORMAL_ISOLATED_TTS_WORKER_SDK_PREFLIGHT",
     "pr_stack_audit": "NORMAL_GITHUB_OPEN_PR_STACK_HEAD_CHAIN_AUDIT",
     "history_batch_inventory": "NORMAL_WINDOWS_HISTORICAL_STACK_BATCH_PLANNER",
+    "history_test_root_inventory": "NORMAL_WINDOWS_HISTORICAL_STACK_BATCH_PLANNER",
     "historical_pdf_parser_abi": "NORMAL_ORIGINAL_SOURCE_E2E_READONLY_ABI_REVIEW",
     "historical_batch_execution": "NORMAL_WINDOWS_HISTORICAL_BATCH_EXECUTOR",
     "historical_format_disposition": "NORMAL_WINDOWS_SOURCE_BOUND_HISTORY_FORMAT_DISPOSITION",

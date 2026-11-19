@@ -48,6 +48,18 @@ def _risk_paths(paths: list[str]) -> list[str]:
     return sorted(flags or {"MISCELLANEOUS"})
 
 
+def _historical_regression_test_paths(paths: list[str]) -> list[str]:
+    """Identify BOTH historic test roots from exact Git-touched file paths.
+
+    This is an inventory, not test execution or semantic acceptance. An
+    audit that searches only tests/ silently misses selenium_pipeline/tests/.
+    Keep deleted or reverted historic test paths in the evidence as well.
+    """
+    return sorted({path for path in paths
+                   if path.endswith(".py")
+                   and path.startswith(("tests/", "selenium_pipeline/tests/"))})
+
+
 def _commit_touched_inventory(repo: Path, commits: list[str]) -> dict[str, set[str]]:
     """Read one bounded Git history stream, preserving reverted intermediate edits.
 
@@ -142,6 +154,11 @@ def plan_stack(*, repo: Path, batch_size: int = 20,
         "HISTORICAL_BATCH_NET_DIFF_HIDES_REVERTED_PATHS")
     require(mechanism == "EXACT_COMMIT_TOUCHED_PATH_UNION_WITH_NET_DIFF_GUARD",
             "Historical touched-path recovery missing or retired")
+    roots_mechanism = lookup_mechanism(
+        "history_test_root_inventory",
+        "HISTORICAL_NESTED_TEST_PATHS_OMITTED_FROM_BATCH_REVIEW")
+    require(roots_mechanism == "EXACT_GIT_TOUCHED_TEST_ROOT_COUNTS_AND_HASH",
+            "Historical test-root inventory recovery missing or retired")
     touched_by_commit = _commit_touched_inventory(repo, commits)
     batches = []
     previous = base
@@ -156,6 +173,12 @@ def plan_stack(*, repo: Path, batch_size: int = 20,
         # retain BOTH path sets and never hide historical source changes.
         paths = sorted(set(touched_paths) | net_paths)
         transient_paths = sorted(set(touched_paths) - net_paths)
+        historic_tests = _historical_regression_test_paths(touched_paths)
+        root_counts = {
+            "tests/": sum(p.startswith("tests/") for p in historic_tests),
+            "selenium_pipeline/tests/": sum(
+                p.startswith("selenium_pipeline/tests/") for p in historic_tests),
+        }
         batches.append({
             "batch_number": len(batches) + 1,
             "start_exclusive_sha": previous,
@@ -171,6 +194,16 @@ def plan_stack(*, repo: Path, batch_size: int = 20,
                 json.dumps(paths, ensure_ascii=False,
                            separators=(",", ":")).encode("utf8")).hexdigest(),
             "review_risk_categories": _risk_paths(paths),
+            "historically_touched_regression_test_path_count":
+                len(historic_tests),
+            "historically_touched_regression_test_root_counts": root_counts,
+            "historically_touched_regression_test_path_examples":
+                historic_tests[:15],
+            "historically_touched_regression_test_path_sha256":
+                hashlib.sha256(json.dumps(
+                    historic_tests, ensure_ascii=False,
+                    separators=(",", ":")).encode("utf8")).hexdigest(),
+            "historical_test_path_inventory_not_semantic_acceptance": True,
             "individual_pr_dependencies_independently_verified": False,
             "code_and_academic_review_complete": False,
             "merge_or_publication_authorized": False,
