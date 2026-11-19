@@ -63,7 +63,9 @@ class SourceOnlyWindowsSchedulerTests(unittest.TestCase):
             invoked.append((cmd,kwargs))
             self.assertEqual(kwargs["env"]["MICROGEN_V71_BACKGROUND_SOURCE_ONLY"],"1")
             self.assertEqual(kwargs["env"]["PYTHONDONTWRITEBYTECODE"],"1")
-            self.assertEqual(kwargs["cwd"],self.repo)
+            # Hosted Windows runneradmin and RUNNER~1 lexical aliases must
+            # refer to the same authorized clean source path.
+            self.assertEqual(kwargs["cwd"].resolve(),self.repo.resolve())
             self.assertIn("--supervise-project-v71",cmd)
             self.assertEqual(cmd[-1],"6")
             return subprocess.CompletedProcess(cmd,0,stdout=json.dumps({
@@ -85,6 +87,31 @@ class SourceOnlyWindowsSchedulerTests(unittest.TestCase):
         self.assertFalse(result["student_publication_authorized"])
         self.assertEqual(len(list(self.home.glob("run_*.json"))),1)
         self.assertEqual(len(list(self.home.glob("*.claim"))),0)
+
+    def test_lexical_repo_alias_canonicalized_at_normal_cli_launch(self):
+        self._wrapper()
+        nested=self.repo/"source_alias"
+        nested.mkdir()
+        aliased_repo=nested/".."
+        def owned_normal(cmd,**kwargs):
+            self.assertEqual(kwargs["cwd"].resolve(),self.repo.resolve())
+            self.assertEqual(Path(cmd[0]).resolve(),
+                             Path(schedule.sys.executable).resolve())
+            self.assertEqual(kwargs["env"]["MICROGEN_V71_BACKGROUND_SOURCE_ONLY"],"1")
+            self.assertFalse(any("gemini" in x.casefold() for x in cmd))
+            return subprocess.CompletedProcess(cmd,0,stdout=json.dumps({
+                "status":"V71_GLOBAL_HANDOFF_VERIFIED_REVIEW_PENDING",
+                "source_head_sha":SHA,"verified_stage_receipts":6,
+                "new_stage_dispatches_this_process":0,
+                "next_not_started_stages":[],
+                "scientific_qa_approved":False,
+                "student_publication_authorized":False,
+                "persistent_supervisor_installed_and_running_after_exit":False}),stderr="")
+        with patch.object(schedule.subprocess,"run",side_effect=self._proc()):
+            status=schedule.run(aliased_repo,runner=owned_normal)
+        self.assertEqual(status["status"],
+                         "PERSISTENT_SOURCE_ONLY_CHECKPOINT_CYCLE_RECONCILED")
+        self.assertEqual(len(list(self.home.glob("run_*.json"))),1)
 
     def test_scheduler_action_lexical_path_alias_canonicalized(self):
         # Windows CI tempfile may show an unnormalized/short alias while
