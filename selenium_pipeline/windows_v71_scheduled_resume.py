@@ -61,6 +61,12 @@ def _wrapper_content(repo: Path, py: Path) -> str:
 
 def _audit_installed(repo: Path, home: Path) -> None:
     """No schedule claim without the real enabled limited-user task."""
+    from .recovery_registry import lookup_mechanism
+    _require(lookup_mechanism(
+        "global_checkpoint_handoff",
+        "V71_WINDOWS_SCHEDULE_TASK_ACTION_PATH_ALIAS_UNVERIFIED") ==
+        "RESOLVE_EXACT_SCHEDULE_ACTION_PATH_WITH_NO_ARGUMENTS",
+        "Scheduled native path-alias recovery missing from executable registry")
     wrapper = home / "sourceonly_v71.cmd"
     _require(wrapper.is_file() and not wrapper.is_symlink()
              and wrapper.read_bytes() ==
@@ -72,9 +78,27 @@ def _audit_installed(repo: Path, home: Path) -> None:
     source = audit.stdout.casefold()
     _require(audit.returncode == 0
              and TASK_NAME.casefold() in source
-             and str(wrapper).casefold() in source
              and "scheduled task state: enabled" in source,
              "Source-only scheduled task not independently enabled and verified")
+    actions = [line.partition(":")[2].strip()
+               for line in audit.stdout.splitlines()
+               if line.partition(":")[0].strip().casefold() == "task to run"]
+    # Hosted Windows Temp and Task Scheduler may report different lexical
+    # aliases for the SAME actual file. A raw substring check falsely
+    # rejects the genuine action; canonicalize BOTH paths and demand equality.
+    # Never accept a command with extra arguments or an unrelated executable.
+    if len(actions) != 1:
+        _require(False, "Missing or ambiguous scheduled task action")
+    action = actions[0]
+    if action.startswith('"') and action.endswith('"'):
+        action = action[1:-1]
+    actual = Path(action)
+    _require(audit.returncode == 0
+             and TASK_NAME.casefold() in source
+             and actual.is_absolute() and not actual.is_symlink()
+             and actual.resolve() == wrapper.resolve()
+             and "scheduled task state: enabled" in source,
+             "Source-only scheduled task action is not exact and enabled")
 
 
 def install(repo: Path) -> dict:
