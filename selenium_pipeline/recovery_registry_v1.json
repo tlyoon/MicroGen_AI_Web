@@ -452,6 +452,20 @@
       "enabled": true
     },
     {
+      "id": "V71_PROJECT_WIDE_CHECKPOINT_HANDOFF",
+      "match_type": "global_checkpoint_handoff",
+      "signature": "V71_CHECKPOINT_WITHOUT_VERIFIED_PROJECT_NEXT_DISPATCH",
+      "mechanism": "OBSERVABLE_GLOBAL_STAGE_HANDOFF_WITH_SOURCE_LOCKED_EVENTS",
+      "classification": "LOCAL_QUEUE_COMPLETED_WITHOUT_GLOBAL_NEXT_TASK_DISPATCH",
+      "handler": "NORMAL_V71_PROJECT_WIDE_OBSERVABLE_SUPERVISOR",
+      "preconditions": "isolated clean native Dell Windows Git worktree, exact source SHA, verified local stage receipts, no provider or student-release execution",
+      "verification_test": "tests/test_windows_v71_project_supervisor.py",
+      "last_verified_date": "2026-11-19",
+      "environment": "Dell-115 native Windows finite offline/read-only outer supervisor and durable actual child PID event evidence",
+      "retry_policy": "finite 3 known project stages, 1 dispatch claim per source task; uncertain child or external action never replayed, independent tasks continue",
+      "enabled": true
+    },
+    {
       "id": "HISTORICAL_OFFLINE_DEVELOPMENT_AUTOFORWARD",
       "match_type": "offline_dev_autoforward",
       "signature": "OFFLINE_HISTORICAL_CODE_REVIEW_NEEDS_RESTARTABLE_AUTOFORWARD",

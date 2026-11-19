@@ -1,0 +1,280 @@
+"""v7.1 outer supervisor: observable dispatch, restart, anti-stall failures."""
+from __future__ import annotations
+
+from contextlib import redirect_stdout
+import io
+import json
+import os
+from pathlib import Path
+import tempfile
+import unittest
+from unittest.mock import patch
+
+from selenium_pipeline.original_multisource_recovery_campaign import (
+    CampaignRecoveryBlocked,
+)
+from selenium_pipeline import windows_v71_project_supervisor as v71
+
+
+class OuterSupervisorContinuityTests(unittest.TestCase):
+    def setUp(self):
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        self.local = Path(temp.name)
+        env = patch.dict(os.environ, {"LOCALAPPDATA": str(self.local)})
+        env.start()
+        self.addCleanup(env.stop)
+        self.repo = self.local / "isolated_worktree"
+        self.repo.mkdir()
+        self.head = "a" * 40
+        self.real_dispatch = v71._dispatch
+        fake_plan = {
+            "status": "HISTORICAL_STACK_READ_ONLY_BATCH_PLAN_AVAILABLE",
+            "local_worktree_clean": True,
+            "exact_head_sha": self.head,
+        }
+        pre = patch.object(v71, "_verify_repo", return_value=None)
+        pre.start()
+        self.addCleanup(pre.stop)
+        planner = patch.object(v71, "plan_stack", return_value=fake_plan)
+        planner.start()
+        self.addCleanup(planner.stop)
+        ci = patch.object(v71, "_board_ci_verified", return_value=True)
+        ci.start()
+        self.addCleanup(ci.stop)
+
+    def _install_fake_dispatcher(self, *, fail=()):
+        self.calls = []
+        def observe(repo, state, head, task, events):
+            self.calls.append(task["id"])
+            accepted = task["id"] not in fail
+            outcome = {
+                **v71._identity(repo, head, task["id"]),
+                "status": (
+                    "SUPERVISOR_STAGE_CHECK_ACCEPTED_REVIEW_PENDING" if accepted
+                    else "SUPERVISOR_STAGE_QUARANTINED"),
+                "accepted": accepted,
+                "observed_pid": 1000 + len(self.calls),
+                "stage_evidence": {"source_only": True},
+            }
+            v71._event(events, "next_task_dispatched", task["id"],
+                       observed_pid=outcome["observed_pid"])
+            v71._atomic_create(
+                state / (task["id"] + ".result.json"), outcome)
+            v71._event(events, "checkpoint_committed", task["id"],
+                       accepted=accepted,
+                       observed_pid=outcome["observed_pid"])
+            return outcome
+        x = patch.object(v71, "_dispatch", side_effect=observe)
+        x.start()
+        self.addCleanup(x.stop)
+
+    def test_success_checkpoint_dispatches_downstream_with_pid(self):
+        self._install_fake_dispatcher()
+        result = v71.supervise(self.repo)
+        self.assertEqual(self.calls,
+                         [x["id"] for x in v71.STAGES])
+        self.assertEqual(result["new_stage_dispatches_this_process"], 3)
+        self.assertEqual(result["observable_dispatch_pids"],
+                         [1001, 1002, 1003])
+        self.assertEqual(result["next_not_started_stages"], [])
+        count, hash_value = v71._validated_log(
+            Path(result["events_file"]))
+        self.assertGreaterEqual(count, 6)
+        self.assertEqual(len(hash_value), 64)
+        self.assertFalse(result["scientific_qa_approved"])
+        self.assertFalse(result["student_publication_authorized"])
+        self.assertFalse(result["persistent_supervisor_installed_and_running_after_exit"])
+
+    def test_last_local_queue_automatically_hands_off_global_gap(self):
+        self._install_fake_dispatcher()
+        result = v71.supervise(self.repo, max_new_dispatches=2)
+        self.assertEqual(self.calls, [
+            "curated_offline_source_regressions",
+            "global_historical_source_gap_inventory",
+        ])
+        self.assertEqual(result["new_stage_dispatches_this_process"], 2)
+        self.assertIn("independent_readonly_release_board",
+                      result["next_not_started_stages"])
+        self.assertFalse(result["background_continuation_verified"])
+
+    def test_quarantine_then_independent_stage_starts(self):
+        self._install_fake_dispatcher(fail={"curated_offline_source_regressions"})
+        result = v71.supervise(self.repo)
+        self.assertEqual(self.calls, [
+            "curated_offline_source_regressions",
+            "global_historical_source_gap_inventory",
+        ])
+        self.assertIn("independent_readonly_release_board",
+                      result["next_not_started_stages"])
+
+    def test_process_restarts_after_saved_checkpoint_and_starts_next_once(self):
+        self._install_fake_dispatcher()
+        first = v71.supervise(self.repo, max_new_dispatches=1)
+        self.assertEqual(first["new_stage_dispatches_this_process"], 1)
+        second = v71.supervise(self.repo, max_new_dispatches=1)
+        self.assertEqual(second["new_stage_dispatches_this_process"], 1)
+        self.assertEqual(self.calls[:2], [
+            "curated_offline_source_regressions",
+            "global_historical_source_gap_inventory",
+        ])
+        third = v71.supervise(self.repo, max_new_dispatches=1)
+        self.assertEqual(third["new_stage_dispatches_this_process"], 1)
+        fourth = v71.supervise(self.repo)
+        self.assertEqual(fourth["new_stage_dispatches_this_process"], 0)
+        self.assertEqual(len(self.calls), 3)
+
+    def test_uncertain_claim_does_not_replay_dispatch_and_fans_out(self):
+        self._install_fake_dispatcher()
+        state = v71._state_dir(self.repo, self.head)
+        first = v71.STAGES[0]
+        v71._atomic_create(state / (first["id"] + ".intent.json"),
+                           {**v71._identity(self.repo, self.head, first["id"]),
+                            "status": "SUPERVISOR_STAGE_DISPATCH_INTENT"})
+        # The *actual* dispatcher sees an uncertain persisted claim and
+        # quarantines it without launching an external child.
+        original = self.real_dispatch
+        def delegate(repo, state, head, task, events):
+            return (original(repo, state, head, task, events)
+                    if task["id"] == first["id"] else
+                    self._fake_remaining(repo, state, head, task, events))
+        with patch.object(v71, "_dispatch", side_effect=delegate):
+            result = v71.supervise(self.repo, max_new_dispatches=2)
+        self.assertEqual(result["new_stage_dispatches_this_process"], 2)
+        self.assertIn("global_historical_source_gap_inventory", self.calls)
+        self.assertEqual(
+            v71._verified_result(state, self.repo, self.head, first)["status"],
+            "SUPERVISOR_EXTERNAL_DISPATCH_UNCERTAIN",
+        )
+
+    def _fake_remaining(self, repo, state, head, task, events):
+        self.calls.append(task["id"])
+        data = {**v71._identity(repo, head, task["id"]),
+                "status": "SUPERVISOR_STAGE_CHECK_ACCEPTED_REVIEW_PENDING",
+                "accepted": True, "observed_pid": 4444,
+                "stage_evidence": {"read_only": True}}
+        v71._event(events, "next_task_dispatched", task["id"],
+                   observed_pid=4444)
+        v71._atomic_create(state / (task["id"] + ".result.json"), data)
+        v71._event(events, "checkpoint_committed", task["id"],
+                   accepted=True, observed_pid=4444)
+        return data
+
+    def test_true_dispatch_invokes_child_launcher_and_records_pid(self):
+        state = v71._state_dir(self.repo, self.head)
+        events = state / "events.jsonl"
+        task = v71.STAGES[1]
+        class Child:
+            pid = 9123
+            def wait(self, timeout):
+                v71._atomic_create(
+                    state / (task["id"] + ".worker-result.json"),
+                    {
+                        "schema_version": v71.SCHEMA,
+                        "status": "WORKER_SOURCE_STAGE_RECORDED",
+                        "stage_id": task["id"],
+                        "worker_source_policy_sha256": v71._policy_hash(),
+                        "outcome": {
+                            "accepted": True,
+                            "status": "PROJECT_SOURCE_GAP_CATALOGUED_NOT_APPROVED",
+                        },
+                        "student_publication_authorized": False,
+                    },
+                )
+                return 0
+        launcher = lambda command, **kwargs: Child()
+        result = v71._dispatch(self.repo, state, self.head, task, events,
+                               launcher=launcher)
+        self.assertTrue(result["accepted"])
+        self.assertEqual(result["observed_pid"], 9123)
+        log = (state / "events.jsonl").read_text(encoding="utf8")
+        self.assertIn("next_task_dispatched", log)
+        self.assertIn("9123", log)
+        self.assertIn("checkpoint_committed", log)
+
+    def test_durable_event_chain_tampering_fails_closed(self):
+        self._install_fake_dispatcher()
+        first = v71.supervise(self.repo, max_new_dispatches=1)
+        p = Path(first["events_file"])
+        p.write_text(p.read_text().replace('"observed_pid":1001',
+                                           '"observed_pid":9999'), encoding="utf8")
+        with self.assertRaises(CampaignRecoveryBlocked):
+            v71.supervise(self.repo)
+
+    def test_no_imaginary_persistent_runner_claim(self):
+        self._install_fake_dispatcher()
+        outcome = v71.supervise(self.repo, max_new_dispatches=1)
+        self.assertFalse(outcome["persistent_supervisor_installed_and_running_after_exit"])
+        self.assertFalse(outcome["background_continuation_verified"])
+        self.assertIn("global_historical_source_gap_inventory",
+                      outcome["next_not_started_stages"])
+
+    def test_missing_hosted_ci_keeps_board_not_started(self):
+        self._install_fake_dispatcher()
+        with patch.object(v71, "_board_ci_verified", return_value=False):
+            result = v71.supervise(self.repo)
+        self.assertEqual(self.calls, [
+            "curated_offline_source_regressions",
+            "global_historical_source_gap_inventory",
+        ])
+        self.assertIn("independent_readonly_release_board",
+                      result["next_not_started_stages"])
+        self.assertFalse(result["background_continuation_verified"])
+        self.assertIn("mandatory_stop",
+                      Path(result["events_file"]).read_text())
+
+    def test_worker_cli_rejects_foreign_receipt_path(self):
+        from selenium_pipeline.windows_v71_project_supervisor import main
+        bad = self.local / "outside" / "global_historical_source_gap_inventory.worker-result.json"
+        bad.parent.mkdir()
+        output = io.StringIO()
+        from types import SimpleNamespace
+        with patch.object(v71.subprocess, "run", return_value=SimpleNamespace(
+                stdout=self.head + "\\n", returncode=0)), redirect_stdout(output):
+            code = main(["--repo", str(self.repo),
+                         "--worker-stage", "global_historical_source_gap_inventory",
+                         "--worker-result", str(bad)])
+        self.assertEqual(code, 2)
+        self.assertIn("V71_GLOBAL_SUPERVISOR_BLOCKED", output.getvalue())
+
+    def test_registry_retirement_refuses_unsafe_supervision(self):
+        with patch(
+            "selenium_pipeline.recovery_registry.lookup_mechanism",
+            return_value=None):
+            with self.assertRaises(CampaignRecoveryBlocked):
+                v71.supervise(self.repo)
+
+    def test_normal_historical_cli_routes_to_real_supervisor(self):
+        from selenium_pipeline.windows_historical_stack_batch_plan import main
+        sentinel = {
+            "status": "V71_GLOBAL_HANDOFF_VERIFIED_REVIEW_PENDING",
+            "new_stage_dispatches_this_process": 2,
+            "next_not_started_stages": [],
+            "student_publication_authorized": False,
+        }
+        buf = io.StringIO()
+        with patch.object(v71, "supervise", return_value=sentinel) as invoked:
+            with redirect_stdout(buf):
+                rc = main(["--repo", str(self.repo),
+                           "--supervise-project-v71",
+                           "--max-v71-new-dispatches", "2"])
+        self.assertEqual(rc, 0)
+        invoked.assert_called_once_with(self.repo, max_new_dispatches=2)
+        self.assertIn("V71_GLOBAL_HANDOFF_VERIFIED", buf.getvalue())
+
+    def test_normal_cli_rejects_ambiguous_supervisor_and_patch_mode(self):
+        from selenium_pipeline.windows_historical_stack_batch_plan import main
+        buf = io.StringIO()
+        with patch.object(v71, "supervise",
+                          side_effect=AssertionError("unsafe mode executed")):
+            with redirect_stdout(buf):
+                rc = main(["--repo", str(self.repo),
+                           "--supervise-project-v71",
+                           "--execute-offline-history-checks"])
+        self.assertEqual(rc, 2)
+        self.assertIn("HISTORICAL_STACK_BATCH_REVIEW_REJECTED",
+                      buf.getvalue())
+
+
+if __name__ == "__main__":
+    unittest.main()
