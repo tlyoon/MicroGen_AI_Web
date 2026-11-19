@@ -75,14 +75,28 @@ def _audit_installed(repo: Path, home: Path) -> None:
     audit = subprocess.run(
         ["schtasks.exe", "/Query", "/TN", TASK_NAME, "/V", "/FO", "LIST"],
         capture_output=True, text=True, timeout=30)
-    source = audit.stdout.casefold()
+    from .recovery_registry import lookup_mechanism
+    _require(lookup_mechanism(
+        "global_checkpoint_handoff",
+        "V71_WINDOWS_SCHEDULED_TASK_STATE_PADDED_VALUE_UNREADABLE") ==
+        "PARSE_EXACT_NATIVE_TASK_STATE_KEY_VALUE_INSTEAD_OF_SPACED_LITERAL",
+        "Native Windows scheduler status parser recovery not registered")
+    # Real schtasks.exe emits padded values (e.g. 'Scheduled Task State:\n'
+    # on some displays or many spaces before 'Enabled'). Never compare the
+    # entire human-formatted line to a hardcoded single-space string.
+    fields = [tuple(x.strip() for x in line.partition(":")[::2])
+              for line in audit.stdout.splitlines() if ":" in line]
+    states = [value.casefold() for key, value in fields
+              if key.casefold() == "scheduled task state"]
+    names = [value.casefold() for key, value in fields
+             if key.casefold() == "taskname"]
     _require(audit.returncode == 0
-             and TASK_NAME.casefold() in source
-             and "scheduled task state: enabled" in source,
+             and states == ["enabled"]
+             and names in ([TASK_NAME.casefold()],
+                           ["\\" + TASK_NAME.casefold()]),
              "Source-only scheduled task not independently enabled and verified")
-    actions = [line.partition(":")[2].strip()
-               for line in audit.stdout.splitlines()
-               if line.partition(":")[0].strip().casefold() == "task to run"]
+    actions = [value for key, value in fields
+               if key.casefold() == "task to run"]
     # Hosted Windows Temp and Task Scheduler may report different lexical
     # aliases for the SAME actual file. A raw substring check falsely
     # rejects the genuine action; canonicalize BOTH paths and demand equality.
@@ -94,10 +108,8 @@ def _audit_installed(repo: Path, home: Path) -> None:
         action = action[1:-1]
     actual = Path(action)
     _require(audit.returncode == 0
-             and TASK_NAME.casefold() in source
              and actual.is_absolute() and not actual.is_symlink()
-             and actual.resolve() == wrapper.resolve()
-             and "scheduled task state: enabled" in source,
+             and actual.resolve() == wrapper.resolve(),
              "Source-only scheduled task action is not exact and enabled")
 
 

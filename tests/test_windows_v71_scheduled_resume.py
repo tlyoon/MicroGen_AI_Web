@@ -147,6 +147,36 @@ class SourceOnlyWindowsSchedulerTests(unittest.TestCase):
                     with self.assertRaises(RuntimeError):
                         schedule._audit_installed(self.repo,self.home)
 
+    def test_real_native_schtasks_padded_state_and_root_name_pass(self):
+        # Observed on Dell-115: 'TaskName: \\MicroGen...'; many spaces
+        # between the Scheduled Task State colon and Enabled.
+        self._wrapper()
+        native=self._proc()
+        def padded(cmd,**kwargs):
+            response=native(cmd,**kwargs)
+            if cmd[0]=="schtasks.exe":
+                response.stdout=response.stdout.replace(
+                    "TaskName: "+schedule.TASK_NAME,
+                    "TaskName: \\"+schedule.TASK_NAME)
+                response.stdout=response.stdout.replace(
+                    "Scheduled Task State: Enabled",
+                    "Scheduled Task State:                     Enabled")
+            return response
+        with patch.object(schedule.subprocess,"run",side_effect=padded):
+            schedule._audit_installed(self.repo,self.home)
+
+    def test_duplicate_state_field_fails_closed(self):
+        self._wrapper()
+        native=self._proc()
+        def duplicate(cmd,**kwargs):
+            response=native(cmd,**kwargs)
+            if cmd[0]=="schtasks.exe":
+                response.stdout += "Scheduled Task State:     Enabled\n"
+            return response
+        with patch.object(schedule.subprocess,"run",side_effect=duplicate):
+            with self.assertRaisesRegex(RuntimeError,"not independently enabled"):
+                schedule._audit_installed(self.repo,self.home)
+
     def test_retired_native_path_alias_registry_blocks_before_task_query(self):
         self._wrapper()
         with patch(
