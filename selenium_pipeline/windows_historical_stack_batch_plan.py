@@ -245,6 +245,10 @@ def main(argv=None) -> int:
                     default=Path(__file__).resolve().parent.parent)
     ap.add_argument("--batch-size", type=int, default=20)
     ap.add_argument("--max-commits", type=int, default=2500)
+    ap.add_argument("--supervise-project-v71", action="store_true",
+                    help="Run registered outer project supervisor; actual child dispatch and durable handoff events, no provider Send or publication")
+    ap.add_argument("--max-v71-new-dispatches", type=int, default=3,
+                    help="Finite 1–3 new source-only/read-only project workstreams per call")
     ap.add_argument("--advance-offline-development", action="store_true",
                     help="Opt-in source-only persistent roadmap: execute and automatically advance bounded historical regression tasks; never send or publish")
     ap.add_argument("--max-offline-development-tasks", type=int, default=None,
@@ -255,7 +259,17 @@ def main(argv=None) -> int:
     ap.add_argument("--last-batch", type=int, default=None)
     a = ap.parse_args(argv)
     try:
-        if a.advance_offline_development:
+        if a.supervise_project_v71:
+            require(not a.advance_offline_development
+                    and not a.execute_offline_history_checks
+                    and a.batch_size == 20 and a.max_commits == 2500
+                    and a.first_batch == 1 and a.last_batch is None
+                    and a.max_offline_development_tasks is None,
+                    "v7.1 global supervisor cannot mix independent historical modes")
+            from .windows_v71_project_supervisor import supervise
+            data = supervise(
+                a.repo, max_new_dispatches=a.max_v71_new_dispatches)
+        elif a.advance_offline_development:
             require(not a.execute_offline_history_checks
                     and a.batch_size == 20 and a.max_commits == 2500
                     and a.first_batch == 1 and a.last_batch is None,
@@ -285,7 +299,8 @@ def main(argv=None) -> int:
     print(json.dumps(data, indent=2))
     return 2 if (data.get("quarantined_batch_numbers")
                  or data.get("status") ==
-                    "BOUNDED_OFFLINE_DEVELOPMENT_WITH_QUARANTINED_TASKS") else 0
+                    "BOUNDED_OFFLINE_DEVELOPMENT_WITH_QUARANTINED_TASKS"
+                 or data.get("next_not_started_stages")) else 0
 
 
 if __name__ == "__main__":
