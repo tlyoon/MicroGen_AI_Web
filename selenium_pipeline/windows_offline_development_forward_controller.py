@@ -65,6 +65,159 @@ TASKS = (
         ),
     },
     {
+        "id": "historical_source_regressions_batch_22",
+        "batch": 22,
+        "first_commit_prefix": "1a400b9",
+        "last_commit_prefix": "44aac0d",
+        "modules": (
+            "tests.test_automatic_math_semantic_qa",
+        ),
+    },
+    {
+        "id": "historical_source_regressions_batch_23",
+        "batch": 23,
+        "first_commit_prefix": "e2e634f",
+        "last_commit_prefix": "56b0522",
+        "modules": (
+            "tests.test_academic_review_checkpoint",
+            "tests.test_original_replacement_video_handoff",
+        ),
+    },
+    {
+        "id": "historical_source_regressions_batch_24",
+        "batch": 24,
+        "first_commit_prefix": "c94c6a0",
+        "last_commit_prefix": "10ff0b2",
+        "modules": (
+            "tests.test_original_slide4_corrected_segment_handoff",
+            "tests.test_offline_corrected_bundle_verify",
+        ),
+    },
+    {
+        "id": "historical_source_regressions_batch_25",
+        "batch": 25,
+        "first_commit_prefix": "589c7df",
+        "last_commit_prefix": "ed54d02",
+        "modules": (
+            "tests.test_offline_corrected_audio_intake",
+            "tests.test_offline_replacement_replanner",
+        ),
+    },
+    {
+        "id": "historical_source_regressions_batch_26",
+        "batch": 26,
+        "first_commit_prefix": "03d0d55",
+        "last_commit_prefix": "5260e8f",
+        "modules": (
+            "tests.test_offline_replacement_replanner",
+            "tests.test_real_pcm_chunk_original_slide4_highlight",
+            "tests.test_real_source_figure82_and_encoded_slide4_highlight",
+        ),
+    },
+    {
+        "id": "historical_source_regressions_batch_27",
+        "batch": 27,
+        "first_commit_prefix": "a689adb",
+        "last_commit_prefix": "ca563ad",
+        "modules": (
+            "tests.test_gemini38_tts_interactions_sdk",
+            "tests.test_offline_vosk_corrected_math_speech_qa",
+        ),
+    },
+    {
+        "id": "historical_source_regressions_batch_28",
+        "batch": 28,
+        "first_commit_prefix": "9d63586",
+        "last_commit_prefix": "af05424",
+        "modules": (
+            "tests.test_tts_flexible_pronunciation_contract",
+            "tests.test_tts_soundalike_production_integration",
+        ),
+    },
+    {
+        "id": "historical_source_regressions_batch_29",
+        "batch": 29,
+        "first_commit_prefix": "28e06f4",
+        "last_commit_prefix": "0913382",
+        "modules": (
+            "tests.test_original_thomas84_offline_word_pdf_timing",
+            "tests.test_original_thomas84_real_word_timed_pdf_highlight_review",
+            "tests.test_original_thomas84_trig_identity_proof",
+        ),
+    },
+    {
+        "id": "historical_source_regressions_batch_30",
+        "batch": 30,
+        "first_commit_prefix": "cf81e49",
+        "last_commit_prefix": "f3ade52",
+        "modules": (
+            "tests.test_original_thomas84_math_domain_crosscheck",
+            "tests.test_original_thomas84_trig_identity_proof",
+            "tests.test_original_thomas84_worked_examples_math_proof",
+        ),
+    },
+    {
+        "id": "historical_source_regressions_batch_31",
+        "batch": 31,
+        "first_commit_prefix": "9df0d85",
+        "last_commit_prefix": "ffb0582",
+        "modules": (
+            "tests.test_dell_tts_outage_circuit_recovery",
+            "tests.test_visual_element_mapping_readiness",
+            "tests.test_automatic_math_semantic_qa",
+        ),
+    },
+    {
+        "id": "historical_source_regressions_batch_32",
+        "batch": 32,
+        "first_commit_prefix": "fa3cc7d",
+        "last_commit_prefix": "b6416a7",
+        "modules": (
+            "tests.test_element_plan_autodraft",
+        ),
+    },
+    {
+        "id": "historical_source_regressions_batch_33",
+        "batch": 33,
+        "first_commit_prefix": "5149524",
+        "last_commit_prefix": "af33521",
+        "modules": (
+            "tests.test_tts_attempt_evidence",
+            "tests.test_tts_restored_fallback_policy",
+        ),
+    },
+    {
+        "id": "historical_source_regressions_batch_34",
+        "batch": 34,
+        "first_commit_prefix": "48e8a73",
+        "last_commit_prefix": "866b1e9",
+        "modules": (
+            "tests.test_original_thomas84_trig_identity_proof",
+            "tests.test_original_thomas84_full_utterance_release_guard",
+        ),
+    },
+    {
+        "id": "historical_source_regressions_batch_35",
+        "batch": 35,
+        "first_commit_prefix": "2f56563",
+        "last_commit_prefix": "54c1e00",
+        "modules": (
+            "tests.test_original_thomas84_66_independent_media_audit",
+            "tests.test_original_thomas84_all66_combined_final_release_gate",
+            "tests.test_original_thomas84_trig_identity_proof",
+        ),
+    },
+    {
+        "id": "historical_source_regressions_batch_36",
+        "batch": 36,
+        "first_commit_prefix": "e3634bd",
+        "last_commit_prefix": "6f70cfa",
+        "modules": (
+            "tests.test_verified_evidence_reuse_contract",
+            "tests.test_cached_tts_no_reauthorization",
+        ),
+    },
+    {
         "id": "historical_source_regressions_batch_37",
         "batch": 37,
         "first_commit_prefix": "59e3c09",
@@ -189,7 +342,8 @@ TASKS = (
         "id": "historical_source_regressions_batch_48",
         "batch": 48,
         "first_commit_prefix": "68fc031",
-        "last_commit_prefix": "<CURRENT_HEAD>",
+        "last_commit_prefix": "<HISTORICAL_ANCHOR_MEMBER>",
+        "historical_anchor_prefix": "048c0cf",
         "modules": (
             "tests.test_windows_offline_development_forward_controller",
             "tests.test_windows_historical_stack_batch_executor",
@@ -426,19 +580,51 @@ def _task_identity(repo: Path, head: str, batch: dict,
     }
 
 
+def _require_historical_anchor(repo: Path, batch: dict,
+                               anchor_prefix: str) -> None:
+    """Prove prior verified historical code remains inside the same SHA window.
+
+    The latest Git HEAD may advance into batch 49 or later; old batch 48
+    still belongs to its independently verified original 20 commits.
+    Do not require the *current* repo HEAD to equal the historical batch end.
+    """
+    require(re.fullmatch(r"[0-9a-f]{7}", anchor_prefix) is not None
+            and re.fullmatch(r"[a-f0-9]{40}", batch["start_exclusive_sha"])
+            and re.fullmatch(r"[a-f0-9]{40}", batch["end_inclusive_sha"])
+            and type(batch["commit_count"]) is int
+            and 1 <= batch["commit_count"] <= 20,
+            "Invalid immutable historical source membership")
+    p = subprocess.run(
+        ["git", "-C", str(repo), "rev-list", "--topo-order", "--reverse",
+         batch["start_exclusive_sha"] + ".." + batch["end_inclusive_sha"]],
+        capture_output=True, text=True, encoding="utf8",
+        errors="replace", timeout=40, check=False,
+    )
+    members = p.stdout.splitlines()
+    require(p.returncode == 0 and not p.stderr.strip()
+            and len(members) == batch["commit_count"]
+            and all(re.fullmatch(r"[0-9a-f]{40}", sha) is not None
+                    for sha in members)
+            and sum(sha.startswith(anchor_prefix) for sha in members) == 1,
+            "Historical batch 48 lost its original code anchor")
+
+
 def _execute_task(repo: Path, head: str, batch: dict, task: dict,
                   folder: Path, runner) -> dict:
     require(batch["batch_number"] == task["batch"]
             and batch["first_commit_sha"].startswith(
                 task["first_commit_prefix"])
-            and (
-                (task["last_commit_prefix"] == "<CURRENT_HEAD>"
-                 and task["batch"] == 48
-                 and batch["end_inclusive_sha"] == head)
-                or (task["last_commit_prefix"] != "<CURRENT_HEAD>"
-                    and batch["end_inclusive_sha"].startswith(
-                        task["last_commit_prefix"]))),
+            and (task["last_commit_prefix"] ==
+                 "<HISTORICAL_ANCHOR_MEMBER>"
+                 or batch["end_inclusive_sha"].startswith(
+                     task["last_commit_prefix"])),
             "Developer task does not belong to original SHA-bound history")
+    if task["last_commit_prefix"] == "<HISTORICAL_ANCHOR_MEMBER>":
+        require(task["batch"] == 48
+                and task["historical_anchor_prefix"] == "048c0cf",
+                "Unrecognized historical final batch anchor")
+        _require_historical_anchor(
+            repo, batch, task["historical_anchor_prefix"])
     modules = _source_modules(repo, task)
     identity = _task_identity(repo, head, batch, task, modules)
     intent = folder / (task["id"] + ".intent.json")
@@ -552,7 +738,7 @@ def advance_offline(*, repo: Path, max_steps: int = MAX_STEPS,
         "offline_dev_autoforward", SIGNATURE) == MECHANISM,
         "Continuous offline code-review recovery mechanism disabled")
     require(type(max_steps) is int and 1 <= max_steps <= MAX_STEPS,
-            "Bounded development runner requires a finite 1–15 tasks per invocation")
+            "Bounded development runner requires a finite 1–30 tasks per invocation")
     repo = Path(repo).absolute()
     _verify_repo(repo)
     plan = plan_stack(repo=repo)
