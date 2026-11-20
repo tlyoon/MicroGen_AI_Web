@@ -62,11 +62,15 @@ class OwnedGeminiResponse(str):
     """
 
     def __new__(cls, text: str, *, registration_status: str,
-                new_turn_verified: bool, late_reconciled: bool = False):
+                new_turn_verified: bool, late_reconciled: bool = False,
+                verified_model_family: str | None = None,
+                verified_thinking_level: str | None = None):
         value = str.__new__(cls, text)
         value.gemini_send_registration_status = registration_status
         value.gemini_new_user_turn_verified = new_turn_verified
         value.gemini_late_response_reconciled = late_reconciled
+        value.gemini_verified_model_family = verified_model_family
+        value.gemini_verified_thinking_level = verified_thinking_level
         return value
 
 
@@ -83,19 +87,27 @@ def _vendor_module():
 
 def _browser_request(instruction: str,attachments: list[Path],
                      *,port: int,wait_cap_s: int,
-                     min_chars: int=200,accept_fn=None) -> str:
+                     min_chars: int=200,accept_fn=None,
+                     expected_runtime_family: str | None = None,
+                     expected_thinking_level: str | None = None) -> str:
     from .three_pc_worker import LocalInstanceLock
     # The owned vendor tab itself is the only authoritative Gemini tab.
     # Do not use ensure_mode(port, ...) here: it searches and may re-focus
     # unrelated authenticated tabs after a separate owned chat was prepared.
 
-    vendor=_vendor_module()
     cache=Path(os.getenv("LOCALAPPDATA") or (Path.home()/".cache"))/"Microvid"
     # Explicit text-only Gemini request mode: original-source evidence may be
     # embedded directly in a bounded prompt when document upload stalls.
     # No surrogate attachment, no unrelated Chrome tab, no new paid API.
     if type(attachments) is not list or any(not isinstance(p,Path) for p in attachments):
         raise SeriesBridgeError("Browser request attachments must be paths")
+    # A fresh source-free PDF diagnostic can demand one exact new model and
+    # effort, while ALL ordinary generation callers preserve legacy behavior.
+    # This is never a substitute for a scientific response or release proof.
+    if expected_runtime_family not in (None, "neon") or \
+            expected_thinking_level not in (None, "high"):
+        raise SeriesBridgeError("Unsupported exact diagnostic browser contract")
+    vendor=_vendor_module()
     request_root=Path(attachments[0]).parent if attachments else cache
     cfg=vendor.Config(
         root=request_root,debug_port=port,
@@ -121,6 +133,12 @@ def _browser_request(instruction: str,attachments: list[Path],
                 # fallback when Flash disappeared. Re-read its actual runtime
                 # contract instead of checking the stale original family.
                 selected=os.getenv("MICROGEN_GEMINI_UI_MODE",selected).strip().lower()
+                # Fail BEFORE attachment upload, prompt typing or one-Send if
+                # an exact diagnostic is routed to a different family.
+                if (expected_runtime_family is not None
+                        and selected != expected_runtime_family):
+                    raise SeriesBridgeError(
+                        "SOURCE_FREE_DIAGNOSTIC_EXPECTED_NEON_NOT_SELECTED_NO_SEND")
                 # New chats can reset both model and Thinking level.
                 # Both are checked again in THIS owned tab before any Send.
                 from .gemini_stage_policy import browser_stage_needs_thinking
@@ -153,6 +171,15 @@ def _browser_request(instruction: str,attachments: list[Path],
                 browser_model_evidence(
                     observed,requested_mode=selected,
                     requested_model_id=browser_requested_model_id(selected))
+                if expected_thinking_level is not None:
+                    from .gemini_thinking import (
+                        configured_thinking_level, assert_owned_gemini_thinking_level)
+                    if configured_thinking_level() != expected_thinking_level:
+                        raise SeriesBridgeError(
+                            "SOURCE_FREE_DIAGNOSTIC_HIGH_EFFORT_NOT_CONFIGURED_NO_SEND")
+                    assert_owned_gemini_thinking_level(
+                        owned.driver,getattr(owned,"_automation_tab",None),
+                        level=expected_thinking_level)
                 if attachments:
                     owned.upload_files(attachments)
                 if not owned.type_prompt_text(instruction,retries=3):
@@ -181,6 +208,12 @@ def _browser_request(instruction: str,attachments: list[Path],
                 assert_owned_gemini_mode, configured_ui_mode)
             selected_family=assert_owned_gemini_mode(
                 client.driver,owned_handle,mode=configured_ui_mode(),wait_seconds=4)
+            verified_runtime_family=configured_ui_mode()
+            if (expected_runtime_family is not None
+                    and verified_runtime_family != expected_runtime_family):
+                raise SeriesBridgeError(
+                    "SOURCE_FREE_DIAGNOSTIC_RUNTIME_FAMILY_CHANGED_NO_SEND")
+            verified_runtime_thinking=None
             print("[MicroGen] PRE_SEND_OWNED_FAMILY_VERIFIED "
                   +selected_family,file=sys.stderr,flush=True)
             from .gemini_stage_policy import browser_stage_needs_thinking
@@ -189,6 +222,11 @@ def _browser_request(instruction: str,attachments: list[Path],
                     assert_owned_gemini_thinking_level, configured_thinking_level)
                 selected_thinking=assert_owned_gemini_thinking_level(
                     client.driver, owned_handle, level=configured_thinking_level())
+                verified_runtime_thinking=configured_thinking_level()
+                if (expected_thinking_level is not None
+                        and verified_runtime_thinking != expected_thinking_level):
+                    raise SeriesBridgeError(
+                        "SOURCE_FREE_DIAGNOSTIC_HIGH_EFFORT_CHANGED_NO_SEND")
                 print("[MicroGen] PRE_SEND_OWNED_THINKING_VERIFIED "
                       +selected_thinking,file=sys.stderr,flush=True)
             else:
@@ -316,7 +354,9 @@ def _browser_request(instruction: str,attachments: list[Path],
                                 "do not attribute this reply or resend.")
                         return OwnedGeminiResponse(
                             recovered, registration_status=registration["status"],
-                            new_turn_verified=True, late_reconciled=True)
+                            new_turn_verified=True, late_reconciled=True,
+                            verified_model_family=verified_runtime_family,
+                            verified_thinking_level=verified_runtime_thinking)
                 from .gemini_provider_ui_terminal_error import (
                     classify_visible_reply,
                 )
@@ -418,7 +458,9 @@ def _browser_request(instruction: str,attachments: list[Path],
                     "as untrusted. Do not repeat the Send.")
             return OwnedGeminiResponse(
                 response, registration_status=registration["status"],
-                new_turn_verified=True, late_reconciled=False)
+                new_turn_verified=True, late_reconciled=False,
+                verified_model_family=verified_runtime_family,
+                verified_thinking_level=verified_runtime_thinking)
         except Exception as error:
             from .gemini_selenium_only_policy import (
                 GeminiSeleniumTemporaryFailure,
