@@ -1654,7 +1654,14 @@ def map_and_rename_single_step(
         FigureCompositeReviewRequired, validate_and_prepare_mappings,
         require_non_destructive_destination,
     )
+    from selenium_pipeline.figure_source_recovery import reuse_verified_prior_panels
     try:
+        # A historical figure is usable only when the extracted source crops
+        # and its complete parent reproduce the old lettered panels exactly.
+        # Otherwise, retain the original fail-closed duplicate mapping guard.
+        resolved_triples = reuse_verified_prior_panels(
+            resolved_triples, crops_dir, (CFG.root, CFG.root.parent)
+        )
         resolved_triples = validate_and_prepare_mappings(resolved_triples)
         # Preflight *all* original crops and destinations before first copy.
         for crop_name, _label, target in resolved_triples:

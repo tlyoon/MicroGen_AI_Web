@@ -128,8 +128,26 @@ def require_non_destructive_destination(src, dst) -> bool:
         ])
     digest = lambda p: hashlib.sha256(p.read_bytes()).digest()
     if digest(src) != digest(dst):
-        raise FigureCompositeReviewRequired([
-            {"reason": "existing_figure_conflicts_with_new_crop", "target": dst.name,
-             "crop": src.name}
-        ])
+        # PNG encoders can produce different byte streams for *exactly* the
+        # same image. Reuse the old destination only when decoded RGBA pixels
+        # (including alpha) agree. Never overwrite it, and fail closed if
+        # Pillow cannot decode either candidate.
+        equivalent = False
+        try:
+            from PIL import Image
+            with Image.open(src) as src_image, Image.open(dst) as dst_image:
+                if src_image.size == dst_image.size:
+                    # Compare every channel including alpha; RGBA
+                    # ImageChops.getbbox() can hide RGB-only differences.
+                    equivalent = (
+                        src_image.convert("RGBA").tobytes()
+                        == dst_image.convert("RGBA").tobytes()
+                    )
+        except (OSError, ValueError, ImportError):
+            equivalent = False
+        if not equivalent:
+            raise FigureCompositeReviewRequired([
+                {"reason": "existing_figure_conflicts_with_new_crop", "target": dst.name,
+                 "crop": src.name}
+            ])
     return True
