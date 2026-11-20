@@ -16,6 +16,7 @@ from pathlib import Path
 STATE_NAME="request_state.json"
 CLAIM_NAME="dispatch_attempted.claim"
 RESPONSE_EVIDENCE_NAME="model_response_identity.json"
+NEON_MODEL_WITNESS_NAME="neon_high_owned_model_witness.json"
 VALID_STATES={"PREPARED_NOT_SENT","SUBMITTED_OR_UNCERTAIN",
               "CERTIFIED_PRESEND_UNSENT","NO_RESPONSE_UNRESOLVED",
               "MODEL_REPLY_OBSERVED_UNVALIDATED",
@@ -303,6 +304,68 @@ def resume_certified_unsent(checkpoint:Path,*,expected_fingerprint:str)->dict:
     return state
 
 
+def _neon_model_witness(checkpoint:Path, fingerprint:str, *,
+                        raw=None, expected_response_sha256=None) -> dict:
+    """Persist/check model-owned Neon High provenance without declaring G2 valid.
+
+    A source-bearing reply from a different/new model may never inherit the
+    earlier Pro transport or saved reply. Exactly one write-once witness for
+    the request fingerprint, response bytes, real registered turn and checked
+    High level is required. No source content or provider credentials stored.
+    """
+    from .academic_provider_requalification import _REGISTERED
+    home=Path(checkpoint).absolute()
+    state=_load(home)
+    _require(state["request_fingerprint"]==fingerprint
+             and (home/CLAIM_NAME).is_file()
+             and not (home/CLAIM_NAME).is_symlink(),
+             "No exact source review claim for Neon model attestation")
+    witness_path=home/NEON_MODEL_WITNESS_NAME
+    if raw is not None:
+        from .series_gemini import OwnedGeminiResponse
+        _require(isinstance(raw,OwnedGeminiResponse)
+                 and raw.gemini_verified_model_family=="neon"
+                 and raw.gemini_verified_thinking_level=="high"
+                 and raw.gemini_new_user_turn_verified is True
+                 and raw.gemini_send_registration_status in _REGISTERED,
+                 "Unverified Neon/High source review response; no acceptance or resend")
+        _require(not witness_path.exists() and not witness_path.is_symlink(),
+                 "One source response cannot acquire a second model witness")
+        _write_new(witness_path,{
+            "schema_version":1,"status":"SOURCE_NEON_HIGH_OWNED_TURN_ATTESTED_UNAPPROVED",
+            "request_fingerprint":fingerprint,
+            "source_sha256":state["source_sha256"],
+            "review_mode":state["review_mode"],
+            "response_sha256":_sha(str(raw).encode("utf8")),
+            "selected_model_family":"neon",
+            "checked_thinking_level":"high",
+            "registered_new_user_turn":True,
+            "registration_status":raw.gemini_send_registration_status,
+            "academic_approval":False,"student_publication_authorized":False,
+        })
+    _require(witness_path.is_file() and not witness_path.is_symlink()
+             and witness_path.stat().st_size<=4096,
+             "Missing or unsafe Neon/High source-bound model witness")
+    witness=json.loads(witness_path.read_text(encoding="utf8"))
+    _require(type(witness) is dict
+             and witness.get("schema_version")==1
+             and witness.get("status")=="SOURCE_NEON_HIGH_OWNED_TURN_ATTESTED_UNAPPROVED"
+             and witness.get("request_fingerprint")==fingerprint
+             and witness.get("source_sha256")==state["source_sha256"]
+             and witness.get("review_mode")==state["review_mode"]
+             and witness.get("selected_model_family")=="neon"
+             and witness.get("checked_thinking_level")=="high"
+             and witness.get("registration_status") in _REGISTERED
+             and witness.get("registered_new_user_turn") is True
+             and witness.get("academic_approval") is False
+             and witness.get("student_publication_authorized") is False,
+             "Untrusted or cross-model Neon academic witness")
+    if expected_response_sha256 is not None:
+        _require(witness.get("response_sha256")==expected_response_sha256,
+                 "Neon model witness and saved response content disagree")
+    return witness
+
+
 def record_observation(checkpoint:Path,*,raw:str,
                        expected_fingerprint:str)->dict:
     root=Path(checkpoint).absolute()
@@ -394,7 +457,8 @@ def recover_claimed_observation(*,checkpoint:Path,
     return state
 
 
-def validate_saved(*,checkpoint:Path,expected_fingerprint:str,validator)->dict:
+def validate_saved(*,checkpoint:Path,expected_fingerprint:str,validator,
+                   required_model_family:str|None=None)->dict:
     root=Path(checkpoint).absolute()
     state=_load(root)
     _require(state["request_fingerprint"]==expected_fingerprint
@@ -411,6 +475,11 @@ def validate_saved(*,checkpoint:Path,expected_fingerprint:str,validator)->dict:
     _require(raw.strip() and _sha(raw.encode("utf8"))==state.get("response_sha256")
              and len(raw)==state.get("response_length_chars"),
              "Reply is empty, truncated or changed")
+    _require(required_model_family in (None,"neon"),
+             "Unsupported new academic model provenance")
+    if required_model_family=="neon":
+        _neon_model_witness(root,expected_fingerprint,
+                            expected_response_sha256=_sha(raw.encode("utf8")))
     _require(callable(validator),"Independent source validator required")
     try:
         result=validator(raw)
@@ -431,7 +500,10 @@ def validate_saved(*,checkpoint:Path,expected_fingerprint:str,validator)->dict:
 
 def submit_once(*,checkpoint:Path,original_folder:Path,
                 request_text:str,source_hashes:dict,review_mode:str,
-                transport,validator,revised_text_hashes:list[str]|None=None)->dict:
+                transport,validator,revised_text_hashes:list[str]|None=None,
+                required_model_family:str|None=None)->dict:
+    _require(required_model_family in (None,"neon"),
+             "Unsupported academic model identity requirement")
     state=prepare(checkpoint=checkpoint,original_folder=original_folder,
                   request_text=request_text,source_hashes=source_hashes,
                   review_mode=review_mode,
@@ -445,7 +517,8 @@ def submit_once(*,checkpoint:Path,original_folder:Path,
         recover_claimed_observation(checkpoint=checkpoint,
                                     expected_fingerprint=digest)
         return validate_saved(checkpoint=checkpoint,
-                              expected_fingerprint=digest,validator=validator)
+                               expected_fingerprint=digest,validator=validator,
+                               required_model_family=required_model_family)
     if state["status"]=="CERTIFIED_PRESEND_UNSENT":
         resume_certified_unsent(checkpoint,expected_fingerprint=digest)
     else:
@@ -465,9 +538,14 @@ def submit_once(*,checkpoint:Path,original_folder:Path,
             certify_unsent_preparation_failure(
                 checkpoint,expected_fingerprint=digest,error=error)
         raise
+    if required_model_family=="neon":
+        # Durable, write-once owned model/High witness BEFORE converting str
+        # subclass into plain saved text. A crash consumes the claim, no resend.
+        _neon_model_witness(checkpoint,digest,raw=raw)
     record_observation(checkpoint,raw=raw,expected_fingerprint=digest)
     return validate_saved(checkpoint=checkpoint,
-                          expected_fingerprint=digest,validator=validator)
+                          expected_fingerprint=digest,validator=validator,
+                          required_model_family=required_model_family)
 
 def legacy_no_response(*,legacy_window:Path,checkpoint:Path)->dict:
     """Import 2026-10-26 pre-existing no-response request WITHOUT dispatch.

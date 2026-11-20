@@ -211,15 +211,19 @@ def validate_source_demoted_review(*, folder: Path, job: dict,
 
 
 def _academic_browser_request(prompt: str, files: list[Path], *,
-                              chrome_port: int, wait_cap_s: int) -> str:
+                               chrome_port: int, wait_cap_s: int,
+                               required_runtime_family: str|None=None) -> str:
     """Use the same Flash-first, Pro/Medium recovery as slides and narration.
 
     This scoped stage is ONLY a model-family choice before a single claimed
     request. Do not carry its Pro fallback into the next slide or the next
     process; independently verify the actual owned picker on every Send.
     """
+    require(required_runtime_family in (None,"neon"),
+            "No source review model override without a verified capability")
     keys = ("MICROGEN_ACTIVE_GENERATION_STAGE",
             "MICROGEN_GEMINI_UI_MODE", "MICROGEN_LLM_MODEL",
+            "MICROGEN_GEMINI_THINKING_LEVEL",
             "MICROGEN_MODEL_ROUTE_REASON", "MICROGEN_MODEL_ROUTE_REQUESTED",
             "MICROGEN_MODEL_ROUTE_OFFERED")
     original = {key: os.environ.get(key) for key in keys}
@@ -232,6 +236,16 @@ def _academic_browser_request(prompt: str, files: list[Path], *,
         os.environ["MICROGEN_LLM_MODEL"] = (
             "gemini-3.8-flash" if requested == "flash" else "gemini-3.1-pro")
         selected_port=chrome_port
+        if required_runtime_family=="neon":
+            # Only used after the exact original incident has an independently
+            # verified source-free Neon/High two-PDF response. A new source
+            # Send still requires a unique durable per-slide claim and QA.
+            require(chrome_port==9222 and requested=="pro",
+                    "Neon science handoff requires the primary Pro incident")
+            os.environ["MICROGEN_GEMINI_THINKING_LEVEL"]="high"
+            return _browser_request(
+                prompt,files,port=9222,wait_cap_s=wait_cap_s,min_chars=80,
+                expected_runtime_family="neon",expected_thinking_level="high")
         if requested=="pro" and chrome_port==9222:
             # Run a real OWNED model/Medium no-Send preflight. A separately
             # authorized already-running Account B may be chosen only BEFORE
@@ -262,11 +276,15 @@ def _academic_browser_request(prompt: str, files: list[Path], *,
 def run_web_review(*,folder:Path,job:dict,mode:str,
                    chrome_port:int=9222,wait_cap_s:int=240,transport=None,
                    response_observer=None,verified_source_evidence:dict|None=None,
-                   checkpoint_dir:Path|None=None)->dict:
+                    checkpoint_dir:Path|None=None,
+                    required_model_family:str|None=None)->dict:
+    require(required_model_family in (None,"neon"),
+            "Source review requires an explicitly verified model family")
     require(chrome_port in range(1,65536) and 60<=wait_cap_s<=600,
             "Browser request must be bounded")
     call=transport or (lambda prompt,files:_academic_browser_request(
-        prompt,files,chrome_port=chrome_port,wait_cap_s=wait_cap_s))
+        prompt,files,chrome_port=chrome_port,wait_cap_s=wait_cap_s,
+        required_runtime_family=required_model_family))
     instruction=review_instructions(job,mode=mode,
                         verified_source_evidence=verified_source_evidence)
     def strict_source_validator(raw):
@@ -289,7 +307,8 @@ def run_web_review(*,folder:Path,job:dict,mode:str,
             source_hashes={"source.pdf":job["source_sha256"],
                            "slides.pdf":job["slides_sha256"],
                            "script.txt":job["script_sha256"]},
-            review_mode=mode,transport=call,validator=strict_source_validator)
+            review_mode=mode,transport=call,validator=strict_source_validator,
+            required_model_family=required_model_family)
     # Live browser requests must ALWAYS have a crash-persistent claim.
     # Fixture-injected transports without a checkpoint remain permitted
     # for local offline tests only.

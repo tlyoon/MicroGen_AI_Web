@@ -228,6 +228,20 @@
       "enabled": true
     },
     {
+      "id": "G2_SOURCE_REVIEW_FROM_VERIFIED_NEON_HIGH_PDF",
+      "match_type": "selection_action",
+      "signature": "G2_NEW_SOURCE_REVIEW_AFTER_VERIFIED_NEON_HIGH_TWO_PDF",
+      "mechanism": "SELECT_ONE_UNATTEMPTED_SOURCE_SLIDE_WITH_NEON_HIGH_WITNESS",
+      "classification": "VERIFIED_NEON_HIGH_TWO_PDF_TRANSPORT_SUPPORTS_NEW_ORIGINAL_SOURCE_REVIEW_WITH_DISTINCT_WITNESS",
+      "handler": "NORMAL_SOURCE_BOUND_G2_SUPERVISOR_AND_QUEUE",
+      "preconditions": "unaltered source and queue; two uncertain original requests never replayed; both retired Pro claims; one positively verified Neon High two PDF result; next slide genuinely untouched",
+      "verification_test": "tests/test_pr561_neon_g2_source_handoff.py",
+      "last_verified_date": "2026-11-20",
+      "environment": "Dell-115 original Serway 1.3 source G2 and one-use authenticated Neon High synthetic PDF proof; no automatic scientific approval",
+      "retry_policy": "finite one original source slide Send per immutable request fingerprint; verify same owned Neon High response before independent G2 validation; no original claim replay or release",
+      "enabled": true
+    },
+    {
       "id": "G2_NEON_HIGH_DISTINCT_TWO_PDF_MODEL_REQUALIFICATION",
       "match_type": "presend_capability_repair",
       "signature": "G2_NEW_NEON_HIGH_MODEL_AFTER_RETIRED_PRO_PDF_CLAIMS",
