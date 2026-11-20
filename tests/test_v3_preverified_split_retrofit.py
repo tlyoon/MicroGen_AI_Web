@@ -36,7 +36,7 @@ class PreverifiedReceipt(unittest.TestCase):
    (root/'source_split_figure_chain_v1.json').write_text('{}')
    with patch('selenium_pipeline.source_caption_figure_chain_v1.has_real_pdf_header',return_value=True), \
         patch('selenium_pipeline.source_caption_figure_chain_v1.printed_source_captions',return_value=[{'id':'8.7'}]), \
-        patch('selenium_pipeline.source_caption_figure_chain_v1.verify_figure_crops',return_value={'figure_count':1}), \
+        patch('selenium_pipeline.source_caption_figure_chain_v1.verify_figure_crops',return_value={'figure_count':1,'status':'ALL_PRINTED_SOURCE_FIGURE_CROPS_VERIFIED'}), \
         patch('selenium_pipeline.source_caption_figure_chain_v1.verify_latex_figure_chain',return_value={'figures_verified':1,'source_sha256':'SHA'}), \
         patch('selenium_pipeline.source_split_figure_chain_v1.verify_split_figure_chain',side_effect=FigureChainError('missing source panel')) as verifier:
     with self.assertRaisesRegex(FigureChainError,'missing source panel'):
@@ -50,11 +50,12 @@ class PreverifiedReceipt(unittest.TestCase):
    (root/'source_figure_chain_v1.json').write_text('{}')
    with patch('selenium_pipeline.source_caption_figure_chain_v1.has_real_pdf_header',return_value=True), \
         patch('selenium_pipeline.source_caption_figure_chain_v1.printed_source_captions',return_value=[{'id':'8.10'}]), \
-        patch('selenium_pipeline.source_caption_figure_chain_v1.verify_figure_crops',return_value={'figure_count':1}), \
+        patch('selenium_pipeline.source_caption_figure_chain_v1.verify_figure_crops',return_value={'figure_count':1,'status':'ALL_PRINTED_SOURCE_FIGURE_CROPS_VERIFIED'}), \
         patch('selenium_pipeline.source_caption_figure_chain_v1.verify_latex_figure_chain',return_value={'figures_verified':1,'source_sha256':'originalSHA'}), \
         patch('selenium_pipeline.source_caption_figure_chain_v1.recover_printed_source_figures',side_effect=AssertionError('unsafe guess')):
     outcome=bootstrap_legacy_source_figures(root)
-    self.assertEqual(outcome['recovery_status'],'PREVERIFIED_SOURCE_LEDGER_REUSED')
+    self.assertEqual(outcome['recovery_status'],'ALL_PRINTED_SOURCE_FIGURE_CROPS_VERIFIED')
+    self.assertTrue(outcome['preverified_source_ledger_reused'])
 
 class VectorSplitGuards(unittest.TestCase):
  class FakePage:

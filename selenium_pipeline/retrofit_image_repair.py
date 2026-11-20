@@ -264,7 +264,7 @@ def bootstrap_legacy_source_figures(work: Path) -> dict:
         from .source_caption_figure_chain_v1 import verify_figure_crops
         from .source_split_figure_chain_v1 import (
             prepare_split_figure_chain, verify_split_figure_chain)
-        verify_figure_crops(work)
+        verified_crop = verify_figure_crops(work)
         if ((work/"figure_repair_provenance.json").exists()
                 and not (work/"source_split_figure_chain_v1.json").exists()):
             # Historical source-exact split panels may lack a ledger; create
@@ -274,7 +274,8 @@ def bootstrap_legacy_source_figures(work: Path) -> dict:
             verify_split_figure_chain(work)
         verified=verify_latex_figure_chain(work)
         return {"status":"LEGACY_SOURCE_FIGURE_BOOTSTRAP_VERIFIED",
-                "recovery_status":"PREVERIFIED_SOURCE_LEDGER_REUSED",
+                "recovery_status":verified_crop["status"],
+                "preverified_source_ledger_reused":True,
                 "figure_count":verified["figures_verified"],
                 "source_sha256":verified["source_sha256"]}
     recovered=recover_printed_source_figures(work)
