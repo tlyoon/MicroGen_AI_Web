@@ -414,8 +414,21 @@ def verify_figure_crops(folder: Path, *, require_semantic: bool = False) -> dict
             with tempfile.TemporaryDirectory(prefix="microgen_source_crop_verify_") as temp:
                 trial = Path(temp) / "reconstructed.png"
                 _render(page, clip, trial)
-                _require(_sha(trial) == _sha(path),
-                         f"{cap['filename']} is not the exact source PDF crop")
+                if _sha(trial) != _sha(path):
+                    # Do not reject a source-locked PNG solely because HP
+                    # and Dell use different MuPDF antialiasing builds.
+                    # The original PNG SHA and all source panel/caption
+                    # witnesses were checked above. This bounded pixel
+                    # comparison still rejects edits and missing labels.
+                    from .source_crop_renderer_parity_v1 import (
+                        verified_renderer_parity)
+                    try:
+                        verified_renderer_parity(
+                            reconstructed=trial,ledger_png=path)
+                    except ValueError as exc:
+                        raise FigureChainError(
+                            f"{cap['filename']} is not the exact source PDF crop "
+                            "under bounded renderer drift") from exc
             _require(fig.get("source_region_pixel_verified") is True
                      and fig.get("semantic_accuracy_or_publication_approved") is False,
                      "Unverified crop source identity/false scientific approval")
