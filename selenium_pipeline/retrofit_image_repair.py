@@ -160,7 +160,7 @@ def _source_snapshot(folder: Path) -> dict:
     names.extend(sorted(p.name for p in folder.iterdir()
                         if p.is_file() and p.suffix.lower() in
                         {".png", ".jpg", ".jpeg", ".eps"}))
-    names.append("figures_manifest.json")
+    names.extend(["figures_manifest.json", "source_figure_chain_v1.json"])
     return {name: digest(folder / name) if (folder / name).is_file() else None
             for name in sorted(set(names))}
 
@@ -232,6 +232,32 @@ def _compare_frame(video: Path, seconds: float, pdf, slide: int, scratch: Path) 
                         - np.asarray(expected, dtype=np.int16)).mean())
 
 
+def bootstrap_legacy_source_figures(work: Path) -> dict:
+    """Source-only v2 upgrade inside an *isolated* retrofit workspace.
+
+    Old accepted lectures predate the SHA-bound source-caption ledger. Restore
+    it deterministically from immutable source.pdf; require every captioned
+    source figure's exact filename in active, unguarded LaTeX. Missing figures
+    must fail before expensive PDF or media generation. This code must never
+    be invoked against a published folder by the retrofitter.
+    """
+    from .source_caption_figure_chain_v1 import (
+        has_real_pdf_header, printed_source_captions,
+        recover_printed_source_figures, verify_latex_figure_chain)
+    work=Path(work)
+    source=work/"source.pdf"
+    if not has_real_pdf_header(source):
+        return {"status":"LEGACY_NONPDF_SOURCE_FIXTURE"}
+    if not printed_source_captions(source):
+        return {"status":"NO_PRINTED_SOURCE_FIGURES"}
+    recovered=recover_printed_source_figures(work)
+    verified=verify_latex_figure_chain(work)
+    return {"status":"LEGACY_SOURCE_FIGURE_BOOTSTRAP_VERIFIED",
+            "recovery_status":recovered.get("status"),
+            "figure_count":verified["figures_verified"],
+            "source_sha256":verified["source_sha256"]}
+
+
 def stage_rebuild(original: Path, patch: Path, work: Path) -> dict:
     """Rebuild a repaired legacy deck without touching the published folder."""
     import fitz
@@ -261,6 +287,9 @@ def stage_rebuild(original: Path, patch: Path, work: Path) -> dict:
             (original / p.name).exists() and digest(original / p.name) == digest(p)
             for p in edits):
         raise ValueError("No image or slide changes to rebuild")
+    # Use only original-source pixels; never transfer legacy unverified
+    # figure manifests as a substitute for v2 source-derived evidence.
+    source_chain = bootstrap_legacy_source_figures(work)
     for attempt in (1, 2):
         proc = subprocess.run(["pdflatex", "-halt-on-error", "-interaction=nonstopmode",
                                "slides.tex"], cwd=work, capture_output=True, text=True,
@@ -270,6 +299,11 @@ def stage_rebuild(original: Path, patch: Path, work: Path) -> dict:
         if proc.returncode:
             raise RuntimeError(f"LaTeX compilation {attempt} failed: "
                                + (proc.stdout + proc.stderr)[-1800:])
+    from .source_caption_figure_chain_v1 import (
+        has_real_pdf_header, verify_rendered_pdf_source_figures)
+    if has_real_pdf_header(work/"source.pdf"):
+        # A LaTeX reference does not establish a visible compiled PDF image.
+        verify_rendered_pdf_source_figures(work)
     manifest = enforce_graphics(work, repair=True)
     if audit_wide_figure_legibility((work / "slides.tex").read_text("utf-8"), work):
         raise ValueError("Source-grounded figures do not pass readability gate")
@@ -331,9 +365,15 @@ def stage_rebuild(original: Path, patch: Path, work: Path) -> dict:
     if not completed_lecture(work / "source.pdf"):
         raise RuntimeError("Staged completion verification rejected rebuilt package")
     patched_names = [p.name for p in edits if p.name != "slides.tex"]
+    source_chain_names = []
+    if source_chain.get("status") == "LEGACY_SOURCE_FIGURE_BOOTSTRAP_VERIFIED":
+        from .source_caption_figure_chain_v1 import verify_figure_crops
+        source_chain_names = ["source_figure_chain_v1.json",
+                              *verify_figure_crops(work)["figures"]]
     deliverables = ["slides.tex", "slides.pdf", "figures_manifest.json",
                     "slide_narration_sync.json", "slides.mp4", "slides_parts_manifest.json",
-                    *[p["file"] for p in part_records], *patched_names]
+                    *[p["file"] for p in part_records],
+                    *patched_names, *source_chain_names]
     deliverables = sorted(set(deliverables))
     state = {"subtopic": original.name, "source_folder": str(original),
              "original_checksums": before, "files": deliverables,

@@ -163,7 +163,39 @@ def _crop_proposal(page, row: dict) -> tuple[object, str]:
         and fitz.Rect(i["bbox"]).y1 >= cap.y0 - 30
         and fitz.Rect(i["bbox"]).y0 <= cap.y1 + 5
     ]
-    if left_overlap and cap.x0 >= page.rect.width * 0.55:
+    # A third, common textbook layout places a *short caption in the left
+    # margin*, with a two-row photographic/diagram grid to its RIGHT. The
+    # earlier left-only hypothesis incorrectly selected the caption's column,
+    # cut off all six examples and then raised an edge-touching error.
+    #
+    # Require four+ actual source raster placements spanning multiple rows
+    # and columns. Do not infer a right-hand figure from prose or a single
+    # decoration. Retain source-page framing for both callout text ABOVE the
+    # raster objects and panel labels BELOW them, then run the unchanged
+    # strict edge/panel/pixel evidence checks.
+    right_grid = [
+        fitz.Rect(i["bbox"]) for i in images
+        if fitz.Rect(i["bbox"]).width >= 35
+        and fitz.Rect(i["bbox"]).height >= 35
+        and fitz.Rect(i["bbox"]).x0 >= cap.x1 + 12
+        and fitz.Rect(i["bbox"]).y0 >= cap.y0 - 260
+        and fitz.Rect(i["bbox"]).y1 <= cap.y1 + 14
+    ]
+    grid_cols = (max((b.x1 for b in right_grid), default=0)
+                 - min((b.x0 for b in right_grid), default=0))
+    grid_rows = (max((b.y1 for b in right_grid), default=0)
+                 - min((b.y0 for b in right_grid), default=0))
+    if (cap.x1 < page.rect.width * 0.35
+            and len(right_grid) >= 4
+            and grid_cols >= 210 and grid_rows >= 150):
+        clip = fitz.Rect(
+            max(page.rect.x0 + 18, min(b.x0 for b in right_grid) - 10),
+            max(page.rect.y0 + 53, min(b.y0 for b in right_grid) - 60),
+            min(page.rect.x1 - 15, max(b.x1 for b in right_grid) + 20),
+            min(page.rect.y1 - 22, max(b.y1 for b in right_grid) + 21),
+        )
+        mode = "source_raster_vector_grid_right_of_caption"
+    elif left_overlap and cap.x0 >= page.rect.width * 0.55:
         # Full source composite, including panels well ABOVE the caption.
         # The corridor is bounded by the printed caption's own column.
         headroom = 93 if cap.height < 130 else 70
