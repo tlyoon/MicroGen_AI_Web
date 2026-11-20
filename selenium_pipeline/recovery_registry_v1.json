@@ -730,6 +730,20 @@
       "environment": "native Dell-115 Windows Git, Git diff preflight and syntax-preserving targeted recovery",
       "retry_policy": "finite 50 safe diagnostics, bound 4MB journal and 2MB/source, one SHA-bound write-ahead intent and completion receipt; resume only exact old/new bytes, reject foreign dirty source; no automatic commits",
       "enabled": true
+    },
+    {
+      "id": "V71_PROJECT_STATUS_DISABLED_OR_STALE",
+      "match_type": "development_status_watchdog",
+      "signature": "V71_PROJECT_TASK_DISABLED_STALE_OR_HEARTBEAT_MISSING",
+      "mechanism": "INSPECT_NATIVE_TASK_AND_REPORT_VERIFIED_STALL_WITHOUT_UNSAFE_REPLAY",
+      "classification": "PROJECT_CONTINUATION_NOT_VERIFIED",
+      "handler": "NORMAL_WINDOWS_PROJECT_STATUS_MONITOR",
+      "preconditions": "Dell-115 native Task Scheduler state, fresh source-only receipt, validated advisory heartbeat and independent original QA count; fail closed if unverified",
+      "verification_test": "tests/test_project_development_status_monitor.py",
+      "last_verified_date": "2026-11-20",
+      "environment": "Dell-115 limited-user recurring monitor and Google Drive desktop mirror",
+      "retry_policy": "finite 15-minute observation, two missed 30-minute source-only intervals trigger STALLED; atomic deduplicated alert receipt only, no unintended task re-enable or Gemini resubmission",
+      "enabled": true
     }
   ]
 }

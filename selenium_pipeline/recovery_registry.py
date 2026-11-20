@@ -33,6 +33,7 @@ _HANDLERS = {
     "offline_dev_autoforward": "NORMAL_WINDOWS_OFFLINE_CODE_DEVELOPMENT_CONTROLLER",
     "global_checkpoint_handoff": "NORMAL_V71_PROJECT_WIDE_OBSERVABLE_SUPERVISOR",
     "head_patch_format": "NORMAL_WINDOWS_CUMULATIVE_PATCH_FORMAT_PREFLIGHT",
+    "development_status_watchdog": "NORMAL_WINDOWS_PROJECT_STATUS_MONITOR",
 }
 _REQUIRED = {
     "id", "match_type", "signature", "mechanism", "classification",
