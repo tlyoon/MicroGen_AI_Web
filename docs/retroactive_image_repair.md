@@ -62,3 +62,36 @@ parameters. Do not execute two writers on the same package concurrently.
 
 The real existing-lecture smoke test must be done against an isolated staging
 directory, without altering the published materials.
+
+
+## V3 complete source evidence patches for difficult textbook layouts
+
+When automatic source-caption crop geometry is ambiguous or touches the figure
+boundary, inspect the original source PDF and prepare separately verified
+full-resolution source renderings. A patch can contain:
+
+- slides.tex: the corrected complete slide deck
+- exact source-derived Figure X.Y.png files
+- source_figure_chain_v1.json, binding source SHA-256, PDF page, crop geometry,
+  every printed caption and exact PNG hashes
+- optionally source_split_figure_chain_v1.json, figure_repair_provenance.json,
+  and source-bound upper/lower panel PNGs displayed on multiple slides
+
+The retrofit does not trust a ledger merely because it is present:
+verify_figure_crops rerenders from the immutable source and checks hashes;
+verify_split_figure_chain proves pixel identity, letter witnesses, and complete
+source vector/raster/annotation union coverage; verify_latex_figure_chain
+establishes that all printed captions are represented in active slide graphics.
+Rendered PDF visibility is also mandatory.
+
+A historical exact-source split may have provenance but no split ledger.
+In that case the pipeline can reconstruct the ledger after strict proof,
+without silently substituting one for another.
+
+Vector-only two-panel composites may be divided at a proven seam: the union
+must cover the complete original source, with significant vector elements
+and distinct physical source panel letters in separate split images. Missing
+panels or unsupported images still fail closed.
+
+Deterministic source-provenance proof is not by itself an independent
+scientific, acoustic or student-publication approval.
