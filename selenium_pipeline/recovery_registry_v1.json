@@ -228,6 +228,20 @@
       "enabled": true
     },
     {
+      "id": "G2_NEON_HIGH_DISTINCT_TWO_PDF_MODEL_REQUALIFICATION",
+      "match_type": "presend_capability_repair",
+      "signature": "G2_NEW_NEON_HIGH_MODEL_AFTER_RETIRED_PRO_PDF_CLAIMS",
+      "mechanism": "ONE_NEW_IMMUTABLE_NEON_HIGH_TWO_PDF_SEND_THEN_SOURCE_ONLY_RECONCILIATION",
+      "classification": "OLD_PRO_PDF_DIAGNOSTICS_RETIRED_NEW_AUTHENTIC_NEON_HIGH_FAMILY_NEEDS_INDEPENDENT_TWO_PDF_PROOF",
+      "handler": "NORMAL_EXISTING_OWNED_GEMINI_ACCOUNT_CAPABILITY_PREFLIGHT",
+      "preconditions": "two source-locked uncertain original requests; exact immutable failed Pro v1 and v2 PDF results; new owned Neon/High preflight on Dell-115 9222; no original file upload",
+      "verification_test": "tests/test_academic_neon_high_two_pdf_requalification.py",
+      "last_verified_date": "2026-11-20",
+      "environment": "Dell-115 authentic Gemini Neon/High owned model, source-free synthetic PDFs, one immutable incident claim; no academic approval",
+      "retry_policy": "finite one claimed model Send per exact incident across restarts; never repeat after partial claim, uncertain reply or failure; reject non-Neon, non-High and unchecked radios",
+      "enabled": true
+    },
+    {
       "id": "GEMINI_NEW_FRONTIER_ACADEMIC_UI_THINKING_PRESEND",
       "match_type": "presend_capability_repair",
       "signature": "ACADEMIC_DEFAULT_GEMINI_UI_FAMILY_ABSENT_NEW_FRONTIER_AVAILABLE",

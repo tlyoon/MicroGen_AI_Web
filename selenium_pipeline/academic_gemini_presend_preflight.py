@@ -25,7 +25,12 @@ class AcademicGeminiPreSendBlocked(ValueError):
         self.failure_phase=reason
 
 
-def inspect(*,port: int=9222) -> dict:
+def inspect(*,port: int=9222,
+            allow_source_free_neon_probe: bool=False) -> dict:
+    # True is an explicitly source-free, new-model two-PDF capability check;
+    # never a source-review Send, scientific approval, or G3 authorization.
+    if type(allow_source_free_neon_probe) is not bool:
+        raise AcademicGeminiPreSendBlocked("INVALID_SOURCE_FREE_NEON_PREFLIGHT")
     if type(port) is not int or not 1<=port<=65535:
         raise AcademicGeminiPreSendBlocked("INVALID_GEMINI_DEBUG_PORT")
     from .series_gemini import _vendor_module
@@ -87,6 +92,21 @@ def inspect(*,port: int=9222) -> dict:
                 assert_owned_gemini_thinking_level(
                     client.driver,handle,level=level)
             if observed_mode!=mode:
+                if (allow_source_free_neon_probe and port==9222
+                        and mode=="pro" and observed_mode=="neon"
+                        and level=="high"
+                        and os.environ.get(
+                           "MICROGEN_ACADEMIC_SOURCE_MODEL_REQUALIFICATION_PENDING")=="1"):
+                    return {
+                        "status":"EXACT_NEON_HIGH_SOURCE_FREE_PDF_PROBE_ONLY_READY_NO_SEND",
+                        "model_family":"neon", "requested_model_family":"pro",
+                        "thinking_level":"high", "verified_port":9222,
+                        "gemini_requests_submitted":0, "files_uploaded":0,
+                        "model_prompt_typed":False,
+                        "new_source_review_send_allowed":False,
+                        "G2_approved":False, "academic_approval":False,
+                        "student_publication_authorized":False,
+                    }
                 if (os.environ.get(
                         "MICROGEN_ACADEMIC_SOURCE_MODEL_REQUALIFICATION_PENDING")
                         != "1"):
