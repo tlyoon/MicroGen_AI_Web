@@ -153,6 +153,37 @@ class NeonOriginalSourceWitnessTests(TestCase):
         self.assertEqual(calls,[])
         self.assertEqual((self.slot/NEON_MODEL_WITNESS_NAME).read_bytes(),original)
 
+    def test_ambient_flash_cannot_override_source_qualified_neon_high(self):
+        import os
+        from unittest.mock import patch
+        from selenium_pipeline.ai_academic_web_review import _academic_browser_request
+        with patch.dict(os.environ,{
+                "MICROGEN_GEMINI_UI_MODE":"flash",
+                "MICROGEN_GEMINI_THINKING_LEVEL":"medium",
+                "MICROGEN_ACTIVE_GENERATION_STAGE":"figures"},clear=False):
+            observed=[]
+            def model_call(*args,**kwargs):
+                observed.append((os.getenv("MICROGEN_GEMINI_UI_MODE"),
+                                 os.getenv("MICROGEN_GEMINI_THINKING_LEVEL")))
+                return "ONLY_DIAGNOSTIC_TRANSPORT"
+            with patch("selenium_pipeline.ai_academic_web_review._browser_request",
+                       side_effect=model_call) as send:
+                result=_academic_browser_request(
+                    "source-specific review",[self.src/"source.pdf"],
+                    chrome_port=9222,wait_cap_s=90,
+                    required_runtime_family="neon")
+                self.assertEqual(result,"ONLY_DIAGNOSTIC_TRANSPORT")
+                self.assertEqual(send.call_args.kwargs["expected_runtime_family"],
+                                 "neon")
+                self.assertEqual(send.call_args.kwargs["expected_thinking_level"],
+                                 "high")
+                self.assertEqual(send.call_args.kwargs["port"],9222)
+                self.assertEqual(observed,[("pro","high")])
+                self.assertEqual(os.getenv("MICROGEN_GEMINI_UI_MODE"),"flash")
+                self.assertEqual(os.getenv("MICROGEN_GEMINI_THINKING_LEVEL"),"medium")
+            self.assertEqual(os.getenv("MICROGEN_GEMINI_UI_MODE"),"flash")
+            self.assertEqual(os.getenv("MICROGEN_GEMINI_THINKING_LEVEL"),"medium")
+
     def test_historical_pro_response_no_new_witness_required(self):
         result=submit_once(**self.kw,
                            transport=lambda *_:'{"rows":[1]}',

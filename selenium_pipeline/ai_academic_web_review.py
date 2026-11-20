@@ -232,6 +232,10 @@ def _academic_browser_request(prompt: str, files: list[Path], *,
         requested = os.environ.get("MICROGEN_GEMINI_UI_MODE", "flash").strip().lower()
         if requested not in ("flash", "pro"):
             requested = "flash"
+        if required_runtime_family=="neon":
+            # The original scientific queue requested Pro; Neon/High is a
+            # separately proved replacement, not an ambient Flash default.
+            requested = "pro"
         os.environ["MICROGEN_GEMINI_UI_MODE"] = requested
         os.environ["MICROGEN_LLM_MODEL"] = (
             "gemini-3.8-flash" if requested == "flash" else "gemini-3.1-pro")
