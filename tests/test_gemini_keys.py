@@ -38,7 +38,47 @@ class GeminiKeyPoolTests(unittest.TestCase):
         kwargs = client_ctor.call_args.kwargs
         self.assertEqual(kwargs["api_key"], "secret")
         self.assertEqual(kwargs["http_options"].timeout, 12345)
-        self.assertEqual(kwargs["http_options"].retry_options.attempts, 1)
+        retry = getattr(kwargs["http_options"], "retry_options", None)
+        # SDK 1.4.0 exposes neither HttpRetryOptions nor retry_options.
+        if hasattr(gemini_keys.types, "HttpRetryOptions"):
+            self.assertEqual(retry.attempts, 1)
+        else:
+            self.assertIsNone(retry)
+
+    def test_sdk_old_abi_single_attempt_fails_over_without_client_send(self):
+        sentinel = object()
+        with patch.dict(os.environ, {
+            "MICROGEN_GEMINI_REQUEST_TIMEOUT_MS": "9000",
+            "MICROGEN_GEMINI_SDK_RETRY_ATTEMPTS": "1",
+        }, clear=True), patch("gemini_keys.genai.Client",
+                              return_value=sentinel) as maker, patch.object(
+                                  gemini_keys.types,"HttpRetryOptions",None,
+                                  create=True):
+            self.assertIs(gemini_keys.create_gemini_client("secret"), sentinel)
+        self.assertEqual(maker.call_args.kwargs["http_options"].timeout,9000)
+
+    def test_sdk_old_abi_rejects_unrepresentable_multiple_retries_no_send(self):
+        with patch.dict(os.environ, {
+            "MICROGEN_GEMINI_SDK_RETRY_ATTEMPTS": "2",
+        },clear=True),patch("gemini_keys.genai.Client") as maker,patch.object(
+            gemini_keys.types,"HttpRetryOptions",None,create=True):
+            with self.assertRaisesRegex(RuntimeError,"cannot configure HTTP retries"):
+                gemini_keys.create_gemini_client("secret")
+            maker.assert_not_called()
+
+    def test_sdk_new_abi_explicitly_preserves_retry_limit(self):
+        from types import SimpleNamespace
+        def fake_opts(**kwargs):
+            return SimpleNamespace(**kwargs)
+        with patch.dict(os.environ, {
+            "MICROGEN_GEMINI_SDK_RETRY_ATTEMPTS":"2",
+        },clear=True),patch.object(gemini_keys.types,"HttpRetryOptions",
+            side_effect=lambda **kw: SimpleNamespace(**kw),create=True),patch.object(
+                gemini_keys.types,"HttpOptions",side_effect=fake_opts),patch(
+                "gemini_keys.genai.Client") as maker:
+            gemini_keys.create_gemini_client("secret")
+            self.assertEqual(maker.call_args.kwargs[
+                "http_options"].retry_options.attempts,2)
 
     def test_numbered_keys_are_priority_ordered_and_deduplicated(self):
         env = {
