@@ -564,6 +564,20 @@
       "enabled": true
     },
     {
+      "id": "V71_NATIVE_XML_ENABLED_DEFAULT_TRUE_RECOVERY",
+      "match_type": "global_checkpoint_handoff",
+      "signature": "V71_NATIVE_TASK_XML_ENABLED_OPTIONAL_DEFAULT_TRUE",
+      "mechanism": "ACCEPT_OMITTED_XML_ENABLED_ONLY_AFTER_NATIVE_ENABLED_STATE_VERIFIED",
+      "classification": "SCHEDULED_TASK_XML_OMITS_DEFAULT_TRUE_ENABLED_AND_MIGRATION_FALSE_NEGATIVE",
+      "handler": "NORMAL_V71_PROJECT_WIDE_OBSERVABLE_SUPERVISOR",
+      "preconditions": "clean exact Dell-115 Windows worktree and source-only wrapper, native schtasks /Query /V state explicitly Enabled and exact owned action, strict Task Scheduler XML interactive token, no duplicate or conflicting Enabled field",
+      "verification_test": "tests/test_windows_v71_scheduled_resume.py",
+      "last_verified_date": "2026-11-20",
+      "environment": "native Dell-115 scheduled PR554 migration: six unrelated enabled tasks omit XML Settings.Enabled, checked against exact native ready state, no scientific or provider authority",
+      "retry_policy": "finite one read-only XML and native-enabled check per scheduled start; absent XML field can mean true ONLY after native enabled state and exact action are verified; explicit false, malformed or different account fail closed; no model Send or release",
+      "enabled": true
+    },
+    {
       "id": "V71_PERSISTENT_LIMITED_USER_SOURCE_ONLY_SCHEDULER",
       "match_type": "global_checkpoint_handoff",
       "signature": "V71_PERSISTENT_SOURCE_ONLY_RUNNER_NOT_INSTALLED",
