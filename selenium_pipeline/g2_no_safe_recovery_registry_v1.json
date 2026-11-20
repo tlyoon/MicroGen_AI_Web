@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "status": "ORIGINAL_G2_NO_SAFE_SOURCE_DISPOSITION_REGISTRY_V1",
+  "mechanism": "ATTEST_EXISTING_UNCERTAIN_CLAIMS_AND_PERSIST_NO_SEND_DISPOSITION",
+  "signature": "G2_ORIGINAL_NO_SAFE_SOURCE_REVIEW_UNIT",
+  "enabled": true,
+  "max_model_sends": 0
+}
