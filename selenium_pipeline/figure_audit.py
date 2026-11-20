@@ -103,7 +103,17 @@ def enforce_graphics(folder: Path, *, repair: bool = True) -> dict:
             + f"; review source-PDF candidates under {review}" + diagnostic)
     if graphics_error is not None:
         raise graphics_error
-    manifest = {"source_sha256": result["source_sha256"], "figures": []}
+    # A manifest built solely from existing includegraphics references can
+    # falsely certify a deck that omitted four of five source-PDF figures.
+    # Bind printed captions, complete pixel-verified PNGs and all LaTeX refs.
+    from .source_caption_figure_chain_v1 import (
+        verify_latex_figure_chain, has_real_pdf_header)
+    chain = (verify_latex_figure_chain(folder)
+             if has_real_pdf_header(folder / "source.pdf") else
+             {"status": "LEGACY_NONPDF_TEST_FIXTURE_ONLY"})
+    manifest = {"source_sha256": result["source_sha256"],
+                "source_caption_chain_status": chain["status"],
+                "figures": []}
     for entry in result["graphics"]:
         p = folder / entry["filename"]
         manifest["figures"].append({

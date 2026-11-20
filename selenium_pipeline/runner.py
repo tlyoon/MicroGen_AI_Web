@@ -282,6 +282,19 @@ def slide_pages(folder: Path) -> int:
 
 def valid(stage: str, folder: Path) -> bool:
     if stage == "figures":
+        # DOCLING PictureItem counts alone cannot prove complete source figures.
+        # A PDF with printed Figure headings must have every vector/raster
+        # source crop and composite panel, bound to source SHA, or fail closed.
+        source_pdf = folder / "source.pdf"
+        from .source_caption_figure_chain_v1 import has_real_pdf_header
+        if has_real_pdf_header(source_pdf):
+            from .source_caption_figure_chain_v1 import (
+                printed_source_captions, verify_figure_crops)
+            try:
+                if printed_source_captions(source_pdf):
+                    verify_figure_crops(folder)
+            except (ValueError, OSError, RuntimeError):
+                return False
         # A valid source PDF may have no extractable figures. Require the
         # completed page/crop extraction folders; demand published figures
         # only when at least one actual crop exists. Successful subprocess
@@ -397,6 +410,15 @@ def valid(stage: str, folder: Path) -> bool:
                 pdf_file=folder / "slides.pdf")
         except (ValueError, OSError):
             return False
+        # A correct LaTeX compile may omit a source figure entirely, or use
+        # IfFileExists to hide a nonexistent image. Neither is acceptable.
+        from .source_caption_figure_chain_v1 import (
+            verify_rendered_pdf_source_figures, has_real_pdf_header)
+        if has_real_pdf_header(folder / "source.pdf"):
+            try:
+                verify_rendered_pdf_source_figures(folder)
+            except (ValueError, OSError, RuntimeError):
+                return False
         return True
     if stage == "narration":
         return len(blocks((folder / "script.txt").read_text(encoding="utf-8"))) == slide_pages(folder)
@@ -1033,6 +1055,16 @@ def _execute_unlocked(s: Settings) -> Path:
         save_pipeline_state(stamp, state)
         log_file = folder / f"microgen_{stage}.log"
         try:
+            if stage == "figures":
+                from .source_caption_figure_chain_v1 import (
+                    has_real_pdf_header, recover_printed_source_figures)
+                if has_real_pdf_header(folder / "source.pdf"):
+                    # SOURCE-FIRST before Docling and caption mapping. Exact
+                    # original PDF vectors/raster composites; no model Send.
+                    upstream = recover_printed_source_figures(folder)
+                    print("[microgen][source_figures] pre-Docling complete "
+                          f"status={upstream['status']} "
+                          f"count={upstream.get('figure_count', 0)}")
             # The figure caption page-to-crop mapping is a light vision task:
             # exact Flash-Lite, NO thinking-level selector. Lecture slides and
             # narration stay on Flash/Medium (or explicit benchmark Pro).
@@ -1185,6 +1217,16 @@ def _execute_unlocked(s: Settings) -> Path:
                     if not (folder / script).is_file():
                         raise FileNotFoundError(f"Missing reference entrypoint: {script}")
                     run_cmd([stage_python, script], folder, log_file, env)
+            if stage == "figures":
+                from .source_caption_figure_chain_v1 import (
+                    has_real_pdf_header, recover_printed_source_figures)
+                if has_real_pdf_header(folder / "source.pdf"):
+                    # Docling/legacy mapping may overwrite an existing source
+                    # crop; reverify every printed source figure and panel.
+                    crop_result = recover_printed_source_figures(folder)
+                    print("[microgen][source_figures] "
+                          f"{crop_result['status']}; "
+                          f"count={crop_result.get('figure_count', 0)}")
             if not check_valid(stage, folder):
                 raise RuntimeError(f"Validation failed at {stage}; see {log_file}")
             if stage == "tts_qa":
