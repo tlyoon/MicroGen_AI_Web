@@ -100,6 +100,29 @@ class FigurePageCheckpointTests(unittest.TestCase):
         (self.crop/"fig_2.png").write_bytes(b"another source crop")
         self.assertFalse(checkpoint_can_resume(self.r,3))
 
+    def test_lossless_pixel_identical_pngs_create_verifiable_checkpoint(self):
+        from PIL import Image
+        image=Image.new("RGBA",(12,9),(150,30,90,255))
+        image.save(self.crop/"fig_1.png",compress_level=0)
+        image.save(self.mapped,compress_level=9)
+        image.save(self.public,compress_level=9)
+        self.assertNotEqual((self.crop/"fig_1.png").read_bytes(),
+                            self.public.read_bytes())
+        save_checkpoint(self.r,3)
+        self.assertTrue(checkpoint_can_resume(self.r,3))
+
+    def test_changed_rgb_pixel_still_invalidates_checkpoint(self):
+        from PIL import Image
+        original=Image.new("RGBA",(12,9),(150,30,90,255))
+        original.save(self.crop/"fig_1.png")
+        original.save(self.mapped)
+        original.save(self.public)
+        save_checkpoint(self.r,3)
+        mutated=original.copy()
+        mutated.putpixel((1,2),(151,30,90,255))
+        mutated.save(self.public)
+        self.assertFalse(checkpoint_can_resume(self.r,3))
+
     def test_vendor_does_not_auto_merge_unverified_lettered_panels(self):
         source=(Path(__file__).resolve().parents[1]
                 /"selenium_pipeline"/"vendor_template_v2"/"map_and_rename_selenium_v8.py")

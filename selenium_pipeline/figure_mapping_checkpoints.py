@@ -16,6 +16,7 @@ from typing import Any
 
 from .figure_composites import (
     FigureCompositeReviewRequired, validate_and_prepare_mappings,
+    require_non_destructive_destination,
 )
 
 CHECKPOINT_VERSION=1
@@ -92,11 +93,25 @@ def _candidate(root: Path,page: int,*,copy_to_root: bool) -> dict:
             raise ValueError("Original/mapped crop is missing or symlinked")
         digest=_sha(source_crop)
         if _sha(target_crop)!=digest:
-            raise ValueError(f"Mapped target {target} differs from the original crop")
+            try:
+                require_non_destructive_destination(source_crop, target_crop)
+            except FigureCompositeReviewRequired as exc:
+                raise ValueError(
+                    f"Mapped target {target} differs from the original crop"
+                ) from exc
         if copy_to_root:
             published=Path(root)/target
-            if not _regular(published) or _sha(published)!=digest:
+            if not _regular(published):
                 raise ValueError(f"Root publication copy not present/identical: {target}")
+            if _sha(published)!=digest:
+                try:
+                    # The published PNG may use another lossless compression
+                    # setting. Require exact decoded pixels; do not rewrite it.
+                    require_non_destructive_destination(source_crop, published)
+                except FigureCompositeReviewRequired as exc:
+                    raise ValueError(
+                        f"Root publication copy not present/identical: {target}"
+                    ) from exc
         mapped.append({
             "crop":name,"caption":label,"target":target,
             "sha256":digest,
