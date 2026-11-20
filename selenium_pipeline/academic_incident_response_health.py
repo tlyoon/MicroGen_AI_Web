@@ -127,7 +127,7 @@ def verify_result(*, checkpoint_parent: Path, source_sha: str,
           and claim.get("incident_sha256") == incident
           and claim.get("utc_day") == day
           and claim.get("attempt") == ordinal
-          and claim.get("thinking_level") == "medium"
+          and claim.get("thinking_level") in ("medium","high")
           and claim.get("no_source_attached") is True
           and claim.get("academic_request_replayed") is False
           and claim.get("prompt_sha256") ==
@@ -139,7 +139,7 @@ def verify_result(*, checkpoint_parent: Path, source_sha: str,
           and receipt.get("utc_day") == day
           and receipt.get("attempt") == ordinal
           and receipt.get("claim_sha256") == _sha(claim_path)
-          and receipt.get("thinking_level") == "medium"
+          and receipt.get("thinking_level") == claim["thinking_level"]
           and receipt.get("no_original_source_uploaded") is True
           and receipt.get("G2_approved") is False
           and receipt.get("student_publication_authorized") is False
@@ -189,8 +189,9 @@ def probe_incident_once(*, checkpoint_parent: Path, source_sha: str,
     _must(type(chrome_port) is int and 1 <= chrome_port <= 65535
           and after_unix < instant
           and os.getenv("MICROGEN_GEMINI_UI_MODE", "").lower() == family
-          and os.getenv("MICROGEN_GEMINI_THINKING_LEVEL", "").lower() == "medium",
+          and os.getenv("MICROGEN_GEMINI_THINKING_LEVEL", "").lower() in ("medium","high"),
           "Incident diagnostic model, time or Gemini port not verified")
+    effort=os.environ["MICROGEN_GEMINI_THINKING_LEVEL"].lower()
     scoped = _scope(checkpoint_parent, source_sha, family)
     _must(re.fullmatch(r"[0-9a-f]{64}", incident) is not None,
           "Invalid incident identity")
@@ -242,7 +243,7 @@ def probe_incident_once(*, checkpoint_parent: Path, source_sha: str,
     prompt, nonce = _expected(source_sha, family, incident, day, ordinal)
     claim = {
         "schema_version": 2, "source_sha256": source_sha,
-        "model_family": family, "thinking_level": "medium",
+        "model_family": family, "thinking_level": effort,
         "incident_sha256": incident, "utc_day": day,
         "attempt": ordinal, "claimed_unix": instant,
         "last_uncertain_source_claim_unix": after_unix,
@@ -277,7 +278,7 @@ def probe_incident_once(*, checkpoint_parent: Path, source_sha: str,
     observed = float(time.time() if now is None else instant + 0.01)
     receipt = {
         "schema_version": 2, "source_sha256": source_sha,
-        "model_family": family, "thinking_level": "medium",
+        "model_family": family, "thinking_level": effort,
         "incident_sha256": incident, "utc_day": day,
         "attempt": ordinal, "claim_sha256": _sha(claim_path),
         "observed_unix": observed,

@@ -146,11 +146,24 @@ class IncidentResponseHealthTests(TestCase):
         with patch.dict(os.environ, {"MICROGEN_GEMINI_UI_MODE": "flash"}):
             with self.assertRaises(AcademicProbeError):
                 self.probe()
-        with patch.dict(os.environ, {"MICROGEN_GEMINI_THINKING_LEVEL": "high"}):
+        with patch.dict(os.environ, {"MICROGEN_GEMINI_THINKING_LEVEL": "low"}):
             with self.assertRaises(AcademicProbeError):
                 self.probe()
         self.assertEqual(list((self.root / ROOT).rglob("claim.json"))
                          if (self.root / ROOT).exists() else [], [])
+
+    def test_new_high_thinking_incident_receipt_is_exact_effort_bound(self):
+        with patch.dict(os.environ, {"MICROGEN_GEMINI_THINKING_LEVEL": "high"}):
+            result=self.probe()
+        self.assertEqual(result["thinking_level"],"high")
+        path=next((self.root / ROOT).rglob("result.json"))
+        claim=json.loads((path.parent/"claim.json").read_text())
+        self.assertEqual(claim["thinking_level"],"high")
+        stored=json.loads(path.read_text())
+        stored["thinking_level"]="medium"
+        path.write_text(json.dumps(stored))
+        with self.assertRaises(AcademicProbeError):
+            self.history()
 
     def test_tampered_persisted_response_fails_closed(self):
         self.probe()
