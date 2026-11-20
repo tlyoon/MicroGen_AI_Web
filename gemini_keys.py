@@ -51,13 +51,32 @@ def create_gemini_client(api_key: str):
     """Create a Gemini client whose timeout/retries are owned by MicroGen."""
     timeout_ms = max(1_000, _env_int("MICROGEN_GEMINI_REQUEST_TIMEOUT_MS", 120_000))
     sdk_attempts = max(1, _env_int("MICROGEN_GEMINI_SDK_RETRY_ATTEMPTS", 1))
-    return genai.Client(
-        api_key=api_key,
-        http_options=types.HttpOptions(
-            timeout=timeout_ms,
-            retry_options=types.HttpRetryOptions(attempts=sdk_attempts),
-        ),
-    )
+    # Google GenAI SDK ABI differs across installed versions. Older
+    # google-genai (e.g. 1.4.0) has HttpOptions(timeout=...) but exposes no
+    # HttpRetryOptions or retry_options keyword. Keep the single-attempt
+    # contract WITHOUT inventing a class or silently ignoring a requested
+    # multi-attempt SDK retry policy. MicroGen's outer bounded failover still
+    # controls explicit retries and does not replay ambiguous responses.
+    retry_type = getattr(types, "HttpRetryOptions", None)
+    if retry_type is None:
+        if sdk_attempts != 1:
+            raise RuntimeError(
+                "Installed Gemini SDK cannot configure HTTP retries; "
+                "set MICROGEN_GEMINI_SDK_RETRY_ATTEMPTS=1 or upgrade the SDK")
+        http_options = types.HttpOptions(timeout=timeout_ms)
+    else:
+        try:
+            http_options = types.HttpOptions(
+                timeout=timeout_ms,
+                retry_options=retry_type(attempts=sdk_attempts),
+            )
+        except TypeError as exc:
+            if sdk_attempts != 1:
+                raise RuntimeError(
+                    "Installed Gemini HttpOptions cannot configure HTTP retries; "
+                    "request was not sent") from exc
+            http_options = types.HttpOptions(timeout=timeout_ms)
+    return genai.Client(api_key=api_key, http_options=http_options)
 
 
 def get_gemini_api_keys() -> list[str]:

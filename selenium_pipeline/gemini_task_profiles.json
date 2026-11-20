@@ -1,0 +1,127 @@
+{
+  "schema_version": 1,
+  "version": "2026-11-20",
+  "profiles": {
+    "figures": {
+      "preferred": [
+        "flash-lite",
+        "hydrogen",
+        "neon",
+        "flash",
+        "pro",
+        "carbon"
+      ],
+      "minimum_tier": 1,
+      "preferred_thinking": "low",
+      "minimum_thinking": "low",
+      "thinking_required_for": [
+        "hydrogen",
+        "hydrogen-thinking",
+        "flash",
+        "pro",
+        "argon",
+        "carbon",
+        "neon"
+      ],
+      "allow_integrated_thinking": false,
+      "allow_auto": false
+    },
+    "slides": {
+      "preferred": [
+        "neon",
+        "hydrogen",
+        "flash",
+        "pro",
+        "argon",
+        "carbon"
+      ],
+      "minimum_tier": 2,
+      "preferred_thinking": "medium",
+      "minimum_thinking": "medium",
+      "thinking_required": true,
+      "allow_integrated_thinking": false,
+      "allow_auto": false
+    },
+    "narration": {
+      "preferred": [
+        "hydrogen",
+        "neon",
+        "flash",
+        "pro",
+        "argon",
+        "carbon"
+      ],
+      "minimum_tier": 2,
+      "preferred_thinking": "medium",
+      "minimum_thinking": "medium",
+      "thinking_required": true,
+      "allow_integrated_thinking": false,
+      "allow_auto": false
+    },
+    "rich_mapping": {
+      "preferred": [
+        "neon",
+        "carbon",
+        "argon",
+        "pro",
+        "hydrogen",
+        "flash"
+      ],
+      "minimum_tier": 2,
+      "preferred_thinking": "high",
+      "minimum_thinking": "medium",
+      "thinking_required": true,
+      "allow_integrated_thinking": false,
+      "allow_auto": false
+    },
+    "academic_review": {
+      "preferred": [
+        "neon",
+        "carbon",
+        "argon",
+        "pro",
+        "hydrogen-thinking"
+      ],
+      "minimum_tier": 3,
+      "preferred_thinking": "high",
+      "minimum_thinking": "high",
+      "thinking_required": true,
+      "allow_integrated_thinking": false,
+      "allow_auto": false,
+      "source_bound_route_requires_independent_requalification": true,
+      "allow_alternate_model_presend_without_send": true
+    },
+    "acoustic_qa": {
+      "preferred": [
+        "neon",
+        "pro",
+        "hydrogen",
+        "argon",
+        "carbon",
+        "flash",
+        "hydrogen-thinking"
+      ],
+      "minimum_tier": 2,
+      "preferred_thinking": "medium",
+      "minimum_thinking": "medium",
+      "thinking_required": true,
+      "allow_integrated_thinking": false,
+      "allow_auto": false
+    },
+    "repair_analysis": {
+      "preferred": [
+        "carbon",
+        "neon",
+        "argon",
+        "pro",
+        "hydrogen-thinking"
+      ],
+      "minimum_tier": 3,
+      "preferred_thinking": "high",
+      "minimum_thinking": "medium",
+      "thinking_required": true,
+      "allow_integrated_thinking": false,
+      "allow_auto": false
+    }
+  }
+}

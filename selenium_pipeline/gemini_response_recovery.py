@@ -14,12 +14,23 @@ from pathlib import Path
 import secrets
 
 MAX_CAPTURE_CHARS = 1_800_000
+# Zenbook v2's answer was found in the same tab after the 115 s diagnostic
+# stopped (exact answer-arrival time unknown). This finite read-only grace
+# gives the normal caller a chance to recover without a second Send.
+MAX_LATE_OWNED_OBSERVATION_SECONDS = 180
 
 _LATEST_MODEL_ONLY = """
 const visible = e => !!(e && (e.offsetWidth || e.offsetHeight || e.getClientRects().length));
 const response = [...document.querySelectorAll('model-response')].filter(visible);
 const element = response.length ? response[response.length - 1] : null;
-const text = element ? (element.innerText || element.textContent || '') : '';
+// Gemini's outer model-response may prepend a decorative 'Gemini said'
+// header. Prefer the latest MODEL-OWNED visible answer subtree. Never read
+// the global .markdown selector (it could belong to the user prompt).
+const answer = element ? [
+  ...element.querySelectorAll('message-content .markdown, .model-response-text .markdown, .markdown')
+].filter(visible) : [];
+const target = answer.length ? answer[answer.length - 1] : element;
+const text = target ? (target.innerText || target.textContent || '') : '';
 const generating = [...document.querySelectorAll('button')].some(
     b => visible(b) && /stop/i.test((b.getAttribute('aria-label') || ''))
 );
@@ -27,7 +38,8 @@ return {text: String(text).slice(0, 1800000), generating: generating};
 """
 
 
-def latest_owned_response(driver, owned_handle: str | None) -> dict:
+def latest_owned_response(driver, owned_handle: str | None, *,
+                          expected_url: str | None = None) -> dict:
     """Get latest model reply only, provided the browser owns this tab.
 
     If the owned handle is unknown, navigation changed, or DOM inspection fails,
@@ -39,7 +51,12 @@ def latest_owned_response(driver, owned_handle: str | None) -> dict:
     try:
         if driver.current_window_handle != owned_handle:
             return empty
-        if not str(driver.current_url).startswith("https://gemini.google.com/"):
+        url = str(driver.current_url)
+        if not url.startswith("https://gemini.google.com/"):
+            return empty
+        # A longer late-recovery window must never accept an answer from a
+        # different conversation opened in the same Chrome tab.
+        if expected_url is not None and url.split("?", 1)[0].split("#", 1)[0] != expected_url:
             return empty
         result = driver.execute_script(_LATEST_MODEL_ONLY)
         if not isinstance(result, dict):
@@ -58,6 +75,7 @@ def latest_owned_response(driver, owned_handle: str | None) -> dict:
 
 def response_snapshot_with_scoped_copy(
     driver, owned_handle: str | None, *, copy_response=None,
+    accept_fn=None, expected_url: str | None = None,
 ) -> dict:
     """Prefer the longer vendor-verified response over a short DOM placeholder.
 
@@ -65,32 +83,169 @@ def response_snapshot_with_scoped_copy(
     validates response attribution. Never use a general clipboard paste
     or scan arbitrary page text.
     """
-    snapshot = latest_owned_response(driver, owned_handle)
+    snapshot = latest_owned_response(driver, owned_handle,
+                                     expected_url=expected_url)
     if not owned_handle:
         return snapshot
     try:
         # Refuse Copy if user navigated away or our owned tab changed.
         if driver.current_window_handle != owned_handle:
             return snapshot
-        if not str(driver.current_url).startswith("https://gemini.google.com/"):
+        url = str(driver.current_url)
+        if not url.startswith("https://gemini.google.com/"):
+            return snapshot
+        if expected_url is not None and url.split("?", 1)[0].split("#", 1)[0] != expected_url:
             return snapshot
     except Exception:
         return snapshot
+    if snapshot.get("capture_status") == "unavailable":
+        return snapshot
+    # When the answer subtree is already schema-valid, a longer toolbar
+    # copy that includes UI chrome (e.g. 'Gemini said') must not replace it.
+    try:
+        if (callable(accept_fn) and snapshot["text"].strip()
+                and accept_fn(snapshot["text"])):
+            return snapshot
+    except (ValueError, TypeError):
+        pass
     if len(snapshot["text"].strip()) >= 120 or not callable(copy_response):
         return snapshot
     try:
         copied = copy_response(driver)
     except Exception:
         return snapshot
-    if isinstance(copied, str) and len(copied.strip()) > max(
-        len(snapshot["text"].strip()), 60
-    ):
-        return {
-            "text": copied[:MAX_CAPTURE_CHARS],
-            "generating": snapshot["generating"],
-            "capture_status": "vendor_verified_response_copy",
-        }
+    if isinstance(copied, str):
+        # The exact source-transport canary JSON is ~40 characters. A
+        # historical 60-character floor discarded it, even when the Copy
+        # action belonged to the actual owned model-response toolbar.
+        # Permit short replies ONLY if the caller's strict structured
+        # response validator independently accepts them.
+        try:
+            short_structured = callable(accept_fn) and bool(accept_fn(copied))
+        except Exception:
+            short_structured = False
+        longer_than_dom = len(copied.strip()) > len(snapshot["text"].strip())
+        if longer_than_dom and (
+            len(copied.strip()) > 60 or short_structured
+        ):
+            return {
+                "text": copied[:MAX_CAPTURE_CHARS],
+                "generating": snapshot["generating"],
+                "capture_status": "vendor_verified_response_copy",
+            }
     return snapshot
+
+
+def poll_existing_owned_response(
+    read_snapshot, *, accept_fn, wait_s=45, poll_s=3,
+    verified_new_turn: bool = False, clock=None, sleep=None,
+) -> tuple[str | None, dict]:
+    """Observe ONLY the already submitted owned-tab response after strict capture fails.
+
+    No prompt resend, tab creation, model switch, or browser-side click occurs
+    here. In-progress replies are never accepted; once generation stops,
+    complete schema-acceptable text may be returned for normal downstream
+    source-validation. A changed/unowned tab fails closed.
+    """
+    import time
+    # Historical 90-second upper bound remains binding for ordinary callers.
+    # Only the production caller's independently verified NEW user turn may
+    # use the longer finite read-only grace. No implicit budget expansion.
+    max_wait = (MAX_LATE_OWNED_OBSERVATION_SECONDS
+                if verified_new_turn is True else 90)
+    if (not callable(read_snapshot) or not callable(accept_fn)
+            or type(verified_new_turn) is not bool
+            or not isinstance(wait_s, (int, float)) or not 1 <= wait_s <= max_wait
+            or not isinstance(poll_s, (int, float)) or not 0 < poll_s <= 10):
+        raise ValueError("Bounded owned-response observation required")
+    clock = clock or time.monotonic
+    sleep = sleep or time.sleep
+    deadline = clock() + wait_s
+    last = {"text": "", "generating": False, "capture_status": "unavailable"}
+    while True:
+        current = read_snapshot()
+        if not isinstance(current, dict):
+            return None, last
+        last = current
+        if current.get("capture_status") not in (
+                "visible_model_response", "empty_model_response",
+                "vendor_verified_response_copy"):
+            return None, last
+        if not current.get("generating"):
+            raw = current.get("text")
+            if isinstance(raw, str) and raw.strip() and accept_fn(raw):
+                return raw, last
+            # A short model DOM placeholder can say "Gemini said" even
+            # while the normal Stop control is absent. Keep observing the
+            # *same* owned tab for the bounded grace; never submit again.
+            # This is NOT evidence of a complete provider response.
+        remaining = deadline - clock()
+        if remaining <= 0:
+            return None, last
+        sleep(min(poll_s, remaining))
+
+
+
+_SEND_METADATA_ONLY_JS = """
+// Gemini uses a Quill editor without an obligatory role=textbox.
+// Use the same owned-editor selectors as the production Send baseline,
+// returning only Boolean/count metadata (never prompt content).
+const visible=e=>{
+  if(!e||(e.offsetWidth===0&&e.offsetHeight===0&&!e.getClientRects().length))return false;
+  for(let n=e;n&&n.nodeType===1;n=n.parentElement){
+    const s=getComputedStyle(n);
+    if(s.display==='none'||s.visibility==='hidden'||Number(s.opacity)<=0.01)return false;
+  }
+  return true;
+};
+const editors=[...document.querySelectorAll(
+  'div.ql-editor[contenteditable="true"],[contenteditable="true"][role="textbox"],textarea'
+)].filter(visible);
+const editor=editors.find(e=>Boolean(
+  String(e.value||e.innerText||e.textContent||'').trim()));
+const buttons=[...document.querySelectorAll('button[aria-label="Send message"]')];
+const eligible=buttons.filter(b=>visible(b)&&!b.disabled&&
+  b.getAttribute('aria-disabled')!=='true');
+return {doc_visible:document.visibilityState==='visible',
+        composer_present:Boolean(editor),
+        send_count:buttons.length,visible_send_count:eligible.length};
+"""
+
+def await_owned_gemini_send_visible(driver, owned_handle: str | None, *,
+                                     wait_s: float=10, poll_s: float=0.5,
+                                     clock=None, sleep=None) -> bool:
+    """Observe ordinary Send visibility after Quill updates; NEVER force click.
+
+    No content or other-tab data is read. Fail closed on changed browser ownership,
+    unexpected page or no normal visible Send control. This does not submit.
+    """
+    import time
+    if (not owned_handle or not 0<=wait_s<=20 or not 0<poll_s<=5):
+        return False
+    clock=clock or time.monotonic
+    sleep=sleep or time.sleep
+    deadline=clock()+wait_s
+    while True:
+        try:
+            if (driver.current_window_handle!=owned_handle or
+                not driver.current_url.startswith("https://gemini.google.com/")):
+                return False
+            state=driver.execute_script(_SEND_METADATA_ONLY_JS)
+            if not isinstance(state,dict) or not state.get("doc_visible"):
+                return False
+            count=state.get("visible_send_count")
+            if type(count) is int and count>1:
+                return False  # Multiple eligible Send controls are unsafe.
+            if state.get("composer_present") is True and count==1:
+                return True
+            # Quill and the Send button render asynchronously. Missing editor
+            # or button is a transient *pre-Send* state until the finite
+            # deadline. No action/click occurs during this observation.
+        except Exception:
+            return False
+        remaining=deadline-clock()
+        if remaining<=0:return False
+        sleep(min(poll_s,remaining))
 
 
 def default_quarantine_dir() -> Path:
@@ -99,7 +254,9 @@ def default_quarantine_dir() -> Path:
 
 
 def quarantine_snapshot(snapshot: dict, *, directory: Path | None = None,
-                        reason: str = "incomplete_json") -> dict:
+                        reason: str = "incomplete_json",
+                        owned_dom_diagnostic: dict | None = None,
+                        owned_network_diagnostic: dict | None = None) -> dict:
     """Write no-overwrite untrusted text and hash-bound metadata for review.
 
     The files live only in a local user-owned directory. No automatic re-prompt,
@@ -120,6 +277,11 @@ def quarantine_snapshot(snapshot: dict, *, directory: Path | None = None,
     raw = raw[:MAX_CAPTURE_CHARS]
     payload = raw.encode("utf-8")
     sha = hashlib.sha256(payload).hexdigest()
+    from .gemini_provider_ui_terminal_error import classify_visible_reply
+    ui_error = classify_visible_reply(
+        text=raw,
+        capture_status=str(snapshot.get("capture_status", "unavailable")),
+        generating=bool(snapshot.get("generating")))
     meta = {
         "schema_version": 1,
         "status": "incomplete_untrusted",
@@ -131,7 +293,25 @@ def quarantine_snapshot(snapshot: dict, *, directory: Path | None = None,
         "raw_sha256": sha,
         "raw_filename": raw_path.name,
         "not_scientifically_reviewed": True,
+        "known_gemini_ui_error_text_observed":
+            ui_error["known_gemini_ui_error_text_observed"],
+        "provider_server_outage_proven": False,
+        "original_source_retry_authorized": False,
     }
+    if owned_dom_diagnostic is not None:
+        # Record only same-tab count metadata and fixed classification.
+        # Never persist arbitrary page text, URLs, prompts or browser HTML.
+        from .owned_gemini_dom_diagnostics import sanitize_dom_diagnostic
+        meta["owned_tab_response_dom"] = sanitize_dom_diagnostic(
+            owned_dom_diagnostic)
+    if owned_network_diagnostic is not None:
+        # Resource timing counts are scoped to the owned tab and sampled
+        # after its recorded one-Send. Never store resource URLs, requests,
+        # auth headers, network payloads or untrusted browser properties.
+        from .gemini_owned_network_diagnostics import (
+            sanitize_network_diagnostic)
+        meta["owned_tab_network_timing"] = sanitize_network_diagnostic(
+            owned_network_diagnostic)
     with raw_path.open("xb") as stream:
         stream.write(payload)
     with meta_path.open("x", encoding="utf-8") as stream:

@@ -2,15 +2,23 @@
 import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
+from selenium import webdriver as selenium_webdriver
 from selenium_pipeline.gemini_model import ensure_flash, GeminiModelError
 
 
 class Picker:
+    id = "owned-fresh-tab-mode-picker"
+    text = "Flash High"
+
     def is_displayed(self):
         return True
 
     def get_attribute(self, name):
-        return "Open mode picker, currently Flash High"
+        if name == "aria-label":
+            return "Open mode picker, currently Flash High"
+        if name == "data-test-id":
+            return "bard-mode-menu-button"
+        return None
 
 
 class Browser:
@@ -49,8 +57,14 @@ class Browser:
     def get(self, url):
         self.urls[self.active] = url
 
-    def find_elements(self, _by, _selector):
-        if self.active.startswith("fresh_") and self.recover:
+    def find_elements(self, _by, selector):
+        if (self.active.startswith("fresh_") and self.recover
+                and selector in (
+                    'button[aria-label^="Open mode picker"]',
+                    '[data-test-id="bard-mode-menu-button"]',
+                    'button[aria-haspopup="menu"]')):
+            # The same model picker appears under several semantic locators.
+            # Do not return it for unrelated Send/menu option selectors.
             return [Picker()]
         return []
 
@@ -65,7 +79,7 @@ class Browser:
 class GeminiFreshTabRecoveryTests(unittest.TestCase):
     def test_missing_picker_recovered_using_new_tab_without_touching_draft(self):
         driver = Browser()
-        with patch("selenium.webdriver.Chrome", return_value=driver):
+        with patch.object(selenium_webdriver, "Chrome", return_value=driver):
             label = ensure_flash(timeout=0.01)
         self.assertIn("Flash High", label)
         self.assertEqual(driver.fresh_count, 1)
@@ -74,14 +88,14 @@ class GeminiFreshTabRecoveryTests(unittest.TestCase):
 
     def test_no_authenticated_gemini_tab_does_not_open_new_tab(self):
         driver = Browser(url="https://accounts.google.com/signin")
-        with patch("selenium.webdriver.Chrome", return_value=driver):
+        with patch.object(selenium_webdriver, "Chrome", return_value=driver):
             with self.assertRaises(GeminiModelError):
                 ensure_flash(timeout=0.01)
         self.assertEqual(driver.fresh_count, 0)
 
     def test_failed_fresh_tab_closes_it_and_refuses_pro_fallback(self):
         driver = Browser(recover=False)
-        with patch("selenium.webdriver.Chrome", return_value=driver):
+        with patch.object(selenium_webdriver, "Chrome", return_value=driver):
             with self.assertRaises(GeminiModelError):
                 ensure_flash(timeout=0.01)
         self.assertEqual(driver.fresh_count, 1)
