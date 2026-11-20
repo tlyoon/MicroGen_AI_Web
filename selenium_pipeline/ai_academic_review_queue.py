@@ -214,6 +214,7 @@ def execute_one_review(*,queue_root:Path,folder:Path,
         queue_root=queue_root,
         slide_jobs=json.loads((queue_root/"queue.json").read_text(encoding="utf8"))["slide_jobs"],
         before_slide=slide)
+    required_model_family=None
     if len(prior)>=2:
         # Keep legitimate *already captured* response reconciliation
         # available even when the same browser route is not healthy enough
@@ -243,6 +244,18 @@ def execute_one_review(*,queue_root:Path,folder:Path,
                 # Some historical QUEUE receipts predate the strict claim
                 # schema. They can NEVER support a new Send; remain blocked.
                 capability = None
+            if capability is None:
+                from .academic_neon_high_two_pdf_requalification import (
+                    qualifying_proof as neon_high_proof)
+                try:
+                    capability=neon_high_proof(
+                        queue_root=queue_root,checkpoint_parent=queue_root.parent,
+                        source_sha=_sha(folder/"source.pdf"),prior_slides=prior)
+                except (FigureIdentityReviewRequired, ValueError, OSError):
+                    capability=None
+                if capability is not None and capability.get(
+                        "source_free_neon_pdf_capability_verified") is True:
+                    required_model_family="neon"
             require(capability is not None,
                     "DEFERRED_REPEATED_UNATTRIBUTED_BROWSER_SEND: a fresh "
                     "owned dual-synthetic-PDF capability result is required "
@@ -302,7 +315,8 @@ def execute_one_review(*,queue_root:Path,folder:Path,
                 folder=folder,job=job,mode=mode,
                 transport=transport,
                 response_observer=witness_model_return,
-                checkpoint_dir=live_checkpoint if transport is None else None)
+                checkpoint_dir=live_checkpoint if transport is None else None,
+                required_model_family=required_model_family)
     except (RuntimeError,ValueError,OSError) as exc:
         # Model-family errors from the built-in browser transport are raised
         # BEFORE upload, typing and click-send. Injected transports are NOT
@@ -588,6 +602,35 @@ def select_next_safe_review(*,queue_root:Path,folder:Path,
                             capability["incident_sha256"],
                         "blocked_other_slides":blocked,
                         "new_model_requests":False,
+                        "student_publication_authorized":False,
+                    }
+                from .academic_neon_high_two_pdf_requalification import (
+                    qualifying_proof as neon_high_proof)
+                try:
+                    neon=neon_high_proof(
+                        queue_root=queue_root,checkpoint_parent=queue_root.parent,
+                        source_sha=_sha(folder/"source.pdf"),prior_slides=prior)
+                except (FigureIdentityReviewRequired, ValueError, OSError):
+                    neon=None
+                if (neon is not None
+                        and neon.get("source_free_neon_pdf_capability_verified") is True
+                        and neon.get("verified_model_family")=="neon"
+                        and neon.get("verified_thinking_level")=="high"):
+                    from .recovery_registry import lookup_mechanism
+                    require(lookup_mechanism(
+                        "selection_action",
+                        "G2_NEW_SOURCE_REVIEW_AFTER_VERIFIED_NEON_HIGH_TWO_PDF") ==
+                        "SELECT_ONE_UNATTEMPTED_SOURCE_SLIDE_WITH_NEON_HIGH_WITNESS",
+                        "No registered Neon academic review source handoff")
+                    return {
+                        "status":"ONE_SAFE_ACADEMIC_REVIEW_UNIT_READY",
+                        "next_slide":slide,"next_mode":mode,"attempt":1,
+                        "action":action,"required_runtime_family":"neon",
+                        "required_thinking_level":"high",
+                        "original_source_pdf_health_proven":True,
+                        "synthetic_pdf_capability_incident":neon["original_incident_sha256"],
+                        "new_model_requests":False,
+                        "original_request_replay_authorized":False,
                         "student_publication_authorized":False,
                     }
                 # A consumed, unsuccessful synthetic probe is NOT a reason
