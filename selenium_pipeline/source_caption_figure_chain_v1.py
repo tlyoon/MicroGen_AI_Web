@@ -598,8 +598,34 @@ def verify_latex_figure_chain(folder: Path) -> dict:
              "LaTeX source required for full figure-chain audit")
     content = tex.read_text(encoding="utf-8")
     missing = missing_required_latex_figures(content, crop["figures"])
-    _require(not missing["missing"],
-             "LaTeX omitted source figures: " + ", ".join(missing["missing"]))
+    # A legacy composite may have been taught using independently verified
+    # upper/lower images on different slides. Accept these ONLY when the
+    # SHA-bound split ledger reconstructs every image from the original PDF
+    # and attests all source raster/vector/letter/annotation objects.
+    groups={name:[name] for name in crop["figures"]}
+    if missing["missing"] and (folder/"source_split_figure_chain_v1.json").is_file():
+        from .source_split_figure_chain_v1 import verify_split_figure_chain
+        split=verify_split_figure_chain(folder)
+        live=re.sub(r"\\begin\{comment\}.*?\\end\{comment\}",
+                    "",content,flags=re.S)
+        live=re.sub(r"(?<!\\)%[^\n]*","",live)
+        active={Path(x).name.lower() for x in GRAPHIC.findall(live)}
+        guards={Path(x).name.lower() for x in GUARD.findall(content)}
+        for source_name in missing["missing"]:
+            assets=split["figures"].get(source_name)
+            if not assets:
+                continue
+            _require(all(name.lower() in active for name in assets),
+                     "LaTeX omitted source split panels: " + source_name)
+            _require(not any(name.lower() in guards for name in assets),
+                     "Source split panel conditionally hidden: " + source_name)
+            groups[source_name]=assets
+        missing_names=[name for name in crop["figures"]
+                       if name in missing["missing"] and groups[name]==[name]]
+    else:
+        missing_names=missing["missing"]
+    _require(not missing_names,
+             "LaTeX omitted source figures: " + ", ".join(missing_names))
     _require(not missing["guarded"],
              "Required figures hidden by IfFileExists: "
              + ", ".join(missing["guarded"]))
@@ -608,6 +634,8 @@ def verify_latex_figure_chain(folder: Path) -> dict:
         "source_sha256": crop["source_sha256"],
         "figures_verified": crop["figure_count"],
         "panels_verified": crop["verified_panels"],
+        "render_assets_by_figure": groups,
+        "verified_split_figure_count": sum(len(v)>1 for v in groups.values()),
         "no_figure_silently_omitted": True,
         "scientific_approval": False,
     }
@@ -628,7 +656,11 @@ def verify_rendered_pdf_source_figures(folder: Path) -> dict:
     chain = verify_latex_figure_chain(folder)
     if chain["status"] == "NO_PRINTED_SOURCE_FIGURES":
         return {"status": "NO_PRINTED_SOURCE_FIGURES"}
-    source_crops = verify_figure_crops(folder)["figures"]
+    # The rendered figure can be a complete full-source PNG, or several
+    # source-verified split PNGs visibly placed on separate slide pages.
+    source_crops = list(dict.fromkeys(
+        name for parts in chain["render_assets_by_figure"].values()
+        for name in parts))
     rendered = folder / "slides.pdf"
     _require(rendered.is_file() and not rendered.is_symlink(),
              "Missing compiled slides.pdf for source-image pixel comparison")
@@ -683,7 +715,9 @@ def verify_rendered_pdf_source_figures(folder: Path) -> dict:
              + ", ".join(missing))
     return {
         "status": "SOURCE_CAPTION_PNG_LATEX_RENDERED_PDF_CHAIN_VERIFIED",
-        "figures_verified": len(source_crops),
+        "figures_verified": chain["figures_verified"],
+        "render_assets_verified": len(source_crops),
+        "split_figures_verified": chain["verified_split_figure_count"],
         "slides_sha256": _sha(rendered),
         "source_sha256": chain["source_sha256"],
         "source_figure_visible_pages": matched,

@@ -160,7 +160,9 @@ def _source_snapshot(folder: Path) -> dict:
     names.extend(sorted(p.name for p in folder.iterdir()
                         if p.is_file() and p.suffix.lower() in
                         {".png", ".jpg", ".jpeg", ".eps"}))
-    names.extend(["figures_manifest.json", "source_figure_chain_v1.json"])
+    names.extend(["figures_manifest.json", "source_figure_chain_v1.json",
+                  "source_split_figure_chain_v1.json",
+                  "figure_repair_provenance.json"])
     return {name: digest(folder / name) if (folder / name).is_file() else None
             for name in sorted(set(names))}
 
@@ -251,7 +253,15 @@ def bootstrap_legacy_source_figures(work: Path) -> dict:
     if not printed_source_captions(source):
         return {"status":"NO_PRINTED_SOURCE_FIGURES"}
     recovered=recover_printed_source_figures(work)
-    verified=verify_latex_figure_chain(work)
+    try:
+        verified=verify_latex_figure_chain(work)
+    except ValueError as exc:
+        if ("LaTeX omitted source figures" not in str(exc)
+                or not (work/"figure_repair_provenance.json").is_file()):
+            raise
+        from .source_split_figure_chain_v1 import prepare_split_figure_chain
+        prepare_split_figure_chain(work)
+        verified=verify_latex_figure_chain(work)
     return {"status":"LEGACY_SOURCE_FIGURE_BOOTSTRAP_VERIFIED",
             "recovery_status":recovered.get("status"),
             "figure_count":verified["figures_verified"],
@@ -275,7 +285,8 @@ def stage_rebuild(original: Path, patch: Path, work: Path) -> dict:
         if not p.is_file() or p.is_symlink():
             continue
         if (p.name in {"source.pdf", "slides.tex", "slides.pdf", "script.txt",
-                       "tts_fidelity_report.json", "script_risk_report.json"}
+                       "tts_fidelity_report.json", "script_risk_report.json",
+                       "figure_repair_provenance.json"}
                 or p.suffix.lower() in {".png", ".jpg", ".jpeg", ".eps", ".sty", ".cls"}
                 or re.fullmatch(r"slide[1-9]\d*\.wav", p.name, re.I)):
             shutil.copy2(p, work / p.name)
@@ -370,6 +381,10 @@ def stage_rebuild(original: Path, patch: Path, work: Path) -> dict:
         from .source_caption_figure_chain_v1 import verify_figure_crops
         source_chain_names = ["source_figure_chain_v1.json",
                               *verify_figure_crops(work)["figures"]]
+        if (work/"source_split_figure_chain_v1.json").is_file():
+            from .source_split_figure_chain_v1 import verify_split_figure_chain
+            verify_split_figure_chain(work)
+            source_chain_names.append("source_split_figure_chain_v1.json")
     deliverables = ["slides.tex", "slides.pdf", "figures_manifest.json",
                     "slide_narration_sync.json", "slides.mp4", "slides_parts_manifest.json",
                     *[p["file"] for p in part_records],
