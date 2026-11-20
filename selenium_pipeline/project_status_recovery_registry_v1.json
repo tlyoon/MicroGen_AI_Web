@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "status": "SOURCE_BOUND_PROJECT_STATUS_RECOVERY_V1",
+  "entries": [
+    {
+      "match_type": "development_status_watchdog",
+      "signature": "V71_PROJECT_TASK_DISABLED_STALE_OR_HEARTBEAT_MISSING",
+      "mechanism": "INSPECT_NATIVE_TASK_AND_REPORT_VERIFIED_STALL_WITHOUT_UNSAFE_REPLAY",
+      "handler": "NORMAL_WINDOWS_PROJECT_STATUS_MONITOR",
+      "enabled": true,
+      "retry_limit": 0
+    }
+  ]
+}
