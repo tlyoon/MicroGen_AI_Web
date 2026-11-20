@@ -50,6 +50,11 @@ class ProjectStatusMonitorTests(unittest.TestCase):
         self.assertFalse(sample()["project_completion_verified"])
         self.assertFalse(sample()["student_release_authorized"])
 
+    def test_independently_attested_future_worker_can_show_running(self):
+        x = sample(worker=True)
+        self.assertEqual(x["status"], "RUNNING")
+        self.assertFalse(x["project_complete"])
+
     def test_malformed_source_evidence_blocks(self):
         x=sample(g2={"status":"G2_EVIDENCE_UNVERIFIABLE",
                      "accepted":None,"total":None,"complete":False})

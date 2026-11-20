@@ -207,6 +207,10 @@ def evaluate(*, now: float, tasks: dict, cycle: dict,
         status = "STALLED"
     elif any(p for p in problems if p != "AUTONOMOUS_DEVELOPMENT_EXECUTOR_NOT_VERIFIED"):
         status = "BLOCKED"
+    elif development_worker_attested:
+        # Future full-development supervisor must establish independent
+        # process/heartbeat/job evidence BEFORE setting this flag.
+        status = "RUNNING"
     else:
         status = "PENDING"  # no verified ongoing development worker
     return {
@@ -231,6 +235,8 @@ def evaluate(*, now: float, tasks: dict, cycle: dict,
         "next_authorized_action": (
             "Investigate reported scheduler/source evidence; preserve original claims"
             if status in ("STALLED", "BLOCKED") else
+            "Continue the verified running development worker and monitor its heartbeat"
+            if status == "RUNNING" else
             "Dispatch eligible roadmap work through a real authorized development worker"),
         "no_provider_sends_or_automatic_merge_or_publication": True,
         "source_only_completion_is_not_project_completion": True,
@@ -263,8 +269,10 @@ def _report_md(state: dict) -> str:
         "**Project complete:** NO — source-only success is not G2/G3/release.\n\n"
         f'**Source-only Windows task:** {state["source_only_task"]}'
         f' (last result {state["source_only_last_result"]})\n\n'
-        f'**Status monitor task:** {state["monitor_task"]}\n\n'
-        "**Persistent autonomous development worker:** NOT VERIFIED.\n\n"
+        f'**Status monitor task:** {state["monitor_task"]}\n\n' +
+        ("**Persistent autonomous development worker:** VERIFIED.\n\n"
+         if state["development_worker_attested"] else
+         "**Persistent autonomous development worker:** NOT VERIFIED.\n\n") +
         f'**Original G2:** {count}; independent source agreement only.\n\n'
         "**G3:** not independently accepted. **Student release:** not authorized.\n\n"
         "## Blockers and missing capabilities\n\n" + blockers +
