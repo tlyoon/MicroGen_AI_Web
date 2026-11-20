@@ -93,9 +93,13 @@ def patch_files(patch: Path) -> list[Path]:
     contents = list(patch.iterdir())
     if not contents or not (patch / "slides.tex").is_file():
         raise ValueError("Patch must include vetted slides.tex")
+    evidence_files = {"source_figure_chain_v1.json",
+                      "source_split_figure_chain_v1.json",
+                      "figure_repair_provenance.json"}
     for file in contents:
         if (file.is_symlink() or not file.is_file()
-                or file.suffix.lower() not in PATCH_SUFFIXES
+                or (file.suffix.lower() not in PATCH_SUFFIXES
+                    and file.name not in evidence_files)
                 or file.name.lower() in {"source.pdf", "slides.pdf", "script.txt"}):
             raise ValueError("Unsafe or unauthorized patch content: " + file.name)
     return contents
@@ -252,6 +256,28 @@ def bootstrap_legacy_source_figures(work: Path) -> dict:
         return {"status":"LEGACY_NONPDF_SOURCE_FIXTURE"}
     if not printed_source_captions(source):
         return {"status":"NO_PRINTED_SOURCE_FIGURES"}
+    # A source-verified crop ledger prepared by a figure-aware reviewer may
+    # outperform heuristic automatic crop recovery on complex side captions.
+    # Trust it ONLY after rebuilding each source crop and checking hashes,
+    # original caption identities and every optional split-panel ledger.
+    if (work/"source_figure_chain_v1.json").exists():
+        from .source_caption_figure_chain_v1 import verify_figure_crops
+        from .source_split_figure_chain_v1 import (
+            prepare_split_figure_chain, verify_split_figure_chain)
+        verified_crop = verify_figure_crops(work)
+        if ((work/"figure_repair_provenance.json").exists()
+                and not (work/"source_split_figure_chain_v1.json").exists()):
+            # Historical source-exact split panels may lack a ledger; create
+            # one only after verifying every source pixel and panel witness.
+            prepare_split_figure_chain(work)
+        if (work/"source_split_figure_chain_v1.json").exists():
+            verify_split_figure_chain(work)
+        verified=verify_latex_figure_chain(work)
+        return {"status":"LEGACY_SOURCE_FIGURE_BOOTSTRAP_VERIFIED",
+                "recovery_status":verified_crop["status"],
+                "preverified_source_ledger_reused":True,
+                "figure_count":verified["figures_verified"],
+                "source_sha256":verified["source_sha256"]}
     recovered=recover_printed_source_figures(work)
     try:
         verified=verify_latex_figure_chain(work)

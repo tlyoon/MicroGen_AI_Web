@@ -78,8 +78,38 @@ def _prove_coverage(page, full_rect, part_rects):
         and fitz.Rect(w[:4]).height >= 2
         and full_rect.contains(fitz.Rect(w[:4]))]
     def covered(rect):
-        return any(p.contains(rect) for p in part_rects)
-    _require(len(rasters) >= 2, "Split figure requires at least two physical raster panels")
+        # Original PDF vector paths can span a legitimate seam between two
+        # individually exact source crops. Prove the UNION covers every pixel
+        # of the path bbox; do not require one part alone to contain the path.
+        if any(p.contains(rect) for p in part_rects):
+            return True
+        xs = sorted(set([rect.x0, rect.x1] + [v for p in part_rects
+                          for v in (p.x0, p.x1) if rect.x0 < v < rect.x1]))
+        ys = sorted(set([rect.y0, rect.y1] + [v for p in part_rects
+                          for v in (p.y0, p.y1) if rect.y0 < v < rect.y1]))
+        for left, right in zip(xs, xs[1:]):
+            for top, bottom in zip(ys, ys[1:]):
+                middle = fitz.Point((left + right) / 2, (top + bottom) / 2)
+                if not any(p.contains(middle) for p in part_rects):
+                    return False
+        return True
+    # A composite may be entirely vector-drawn. Raster-only acceptance
+    # incorrectly rejects source-exact two-panel diagrams (Serway 8.7/8.8).
+    vector_panel_labels = []
+    vector_panel_count = 0
+    if len(rasters) < 2:
+        labels_by_part = {}
+        for idx, part in enumerate(part_rects):
+            labels_by_part[idx] = {word for word, rect in annotation_words
+                                   if len(word) == 1 and word in 'abcdefghijkl'
+                                   and rect.width <= 8 and rect.height <= 15
+                                   and part.contains(rect)}
+        distinct = set.union(*labels_by_part.values()) if labels_by_part else set()
+        _require(len(drawings) >= 12 and len(distinct) >= 2
+                 and sum(bool(v) for v in labels_by_part.values()) >= 2,
+                 "Vector-only split needs multiple drawn panels and distinct source letters")
+        vector_panel_labels = sorted(distinct)
+        vector_panel_count = len(vector_panel_labels)
     missing_rasters = [x for x in rasters if not covered(x)]
     missing_vectors = [x for x in drawings if not covered(x)]
     missing_words = [x for x in annotation_words if not covered(x[1])]
@@ -105,10 +135,16 @@ def _prove_coverage(page, full_rect, part_rects):
         labels=[entry[0]["label"] for entry in letter_witnesses.values()]
         _require(len(set(labels)) == len(labels),
                  "Split figure duplicate panel letter witness")
-    return {"source_rasters_covered":len(rasters),
-            "source_vectors_covered":len(drawings),
-            "source_annotation_words_covered":len(annotation_words),
-            "source_panel_letter_witnesses":letter_witnesses}
+    proof = {"source_rasters_covered":len(rasters),
+             "source_vectors_covered":len(drawings),
+             "source_annotation_words_covered":len(annotation_words),
+             "source_panel_letter_witnesses":letter_witnesses}
+    if len(rasters) < 2:
+        # Preserve byte-for-byte ledger schema for previously published
+        # raster-based split figures; only vector composites add new fields.
+        proof["source_vector_panel_labels"] = vector_panel_labels
+        proof["source_vector_panel_count"] = vector_panel_count
+    return proof
 
 
 def _candidate_mapping(folder, provenance):
@@ -211,6 +247,8 @@ def verify_split_figure_chain(folder: Path) -> dict:
             "source_sha256":data["source_sha256"],
             "figures":{name:[part["filename"] for part in record["parts"]]
                        for name,record in verified.items()},
-            "panel_count":sum(x["source_rasters_covered"] for x in verified.values()),
+            "panel_count":sum(max(x["source_rasters_covered"],
+                                   x.get("source_vector_panel_count",0))
+                              for x in verified.values()),
             "scientific_approval":False,
             "student_publication_authorized":False}
