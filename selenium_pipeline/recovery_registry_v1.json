@@ -592,6 +592,20 @@
       "enabled": true
     },
     {
+      "id": "V71_NATIVE_CURRENT_USER_LIMITED_PRINCIPAL_ATTESTATION",
+      "match_type": "global_checkpoint_handoff",
+      "signature": "V71_SOURCEONLY_TASK_CURRENT_USER_LIMITED_IDENTITY_UNVERIFIED",
+      "mechanism": "ATTEST_NATIVE_TASK_USER_SID_LIMITED_PRIVILEGE_BEFORE_SOURCEONLY_RUN",
+      "classification": "ENABLED_SCHEDULED_TASK_ACTION_VERIFIED_BUT_CURRENT_USER_OR_RUNLEVEL_NOT_ATTESTED",
+      "handler": "NORMAL_V71_PROJECT_WIDE_OBSERVABLE_SUPERVISOR",
+      "preconditions": "clean Dell-115 source and exact source-only wrapper with native Enabled state; independent Get-ScheduledTask must confirm current user, Interactive logon and Limited privilege; XML principal must match current user and cannot claim elevation",
+      "verification_test": "tests/test_windows_v71_scheduled_resume.py",
+      "last_verified_date": "2026-11-20",
+      "environment": "Dell-115 current scheduled source-only task has native Interactive/Limited principal and XML current-user SID, RunLevel absent as LeastPrivilege default; no account identifier included in public evidence",
+      "retry_policy": "finite one native read-only principal/identity query per scheduled source-only start; foreign user, missing SID, elevated or inconsistent XML principal fails closed; no schedule modification, source Send, TTS or publication",
+      "enabled": true
+    },
+    {
       "id": "V71_PERSISTENT_LIMITED_USER_SOURCE_ONLY_SCHEDULER",
       "match_type": "global_checkpoint_handoff",
       "signature": "V71_PERSISTENT_SOURCE_ONLY_RUNNER_NOT_INSTALLED",

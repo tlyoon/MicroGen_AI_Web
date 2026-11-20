@@ -88,6 +88,62 @@ def _native_xml_optional_enabled_after_live_enabled_state(xml_text: str) -> dict
             "student_publication_authorized": False}
 
 
+def _native_current_user_limited_task_attestation(
+        xml_text: str, powershell_json: str) -> dict:
+    """Require BOTH the native limited-user task and exact XML principal.
+
+    The scheduled task's XML may omit default RunLevel=LeastPrivilege.
+    Never infer privilege or identity from that omission alone: require the
+    real Task Scheduler principal snapshot for this exact task and process.
+    """
+    try:
+        item = json.loads(powershell_json)
+        root = ElementTree.fromstring(xml_text)
+    except (ValueError, TypeError, ElementTree.ParseError) as error:
+        raise RuntimeError("Unverifiable native Windows scheduler principal") from error
+    _require(type(item) is dict
+             and root.tag in (
+                 "Task", "{http://schemas.microsoft.com/windows/2004/02/mit/task}Task"),
+             "Invalid native scheduler task identity records")
+    current_user = item.get("CurrentUser")
+    current_domain = item.get("CurrentDomain")
+    current_sid = item.get("CurrentSid")
+    _require(type(current_user) is str and bool(current_user)
+             and type(current_domain) is str and bool(current_domain)
+             and type(current_sid) is str and
+             re.fullmatch(r"S-\d+(?:-\d+)+", current_sid) is not None,
+             "Current user identity unavailable for scheduled task")
+    accepted = {current_sid.casefold(), current_user.casefold(),
+                (current_domain + "\\" + current_user).casefold()}
+    _require(item.get("TaskName") == TASK_NAME
+             and item.get("State") in ("Ready", "Running")
+             and item.get("RunLevel") == "Limited"
+             and item.get("LogonType") == "Interactive"
+             and type(item.get("UserId")) is str
+             and item["UserId"].casefold() in accepted,
+             "Native task is not this limited interactive user")
+    containers = root.findall("./{*}Principals")
+    principals = root.findall("./{*}Principals/{*}Principal")
+    _require(len(containers) == 1 and len(principals) == 1,
+             "Task Scheduler XML must contain exactly one principal")
+    ids = principals[0].findall("./{*}UserId")
+    logons = principals[0].findall("./{*}LogonType")
+    levels = principals[0].findall("./{*}RunLevel")
+    _require(len(ids) == 1 and len(logons) == 1 and len(levels) <= 1
+             and (ids[0].text or "").strip().casefold() == current_sid.casefold()
+             and (logons[0].text or "").strip() == "InteractiveToken"
+             and (not levels or
+                  (levels[0].text or "").strip() == "LeastPrivilege"),
+             "Task Scheduler XML principal differs or is elevated")
+    return {
+        "status": "CURRENT_LIMITED_INTERACTIVE_USER_PRINCIPAL_CONFIRMED",
+        "native_state": item["State"],
+        "source_only": True,
+        "model_or_paid_operations_authorized": False,
+        "student_publication_authorized": False,
+    }
+
+
 def _audit_installed(repo: Path, home: Path) -> None:
     """No schedule claim without the real enabled limited-user task."""
     from selenium_pipeline.recovery_registry import lookup_mechanism
@@ -158,6 +214,37 @@ def _audit_installed(repo: Path, home: Path) -> None:
         capture_output=True, text=True, timeout=30)
     _require(xml.returncode == 0, "Native Task Scheduler XML unavailable")
     _native_xml_optional_enabled_after_live_enabled_state(xml.stdout)
+    _require(lookup_mechanism(
+        "global_checkpoint_handoff",
+        "V71_SOURCEONLY_TASK_CURRENT_USER_LIMITED_IDENTITY_UNVERIFIED") ==
+        "ATTEST_NATIVE_TASK_USER_SID_LIMITED_PRIVILEGE_BEFORE_SOURCEONLY_RUN",
+        "Native current-user/limited task identity recovery not registered")
+    # PowerShell reads the native Task Scheduler principal only. It does
+    # not start, enable, edit or replace a task. The fixed task name is
+    # supplied by code, never interpolated from external source records.
+    native = subprocess.run(
+        ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
+         (
+             "$ErrorActionPreference='Stop';"
+             "$t=Get-ScheduledTask -TaskName 'MicroGen_AI_Web_v71_SourceOnly' "
+             "-ErrorAction Stop;"
+             "$me=[System.Security.Principal.WindowsIdentity]::GetCurrent();"
+             "[ordered]@{"
+             "TaskName=[string]$t.TaskName;"
+             "State=[string]$t.State;"
+             "RunLevel=[string]$t.Principal.RunLevel;"
+             "LogonType=[string]$t.Principal.LogonType;"
+             "UserId=[string]$t.Principal.UserId;"
+             "CurrentUser=[string]$env:USERNAME;"
+             "CurrentDomain=[string]$env:USERDOMAIN;"
+             "CurrentSid=[string]$me.User.Value"
+             "} | ConvertTo-Json -Compress"
+         )],
+        capture_output=True, text=True, timeout=30)
+    _require(native.returncode == 0
+             and 0 < len(native.stdout.encode("utf8")) <= 4096,
+             "Native Task Scheduler principal attestation unavailable")
+    _native_current_user_limited_task_attestation(xml.stdout, native.stdout)
 
 
 def install(repo: Path) -> dict:

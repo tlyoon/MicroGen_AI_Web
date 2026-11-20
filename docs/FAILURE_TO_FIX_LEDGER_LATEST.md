@@ -1,5 +1,17 @@
 # MicroGen_AI_Web failure-to-fix ledger — current continuation
 
+## MG-V7-SOURCEONLY_TASK_NATIVE_CURRENT_USER_PRIVILEGE_NOT_ATTESTED — 20 Nov 2026
+
+**Historical root:** PR554/555 resolved real Task Scheduler wrapper, path and optional Enabled XML problems; the current PR554 scheduled action is actually Ready under the current limited interactive user and safely reuses 6/6 stage receipts. But the source-only `windows_v71_scheduled_resume._audit_installed` checked task enabled/action/InteractiveToken without *independent current-user SID plus native Limited privilege confirmation*. An unrelated or elevated task with a matching action could escape the limited-identity intent. This is a prospective safety weakness, not evidence of unauthorized execution.
+
+**Verified existing native evidence:** Genuine read-only Dell-115 `Get-ScheduledTask` returns Ready, Limited, Interactive and current user; `schtasks /Query /XML` contains the exact process SID, InteractiveToken and omits default LeastPrivilege RunLevel. No scheduler edit, file upload, model Send or media action.
+
+**Targeted integrated repair:** PR557 retains native Enabled/action and optional XML Enabled checks, then verifies a single fixed `powershell.exe -NoProfile -NonInteractive` native principal snapshot and one exact XML principal, matching the current process **SID** and requiring Limited and Interactive. Explicit elevation, mismatched account/SID, duplicated principal containers, malformed XML or disabled registry signature fail closed. The executable registry maps `V71_SOURCEONLY_TASK_CURRENT_USER_LIMITED_IDENTITY_UNVERIFIED` to `ATTEST_NATIVE_TASK_USER_SID_LIMITED_PRIVILEGE_BEFORE_SOURCEONLY_RUN` under the existing allowlisted supervisor handler. No new runner is created.
+
+**Failure-injection history:** The first focused test run was blocked before collection by a new preconditions string over the registry's 255-character schema limit; a shorter grounded entry restored loading. A later test found duplicate XML `Principals` containers were accepted; the parser now explicitly requires exactly one. **31/31 focused, 127/127 broader tests passed again after the final strict-SID change**; a genuine Dell-115 read-only current-task check verified the exact SID and Limited/Interactive principal without schedule mutation. Exact-head CI and normal six-stage restart are still required before engineering acceptance. Current G2 original Pro model is not offered in a fresh owned chat even after New Chat, and original source-science 20/85 stays unchanged. See `docs/PR557_V7_SOURCEONLY_NATIVE_CURRENT_USER_LIMITED_TASK_PRINCIPAL_20261120.md`.
+
+---
+
 ## MG-V71-WINDOWS_TASK_XML_DEFAULT_ENABLED_FALSE_NEGATIVE — 20 Nov 2026
 
 **Actual historical blocker:** PR554 verified 48/48 source regression tasks, 919 tests/30 skips, six actual v7.1 source stages, independently zero-repeat restart and hosted both CI jobs. An authenticated source-only Task Scheduler migration created the updated Dell-115 limited interactive-user task, but its *extra external migration script* demanded `[string]$xml.Task.Settings.Enabled == "true"`. In genuine native Windows, that optional `Settings.Enabled` element is **absent** for an Enabled/Ready task (six independent Ready tasks verified without the XML element). The script falsely rejected the new task, disabled it and retained a failure receipt. Current-user SID, InteractiveToken and exact wrapper were actually correct. The source-only registry, provider/send and G2/G3 gates were never bypassed.
