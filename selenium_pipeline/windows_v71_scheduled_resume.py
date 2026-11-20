@@ -14,6 +14,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import xml.etree.ElementTree as ElementTree
 from datetime import datetime, timezone
 
 TASK_NAME = "MicroGen_AI_Web_v71_SourceOnly"
@@ -57,6 +58,34 @@ def _wrapper_content(repo: Path, py: Path) -> str:
     return ('@echo off\r\n'
             f'"{py}" -B "{script}" --run --repo "{repo}"\r\n'
             'exit /b %errorlevel%\r\n')
+
+def _native_xml_optional_enabled_after_live_enabled_state(xml_text: str) -> dict:
+    """Audit the XML view only AFTER the native live task is verified Enabled.
+
+    Windows Task Scheduler XML uses Enabled=true as the schema default.
+    Several genuine Ready tasks omit this element. An explicitly false,
+    missing principal or malformed XML still blocks installation/restart.
+    """
+    try:
+        root = ElementTree.fromstring(xml_text)
+    except ElementTree.ParseError as error:
+        raise RuntimeError("Native scheduler XML invalid") from error
+    _require(root.tag in ("Task", "{http://schemas.microsoft.com/windows/2004/02/mit/task}Task"),
+             "Unexpected native scheduler XML root")
+    entries = root.findall("./{*}Settings/{*}Enabled")
+    _require(len(entries) <= 1, "Ambiguous scheduler XML Enabled fields")
+    if entries:
+        _require((entries[0].text or "").strip().casefold() == "true",
+                 "Scheduler XML explicitly disabled or malformed")
+    logons = root.findall("./{*}Principals/{*}Principal/{*}LogonType")
+    _require(len(logons) == 1
+             and (logons[0].text or "").strip() == "InteractiveToken",
+             "Scheduler XML not a limited interactive account")
+    return {"native_state_verified": "Enabled",
+            "xml_enabled": ("EXPLICIT_TRUE" if entries
+                            else "OMITTED_DEFAULT_TRUE"),
+            "model_or_paid_operations_authorized": False,
+            "student_publication_authorized": False}
 
 
 def _audit_installed(repo: Path, home: Path) -> None:
@@ -116,6 +145,19 @@ def _audit_installed(repo: Path, home: Path) -> None:
              and actual.is_absolute() and not actual.is_symlink()
              and actual.resolve() == wrapper.resolve(),
              "Source-only scheduled task action is not exact and enabled")
+    # On real Windows, an enabled task may OMIT <Enabled> from its XML.
+    # Trust neither an absent XML field alone nor a raw lexical comparison:
+    # require the authenticated native state above AND strictly scoped XML.
+    _require(lookup_mechanism(
+        "global_checkpoint_handoff",
+        "V71_NATIVE_TASK_XML_ENABLED_OPTIONAL_DEFAULT_TRUE") ==
+        "ACCEPT_OMITTED_XML_ENABLED_ONLY_AFTER_NATIVE_ENABLED_STATE_VERIFIED",
+        "Native task optional XML Enabled recovery missing from registry")
+    xml = subprocess.run(
+        ["schtasks.exe", "/Query", "/TN", TASK_NAME, "/XML"],
+        capture_output=True, text=True, timeout=30)
+    _require(xml.returncode == 0, "Native Task Scheduler XML unavailable")
+    _native_xml_optional_enabled_after_live_enabled_state(xml.stdout)
 
 
 def install(repo: Path) -> dict:

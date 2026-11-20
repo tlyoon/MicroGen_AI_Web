@@ -46,6 +46,13 @@ class SourceOnlyWindowsSchedulerTests(unittest.TestCase):
             if cmd[0]=="schtasks.exe":
                 if not task_installed:
                     return subprocess.CompletedProcess(cmd,1,stdout="",stderr="")
+                if "/XML" in cmd:
+                    # Actual Ready tasks commonly OMIT optional Enabled=true.
+                    return subprocess.CompletedProcess(cmd,0,stdout=(
+                        '<Task xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">'
+                        '<Settings/>'
+                        '<Principals><Principal><LogonType>InteractiveToken'
+                        '</LogonType></Principal></Principals></Task>'),stderr="")
                 return subprocess.CompletedProcess(cmd,0,stdout=(
                     f"TaskName: {schedule.TASK_NAME}\n"
                     "Scheduled Task State: Enabled\n"
@@ -174,6 +181,73 @@ class SourceOnlyWindowsSchedulerTests(unittest.TestCase):
                     with self.assertRaises(RuntimeError):
                         schedule._audit_installed(self.repo,self.home)
 
+    def test_real_native_ready_task_xml_can_omit_default_true(self):
+        self._wrapper()
+        observed=[]
+        original=self._proc()
+        def actual(cmd, **kwargs):
+            observed.append(tuple(cmd))
+            return original(cmd, **kwargs)
+        with patch.object(schedule.subprocess, "run", side_effect=actual):
+            schedule._audit_installed(self.repo, self.home)
+        self.assertEqual(len(observed), 2)
+        self.assertIn("/V", observed[0])
+        self.assertIn("/XML", observed[1])
+        minimal=original(["schtasks.exe","/Query","/TN",schedule.TASK_NAME,
+                          "/XML"]).stdout
+        result=schedule._native_xml_optional_enabled_after_live_enabled_state(
+            minimal)
+        self.assertEqual(result["xml_enabled"], "OMITTED_DEFAULT_TRUE")
+        self.assertFalse(result["model_or_paid_operations_authorized"])
+        self.assertFalse(result["student_publication_authorized"])
+
+    def test_native_xml_explicit_false_or_noninteractive_fails_closed(self):
+        self._wrapper()
+        native=self._proc()
+        for fragment in (
+                "<Settings><Enabled>false</Enabled></Settings>",
+                "<Settings><Enabled></Enabled></Settings>",
+                "<Settings><Enabled>true</Enabled><Enabled>true</Enabled></Settings>",
+                "<Settings><Enabled>maybe</Enabled></Settings>",
+                "<Settings/>"):
+            for logon in ("InteractiveToken", "Password"):
+                def corrupted(cmd, **kwargs):
+                    result=native(cmd, **kwargs)
+                    if cmd[0]=="schtasks.exe" and "/XML" in cmd:
+                        result.stdout=(
+                            '<Task xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">'
+                            + fragment +
+                            '<Principals><Principal><LogonType>' + logon +
+                            '</LogonType></Principal></Principals></Task>')
+                    return result
+                if fragment=="<Settings/>" and logon=="InteractiveToken":
+                    continue
+                with self.subTest(fragment=fragment, logon=logon):
+                    with patch.object(schedule.subprocess, "run",
+                                      side_effect=corrupted):
+                        with self.assertRaises(RuntimeError):
+                            schedule._audit_installed(self.repo, self.home)
+        with self.assertRaisesRegex(RuntimeError,
+                                    "Native scheduler XML invalid"):
+            schedule._native_xml_optional_enabled_after_live_enabled_state(
+                "<Task")
+
+    def test_native_xml_optional_field_registry_retired_fails_closed(self):
+        from selenium_pipeline.recovery_registry import lookup_mechanism
+        self._wrapper()
+        native=lookup_mechanism
+        with patch("selenium_pipeline.recovery_registry.lookup_mechanism",
+                   side_effect=lambda kind, signature: (
+                       None if signature ==
+                       "V71_NATIVE_TASK_XML_ENABLED_OPTIONAL_DEFAULT_TRUE"
+                       else native(kind, signature))):
+            with patch.object(schedule.subprocess, "run",
+                              side_effect=self._proc()) as native_process:
+                with self.assertRaisesRegex(
+                        RuntimeError, "optional XML Enabled recovery missing"):
+                    schedule._audit_installed(self.repo, self.home)
+                self.assertEqual(native_process.call_count, 1)
+
     def test_native_direct_script_registry_import_without_package_context(self):
         # The scheduled .cmd invokes a Python file, not python -m.
         script=Path(schedule.__file__).resolve()
@@ -290,6 +364,12 @@ print("NONPACKAGE_SCRIPT_ENTRY_SAFE")
                     f"TaskName: {schedule.TASK_NAME}\n"
                     "Scheduled Task State: Enabled\n"
                     f"Task To Run: {p}\n"))
+            if "/XML" in cmd:
+                return subprocess.CompletedProcess(cmd,0,stdout=(
+                    '<Task xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">'
+                    '<Settings/>'
+                    '<Principals><Principal><LogonType>InteractiveToken'
+                    '</LogonType></Principal></Principals></Task>'))
             return subprocess.CompletedProcess(cmd,1,stdout="",stderr="Not Found")
         with patch.object(schedule.subprocess,"run",side_effect=fake):
             result=schedule.install(self.repo)
