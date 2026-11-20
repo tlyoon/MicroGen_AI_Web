@@ -90,7 +90,7 @@ class AcademicFreshReviewHealthTests(unittest.TestCase):
             self.assertEqual(os.environ["MICROGEN_ACTIVE_GENERATION_STAGE"],
                              "academic_review")
             self.assertEqual(os.environ["MICROGEN_GEMINI_UI_MODE"],"pro")
-            self.assertEqual(os.environ["MICROGEN_GEMINI_THINKING_LEVEL"],"medium")
+            self.assertEqual(os.environ["MICROGEN_GEMINI_THINKING_LEVEL"],"high")
             return {
                 "status":"SOURCE_FREE_ATTRIBUTABLE_RESPONSE_VERIFIED",
                 "source_sha256":SHA,

@@ -69,11 +69,29 @@ class GeminiThinkingError(RuntimeError):
 
 
 def configured_thinking_level() -> str:
-    """Medium is the Flash lecture default, unless explicitly overridden."""
-    level = os.getenv("MICROGEN_GEMINI_THINKING_LEVEL", "medium").strip().casefold()
-    if level not in LEVELS:
+    """Choose per-task effort, never below the verified task minimum.
+
+    Each worker's active generation task determines the default. A caller
+    may explicitly request stronger effort, but not secretly weaken a
+    source-bound independent scientific challenge to Low/Medium.
+    Unknown stages retain the previous Medium compatibility default.
+    """
+    explicit = os.getenv("MICROGEN_GEMINI_THINKING_LEVEL", "").strip().casefold()
+    if explicit and explicit not in LEVELS:
         raise GeminiThinkingError(
             "MICROGEN_GEMINI_THINKING_LEVEL must be low, medium or high")
+    stage = os.getenv("MICROGEN_ACTIVE_GENERATION_STAGE", "").strip().casefold()
+    from .gemini_dynamic_task_router import STAGES,task_policy
+    if stage not in STAGES:
+        return explicit or "medium"
+    policy = task_policy(stage)
+    level = explicit or policy["preferred_thinking"]
+    if (level not in LEVELS or
+            ("minimum_thinking" in policy and
+             ("low","medium","high").index(level) <
+             ("low","medium","high").index(policy["minimum_thinking"]))):
+        raise GeminiThinkingError(
+            "PRE_SEND_TASK_THINKING_BELOW_REGISTERED_MINIMUM_NO_SEND")
     return level
 
 
@@ -291,7 +309,7 @@ def _open_owned_mode_picker_with_verified_fallback(driver,handle,picker,*,
             const e=arguments[0];
             if(!e||e.tagName.toLowerCase()!=='button')return false;
             const a=e.getAttribute('aria-label')||'';
-            if(!/^Open mode picker, currently (?:Flash|Pro|\d+(?:\.\d+)?\s+(?:Hydrogen|Argon|Carbon))/i.test(a))
+            if(!/^Open mode picker, currently (?:Flash|Pro|\d+(?:\.\d+)?\s+(?:Hydrogen|Argon|Carbon|Neon))/i.test(a))
                 return false;
             const rect=e.getBoundingClientRect();
             if(rect.width<=0||rect.height<=0||e.disabled)return false;

@@ -95,7 +95,7 @@ def browser_stage_needs_thinking(*, mode: str | None = None,
             return False
         if selected in ("flash","pro"):
             return True
-        if selected in ("hydrogen","hydrogen-thinking","argon","carbon"):
+        if selected in ("hydrogen","hydrogen-thinking","argon","carbon","neon"):
             if _new_family_route_is_verified_for_task(active,selected):
                 return True
             raise GeminiStagePolicyError(
@@ -105,7 +105,7 @@ def browser_stage_needs_thinking(*, mode: str | None = None,
         raise GeminiStagePolicyError(
             "Flash-Lite without Thinking permitted ONLY for figures stage")
     if selected not in ("flash","pro"):
-        if selected not in ("hydrogen","hydrogen-thinking","argon","carbon"):
+        if selected not in ("hydrogen","hydrogen-thinking","argon","carbon","neon"):
             raise GeminiStagePolicyError("Unknown Gemini browser model")
         if not _new_family_route_is_verified_for_task(active,selected):
             raise GeminiStagePolicyError(

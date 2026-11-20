@@ -1,5 +1,17 @@
 # MicroGen_AI_Web failure-to-fix ledger — current continuation
 
+## MG-GEMINI4-NEW_MODEL_MISSING_PRO_ACADEMIC_ROUTE_STOP — 20 Nov 2026
+
+**Historical repeat:** On 11, 13, 17 and 18 Nov, missing Flash/Pro UI families and Thinking failures had been addressed through exact model selectors, nested-level hydration, authorized Chrome profile reuse and `GEMINI_DYNAMIC_TASK_MODEL_ROUTER`. The older academic source route nevertheless refused a substitute when Pro disappeared, and 24-hour official model cache was stale about newly introduced Neon. The 20 Nov fresh Gemini tab actually selected `Neon Medium`, but its open model alternatives listed only Carbon and Hydrogen. Carbon click did not positively change the selected model, so a click result was correctly rejected.
+
+**Official and real independent evidence:** fresh 20 Nov Dell Google Apps Help digest `778305fc86b8220233fe074ffef0070aac4a47fe46db180c9022ca428961dbc3`, names Neon, Hydrogen and Carbon. The exact authorized browser's unique owned picker plus real checked High radio positively verified **Neon High**; no model or PDF request was sent.
+
+**Integrated recovery:** `gemini_official_catalog`, `gemini_dynamic_task_router`, `gemini_model`, `gemini_thinking` and stage contracts recognize Neon, refresh older official cache once when needed, reuse physically proved currently selected Neon even when omitted from menu alternatives, apply task-specific Low/Medium/High defaults, and require **High** for source-grounded mathematical/physics QA. Registered original-Pro-unavailable alternate model signature `ACADEMIC_DEFAULT_GEMINI_UI_FAMILY_ABSENT_NEW_FRONTIER_AVAILABLE` permits only source-free independent UI selection. The normal production academic preflight verified **Neon High after New Chat**, recorded a no-source-approval default, and safely stopped at `GEMINI_ACADEMIC_ALTERNATE_AWAITS_NEW_TWO_PDF_PROOF_NO_SEND`.
+
+**Verified boundary:** 86/86 focused and 182/182 broader tests passed with automatic per-task effort defaults and floor enforcement integrated; exact-HEAD hosted CI remains to be independently checked. **The unavailable-Pro UI model blocker is recovered; two-PDF response is not established.** Old original slide10/11 and synthetic Pro v1/v2 one-Send claims remain immutable; original G2 science **20/85**, G3 independent acoustic/video/student publication still blocked. Detailed case: `docs/PR558_LIVE_GEMINI4_NEON_HIGH_OFFICIAL_DYNAMIC_ACADEMIC_20261120.md`.
+
+---
+
 ## MG-V7-SOURCEONLY_TASK_NATIVE_CURRENT_USER_PRIVILEGE_NOT_ATTESTED — 20 Nov 2026
 
 **Historical root:** PR554/555 resolved real Task Scheduler wrapper, path and optional Enabled XML problems; the current PR554 scheduled action is actually Ready under the current limited interactive user and safely reuses 6/6 stage receipts. But the source-only `windows_v71_scheduled_resume._audit_installed` checked task enabled/action/InteractiveToken without *independent current-user SID plus native Limited privilege confirmation*. An unrelated or elevated task with a matching action could escape the limited-identity intent. This is a prospective safety weakness, not evidence of unauthorized execution.

@@ -46,7 +46,7 @@ def normalized_family(label: str) -> str | None:
         return None
     words=re.findall(
         r"(?<!\w)(?:flash[\s_-]*lite|hydrogen[\s-]+thinking|"
-        r"hydrogen|flash|pro|argon|carbon)(?!\w)",
+        r"hydrogen|flash|pro|argon|carbon|neon)(?!\w)",
         label,flags=re.I)
     matched={re.sub(r"[\s_]+","-",x.casefold()) for x in words}
     if len(matched)!=1:

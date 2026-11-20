@@ -34,6 +34,8 @@ class Decision:
     observed_families:tuple[str,...]
     catalog_state:str
     catalog_source_sha:str
+    # A new academic family is UI-ready only. It is NOT transport-qualified.
+    academic_pdf_requalification_pending:bool=False
 
 def profiles():
     file=Path(__file__).with_name("gemini_task_profiles.json")
@@ -116,13 +118,27 @@ def choose_task_model(*,stage,requested_family,visible_rows,catalog,
                 if MODEL_TIERS[name]>=profile["minimum_tier"]}
     if not candidates:
         raise DynamicGeminiRouteError("NO_ELIGIBLE_VERIFIED_GEMINI_UI_MODEL_NO_SEND")
-    if profile.get("source_bound_route_requires_independent_requalification"):
-        # A changed identity for source-bound academic review needs a fresh
-        # separately approved source-free transport proof; never rewrite an
-        # already claimed scientific unit or silently raise its confidence.
-        if requested_family not in candidates:
+    source_requalification=bool(
+        profile.get("source_bound_route_requires_independent_requalification")
+        and requested_family not in candidates)
+    if source_requalification:
+        # New official frontier model families may be SELECTED before any
+        # source/PDF Send. They cannot be used for original science until an
+        # independent source-free dual-PDF response proves the new route.
+        if not profile.get("allow_alternate_model_presend_without_send"):
             raise DynamicGeminiRouteError(
                 "ACADEMIC_ROUTE_CHANGED_REQUALIFICATION_REQUIRED_NO_SEND")
+        from .recovery_registry import lookup_mechanism
+        if lookup_mechanism(
+            "presend_capability_repair",
+            "ACADEMIC_DEFAULT_GEMINI_UI_FAMILY_ABSENT_NEW_FRONTIER_AVAILABLE"
+        ) != "OFFICIAL_APP_AND_OWNED_PICKER_FRONTIER_UI_THINKING_ONLY_NO_SOURCE_SEND":
+            raise DynamicGeminiRouteError(
+                "ACADEMIC_ALTERNATE_UI_ROUTING_REGISTRY_NOT_VERIFIED_NO_SEND")
+        candidates={f for f in candidates if MODEL_TIERS[f]>=4}
+        if not candidates:
+            raise DynamicGeminiRouteError(
+                "ACADEMIC_NO_SOURCE_REVIEW_COMPATIBLE_FRONTIER_MODEL_NO_SEND")
     preferred=list(profile["preferred"])
     if (saved and saved.get("family") in candidates
             and saved["family"] in preferred):
@@ -138,11 +154,13 @@ def choose_task_model(*,stage,requested_family,visible_rows,catalog,
         why="PREFERRED_MODEL_MISSING_OFFICIAL_AND_LIVE_UI_FALLBACK"
     # Stored name and current screen both refer to the same family; changing
     # version/description requires new live selection and radio verification.
+    if source_requalification:
+        why="ACADEMIC_ALTERNATE_UI_ONLY_INDEPENDENT_PDF_REQUALIFICATION_REQUIRED"
     return Decision(stage,chosen,present[chosen],requested_family,why,
                     (None if chosen=="flash-lite" and stage=="figures"
                      else profile["preferred_thinking"]),
                     tuple(sorted(present)),catalog["source_state"],
-                    catalog["help_sha256"])
+                    catalog["help_sha256"],source_requalification)
 
 def select_task_thinking(stage,offered,*,mode=None,requested=None):
     """Never downgrade an explicit caller request OR a task minimum."""
@@ -240,6 +258,15 @@ def find_dynamic_replacement(*,stage,requested_family,visible_rows,
         raise DynamicGeminiRouteError("TASK_DYNAMIC_ROUTING_REGISTRY_DISABLED_NO_SEND")
     saved=read_task_default(stage,scope=scope,path=defaults_path)
     catalog=official_ui_catalog(fetch=fetch,cache_path=cache_path)
+    names={x.get("family") for x in visible_rows if type(x) is dict}
+    # An older valid 24-hour cached app Help page may predate a genuinely
+    # newly visible named model, such as Neon on 18 Nov 2026. Refresh the
+    # official Apps Help once before ruling out the new selection.
+    unverified={x for x in names if x in MODEL_TIERS
+                and x not in LEGACY
+                and x not in catalog["verified_app_families"]}
+    if unverified and catalog["source_state"]=="FRESH_VERIFIED_CACHE":
+        catalog=official_ui_catalog(force=True,fetch=fetch,cache_path=cache_path)
     return choose_task_model(stage=stage,requested_family=requested_family,
                              visible_rows=visible_rows,catalog=catalog,
                              saved=saved)

@@ -38,7 +38,7 @@ class DynamicTaskRouteTests(unittest.TestCase):
 
     def test_real_app_help_fetch_and_restart_cache(self):
         page=("Gemini Apps available models Gemini 4 Hydrogen, "
-              "Gemini 4 Argon, Gemini 4 Carbon, Gemini 3.1 Pro, "
+              "Gemini 4 Argon, Gemini 4 Neon, Gemini 4 Carbon, Gemini 3.1 Pro, "
               "Gemini 3.8 Flash and Flash-Lite. "+"coverage "*70)
         seen=[]
         def network(url):
@@ -50,6 +50,7 @@ class DynamicTaskRouteTests(unittest.TestCase):
         self.assertEqual(first["source_state"],"FRESH_OFFICIAL_HELP")
         self.assertIn("hydrogen",first["verified_app_families"])
         self.assertIn("argon",first["verified_app_families"])
+        self.assertIn("neon",first["verified_app_families"])
         self.assertNotIn("hydrogen-thinking",first["verified_app_families"])
         self.assertEqual(seen,[HELP_URL,API_URL])
         second=official_ui_catalog(cache_path=self.cache,
@@ -105,9 +106,13 @@ class DynamicTaskRouteTests(unittest.TestCase):
 
     def test_scientific_source_bound_route_does_not_change_without_requalification(self):
         rows=[row("argon","4 Argon")]
-        with self.assertRaisesRegex(DynamicGeminiRouteError,"REQUALIFICATION"):
-            choose_task_model(stage="academic_review",requested_family="pro",
-                              visible_rows=rows,catalog=CATALOG)
+        chosen=choose_task_model(stage="academic_review",requested_family="pro",
+                                 visible_rows=rows,catalog=CATALOG)
+        self.assertEqual(chosen.family,"argon")
+        self.assertEqual(chosen.required_thinking,"high")
+        self.assertTrue(chosen.academic_pdf_requalification_pending)
+        self.assertIn("REQUALIFICATION_REQUIRED",chosen.reason)
+        self.assertFalse(read_task_default("academic_review",path=self.defaults))
 
     def test_exact_stored_default_wins_if_still_verified(self):
         saved={"family":"hydrogen"}
@@ -173,6 +178,7 @@ class DynamicTaskRouteTests(unittest.TestCase):
 
     def test_model_names_are_not_substring_equivalent(self):
         expected=[
+            ("4 Neon","neon"),
             ("4 Hydrogen","hydrogen"),
             ("4 Hydrogen Thinking","hydrogen-thinking"),
             ("4 Argon","argon"),("4 Carbon","carbon"),
