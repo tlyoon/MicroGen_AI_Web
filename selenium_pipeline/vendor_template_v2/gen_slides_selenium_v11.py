@@ -1269,7 +1269,16 @@ def generate_slides_tex(
         len(communication_plan) if communication_plan is not None
         else int(os.getenv("SLIDES_MAX_ATTEMPTS", "6"))
     )
-    
+    # Recover full source-caption coverage BEFORE the next Gemini Send.
+    # The normal figures stage creates a SHA-verified, all-panel source ledger.
+    # Reject omissions in the model response early, within the bounded
+    # revision loop, rather than discovering them after slide publication.
+    required_source_figures = []
+    if (out_tex.parent / "source_figure_chain_v1.json").is_file():
+        from selenium_pipeline.source_caption_figure_chain_v1 import verify_figure_crops
+        candidate_ledger = verify_figure_crops(out_tex.parent)
+        required_source_figures = candidate_ledger.get("figures", [])
+
     for attempt in range(1, max_attempts + 1):
         log(f"Slides generation attempt {attempt}/{max_attempts}", "INFO")        
               
@@ -1301,6 +1310,16 @@ def generate_slides_tex(
             "Keep literal commands such as \\alpha, \\beta, \\theta, \\Delta, \\Omega, \\mu, \\frac{...}{...}, \\vec{E}, and \\times inside the fenced source. "
             "The fenced block must contain the full document from \\documentclass through \\end{document}."
         )
+        if required_source_figures:
+            instruction += (
+                " MANDATORY source-caption figure coverage: place EACH "
+                "of these exact source-faithful PNGs onto at least one "
+                "appropriate slide using a literal \\includegraphics "
+                "command (NEVER hide a required image behind \\IfFileExists): "
+                + ", ".join(required_source_figures) + ". "
+                "Retain all original panels and scientific annotations; "
+                "add figure-focused slides rather than dropping content. "
+            )
         if legibility_feedback:
             instruction += legibility_feedback
 
@@ -1358,6 +1377,38 @@ def generate_slides_tex(
         latex, bounded_count = bound_beamer_graphics(latex)
         if bounded_count:
             log(f"Bounded {bounded_count} Beamer image(s) before sanity compilation.")
+
+        if required_source_figures:
+            from selenium_pipeline.source_caption_figure_chain_v1 import (
+                missing_required_latex_figures)
+            omissions = missing_required_latex_figures(
+                latex, required_source_figures)
+            if omissions["missing"] or omissions["guarded"]:
+                import json as _json
+                rejected = out_tex.with_name(
+                    f"slides_attempt_{attempt}_missing_source_figures.tex")
+                rejected.write_text(latex + "\n", encoding="utf-8")
+                rejected.with_suffix(".json").write_text(
+                    _json.dumps({
+                        "status": "REJECTED_INCOMPLETE_SOURCE_FIGURE_COVERAGE",
+                        "missing": omissions["missing"],
+                        "conditionally_hidden": omissions["guarded"],
+                        "old_published_slides_modified": False,
+                        "academic_approval": False,
+                        "student_publication_authorized": False,
+                    }, indent=2), encoding="utf-8")
+                legibility_feedback = (
+                    " The prior LaTeX draft omitted or conditionally hid "
+                    "MANDATORY source-PDF figure crops. Supply real literal "
+                    "\\includegraphics for ALL: "
+                    + ", ".join(sorted(set(
+                        omissions["missing"] + omissions["guarded"])))
+                    + ". Preserve every source panel and source annotation. "
+                    "Do not invent or replace existing source figures."
+                )
+                log(f"Attempt {attempt}: source figure coverage rejected: "
+                    f"{omissions}; bounded repair required.", "WARN")
+                continue
 
         from selenium_pipeline.figure_legibility import (
             audit_wide_figure_legibility, legibility_retry_instruction,

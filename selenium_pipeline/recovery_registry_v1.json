@@ -228,6 +228,20 @@
       "enabled": true
     },
     {
+      "id": "SOURCE_CAPTION_COMPLETE_VECTOR_COMPOSITE_CROP_V1",
+      "match_type": "source_figure_recovery",
+      "signature": "FIGURE_CAPTIONED_VECTOR_OR_COMPOSITE_CROP_MISSING",
+      "mechanism": "GENERATE_SOURCE_BOUND_HYBRID_CROPS_VERIFY_PANELS_THEN_ATOMIC_PROMOTION",
+      "classification": "DOCLING_PICTUREITEM_MISSES_PDF_VECTOR_FIGURES_OR_PARTIAL_MULTIPANEL_CROPS",
+      "handler": "NORMAL_FIGURES_STAGE_ORIGINAL_SOURCE_HYBRID_CROP_POST_MAPPING",
+      "preconditions": "immutable original source.pdf; printed caption heading and source PDF geometry; bounded source-only crop candidate directory; source panel labels verified before any replacement",
+      "verification_test": "tests/test_source_caption_figure_chain_v1.py",
+      "last_verified_date": "2026-11-20",
+      "environment": "Dell-115 real Serway 8.2 pages 2-6 vector/raster figures, one-source multi-panel crop completeness and LaTex source-caption coverage",
+      "retry_policy": "finite two deterministic local geometry attempts with SHA-bound evidence; no new model Sends, no guessed figures, no student publication, stop on missing caption, panels or mismatch",
+      "enabled": true
+    },
+    {
       "id": "G2_SUPERVISOR_NEON_HIGH_SOURCE_HEALTH_ADMISSION",
       "match_type": "supervisor_status",
       "signature": "G2_SUPERVISOR_ADMIT_VERIFIED_NEON_HIGH_MODEL_SOURCE_REVIEW",

@@ -12,6 +12,12 @@ PNG dimension metadata:
 
 Use the PNG dimension metadata above when deciding how to include any figure in the LaTeX slides.
 
+Mandatory source-caption figure coverage (after the local source-PDF crop stage):
+- Every printed Figure N.N caption from the original source.pdf must have an exact, source-rendered Figure N.N.png crop and must be included at least once in the LaTeX with a literal \\includegraphics.
+- Never silently omit a source-captioned PNG, substitute a partial panel, or hide a required figure using \\IfFileExists. If needed, add a dedicated figure slide.
+- Include every labelled source panel and preserve arrows, mathematics, labels and relative geometry; never invent a missing source picture.
+- The code verifies source-caption, complete PNG and LaTeX coverage before accepting the slides. An incomplete draft will be rejected for bounded repair.
+
 Mandatory figure rules:
 - The JSON gives the true width and height of each PNG file.
 - For every figure that is actually included, compute:

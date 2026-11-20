@@ -35,6 +35,13 @@ def _paths(folder:Path,stage:str)->tuple[list[Path],list[Path]]:
                    and (p.name.lower().startswith("figure") or
                         p.name=="figures_manifest.json")
                    and p.suffix.lower() in (".png",".jpg",".jpeg",".json"))
+    # The crop source+panel ledger is a required input to later slide
+    # generation, not a transient diagnostic. Bind its immutable SHA to
+    # both cached figures-stage and cached slides-stage evidence.
+    source_chain=root/"source_figure_chain_v1.json"
+    if source_chain.is_file() and not source_chain.is_symlink():
+        figures.append(source_chain)
+        figures.sort()
     wavs=sorted(p for p in root.glob("slide*.wav")
                 if re.fullmatch(r"slide[1-9][0-9]*\.wav",p.name,re.I))
     source=exact("source.pdf")
