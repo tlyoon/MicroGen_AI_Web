@@ -215,7 +215,20 @@ def step(*, folder: Path, queue_root: Path, work_root: Path,
         from .ai_academic_review_queue import select_next_safe_review
         next_safe = select_next_safe_review(
             queue_root=queue_root,folder=folder,health_family=health_family)
+        # Distinguish an exhausted/uncertain original source queue from a
+        # healthy model request slot. Under the existing cross-process lock,
+        # persist immutable source-bound evidence and advance only offline
+        # workstreams. Do not fabricate a replacement Send or G2 approval.
+        no_safe_disposition = None
+        if (pending > 0
+            and next_safe.get("status")=="NO_SAFE_REVIEW_UNIT_REMAINING"
+            and bool(next_safe.get("blocked_other_slides"))):
+            from .g2_no_safe_disposition import preserve_g2_no_safe_disposition
+            no_safe_disposition = preserve_g2_no_safe_disposition(
+                queue_root=queue_root,folder=folder,work_root=work_root,
+                source_sha=hashes["source.pdf"],selection=next_safe)
         common = {
+            "historical_no_safe_recovery": no_safe_disposition,
             "two_pass_ai_source_agreed_segments": agreed,
             "pending_or_disputed_segments": pending,
             "expected_original_utterances": state["original_utterances"],
