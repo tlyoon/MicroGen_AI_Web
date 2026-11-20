@@ -27,13 +27,14 @@ STALE_LIMIT_DAYS=7
 # measurements. In particular, the API endpoints are not UI entitlements.
 MODEL_TIERS={
     "flash-lite":1,"hydrogen":2,"flash":2,
-    "hydrogen-thinking":3,"pro":3,"argon":4,"carbon":5,
+    "hydrogen-thinking":3,"pro":3,"argon":4,"neon":4,"carbon":5,
 }
 # Full label patterns anchor to one model name, not to menu descriptions.
 MODEL_PATTERNS={
     "hydrogen-thinking":r"\b\d+(?:\.\d+)?\s+Hydrogen\s+Thinking\b",
     "hydrogen":r"\b\d+(?:\.\d+)?\s+Hydrogen\b(?!\s+Thinking)",
     "argon":r"\b(?:Gemini\s+)?\d+(?:\.\d+)?\s+Argon\b",
+    "neon":r"\b(?:Gemini\s+)?\d+(?:\.\d+)?\s+Neon\b",
     "carbon":r"\b(?:Gemini\s+)?\d+(?:\.\d+)?\s+Carbon\b",
     "pro":r"\b(?:Gemini\s+)?(?:\d+(?:\.\d+)?\s+)?Pro\b",
     "flash":r"\b(?:Gemini\s+)?(?:\d+(?:\.\d+)?\s+)?Flash\b(?![\s-]*Lite)",

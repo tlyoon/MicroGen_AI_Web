@@ -26,14 +26,17 @@ def _full_family_scope(family: str):
     names=("MICROGEN_ACTIVE_GENERATION_STAGE","MICROGEN_GEMINI_UI_MODE",
            "MICROGEN_LLM_MODEL","MICROGEN_GEMINI_THINKING_LEVEL",
            "MICROGEN_MODEL_ROUTE_REASON","MICROGEN_MODEL_ROUTE_REQUESTED",
-           "MICROGEN_MODEL_ROUTE_OFFERED")
+           "MICROGEN_MODEL_ROUTE_OFFERED",
+           "MICROGEN_ACADEMIC_SOURCE_MODEL_REQUALIFICATION_PENDING")
     saved={n:os.environ.get(n) for n in names}
     try:
         os.environ["MICROGEN_ACTIVE_GENERATION_STAGE"]="academic_review"
         os.environ["MICROGEN_GEMINI_UI_MODE"]=family
         os.environ["MICROGEN_LLM_MODEL"]=(
             "gemini-3.8-flash" if family=="flash" else "gemini-3.1-pro")
-        os.environ["MICROGEN_GEMINI_THINKING_LEVEL"]="medium"
+        from .gemini_dynamic_task_router import task_policy
+        os.environ["MICROGEN_GEMINI_THINKING_LEVEL"]=(
+            task_policy("academic_review")["preferred_thinking"])
         yield
     finally:
         for name,value in saved.items():

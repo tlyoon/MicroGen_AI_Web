@@ -228,6 +228,20 @@
       "enabled": true
     },
     {
+      "id": "GEMINI_NEW_FRONTIER_ACADEMIC_UI_THINKING_PRESEND",
+      "match_type": "presend_capability_repair",
+      "signature": "ACADEMIC_DEFAULT_GEMINI_UI_FAMILY_ABSENT_NEW_FRONTIER_AVAILABLE",
+      "mechanism": "OFFICIAL_APP_AND_OWNED_PICKER_FRONTIER_UI_THINKING_ONLY_NO_SOURCE_SEND",
+      "classification": "HISTORICAL_PRO_REMOVED_NEW_GEMINI4_FRONTIER_MODEL_NEEDS_INDEPENDENT_PDF_PROOF",
+      "handler": "NORMAL_EXISTING_OWNED_GEMINI_ACCOUNT_CAPABILITY_PREFLIGHT",
+      "preconditions": "fresh official Gemini Apps Help names frontier family; exact current owned picker or visible unique selectable menu proves same family; explicit High radio required; original source claim remains untouched",
+      "verification_test": "tests/test_gemini_dynamic_task_router.py; tests/test_academic_gemini_presend_preflight.py",
+      "last_verified_date": "2026-11-20",
+      "environment": "Dell-115 fresh Gemini Apps Help Neon, Carbon, Hydrogen; original Pro unavailable in newly owned authenticated tab",
+      "retry_policy": "finite one bounded pre-Send UI-only selection and explicit High check; independent distinct-family two-PDF response required before new source Send; never replay old Pro claims or publish",
+      "enabled": true
+    },
+    {
       "id": "GEMINI_EXACT_PICKER_CLICK_FALLBACK",
       "match_type": "presend_capability_repair",
       "signature": "OWNED_PRO_MODEL_PICKER_NATIVE_CLICK_NO_EFFECT_NO_SEND",

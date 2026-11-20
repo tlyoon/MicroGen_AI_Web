@@ -73,13 +73,31 @@ def inspect(*,port: int=9222) -> dict:
             # There is NO model prompt, file upload or submit operation.
             client.open_clean_gemini_chat()
             handle=getattr(client,"_automation_tab",None)
-            assert_owned_gemini_mode(client.driver,handle,mode=mode,
+            observed_mode=configured_ui_mode()
+            assert_owned_gemini_mode(client.driver,handle,mode=observed_mode,
                                      wait_seconds=4)
             level=None
-            if browser_stage_needs_thinking(mode=mode):
+            if browser_stage_needs_thinking(mode=observed_mode):
                 level=configured_thinking_level()
+                from .gemini_dynamic_task_router import task_policy,LEVELS
+                academic_floor=task_policy("academic_review")["minimum_thinking"]
+                if LEVELS.index(level)<LEVELS.index(academic_floor):
+                    raise AcademicGeminiPreSendBlocked(
+                        "GEMINI_ACADEMIC_THINKING_BELOW_REVIEW_FLOOR_NO_SEND")
                 assert_owned_gemini_thinking_level(
                     client.driver,handle,level=level)
+            if observed_mode!=mode:
+                if (os.environ.get(
+                        "MICROGEN_ACADEMIC_SOURCE_MODEL_REQUALIFICATION_PENDING")
+                        != "1"):
+                    raise AcademicGeminiPreSendBlocked(
+                        "GEMINI_ACADEMIC_ALTERNATE_MODEL_NOT_SOURCE_QUALIFIED_NO_SEND")
+                # A new model UI and checked HIGH reasoning are necessary
+                # but not sufficient: the independent two-PDF response
+                # capability is a distinct, original-source-bound gate.
+                # Never permit original Pro source Sends to be reinterpreted.
+                raise AcademicGeminiPreSendBlocked(
+                    "GEMINI_ACADEMIC_ALTERNATE_AWAITS_NEW_TWO_PDF_PROOF_NO_SEND")
             return {
                 "status":"EXACT_OWNED_GEMINI_MODEL_AND_THINKING_READY_NO_SEND",
                 "model_family":mode,
@@ -92,6 +110,8 @@ def inspect(*,port: int=9222) -> dict:
                 "G2_approved":False,
                 "student_publication_authorized":False,
             }
+        except AcademicGeminiPreSendBlocked:
+            raise
         except Exception as exc:
             # Safe normalized classes only. NEVER print browser source text,
             # user identifiers, prompts or arbitrary exception messages.

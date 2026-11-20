@@ -28,6 +28,7 @@ MODEL_SPECS = {
     "hydrogen": {"menu_prefix": "4 Hydrogen", "label_token": "hydrogen"},
     "hydrogen-thinking": {"menu_prefix": "4 Hydrogen Thinking", "label_token": "hydrogen-thinking"},
     "argon": {"menu_prefix": "4 Argon", "label_token": "argon"},
+    "neon": {"menu_prefix": "4 Neon", "label_token": "neon"},
     "carbon": {"menu_prefix": "4 Carbon", "label_token": "carbon"},
 }
 
@@ -78,11 +79,12 @@ def _eligible_mode_menu_text(text: str, mode: str) -> bool:
     if not 1 <= len(lines) <= 4:
         return False
     flattened = " ".join(lines)
-    if mode in ("hydrogen","hydrogen-thinking","argon","carbon"):
+    if mode in ("hydrogen","hydrogen-thinking","argon","carbon","neon"):
         names={
             "hydrogen":r"(?:gemini\s+)?\d+(?:\.\d+)?\s+hydrogen",
             "hydrogen-thinking":r"(?:gemini\s+)?\d+(?:\.\d+)?\s+hydrogen\s+thinking",
             "argon":r"(?:gemini\s+)?\d+(?:\.\d+)?\s+argon",
+            "neon":r"(?:gemini\s+)?\d+(?:\.\d+)?\s+neon",
             "carbon":r"(?:gemini\s+)?\d+(?:\.\d+)?\s+carbon",
         }
         # Exactly ONE model label of the expected name; never accept a
@@ -93,7 +95,7 @@ def _eligible_mode_menu_text(text: str, mode: str) -> bool:
     # A wrapper that lists multiple modes must never masquerade as one
     # selectable option, even if it happens to include the requested mode.
     tokens = re.findall(
-        r"(?<!\w)(?:flash[\s-]*lite|flash|pro|argon|carbon)(?!\w)",
+        r"(?<!\w)(?:flash[\s-]*lite|flash|pro|argon|carbon|neon)(?!\w)",
         flattened, flags=re.I)
     if len(tokens) != 1:
         return False
@@ -488,6 +490,10 @@ def update_dynamic_selected_family(decision) -> None:
     os.environ["MICROGEN_MODEL_ROUTE_REASON"]=decision.reason
     os.environ["MICROGEN_MODEL_ROUTE_REQUESTED"]=decision.requested_family
     os.environ["MICROGEN_MODEL_ROUTE_OFFERED"]=",".join(decision.observed_families)
+    if decision.academic_pdf_requalification_pending:
+        # Changed source-bound model is selectable for a no-Send preflight
+        # only. No old Pro source/dual-PDF claim can authorize this route.
+        os.environ["MICROGEN_ACADEMIC_SOURCE_MODEL_REQUALIFICATION_PENDING"]="1"
     os.environ["MICROGEN_DYNAMIC_ROUTE_PENDING"]=json.dumps({
         "schema_version":1,"stage":decision.stage,
         "family":decision.family,"label":decision.visible_label,
@@ -572,6 +578,28 @@ def select_owned_gemini_with_recovery(
         if active in STAGES and new_ui_families:
             rows=[{"family":f,"label":opt.label,"disabled":bool(opt.disabled)}
                   for f,opt in _visible_model_options(driver)]
+            # The currently selected model is sometimes OMITTED from the
+            # open menu (real Neon Medium + offered Carbon/Hydrogen, Nov 20).
+            # Its UNIQUE owned-picker label still supplies a stronger,
+            # read-only selected-state proof than an arbitrary menu item.
+            # Never infer a family from page text or a stale foreign tab.
+            current_family=None
+            try:
+                from .gemini_ui_adaptive_protocol import normalized_family
+                label=_observed_picker_label(_owned_picker(driver,owned_handle))
+                observed=normalized_family(label)
+                if observed in MODEL_SPECS and observed not in offered:
+                    assert_owned_gemini_mode(
+                        driver,owned_handle,mode=observed)
+                    current_family=observed
+                    rows.append({"family":observed,
+                                 "label":"Gemini 4 "+observed.capitalize(),
+                                 "disabled":False})
+            except (GeminiModelError,AttributeError,TypeError):
+                # Some historical offline drivers implement no atomic
+                # picker snapshot. This optional positive-evidence route
+                # must never turn its absence into a fake selected family.
+                current_family=None
             try:
                 decision=find_dynamic_replacement(
                     stage=active,requested_family=mode,visible_rows=rows,
@@ -581,8 +609,12 @@ def select_owned_gemini_with_recovery(
                 raise GeminiModelError(
                     "PRE_SEND_DYNAMIC_TASK_MODEL_NOT_VERIFIABLE_NO_SEND") from exc
             if decision.family != mode:
-                selected=select_owned_gemini_mode(
-                    driver,owned_handle,mode=decision.family,timeout=timeout)
+                if decision.family==current_family:
+                    selected=assert_owned_gemini_mode(
+                        driver,owned_handle,mode=decision.family)
+                else:
+                    selected=select_owned_gemini_mode(
+                        driver,owned_handle,mode=decision.family,timeout=timeout)
                 update_dynamic_selected_family(decision)
                 return selected
             raise GeminiModelError(

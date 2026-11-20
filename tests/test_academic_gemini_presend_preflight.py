@@ -245,6 +245,9 @@ class ExactAcademicGeminiCapabilities(unittest.TestCase):
         self.assertEqual(selected["gemini_requests_submitted"],0)
 
     def test_real_preflight_invokes_registered_no_send_reopen_on_alt(self):
+        self.addCleanup(os.environ.__setitem__,
+                        "MICROGEN_GEMINI_THINKING_LEVEL","medium")
+        os.environ["MICROGEN_GEMINI_THINKING_LEVEL"]="high"
         enrolled=self.root/"MicroGen_AI_Web"/"gemini_alternate"/"AccountB"
         enrolled.mkdir(parents=True)
         (enrolled/"Local State").write_text("existing-chrome-state")
@@ -373,17 +376,17 @@ class ExactAcademicGeminiCapabilities(unittest.TestCase):
         self.assertEqual(found.exception.gemini_failure_phase,
                          "GEMINI_EXISTING_DEBUG_SESSION_UNAVAILABLE_NO_SEND")
 
-    def test_only_true_owned_flash_medium_passes_before_any_send(self):
-        with patch("selenium_pipeline.gemini_model.assert_owned_gemini_mode",
-                   return_value="Open mode picker, currently Flash") as family:
-            with patch("selenium_pipeline.gemini_thinking."
-                       "assert_owned_gemini_thinking_level",
-                       return_value="medium") as thinking:
-                result=inspect(port=9222)
+    def test_only_true_owned_flash_high_passes_before_any_send(self):
+        with patch.dict(os.environ,{"MICROGEN_GEMINI_THINKING_LEVEL":"high"}),patch(
+                "selenium_pipeline.gemini_model.assert_owned_gemini_mode",
+                return_value="Open mode picker, currently Flash") as family,patch(
+                "selenium_pipeline.gemini_thinking.assert_owned_gemini_thinking_level",
+                return_value="high") as thinking:
+            result=inspect(port=9222)
         family.assert_called_once_with(
             self.provider.driver,"owned",mode="flash",wait_seconds=4)
         thinking.assert_called_once_with(
-            self.provider.driver,"owned",level="medium")
+            self.provider.driver,"owned",level="high")
         self.assertEqual(result["status"],
             "EXACT_OWNED_GEMINI_MODEL_AND_THINKING_READY_NO_SEND")
         self.assertEqual(result["gemini_requests_submitted"],0)

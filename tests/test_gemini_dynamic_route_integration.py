@@ -128,26 +128,31 @@ class RealEntrypointRouteTests(TestCase):
         self.assertEqual(selector.call_count,1)
         self.assertFalse(os.getenv("MICROGEN_DYNAMIC_ROUTE_PENDING"))
 
-    def test_academic_cannot_change_source_bound_family_without_requalification(self):
+    def test_academic_can_select_argon_only_as_unqualified_presend_ui(self):
         from selenium_pipeline.gemini_ui_semantic_controls import Option
         rows=[("argon",Option(SimpleNamespace(),"4 Argon",False,False))]
         with patch("selenium_pipeline.gemini_model.select_owned_gemini_mode",
-                   side_effect=GeminiModelError(
-                      "PRE_SEND_REQUESTED_GEMINI_MODEL_NOT_AVAILABLE_NO_SEND")) as sel,patch(
+                   side_effect=[
+                      GeminiModelError(
+                        "PRE_SEND_REQUESTED_GEMINI_MODEL_NOT_AVAILABLE_NO_SEND"),
+                      "Open mode picker, currently 4 Argon"]) as sel,patch(
                 "selenium_pipeline.gemini_model._visible_model_options",
                 return_value=rows),patch(
                 "selenium_pipeline.gemini_model.visible_offered_gemini_families",
                 return_value=["argon"]),patch(
                 "selenium_pipeline.gemini_dynamic_task_router.official_ui_catalog",
                 return_value=CATALOG):
-            with self.assertRaisesRegex(GeminiModelError,
-                                        "DYNAMIC_TASK_MODEL_NOT_VERIFIABLE"):
-                select_owned_gemini_with_recovery(
-                    self.driver,"owned",mode="pro",stage="academic_review",
-                    timeout=2,allow_fallback=True)
-        self.assertEqual(sel.call_count,1)
+            selected=select_owned_gemini_with_recovery(
+                self.driver,"owned",mode="pro",stage="academic_review",
+                timeout=2,allow_fallback=True)
+        self.assertIn("Argon",selected)
+        self.assertEqual(sel.call_count,2)
+        self.assertEqual(os.getenv("MICROGEN_GEMINI_UI_MODE"),"argon")
+        self.assertEqual(os.getenv("MICROGEN_ACADEMIC_SOURCE_MODEL_REQUALIFICATION_PENDING"),"1")
+        self.assertEqual(os.getenv("MICROGEN_MODEL_ROUTE_REASON"),
+                         "ACADEMIC_ALTERNATE_UI_ONLY_INDEPENDENT_PDF_REQUALIFICATION_REQUIRED")
         self.assertFalse(read_task_default("academic_review"))
-        self.assertFalse(os.getenv("MICROGEN_DYNAMIC_ROUTE_PENDING"))
+        self.assertTrue(os.getenv("MICROGEN_DYNAMIC_ROUTE_PENDING"))
 
 if __name__=="__main__":
     import unittest
