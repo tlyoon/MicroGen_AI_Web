@@ -413,10 +413,10 @@ def valid(stage: str, folder: Path) -> bool:
         # A correct LaTeX compile may omit a source figure entirely, or use
         # IfFileExists to hide a nonexistent image. Neither is acceptable.
         from .source_caption_figure_chain_v1 import (
-            verify_latex_figure_chain, has_real_pdf_header)
+            verify_rendered_pdf_source_figures, has_real_pdf_header)
         if has_real_pdf_header(folder / "source.pdf"):
             try:
-                verify_latex_figure_chain(folder)
+                verify_rendered_pdf_source_figures(folder)
             except (ValueError, OSError, RuntimeError):
                 return False
         return True

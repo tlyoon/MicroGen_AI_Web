@@ -256,9 +256,9 @@ def cleanup_completed_lecture(
     # Never delete PDF pages/crop provenance merely because one existing
     # LaTeX figure was present: first verify the complete source-caption chain.
     from .source_caption_figure_chain_v1 import (
-        verify_latex_figure_chain, has_real_pdf_header)
+        verify_rendered_pdf_source_figures, has_real_pdf_header)
     if has_real_pdf_header(source_pdf):
-        verify_latex_figure_chain(folder)
+        verify_rendered_pdf_source_figures(folder)
     sync_sha256 = _assert_structural_sync_if_present(folder)
 
     receipt = {

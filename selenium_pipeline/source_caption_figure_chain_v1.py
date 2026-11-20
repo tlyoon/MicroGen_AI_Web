@@ -576,6 +576,73 @@ def verify_latex_figure_chain(folder: Path) -> dict:
     }
 
 
+def verify_rendered_pdf_source_figures(folder: Path) -> dict:
+    """Proof of visible pixel-identical source PNGs in compiled slides.pdf.
+
+    A .tex reference alone cannot prove the corresponding PDF rendered that
+    image (comments, conditionals, macros or stale compiled PDFs). Require
+    every source-caption figure's exact RGB pixels in at least one *visible*
+    embedded PDF image XObject after LaTeX compilation. Layout/reading quality
+    and scientific claims still need independent QA.
+    """
+    import io
+    from PIL import Image
+    folder = Path(folder)
+    chain = verify_latex_figure_chain(folder)
+    if chain["status"] == "NO_PRINTED_SOURCE_FIGURES":
+        return {"status": "NO_PRINTED_SOURCE_FIGURES"}
+    source_crops = verify_figure_crops(folder)["figures"]
+    rendered = folder / "slides.pdf"
+    _require(rendered.is_file() and not rendered.is_symlink(),
+             "Missing compiled slides.pdf for source-image pixel comparison")
+    reference = {}
+    for filename in source_crops:
+        png = folder / filename
+        with Image.open(png) as image:
+            rgb = image.convert("RGB")
+            reference[filename] = (rgb.size,
+                                   hashlib.sha256(rgb.tobytes()).hexdigest())
+    matched = {name: [] for name in source_crops}
+    with fitz.open(str(rendered)) as pdf:
+        _require(len(pdf) >= 1, "Compiled slide PDF has no pages")
+        for i, page in enumerate(pdf):
+            for item in page.get_images(full=True):
+                xref = item[0]
+                visible = [
+                    rect for rect in page.get_image_rects(xref)
+                    if (rect.is_valid and rect.width >= 10
+                        and rect.height >= 10
+                        and page.rect.intersects(rect))
+                ]
+                if not visible:
+                    continue
+                try:
+                    blob = pdf.extract_image(xref)["image"]
+                    with Image.open(io.BytesIO(blob)) as image:
+                        rgb = image.convert("RGB")
+                        ident = (rgb.size,
+                                 hashlib.sha256(rgb.tobytes()).hexdigest())
+                except (OSError, ValueError, KeyError):
+                    continue
+                for name, expected in reference.items():
+                    if ident == expected:
+                        matched[name].append(i + 1)
+    missing = [name for name, pages in matched.items() if not pages]
+    _require(not missing,
+             "Compiled slides.pdf lacks visible exact source-figure pixels: "
+             + ", ".join(missing))
+    return {
+        "status": "SOURCE_CAPTION_PNG_LATEX_RENDERED_PDF_CHAIN_VERIFIED",
+        "figures_verified": len(source_crops),
+        "slides_sha256": _sha(rendered),
+        "source_sha256": chain["source_sha256"],
+        "source_figure_visible_pages": matched,
+        "source_pixels_unchanged": True,
+        "scientific_approval": False,
+        "student_publication_authorized": False,
+    }
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source-pdf", type=Path, required=True)
