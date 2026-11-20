@@ -338,10 +338,20 @@ def valid(stage: str, folder: Path) -> bool:
                 named_in_root = folder / mapped_name
                 if not (named_in_page.is_file() and named_in_root.is_file()):
                     return False
-                source_hash = hashlib.sha256(original_crops[src].read_bytes()).digest()
-                if (hashlib.sha256(named_in_page.read_bytes()).digest() != source_hash
-                        or hashlib.sha256(named_in_root.read_bytes()).digest() != source_hash):
-                    return False
+                source_crop = original_crops[src]
+                source_hash = hashlib.sha256(source_crop.read_bytes()).digest()
+                # A PNG encoder may change compression without changing any
+                # decoded pixel. The same strict fail-closed figure guard used
+                # during mapping and checkpointing must apply here too.
+                from .figure_composites import (
+                    FigureCompositeReviewRequired, require_non_destructive_destination
+                )
+                for target_file in (named_in_page, named_in_root):
+                    if hashlib.sha256(target_file.read_bytes()).digest() != source_hash:
+                        try:
+                            require_non_destructive_destination(source_crop, target_file)
+                        except FigureCompositeReviewRequired:
+                            return False
                 validated.add(src)
             if validated != set(original_crops):
                 return False

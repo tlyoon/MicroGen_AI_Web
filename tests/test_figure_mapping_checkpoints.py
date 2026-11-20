@@ -110,6 +110,8 @@ class FigurePageCheckpointTests(unittest.TestCase):
                             self.public.read_bytes())
         save_checkpoint(self.r,3)
         self.assertTrue(checkpoint_can_resume(self.r,3))
+        from selenium_pipeline.runner import valid
+        self.assertTrue(valid("figures",self.r))
 
     def test_changed_rgb_pixel_still_invalidates_checkpoint(self):
         from PIL import Image
@@ -122,6 +124,8 @@ class FigurePageCheckpointTests(unittest.TestCase):
         mutated.putpixel((1,2),(151,30,90,255))
         mutated.save(self.public)
         self.assertFalse(checkpoint_can_resume(self.r,3))
+        from selenium_pipeline.runner import valid
+        self.assertFalse(valid("figures",self.r))
 
     def test_vendor_does_not_auto_merge_unverified_lettered_panels(self):
         source=(Path(__file__).resolve().parents[1]
