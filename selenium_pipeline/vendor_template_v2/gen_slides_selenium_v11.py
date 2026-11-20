@@ -1113,6 +1113,13 @@ def generate_slides_tex(
     last_latex = ""
     last_preview = ""
     legibility_feedback = ""
+    # Check original source figure ledger before any provider Send.
+    from selenium_pipeline.source_caption_figure_chain_v1 import (
+        has_real_pdf_header, printed_source_captions, verify_figure_crops)
+    required_source_figures=[]
+    if has_real_pdf_header(pdf_path):
+        if printed_source_captions(pdf_path):
+            required_source_figures=verify_figure_crops(out_tex.parent)["figures"]
 
     #for attempt in range(1, 4):
     #    log(f"Slides generation attempt {attempt}/3", "INFO")
@@ -1153,6 +1160,14 @@ def generate_slides_tex(
             "Keep literal commands such as \\alpha, \\beta, \\theta, \\Delta, \\Omega, \\mu, \\frac{...}{...}, \\vec{E}, and \\times inside the fenced source. "
             "The fenced block must contain the full document from \\documentclass through \\end{document}."
         )
+        if required_source_figures:
+            instruction += (
+                " MANDATORY printed-source figure images: "
+                + ", ".join(required_source_figures)
+                + ". Include every one with a literal \\includegraphics, "
+                  "retain all labeled panels, do not use \\IfFileExists, "
+                  "and provide legible dedicated frames when necessary."
+            )
         if legibility_feedback:
             instruction += legibility_feedback
 
@@ -1197,6 +1212,21 @@ def generate_slides_tex(
         if bounded_count:
             log(f"Bounded {bounded_count} Beamer image(s) before sanity compilation.")
 
+        if required_source_figures:
+            from selenium_pipeline.source_caption_figure_chain_v1 import (
+                missing_required_latex_figures)
+            coverage=missing_required_latex_figures(latex,required_source_figures)
+            if coverage["missing"] or coverage["guarded"]:
+                fail=out_tex.with_name(
+                    f"slides_attempt_{attempt}_failed_source_figures.tex")
+                fail.write_text(latex+"\n",encoding="utf-8")
+                legibility_feedback=(
+                    " Repair incomplete source-caption figure coverage: "
+                    "missing="+", ".join(coverage["missing"])
+                    +"; conditionally hidden="+", ".join(coverage["guarded"])
+                    +". Include each literal figure and preserve panels.")
+                log("Rejecting source-figure omissions before slide acceptance.","WARN")
+                continue
         from selenium_pipeline.figure_legibility import (
             audit_wide_figure_legibility, legibility_retry_instruction,
         )

@@ -12,6 +12,14 @@ PNG dimension metadata:
 
 Use the PNG dimension metadata above when deciding how to include any figure in the LaTeX slides.
 
+Mandatory source-captioned original figures:
+- Every printed Figure N.N caption in source.pdf must have a verified source-derived Figure N.N.png.
+- Include every required source figure with an explicit \\includegraphics in an appropriate lecture slide.
+- Never hide required figures using \\IfFileExists or a LaTeX comment.
+- Preserve all original panel letters (a), (b), ... in composite figures.
+- Prefer a separate figure-focused frame when necessary to keep panels legible.
+- The generated slides.pdf will be raster-rendered and checked against the original figure crops before acceptance.
+
 Mandatory figure rules:
 - The JSON gives the true width and height of each PNG file.
 - For every figure that is actually included, compute:

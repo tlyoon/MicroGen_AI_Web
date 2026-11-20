@@ -103,7 +103,14 @@ def enforce_graphics(folder: Path, *, repair: bool = True) -> dict:
             + f"; review source-PDF candidates under {review}" + diagnostic)
     if graphics_error is not None:
         raise graphics_error
-    manifest = {"source_sha256": result["source_sha256"], "figures": []}
+    # Existing LaTeX references cannot attest missing original source figures.
+    from .source_caption_figure_chain_v1 import (
+        has_real_pdf_header, verify_latex_figure_chain)
+    chain=(verify_latex_figure_chain(folder)
+           if has_real_pdf_header(folder/"source.pdf")
+           else {"status":"LEGACY_NONPDF_TEST_FIXTURE_ONLY"})
+    manifest = {"source_sha256": result["source_sha256"],
+                "source_caption_chain_status": chain["status"], "figures": []}
     for entry in result["graphics"]:
         p = folder / entry["filename"]
         manifest["figures"].append({

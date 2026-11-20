@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "status": "SOURCE_FIGURE_EXECUTABLE_RECOVERY_REGISTRY_V1",
+  "entries": [
+    {
+      "match_type": "source_figure_recovery",
+      "signature": "FIGURE_CAPTIONED_VECTOR_OR_COMPOSITE_CROP_MISSING",
+      "mechanism": "GENERATE_SOURCE_BOUND_HYBRID_CROPS_VERIFY_PANELS_THEN_ATOMIC_PROMOTION",
+      "handler": "NORMAL_FIGURES_STAGE_ORIGINAL_SOURCE_HYBRID_CROP_POST_MAPPING",
+      "attempt_limit": 2,
+      "enabled": true
+    }
+  ]
+}

@@ -46,8 +46,8 @@ def resolve_source_root(value: str | Path | None, *, code_root: Path) -> Path:
 
 
 OUTPUT_NAMES = {
-    "figures": (),
-    "slides": ("slides.tex", "slides.pdf"),
+    "figures": ("source_figure_chain_v1.json",),
+    "slides": ("slides.tex", "slides.pdf", "source_figure_chain_v1.json"),
     "narration": ("script.txt", "script_tts.json"),
     "script_qa": ("script_risk_report.json", "script_risk_report.md"),
     "tts": ("script_tts.json",),
