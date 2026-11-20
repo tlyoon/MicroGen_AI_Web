@@ -50,8 +50,20 @@ class SplitFigureAcrossTwoSlidesTests(TestCase):
         generate_candidates(source,crop_stage)
         for name in ("Figure 8.1.png","source_figure_chain_v1.json"):
             shutil.copy2(crop_stage/name,self.work/name)
-        split={"Figure_8_1_upper.png":[149,425,548,595],
-               "Figure_8_1_lower.png":[149,595,548,750]}
+        source_ledger=json.loads(
+            (self.work/"source_figure_chain_v1.json").read_text())
+        # Avoid coordinates exactly on the outer crop border: different
+        # PyMuPDF builds round PDF floats slightly differently.
+        canonical=source_ledger["figures"][0]["crop_bbox"]
+        x0=max(151,canonical[0]+2)
+        y0=max(430,canonical[1]+2)
+        x1=min(548,canonical[2]-2)
+        y1=min(750,canonical[3]-2)
+        self.assertLess(x0,x1)
+        self.assertLess(y0,595)
+        self.assertGreater(y1,747)
+        split={"Figure_8_1_upper.png":[x0,y0,x1,595],
+               "Figure_8_1_lower.png":[x0,595,x1,y1]}
         with fitz.open(source) as src:
             for filename,rect in split.items():
                 src[0].get_pixmap(
