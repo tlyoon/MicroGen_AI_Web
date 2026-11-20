@@ -643,6 +643,25 @@ def select_owned_gemini_with_recovery(
         return selected
 
 
+def browser_requested_model_id(mode: str) -> str:
+    """Resolve a browser UI model-family assertion without index failures.
+
+    A current Gemini Apps family such as 4 Neon is a UI entitlement, not
+    independently evidenced API endpoint identity. Never invent a Gemini
+    API model ID for a newly advertised Apps model; use an explicit UI-only
+    sentinel and let browser_model_evidence verify exact family wording.
+    """
+    if mode not in MODEL_SPECS:
+        raise GeminiModelError("Unrecognized current browser model family")
+    verified_legacy_ids = {
+        "flash": "gemini-3.8-flash",
+        "flash-lite": "gemini-3.5-flash-lite",
+        "pro": "gemini-3.1-pro",
+    }
+    selected = os.getenv("MICROGEN_LLM_MODEL", "").strip()
+    return selected or verified_legacy_ids.get(mode, "ui-only-" + mode)
+
+
 def browser_model_evidence(label: str, *, requested_mode: str,
                            requested_model_id: str) -> dict:
     """Honest UI-only provenance. No API/provider version claim.

@@ -147,6 +147,22 @@ class SourceFreeAcademicRequalificationTests(TestCase):
         self.assertIsNone(latest_success(checkpoint_parent=self.root,
             source_sha=SRC,family="pro",after_unix=BASE,now=BASE+2000))
 
+    def test_high_reasoning_source_free_proof_bound_to_exact_effort(self):
+        with patch.dict(os.environ,{"MICROGEN_GEMINI_THINKING_LEVEL":"high"}):
+            result=probe_once(checkpoint_parent=self.root,source_sha=SRC,
+                family="pro",now=BASE+2000,browser_request=self.success)
+        self.assertEqual(result["thinking_level"],"high")
+        scope=self.root/".microgen_academic_response_requalification"/SRC/"pro"
+        path=next(scope.glob("*/result.json"))
+        claim=json.loads((path.parent/"claim.json").read_text())
+        self.assertEqual(claim["thinking_level"],"high")
+        bad=json.loads(path.read_text())
+        bad["thinking_level"]="medium"
+        path.write_text(json.dumps(bad),encoding="utf8")
+        with self.assertRaises(AcademicProbeError):
+            verify_result(result_path=path,checkpoint_parent=self.root,
+                          source_sha=SRC,family="pro")
+
     def test_forged_saved_proof_fails_closed(self):
         result=probe_once(checkpoint_parent=self.root,source_sha=SRC,
                           family="pro",now=BASE+2000,

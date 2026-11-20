@@ -1,5 +1,15 @@
 # MicroGen_AI_Web failure-to-fix ledger — current continuation
 
+## MG-GEMINI4-NEW_MODEL_BROWSER_TRANSPORT_LEGACY_INDEX_AND_HIGH_RECEIPT_REJECTED — 20 Nov 2026
+
+**Verified history:** The real PR558 missing-Pro replacement correctly selects `Neon High`, with positive new-chat/owned picker and High radio; no source Send or PDF upload. But its original `series_gemini._browser_request` still had `model_ids[selected]` eagerly evaluated for legacy Flash/Pro, so new Neon could fail at the shared model evidence gate with `KeyError` before reaching file upload. The exact hosted PR558 Windows CI #844 independently failed one source-free incident-health test among 1552 tests/40 skips because the older `probe_incident_once` was hardcoded to Medium while revised source/math review requires High.
+
+**Registered production repair:** PR559 extends existing Gemini dynamic recovery pathway, moves the browser model-ID assertion to a pure model-family-aware helper (new Apps families use `ui-only-<family>`, never fake API IDs), and preserves exact same-owned-tab family verification before Send. Original immutable source-free incident and daily model-health claims now support Medium or High, recording and checking the exact effort in the physical one-use claim and result, rejecting Low or mismatched proof; original Pro/Medium receipts still verify without alteration. Neither code change authorizes a new original source Send, model downgrade or student release.
+
+**Fault injection:** A fake vendor with deliberate pre-upload stop proves the old `_browser_request` path now reaches model evidence for Neon without upload/Send. New High positive, Low negative, forged High→Medium receipt mismatches and original source-claim immutability all covered. Focused 39/39 new request tests and 51/51 direct historical CI failure regressions passed. Exact source PR559 hosted CI/full normal v7.1 handoff remains required. Scientific next boundary stays distinct Neon High two-PDF reply; G2 science 20/85, G3 open. See `docs/PR559_GEMINI4_NEON_OWNED_REQUEST_AND_HISTORICAL_EFFORT_RECEIPT_RECOVERY_20261120.md`.
+
+---
+
 ## MG-GEMINI4-NEW_MODEL_MISSING_PRO_ACADEMIC_ROUTE_STOP — 20 Nov 2026
 
 **Historical repeat:** On 11, 13, 17 and 18 Nov, missing Flash/Pro UI families and Thinking failures had been addressed through exact model selectors, nested-level hydration, authorized Chrome profile reuse and `GEMINI_DYNAMIC_TASK_MODEL_ROUTER`. The older academic source route nevertheless refused a substitute when Pro disappeared, and 24-hour official model cache was stale about newly introduced Neon. The 20 Nov fresh Gemini tab actually selected `Neon Medium`, but its open model alternatives listed only Carbon and Hydrogen. Carbon click did not positively change the selected model, so a click result was correctly rejected.

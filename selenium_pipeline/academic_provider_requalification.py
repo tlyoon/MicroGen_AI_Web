@@ -110,7 +110,7 @@ def verify_result(*,result_path:Path,checkpoint_parent:Path,
     _must(claim.get("schema_version")==1
           and claim.get("source_sha256")==source_sha
           and claim.get("model_family")==family
-          and claim.get("thinking_level")=="medium"
+          and claim.get("thinking_level") in ("medium","high")
           and claim.get("utc_day")==result_path.parent.name
           and claim.get("synthetic_prompt_sha256")==
               hashlib.sha256(prompt.encode("utf8")).hexdigest()
@@ -121,7 +121,7 @@ def verify_result(*,result_path:Path,checkpoint_parent:Path,
     _must(receipt.get("schema_version")==1
           and receipt.get("source_sha256")==source_sha
           and receipt.get("model_family")==family
-          and receipt.get("thinking_level")=="medium"
+          and receipt.get("thinking_level")==claim["thinking_level"]
           and receipt.get("utc_day")==result_path.parent.name
           and receipt.get("claim_sha256")==_sha(claim_path)
           and receipt.get("model_sends_possible") in (0,1)
@@ -188,8 +188,9 @@ def probe_once(*,checkpoint_parent:Path,source_sha:str,family:str,
           "Invalid authorized Gemini debug port")
     _must(os.getenv("MICROGEN_GEMINI_UI_MODE","flash").strip().lower()==family
           and os.getenv("MICROGEN_GEMINI_THINKING_LEVEL","medium").strip().lower()
-              =="medium",
+              in ("medium","high"),
           "Health model/thinking differs from original G2 route")
+    effort=os.getenv("MICROGEN_GEMINI_THINKING_LEVEL","medium").strip().lower()
     day=_day(instant)
     prompt,nonce=_expected(source_sha=source_sha,family=family,day=day)
     claim_path,result_path=_paths(checkpoint_parent=checkpoint_parent,
@@ -209,7 +210,7 @@ def probe_once(*,checkpoint_parent:Path,source_sha:str,family:str,
                 "G2_approved":False,"student_publication_authorized":False}
     claim={
         "schema_version":1,"source_sha256":source_sha,
-        "model_family":family,"thinking_level":"medium",
+        "model_family":family,"thinking_level":effort,
         "utc_day":day,
         "synthetic_prompt_sha256":hashlib.sha256(
             prompt.encode("utf8")).hexdigest(),
@@ -245,7 +246,7 @@ def probe_once(*,checkpoint_parent:Path,source_sha:str,family:str,
         registration=None
     outcome={
         "schema_version":1,"source_sha256":source_sha,
-        "model_family":family,"thinking_level":"medium",
+        "model_family":family,"thinking_level":effort,
         "utc_day":day,"claim_sha256":_sha(claim_path),
         "observed_unix":instant,
         "status":("SOURCE_FREE_ATTRIBUTABLE_RESPONSE_VERIFIED"

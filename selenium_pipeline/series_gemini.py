@@ -139,21 +139,20 @@ def _browser_request(instruction: str,attachments: list[Path],
                                 "rich_mapping","academic_review"))
                 # New chats may reset Gemini's mode: independently recheck.
                 from .gemini_model import (
-                    assert_owned_gemini_mode, browser_model_evidence)
+                    assert_owned_gemini_mode, browser_model_evidence,
+                    browser_requested_model_id)
                 observed=assert_owned_gemini_mode(
                     owned.driver,getattr(owned,"_automation_tab",None),
                     mode=selected,wait_seconds=4)
-                # An explicitly selected Pro or caption-stage Flash-Lite
-                # cannot inherit the package-wide Flash model-ID default.
-                # This is requested-family evidence only; it does NOT prove
-                # the server model deployment or academic correctness.
-                model_ids={"flash":"gemini-3.8-flash",
-                           "pro":"gemini-3.1-pro",
-                           "flash-lite":"gemini-3.5-flash-lite"}
+                # Historical source-level blocker: an eager default
+                # model_ids[selected] raised KeyError for selected Neon,
+                # Carbon, etc., even if the new stage router had already
+                # populated MICROGEN_LLM_MODEL with a valid UI-only token.
+                # Only assert the exact owned UI family: never claim a new
+                # Gemini API endpoint or academic correctness by its name.
                 browser_model_evidence(
                     observed,requested_mode=selected,
-                    requested_model_id=os.getenv(
-                        "MICROGEN_LLM_MODEL",model_ids[selected]))
+                    requested_model_id=browser_requested_model_id(selected))
                 if attachments:
                     owned.upload_files(attachments)
                 if not owned.type_prompt_text(instruction,retries=3):
