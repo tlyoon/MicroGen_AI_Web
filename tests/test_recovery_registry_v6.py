@@ -2,8 +2,20 @@
 import json
 import tempfile
 import unittest
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+
+
+# Recovery dates are recorded on the authorized Dell-115 in Malaysia local
+# time. GitHub's hosted Windows CI may still be on the preceding UTC day.
+_PROJECT_TIMEZONE = timezone(timedelta(hours=8))
+
+
+def _project_verification_date(now_utc=None):
+    utc = now_utc if now_utc is not None else datetime.now(timezone.utc)
+    if utc.tzinfo is None:
+        raise ValueError("Verification date requires an aware UTC clock")
+    return utc.astimezone(_PROJECT_TIMEZONE).date()
 
 from selenium_pipeline.recovery_registry import (
     REGISTRY_PATH, load_registry, lookup_mechanism)
@@ -84,11 +96,30 @@ class VersionSixRecoveryRegistryTests(unittest.TestCase):
             _registered_recovery("selection_action","FRESH_FIRST_ATTEMPT",
                                  bad,"REVALIDATE_TWO_PASS_SOURCE_CONSENSUS_OR_STOP")
 
+    def test_ci_runner_midnight_utc_does_not_reject_malaysia_verification(self):
+        # Regression: 2026-11-19T16:17Z is already 2026-11-20 00:17 MYT.
+        hosted_now = datetime(2026, 11, 19, 16, 17, tzinfo=timezone.utc)
+        self.assertEqual(hosted_now.date(), date(2026, 11, 19))
+        self.assertEqual(_project_verification_date(hosted_now),
+                         date(2026, 11, 20))
+        self.assertLessEqual(date(2026, 11, 20),
+                             _project_verification_date(hosted_now))
+
+    def test_ci_runner_before_malaysia_midnight_still_rejects_future(self):
+        prior = datetime(2026, 11, 19, 15, 59, tzinfo=timezone.utc)
+        self.assertEqual(_project_verification_date(prior),
+                         date(2026, 11, 19))
+        self.assertGreater(date(2026, 11, 20),
+                           _project_verification_date(prior))
+        with self.assertRaisesRegex(ValueError, "aware"):
+            _project_verification_date(datetime(2026, 11, 19, 16, 17))
+
     def test_all_entries_have_verification_provenance(self):
         for e in self.original["entries"]:
             self.assertTrue(e["verification_test"].startswith("tests/"))
             self.assertLessEqual(
-                date.fromisoformat(e["last_verified_date"]), date.today())
+                date.fromisoformat(e["last_verified_date"]),
+                _project_verification_date())
             self.assertGreaterEqual(
                 date.fromisoformat(e["last_verified_date"]),date(2026,11,16))
             self.assertIn("finite",e["retry_policy"])
