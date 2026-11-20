@@ -260,6 +260,17 @@ def slide_pages(folder: Path) -> int:
 
 def valid(stage: str, folder: Path) -> bool:
     if stage == "figures":
+        # Complete original-source vector/raster figure inventory, even if
+        # Docling found zero PictureItem objects.
+        from .source_caption_figure_chain_v1 import (
+            has_real_pdf_header, printed_source_captions, verify_figure_crops)
+        source_pdf=folder / "source.pdf"
+        if has_real_pdf_header(source_pdf):
+            try:
+                if printed_source_captions(source_pdf):
+                    verify_figure_crops(folder)
+            except (ValueError, OSError, RuntimeError):
+                return False
         # A valid source PDF may have no extractable figures. Require the
         # completed page/crop extraction folders; demand published figures
         # only when at least one actual crop exists. Successful subprocess
@@ -361,7 +372,16 @@ def valid(stage: str, folder: Path) -> bool:
                                     (folder / name).stat().st_size > 0 for name in OUTPUTS[stage]):
         return False
     if stage == "slides":
-        return slide_pages(folder) > 0
+        if slide_pages(folder) <= 0:
+            return False
+        from .source_caption_figure_chain_v1 import (
+            has_real_pdf_header, verify_rendered_pdf_source_figures)
+        if has_real_pdf_header(folder / "source.pdf"):
+            try:
+                verify_rendered_pdf_source_figures(folder)
+            except (ValueError, OSError, RuntimeError):
+                return False
+        return True
     if stage == "narration":
         return len(blocks((folder / "script.txt").read_text(encoding="utf-8"))) == slide_pages(folder)
     if stage == "script_qa":
@@ -779,6 +799,13 @@ def _execute_unlocked(s: Settings) -> Path:
         save_pipeline_state(stamp, state)
         log_file = folder / f"microgen_{stage}.log"
         try:
+            if stage == "figures":
+                from .source_caption_figure_chain_v1 import (
+                    has_real_pdf_header, recover_printed_source_figures)
+                if has_real_pdf_header(folder / "source.pdf"):
+                    result=recover_printed_source_figures(folder)
+                    print("[microgen][source_figures] local pre-crop",
+                          result.get("status"),flush=True)
             if _needs_browser(stage):
                 from .gemini_model import ensure_mode
                 print(f"[microgen] {stage} Gemini mode: {ensure_mode(s.chrome_port, DEFAULT_BROWSER_UI_MODE)}")
@@ -876,6 +903,13 @@ def _execute_unlocked(s: Settings) -> Path:
                     ], folder, log_file, env,
                         timeout_s=int(os.getenv("MICROGEN_VIDEO_STAGE_TIMEOUT_SECONDS", "3600")),
                         kill_tree_on_timeout=True)
+            if stage == "figures":
+                from .source_caption_figure_chain_v1 import (
+                    has_real_pdf_header, recover_printed_source_figures)
+                if has_real_pdf_header(folder / "source.pdf"):
+                    result=recover_printed_source_figures(folder)
+                    print("[microgen][source_figures] post-Docling",
+                          result.get("status"),flush=True)
             if not check_valid(stage, folder):
                 raise RuntimeError(f"Validation failed at {stage}; see {log_file}")
             if stage == "tts_qa":

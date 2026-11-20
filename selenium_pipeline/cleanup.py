@@ -253,6 +253,10 @@ def cleanup_completed_lecture(
     # Check/copy graphics before pruning. Missing figures must never lead to
     # destructive cleanup, but the already-published video remains successful.
     _ensure_latex_graphics(folder, owned_work)
+    from .source_caption_figure_chain_v1 import (
+        has_real_pdf_header, verify_rendered_pdf_source_figures)
+    if has_real_pdf_header(source_pdf):
+        verify_rendered_pdf_source_figures(folder)
     sync_sha256 = _assert_structural_sync_if_present(folder)
 
     receipt = {
