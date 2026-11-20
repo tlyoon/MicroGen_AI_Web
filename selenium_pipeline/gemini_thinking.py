@@ -187,6 +187,36 @@ def _thinking_options(driver, requested):
     return _visible_unique(driver, selectors, match)
 
 
+def _await_owned_nested_thinking_options(driver, handle, level, *, deadline):
+    """Recover late submenu hydration without a new picker click or Send.
+
+    The model menu and Thinking expander are already positively identified
+    on this exact owned Gemini tab. Re-read only the SAME nested options for
+    at most 0.8s, under the existing caller deadline. An unregistered or
+    ambiguous UI must remain blocked.
+    """
+    from .recovery_registry import lookup_mechanism
+    if lookup_mechanism(
+        "presend_capability_repair",
+        "OWNED_THINKING_SUBMENU_OPTIONS_HYDRATE_AFTER_EXPANDER_NO_SEND",
+    ) != "BOUNDED_SAME_OWNED_THINKING_SUBMENU_RECHECK_NO_SEND":
+        raise GeminiThinkingError(
+            "PRE_SEND_NESTED_THINKING_HYDRATION_RECOVERY_NOT_REGISTERED_NO_SEND")
+    for attempt in range(5):
+        _owned(driver, handle)
+        options = _thinking_options(driver, level)
+        if len(options) > 1:
+            raise GeminiThinkingError(
+                "PRE_SEND_AMBIGUOUS_THINKING_LEVEL_MENU")
+        if options:
+            return options
+        remaining = min(0.2, deadline-time.monotonic())
+        if attempt == 4 or remaining <= 0:
+            break
+        time.sleep(remaining)
+    return []
+
+
 def _checked(item) -> bool:
     """Only explicit ARIA selection state counts for release evidence."""
     return (
@@ -335,6 +365,9 @@ def assert_owned_gemini_thinking_level(driver, handle: str,
     try:
         picker = _expand_for_thinking(driver, handle)
         options = _thinking_options(driver, level)
+        if not options:
+            options = _await_owned_nested_thinking_options(
+                driver, handle, level, deadline=time.monotonic()+0.85)
         if len(options) != 1 or not _checked(options[0]):
             raise GeminiThinkingError(
                 "PRE_SEND_THINKING_LEVEL_NOT_VERIFIED_NO_SEND")
@@ -372,6 +405,10 @@ def select_owned_gemini_thinking_level(driver, handle: str, *,
                 continue
             saw_reachable_expander = True
             choices = _thinking_options(driver, level)
+            if not choices:
+                choices = _await_owned_nested_thinking_options(
+                    driver, handle, level,
+                    deadline=min(deadline, time.monotonic()+0.85))
             if len(choices) > 1:
                 raise GeminiThinkingError("PRE_SEND_AMBIGUOUS_THINKING_LEVEL_MENU")
             if len(choices) == 1:

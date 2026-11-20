@@ -522,6 +522,20 @@
       "enabled": true
     },
     {
+      "id": "G2_OWNED_THINKING_NESTED_MENU_LATE_HYDRATION",
+      "match_type": "presend_capability_repair",
+      "signature": "OWNED_THINKING_SUBMENU_OPTIONS_HYDRATE_AFTER_EXPANDER_NO_SEND",
+      "mechanism": "BOUNDED_SAME_OWNED_THINKING_SUBMENU_RECHECK_NO_SEND",
+      "classification": "CURRENT_GEMINI_PRO_MEDIUM_THINKING_RADIO_IS_VERIFIABLY_SELECTED_BUT_ANGULAR_SUBMENU_HYDRATES_AFTER_INITIAL_READ",
+      "handler": "NORMAL_EXISTING_OWNED_GEMINI_ACCOUNT_CAPABILITY_PREFLIGHT",
+      "preconditions": "existing authenticated Dell-115 owned Gemini tab; exact model picker and unique Thinking expander opened; no source request claim or provider Send; source review requires explicit checked Medium radio",
+      "verification_test": "tests/test_gemini_thinking_nested_hydration.py; tests/test_academic_gemini_presend_preflight.py",
+      "last_verified_date": "2026-11-20",
+      "environment": "real Gemini Pro/Medium primary Chrome 9222 and synthetic delayed nested-option fault injection",
+      "retry_policy": "finite at most five same-menu read-only probes within 0.85 seconds and caller deadline; reject ambiguous options, foreign tabs, absent checked radio and disabled mechanism; never send, upload, or approve original source",
+      "enabled": true
+    },
+    {
       "id": "V71_NATIVE_CMD_DIRECT_SCRIPT_IMPORT_RECOVERY",
       "match_type": "global_checkpoint_handoff",
       "signature": "V71_NATIVE_CMD_DIRECT_SCRIPT_RELATIVE_IMPORT_CRASH",
