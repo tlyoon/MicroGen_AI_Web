@@ -11,6 +11,7 @@ from unittest.mock import patch
 from selenium_pipeline import windows_v71_scheduled_resume as schedule
 
 SHA="a"*40
+SID="S-1-5-21-111-222-333-1001"
 
 
 class SourceOnlyWindowsSchedulerTests(unittest.TestCase):
@@ -51,12 +52,21 @@ class SourceOnlyWindowsSchedulerTests(unittest.TestCase):
                     return subprocess.CompletedProcess(cmd,0,stdout=(
                         '<Task xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">'
                         '<Settings/>'
-                        '<Principals><Principal><LogonType>InteractiveToken'
+                        '<Principals><Principal><UserId>' + SID +
+                        '</UserId><LogonType>InteractiveToken'
                         '</LogonType></Principal></Principals></Task>'),stderr="")
                 return subprocess.CompletedProcess(cmd,0,stdout=(
                     f"TaskName: {schedule.TASK_NAME}\n"
                     "Scheduled Task State: Enabled\n"
                     f"Task To Run: {wrapper}\n"),stderr="")
+            if cmd[0]=="powershell.exe":
+                return subprocess.CompletedProcess(cmd,0,stdout=json.dumps({
+                    "TaskName":schedule.TASK_NAME,
+                    "State":"Ready","RunLevel":"Limited",
+                    "LogonType":"Interactive","UserId":"tlyoon",
+                    "CurrentUser":"tlyoon","CurrentDomain":"USM",
+                    "CurrentSid":SID,
+                }),stderr="")
             if cmd[0]=="git":
                 return subprocess.CompletedProcess(cmd,0,stdout=source+"\n",
                                                    stderr="")
@@ -190,9 +200,10 @@ class SourceOnlyWindowsSchedulerTests(unittest.TestCase):
             return original(cmd, **kwargs)
         with patch.object(schedule.subprocess, "run", side_effect=actual):
             schedule._audit_installed(self.repo, self.home)
-        self.assertEqual(len(observed), 2)
+        self.assertEqual(len(observed), 3)
         self.assertIn("/V", observed[0])
         self.assertIn("/XML", observed[1])
+        self.assertEqual(observed[2][0], "powershell.exe")
         minimal=original(["schtasks.exe","/Query","/TN",schedule.TASK_NAME,
                           "/XML"]).stdout
         result=schedule._native_xml_optional_enabled_after_live_enabled_state(
@@ -247,6 +258,78 @@ class SourceOnlyWindowsSchedulerTests(unittest.TestCase):
                         RuntimeError, "optional XML Enabled recovery missing"):
                     schedule._audit_installed(self.repo, self.home)
                 self.assertEqual(native_process.call_count, 1)
+
+    def test_native_principal_matches_exact_user_sid_limited_interactive(self):
+        self._wrapper()
+        native=self._proc()
+        xml=native(["schtasks.exe","/Query","/TN",schedule.TASK_NAME,
+                    "/XML"]).stdout
+        identity=native(["powershell.exe"]).stdout
+        proof=schedule._native_current_user_limited_task_attestation(
+            xml,identity)
+        self.assertEqual(proof["status"],
+                         "CURRENT_LIMITED_INTERACTIVE_USER_PRINCIPAL_CONFIRMED")
+        self.assertFalse(proof["model_or_paid_operations_authorized"])
+        self.assertFalse(proof["student_publication_authorized"])
+        with patch.object(schedule.subprocess,"run",side_effect=native):
+            schedule._audit_installed(self.repo,self.home)
+
+    def test_foreign_or_elevated_native_scheduled_principal_fails_closed(self):
+        self._wrapper()
+        normal=self._proc()
+        xml=normal(["schtasks.exe","/Query","/TN",schedule.TASK_NAME,
+                    "/XML"]).stdout
+        original=json.loads(normal(["powershell.exe"]).stdout)
+        for altered in (
+            {"RunLevel":"Highest"},
+            {"LogonType":"Password"},
+            {"UserId":"another-user"},
+            {"State":"Disabled"},
+            {"TaskName":"foreign-task"},
+            {"CurrentSid":"S-1-5-21-1-2-3-1002"},
+            {"CurrentSid":"INVALID"},
+            {"CurrentUser":""},
+        ):
+            with self.subTest(altered=altered):
+                with self.assertRaises(RuntimeError):
+                    schedule._native_current_user_limited_task_attestation(
+                        xml,json.dumps({**original,**altered}))
+        for replacement in (
+            ("<UserId>"+SID+"</UserId>",
+             "<UserId>S-1-5-21-1-2-3-1002</UserId>"),
+            ("<UserId>"+SID+"</UserId>", ""),
+            ("<UserId>"+SID+"</UserId>", "<UserId>tlyoon</UserId>"),
+            ("<LogonType>InteractiveToken</LogonType>",
+             "<LogonType>ServiceAccount</LogonType>"),
+            ("<Settings/>",
+             "<Settings/><Principals></Principals>"),
+            ("</UserId>", "</UserId><RunLevel>HighestAvailable</RunLevel>"),
+            ("</UserId>", "</UserId><RunLevel></RunLevel>"),
+        ):
+            with self.subTest(xml_change=replacement):
+                with self.assertRaises(RuntimeError):
+                    schedule._native_current_user_limited_task_attestation(
+                        xml.replace(*replacement),json.dumps(original))
+        with self.assertRaisesRegex(RuntimeError,
+                                    "native Windows scheduler principal"):
+            schedule._native_current_user_limited_task_attestation(
+                xml,"{broken json")
+
+    def test_missing_principal_recovery_registration_refuses_native_query(self):
+        from selenium_pipeline.recovery_registry import lookup_mechanism
+        self._wrapper()
+        native=lookup_mechanism
+        with patch("selenium_pipeline.recovery_registry.lookup_mechanism",
+                   side_effect=lambda kind,signature: (
+                       None if signature ==
+                       "V71_SOURCEONLY_TASK_CURRENT_USER_LIMITED_IDENTITY_UNVERIFIED"
+                       else native(kind,signature))):
+            with patch.object(schedule.subprocess,"run",
+                              side_effect=self._proc()) as processes:
+                with self.assertRaisesRegex(
+                        RuntimeError,"identity recovery not registered"):
+                    schedule._audit_installed(self.repo,self.home)
+                self.assertEqual(processes.call_count,2)
 
     def test_native_direct_script_registry_import_without_package_context(self):
         # The scheduled .cmd invokes a Python file, not python -m.
@@ -368,8 +451,17 @@ print("NONPACKAGE_SCRIPT_ENTRY_SAFE")
                 return subprocess.CompletedProcess(cmd,0,stdout=(
                     '<Task xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">'
                     '<Settings/>'
-                    '<Principals><Principal><LogonType>InteractiveToken'
+                    '<Principals><Principal><UserId>' + SID +
+                    '</UserId><LogonType>InteractiveToken'
                     '</LogonType></Principal></Principals></Task>'))
+            if cmd[0] == "powershell.exe":
+                return subprocess.CompletedProcess(cmd,0,stdout=json.dumps({
+                    "TaskName":schedule.TASK_NAME,
+                    "State":"Ready","RunLevel":"Limited",
+                    "LogonType":"Interactive","UserId":"tlyoon",
+                    "CurrentUser":"tlyoon","CurrentDomain":"USM",
+                    "CurrentSid":SID,
+                }))
             return subprocess.CompletedProcess(cmd,1,stdout="",stderr="Not Found")
         with patch.object(schedule.subprocess,"run",side_effect=fake):
             result=schedule.install(self.repo)
