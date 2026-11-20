@@ -575,6 +575,18 @@ def supervise(repo: Path, *, max_new_dispatches: int = len(STAGES)) -> dict:
                            state.parent / "locks"):
         _verify_repo(repo)
         _validated_log(event_file)
+        # Advisory status heartbeat; source-only work is never mislabelled
+        # as an independently running autonomous development worker.
+        def status_heartbeat(phase, stage):
+            try:
+                from .project_development_status import record_sourceonly_heartbeat
+                record_sourceonly_heartbeat(
+                    checkpoint=state.parent.parent, head=head,
+                    phase=phase, stage=stage)
+            except (OSError, RuntimeError, ValueError):
+                # Monitoring failure must not change QA/dispatch decisions.
+                pass
+        status_heartbeat("RUNNING", "global_roadmap_scan")
         # GLOBAL scan: independent stages are eligible even when a local
         # queue is exhausted or another independent source task failed.
         for task in STAGES:
@@ -601,8 +613,10 @@ def supervise(repo: Path, *, max_new_dispatches: int = len(STAGES)) -> dict:
                 continue
             if len(executed) >= max_new_dispatches:
                 break
+            status_heartbeat("RUNNING", task["id"])
             record = _dispatch(repo, state, head, task, event_file)
             executed.append(record)
+            status_heartbeat("RUNNING", "next_task_reconciliation")
         _verify_repo(repo)
         all_records = [
             _verified_result(state, repo, head, task)
@@ -624,6 +638,7 @@ def supervise(repo: Path, *, max_new_dispatches: int = len(STAGES)) -> dict:
         if not next_pending or len(executed) >= max_new_dispatches or next_pending:
             _event(event_file, "mandatory_stop", "project_wide_backlog",
                    reason=reason, pending_stages=next_pending)
+        status_heartbeat("IDLE", reason[:90])
     return {
         "status": "V71_GLOBAL_HANDOFF_VERIFIED_REVIEW_PENDING",
         "source_head_sha": head,
