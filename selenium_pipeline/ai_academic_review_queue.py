@@ -118,6 +118,35 @@ def _prior_unattributed_streak(*, queue_root:Path, slide_jobs:list[dict],
     return streak
 
 
+def _sourcebound_neon_high_continuation(*,queue_root:Path,folder:Path):
+    """Reuse source-specific Neon/High qualification after an accepted pass.
+
+    The immediate two-uncertain-request streak can legitimately reset when
+    later slides pass. That does NOT make an originally absent Pro family
+    available in a new Gemini tab. Bind the previous old claims and immutable
+    NEW Neon two-PDF success to this exact original source before choosing
+    the qualified model on a further untouched source review.
+    """
+    from .academic_neon_high_two_pdf_requalification import qualifying_proof
+    from .figure_source_identity import FigureIdentityReviewRequired
+    try:
+        proof=qualifying_proof(
+            queue_root=queue_root,checkpoint_parent=queue_root.parent,
+            source_sha=_sha(folder/"source.pdf"),prior_slides=[10,11])
+    except (FigureIdentityReviewRequired,ValueError,OSError):
+        return None
+    if (type(proof) is dict
+            and proof.get("status")==
+                "NEON_HIGH_TWO_PDF_SOURCE_FREE_RESPONSE_VERIFIED"
+            and proof.get("source_free_neon_pdf_capability_verified") is True
+            and proof.get("verified_model_family")=="neon"
+            and proof.get("verified_thinking_level")=="high"
+            and proof.get("new_source_review_send_allowed") is False
+            and proof.get("student_publication_authorized") is False):
+        return proof
+    return None
+
+
 def execute_one_review(*,queue_root:Path,folder:Path,
                        slide:int,mode:str,
                        attempt:int=1,transport=None,
@@ -260,6 +289,13 @@ def execute_one_review(*,queue_root:Path,folder:Path,
                     "DEFERRED_REPEATED_UNATTRIBUTED_BROWSER_SEND: a fresh "
                     "owned dual-synthetic-PDF capability result is required "
                     "before any new full-source scientific submission")
+    if required_model_family is None and transport is None:
+        # The immediate uncertain-send streak resets after a successful Neon
+        # pass; the source-specific qualified runtime model must NOT revert
+        # to a stale Pro default for a later original source Send.
+        if _sourcebound_neon_high_continuation(
+                queue_root=queue_root,folder=folder) is not None:
+            required_model_family="neon"
     returned_response=False
     def witness_model_return(raw):
         nonlocal returned_response
@@ -305,6 +341,7 @@ def execute_one_review(*,queue_root:Path,folder:Path,
                         folder=folder, job=job,
                         response=decode_storyboard_response(raw),
                         mode=mode),
+                    required_model_family=required_model_family,
                 )
             elif checkpoint_state["status"] not in {"PREPARED_NOT_SENT"}:
                 raise RuntimeError(
@@ -697,6 +734,32 @@ def select_next_safe_review(*,queue_root:Path,folder:Path,
                     "new_model_requests":False,
                     "per_slide_approval_required":False,
                     "automatic_retry_authorized":False,
+                    "student_publication_authorized":False,
+                }
+        if action=="FRESH_FIRST_ATTEMPT":
+            # The two ambiguous original requests remain protected even after
+            # a later source-valid Neon pass resets the immediate failure
+            # *streak*. Continue using the same exact source-bound Neon/High
+            # qualification for NEW slide or challenge requests only.
+            neon=_sourcebound_neon_high_continuation(
+                queue_root=queue_root,folder=folder)
+            if neon is not None:
+                from .recovery_registry import lookup_mechanism
+                require(lookup_mechanism(
+                    "selection_action",
+                    "G2_NEW_SOURCE_REVIEW_AFTER_VERIFIED_NEON_HIGH_TWO_PDF") ==
+                    "SELECT_ONE_UNATTEMPTED_SOURCE_SLIDE_WITH_NEON_HIGH_WITNESS",
+                    "No registered Neon source continuation after accepted pass")
+                return {
+                    "status":"ONE_SAFE_ACADEMIC_REVIEW_UNIT_READY",
+                    "next_slide":slide,"next_mode":mode,"attempt":1,
+                    "action":action,"required_runtime_family":"neon",
+                    "required_thinking_level":"high",
+                    "original_source_pdf_health_proven":True,
+                    "synthetic_pdf_capability_incident":
+                        neon["original_incident_sha256"],
+                    "new_model_requests":False,
+                    "original_request_replay_authorized":False,
                     "student_publication_authorized":False,
                 }
         return {

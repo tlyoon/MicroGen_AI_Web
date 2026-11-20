@@ -71,6 +71,70 @@ def _report(status: str, hashes: dict, **extra) -> dict:
     }
 
 
+def _verified_neon_high_source_health(*, selection:dict, queue_root:Path,
+                                       checkpoint_parent:Path,
+                                       source_sha:str, qualifier=None)->dict:
+    """Admit only a genuinely unclaimed source review after source-free Neon proof.
+
+    The retired Pro-only health route is NOT proof that an academic Neon/High
+    alternate is unavailable. This narrowly scoped independent verifier must
+    rebind original immutable slide-10/11 claims, both retired Pro PDF
+    attempts and one new REAL attributable Neon/High two-PDF response before
+    any new original source Send. No provider request or approval here.
+    """
+    from .recovery_registry import lookup_mechanism
+    require(
+        lookup_mechanism(
+            "supervisor_status",
+            "G2_SUPERVISOR_ADMIT_VERIFIED_NEON_HIGH_MODEL_SOURCE_REVIEW")
+        == "REVERIFY_DISTINCT_NEON_HIGH_PDF_PROOF_BEFORE_FRESH_ONE_SEND",
+        "No registered original G2 Neon/High supervisor health recovery")
+    queue_root=Path(queue_root).absolute()
+    checkpoint_parent=Path(checkpoint_parent).absolute()
+    require(
+        checkpoint_parent==queue_root.parent
+        and selection.get("status")=="ONE_SAFE_ACADEMIC_REVIEW_UNIT_READY"
+        and selection.get("action")=="FRESH_FIRST_ATTEMPT"
+        and selection.get("attempt")==1
+        and selection.get("required_runtime_family")=="neon"
+        and selection.get("required_thinking_level")=="high"
+        and selection.get("original_request_replay_authorized") is False
+        and selection.get("student_publication_authorized") is False,
+        "Neon academic source admission requires a new exact original unit")
+    if qualifier is None:
+        from .academic_neon_high_two_pdf_requalification import qualifying_proof
+        qualifier=qualifying_proof
+    proof=qualifier(
+        queue_root=queue_root,checkpoint_parent=checkpoint_parent,
+        source_sha=source_sha,prior_slides=[10,11])
+    require(type(proof) is dict
+            and proof.get("status")=="NEON_HIGH_TWO_PDF_SOURCE_FREE_RESPONSE_VERIFIED"
+            and proof.get("source_sha256")==source_sha
+            and proof.get("original_incident_sha256")==
+                  selection.get("synthetic_pdf_capability_incident")
+            and proof.get("source_free_neon_pdf_capability_verified") is True
+            and proof.get("verified_model_family")=="neon"
+            and proof.get("verified_thinking_level")=="high"
+            and proof.get("original_source_uploaded") is False
+            and proof.get("academic_approval") is False
+            and proof.get("student_publication_authorized") is False
+            and proof.get("new_source_review_send_allowed") is False,
+            "No current source-bound Neon/High two-PDF transport proof")
+    # This allows the existing per-slide, source-bound ONE-SEND checkpoint to
+    # attempt exactly one fresh unit. It never declares science/QA or release.
+    return {
+        "status":"G2_NEON_HIGH_SOURCE_FREE_TWO_PDF_REQUALIFIED_NO_SEND",
+        "new_source_review_send_allowed":True,
+        "model_family":"neon","thinking_level":"high",
+        "original_incident_sha256":proof["original_incident_sha256"],
+        "source_free_pdf_capability_verified":True,
+        "actual_model_requests_submitted":0,
+        "old_original_claims_replayed":False,
+        "academic_approval":False,
+        "student_publication_authorized":False,
+    }
+
+
 def step(*, folder: Path, queue_root: Path, work_root: Path,
          execute: bool = False, max_units: int = 3, auto_media: bool = True,
          health_family: str = "flash", execute_health_probe: bool = True,
@@ -105,12 +169,22 @@ def step(*, folder: Path, queue_root: Path, work_root: Path,
                 queue_root=queue_root,folder=folder,health_family=health_family)
             if (selected.get("status") == "ONE_SAFE_ACADEMIC_REVIEW_UNIT_READY"
                     and selected.get("action") == "FRESH_FIRST_ATTEMPT"):
-                from .academic_queue_fresh_send_health import check as check_health
-                verifier = health_inspector or check_health
-                provider_health = verifier(
-                    queue_root=queue_root,checkpoint_parent=work_root,
-                    source_sha=hashes["source.pdf"],family=health_family,
-                    execute_source_free_probe=execute_health_probe)
+                if selected.get("required_runtime_family")=="neon":
+                    # The exact, independently verified Neon/High two-PDF
+                    # source-free claim supersedes the retired Pro-only
+                    # transport gate for fresh source review units ONLY.
+                    # Existing one-Send and independent science remain strict.
+                    provider_health=_verified_neon_high_source_health(
+                        selection=selected,queue_root=queue_root,
+                        checkpoint_parent=work_root,
+                        source_sha=hashes["source.pdf"])
+                else:
+                    from .academic_queue_fresh_send_health import check as check_health
+                    verifier=health_inspector or check_health
+                    provider_health=verifier(
+                        queue_root=queue_root,checkpoint_parent=work_root,
+                        source_sha=hashes["source.pdf"],family=health_family,
+                        execute_source_free_probe=execute_health_probe)
                 new_source_sends_deferred = (
                     provider_health.get("new_source_review_send_allowed") is not True)
             if not new_source_sends_deferred:

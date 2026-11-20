@@ -228,6 +228,20 @@
       "enabled": true
     },
     {
+      "id": "G2_SUPERVISOR_NEON_HIGH_SOURCE_HEALTH_ADMISSION",
+      "match_type": "supervisor_status",
+      "signature": "G2_SUPERVISOR_ADMIT_VERIFIED_NEON_HIGH_MODEL_SOURCE_REVIEW",
+      "mechanism": "REVERIFY_DISTINCT_NEON_HIGH_PDF_PROOF_BEFORE_FRESH_ONE_SEND",
+      "classification": "RETIRED_PRO_ONLY_HEALTH_GATE_STOPS_REAL_VERIFIED_NEON_HIGH_G2_REVIEW",
+      "handler": "NORMAL_SOURCE_BOUND_G2_SUPERVISOR_AND_QUEUE",
+      "preconditions": "untouched original source+review queue; positive same-incident Neon/High two-PDF proof; exactly one new unclaimed G2 source unit; all old Pro claims immutable",
+      "verification_test": "tests/test_pr562_neon_source_health_supervisor.py",
+      "last_verified_date": "2026-11-20",
+      "environment": "Dell-115 Serway 1.3 original G2 Neon High first/independent one-use requests; normal project source QA supervisor",
+      "retry_policy": "finite one-Send per new original fingerprint; reverify old source claims and model proof each cycle, stop on missing or tampered evidence; never replay source or grant release",
+      "enabled": true
+    },
+    {
       "id": "G2_SOURCE_REVIEW_FROM_VERIFIED_NEON_HIGH_PDF",
       "match_type": "selection_action",
       "signature": "G2_NEW_SOURCE_REVIEW_AFTER_VERIFIED_NEON_HIGH_TWO_PDF",
