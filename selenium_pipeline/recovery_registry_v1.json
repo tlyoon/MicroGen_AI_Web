@@ -842,6 +842,20 @@
       "environment": "Dell-115 immutable main clone isolated no-Send accounting tests",
       "retry_policy": "request accounting failure blocks Send; ambiguous outcomes persist as possible_send; never resolve by replay; missing pricing cannot be assumed zero",
       "enabled": true
+    },
+    {
+      "id": "CODEX_READONLY_AUTHORIZED_PATCH_HANDOFF",
+      "match_type": "code_authoring_handoff",
+      "signature": "HOST_READONLY_USE_AUTHORIZED_ATOMIC_CODE_HANDOFF",
+      "mechanism": "ADMIT_PINNED_EXTERNAL_CODE_BLOBS_TEST_IN_ISOLATED_WORKTREE",
+      "classification": "CODEX_HOST_DENIAL_AFFECTS_CODEX_NOT_OTHER_AUTHORIZED_WRITERS",
+      "handler": "NORMAL_AUTHORIZED_SOURCE_PATCH_HANDOFF",
+      "preconditions": "explicit local trusted coding session and authorized SHA-pinned manifest, clean feature worktree, allowlisted source blobs, no model request or publication",
+      "verification_test": "tests/test_development_authorized_patch_handoff_v71.py",
+      "last_verified_date": "2026-11-22",
+      "environment": "Dell-115 isolated Windows Git and Python source/test handoff after Codex host read-only denial",
+      "retry_policy": "write-ahead claim before any file, finite atomic replace with old/new SHA recovery, fail closed for foreign diff, quarantine failed tests; never clear Codex policy",
+      "enabled": true
     }
   ]
 }
