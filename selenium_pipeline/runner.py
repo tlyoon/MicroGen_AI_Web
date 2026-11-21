@@ -61,41 +61,22 @@ STAGES = ("figures", "slides", "narration", "script_qa", "tts", "tts_qa", "video
 CHROME_STAGES = {"figures", "slides", "narration"}
 
 def _needs_browser(stage: str) -> bool:
-    """Whether this stage needs an eager, prevalidated browser session.
-
-    Figure fallback initializes Selenium on the first request rather than
-    eagerly here: an unavailable Chrome must be a bounded Selenium failure,
-    not prevent a valid API fallback from being attempted.
-    """
-    if stage in {"figures", "slides"}:
-        from .communication_policy import CommunicationMode, resolve_mode
-        return resolve_mode() is CommunicationMode.SELENIUM
-    if stage == "narration":
-        from .communication_policy import CommunicationMode, resolve_mode
-        return resolve_mode() is CommunicationMode.SELENIUM
+    """Every lecture content stage needs Gemini Selenium; never API fallback."""
+    from .communication_policy import resolve_mode
+    resolve_mode()
     return stage in CHROME_STAGES
 
 
 def _may_use_browser(stage: str) -> bool:
-    """Protect fallback Selenium attempts with the same local Chrome lock.
-
-    _needs_browser() controls *eager startup*; in fallback mode Chrome starts
-    only during a Selenium attempt. The local exclusion lock must still span
-    that possibility to prevent concurrent workers typing into the same tab.
-    """
-    if stage in {"figures", "slides", "narration"}:
-        from .communication_policy import CommunicationMode, resolve_mode
-        return resolve_mode() is not CommunicationMode.API
-    return False
+    """Protect every Selenium content stage with the local Chrome lock."""
+    return _needs_browser(stage)
 
 
 def _needs_api_python_for_stages(planned: list[str]) -> bool:
-    """Include potential API fallback even when Selenium is primary."""
-    from .communication_policy import CommunicationMode, resolve_mode
-    content_api = any(stage in planned for stage in ("figures", "slides", "narration")) and (
-        resolve_mode() in {CommunicationMode.API, CommunicationMode.FALLBACK}
-    )
-    return content_api
+    """Paid API is forbidden for ALL figure, slide and script stages."""
+    from .communication_policy import resolve_mode
+    resolve_mode()
+    return False
 
 
 SCRIPTS = {
@@ -566,6 +547,7 @@ class Settings:
     tts_voice: str = "Kore"
     tts_qa_model: str = ACTIVE_LLM_MODEL
     tts_qa_threshold: float = 99.0
+    confirm_paid_tts_qa: bool = False
     chrome_port: int = 9222
     alternate_gemini_user: str | None = None
     confirm_pro: bool = False
@@ -642,6 +624,9 @@ def _execute_unlocked(s: Settings) -> Path:
     if first > last:
         raise ValueError("--from-stage must precede --through-stage")
     planned = STAGES[first:last + 1]
+    if "tts_qa" in planned and not s.confirm_paid_tts_qa and not s.dry_run:
+        from .paid_api_policy import require_paid_gemini_api
+        require_paid_gemini_api("tts_qa")
     print(f"[microgen] code root: {REPO} | job: {s.subchapter}")
     print(f"[microgen] input: {source} | work: {folder}")
     print(f"[microgen] model phase: {MODEL_PHASE}")
@@ -740,12 +725,14 @@ def _execute_unlocked(s: Settings) -> Path:
             "MICROGEN_COMMUNICATION_MODE", "selenium").strip().lower(),
         # Legacy adapter setting is deliberately subordinate to the central
         # communication mode in the figure mapper.
-        "MICROGEN_FIGURE_MAPPING_BACKEND": os.getenv(
-            "MICROGEN_FIGURE_MAPPING_BACKEND", "api").strip().lower(),
+        "MICROGEN_FIGURE_MAPPING_BACKEND": "browser",
         # Backward-compatible metadata; the central communication mode
         # takes precedence, including for narration fallback.
-        "MICROGEN_NARRATION_BACKEND": os.getenv(
-            "MICROGEN_NARRATION_BACKEND", "ui").strip().lower(),
+        "MICROGEN_NARRATION_BACKEND": "ui",
+        # Per-launcher explicit approval only; never inherit old shell state.
+        "MICROGEN_PAID_TTS_QA_APPROVAL": (
+            "EXPLICIT_APPROVAL_FOR_THIS_RUN" if s.confirm_paid_tts_qa else ""
+        ),
     })
     if "slides" in planned:
         # The source-bound slide claim permits only one real Send activation
@@ -870,7 +857,7 @@ def _execute_unlocked(s: Settings) -> Path:
                         s.tts_model,
                         "--voice",
                         s.tts_voice,
-                    ],
+                    ] + (["--confirm-paid-tts-qa"] if s.confirm_paid_tts_qa else []),
                     REPO,
                     log_file,
                     env,
@@ -897,7 +884,7 @@ def _execute_unlocked(s: Settings) -> Path:
                         s.tts_voice,
                         "--max-repairs",
                         os.environ.get("MICROGEN_TTS_QA_REPAIR_ROUNDS", "2"),
-                    ],
+                    ] + (["--confirm-paid-tts-qa"] if s.confirm_paid_tts_qa else []),
                     REPO,
                     log_file,
                     env,
@@ -1048,8 +1035,10 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--tts-voice", default="Kore")
     p.add_argument("--tts-qa-model", default=ACTIVE_LLM_MODEL)
     p.add_argument("--tts-qa-threshold", type=float, default=99.0)
-    p.add_argument("--communication-mode", choices=("selenium", "api", "fallback"),
-                   help="Override MICROGEN_COMMUNICATION_MODE for figure, slide and narration tasks")
+    p.add_argument("--communication-mode", choices=("selenium",),
+                   help="Selenium-only; paid API/fallback are forbidden for content")
+    p.add_argument("--confirm-paid-tts-qa", action="store_true",
+                   help="Explicitly approve paid Gemini WAV-quality checks for THIS run only")
     p.add_argument("--chrome-port", type=int, default=9222)
     p.add_argument("--alternate-gemini-user", metavar="PROFILE_LABEL",
                    help="Use a separate persistent Chrome profile; sign-in is interactive only if needed")
@@ -1060,7 +1049,11 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--dry-run", action="store_true", help="Print plan; do not write files or call Gemini")
     p.add_argument("--doctor", action="store_true", help="Inspect local dependencies")
     args = p.parse_args(argv)
+    from .paid_api_policy import set_tts_qa_approval_for_run
+    set_tts_qa_approval_for_run(args.confirm_paid_tts_qa)
     load_microvid_env()
+    # A saved .env value never substitutes for this invocation's explicit flag.
+    set_tts_qa_approval_for_run(args.confirm_paid_tts_qa)
     from .communication_policy import resolve_mode
     os.environ["MICROGEN_COMMUNICATION_MODE"] = resolve_mode(args.communication_mode).value
     if args.doctor:
@@ -1093,6 +1086,7 @@ def main(argv: list[str] | None = None) -> int:
                          tts_model=args.tts_model, tts_voice=args.tts_voice,
                          tts_qa_model=args.tts_qa_model,
                          tts_qa_threshold=args.tts_qa_threshold,
+                         confirm_paid_tts_qa=args.confirm_paid_tts_qa,
                          chrome_port=args.chrome_port, alternate_gemini_user=args.alternate_gemini_user,
                          from_stage=args.from_stage,
                          through_stage=args.through_stage, force_from=args.force_from,

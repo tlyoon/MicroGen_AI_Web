@@ -1,179 +1,117 @@
-"""Offline fault injection for Phase 1B slides transport and API grounding."""
+"""Source-grounded Selenium slide generation; no API fallback after a failure."""
 from __future__ import annotations
 
 import ast
 from pathlib import Path
-from types import SimpleNamespace
 from unittest.mock import patch
-
 import pytest
 
 from selenium_pipeline import slides_api
 from selenium_pipeline.slide_transport_guard import PreSendFailure
-from selenium_pipeline.communication_policy import CommunicationPolicy, CommunicationMode
-from selenium_pipeline.runner import _needs_browser, _needs_api_python_for_stages
+from selenium_pipeline.communication_policy import CommunicationPolicy,CommunicationMode
+from selenium_pipeline.paid_api_policy import PaidAPIPolicyBlocked
+from selenium_pipeline.runner import _needs_browser,_needs_api_python_for_stages
 
-ROOT = Path(__file__).resolve().parents[1]
-VENDOR = ROOT / "selenium_pipeline/vendor_template_v2/gen_slides_selenium_v11.py"
-LATEX = r"\documentclass{beamer}\begin{document}\begin{frame}Test\end{frame}\end{document}"
+ROOT=Path(__file__).resolve().parents[1]
+VENDOR=ROOT/"selenium_pipeline/vendor_template_v2/gen_slides_selenium_v11.py"
+LATEX=r"\documentclass{beamer}\begin{document}\begin{frame}Test\end{frame}\end{document}"
 
 
 def source_inputs(tmp_path):
-    src = tmp_path / "source.pdf"
-    p = tmp_path / "gen_slides_prompt_v23_rendered.txt"
-    metadata = tmp_path / "png_dimensions.json"
-    src.write_bytes(b"%PDF-1.7\nsource")
-    p.write_text("Use only figures in the attached source PDF.")
-    metadata.write_text('{"Figure 2.10.png":{"width":1200,"height":400}}')
-    return src, p, metadata
+    src=tmp_path/"source.pdf";src.write_bytes(b"%PDF-1.7\noriginal")
+    p=tmp_path/"prompt.txt";p.write_text("Use source only")
+    meta=tmp_path/"dimensions.json";meta.write_text("{}")
+    return src,p,meta
 
 
-def test_api_grounded_in_source_and_dimension_metadata(tmp_path):
-    src, prompt, dims = source_inputs(tmp_path)
-    seen = {}
-
-    class Model:
-        def generate_content(self, **kwargs):
-            seen.update(kwargs)
-            return SimpleNamespace(
-                candidates=[SimpleNamespace(finish_reason="STOP")],
-                text=LATEX,
-            )
-
-    with patch("gemini_keys.call_with_client_failover",
-               side_effect=lambda factory, request, **kwargs:
-                   request(SimpleNamespace(models=Model()))):
-        assert slides_api.request_slides(src, prompt, dims, "Use exact LaTeX") == LATEX
-    parts = seen["contents"]
-    assert seen["model"] == "gemini-3.8-flash"
-    assert len(parts) == 3
-    assert parts[2].inline_data.mime_type == "application/pdf"
-    assert parts[2].inline_data.data == src.read_bytes()
-    assert "Figure 2.10.png" in parts[1].text
-    assert "Use exact LaTeX" in parts[0].text
-
-
-def test_api_rejects_bad_model_missing_pdf_and_truncated_reply(tmp_path):
-    src, prompt, dims = source_inputs(tmp_path)
-    with pytest.raises(ValueError, match="other than vetted Flash"):
-        slides_api.request_slides(src, prompt, dims, "Beamer", model="gemini-3.1-pro")
-    src.unlink()
-    with pytest.raises(ValueError, match="missing"):
-        slides_api.request_slides(src, prompt, dims, "Beamer")
-    src.write_bytes(b"%PDF-1.7\nsource")
-    truncated = SimpleNamespace(
-        text=LATEX, candidates=[SimpleNamespace(finish_reason="MAX_TOKENS")]
-    )
-    with patch("gemini_keys.call_with_client_failover",
-               side_effect=lambda factory, request, **kwargs:
-                   request(SimpleNamespace(models=SimpleNamespace(
-                       generate_content=lambda **kwargs: truncated)))):
-        with pytest.raises(RuntimeError, match="did not finish normally"):
-            slides_api.request_slides(src, prompt, dims, "Beamer")
-
-
-def test_api_cli_publishes_only_raw_response_not_slides_pdf(tmp_path):
-    src, prompt, dims = source_inputs(tmp_path)
-    instruction = tmp_path / "instruction.txt"
-    instruction.write_text("Strict LaTeX format.")
-    out = tmp_path / "api_response.txt"
-    args = [
-        "--source", str(src), "--prompt", str(prompt),
-        "--dimensions", str(dims), "--instruction-file", str(instruction),
-        "--output", str(out),
-    ]
-    with patch.object(slides_api, "request_slides", return_value=LATEX):
-        assert slides_api.main(args) == 0
-    assert out.read_text().strip() == LATEX
-    assert not (tmp_path / "slides.tex").exists()
-    assert not (tmp_path / "slides.pdf").exists()
-    out.unlink()
-    with patch.object(slides_api, "request_slides", side_effect=RuntimeError("timeout")):
-        with pytest.raises(RuntimeError, match="timeout"):
-            slides_api.main(args)
-    assert not out.exists()
-
-
-def _vendor_slide_function(monkeypatch):
-    tree = ast.parse(VENDOR.read_text(encoding="utf-8-sig"))
-    node = next(n for n in tree.body if isinstance(n, ast.FunctionDef)
-                and n.name == "generate_slides_tex")
-    compiled = compile(ast.fix_missing_locations(ast.Module(body=[node], type_ignores=[])),
-                       str(VENDOR), "exec")
+def _vendor_slide_function():
+    tree=ast.parse(VENDOR.read_text(encoding="utf-8-sig"))
+    node=next(n for n in tree.body if isinstance(n,ast.FunctionDef)
+              and n.name=="generate_slides_tex")
     import os
-    ns = {
-        "Path": Path, "os": os, "log": lambda *args, **kwargs: None,
-        "find_citation_artifacts": lambda text: [],
-        "sanitize_gemini_latex_response": lambda x: x,
-        "normalize_unicode_to_latex": lambda x: x,
-        "beamer_stack_sanity_check": lambda text, folder, **kwargs:
-            (text.startswith(r"\documentclass"), ["Not a Beamer document"]),
-    }
-    exec(compiled, ns)
+    ns={
+        "Path":Path,"os":os,"log":lambda *a,**k:None,
+        "find_citation_artifacts":lambda _:[],
+        "sanitize_gemini_latex_response":lambda x:x,
+        "normalize_unicode_to_latex":lambda x:x,
+        "beamer_stack_sanity_check":lambda text,folder,**k:
+            (text.startswith(r"\documentclass"),["Invalid"])}
+    exec(compile(ast.fix_missing_locations(ast.Module(
+        body=[node],type_ignores=[])),str(VENDOR),"exec"),ns)
     return ns["generate_slides_tex"]
 
 
-@pytest.mark.parametrize("mode,fail_selenium,expected", [
-    ("selenium", 0, ["selenium"]),
-    ("selenium", 2, ["selenium"] * 3),
-    ("api", 0, ["api"]),
-    ("fallback", 0, ["selenium"]),
-    ("fallback", 3, ["selenium"] * 3 + ["api"]),
-])
-def test_actual_slide_qa_stops_on_valid_backend_response(
-    tmp_path, monkeypatch, mode, fail_selenium, expected
-):
-    src, prompt, dims = source_inputs(tmp_path)
-    policy = CommunicationPolicy(CommunicationMode(mode))
-    calls = []
-    def source(backend, instruction):
+def test_paid_slide_adapter_denied_before_any_sdk_call(tmp_path):
+    src,p,meta=source_inputs(tmp_path)
+    with patch("gemini_keys.call_with_client_failover") as send:
+        with pytest.raises(PaidAPIPolicyBlocked,match="SELENIUM_ONLY"):
+            slides_api.request_slides(src,p,meta,"Use Beamer")
+        send.assert_not_called()
+
+
+def test_paid_slide_cli_does_not_create_raw_output(tmp_path):
+    src,p,meta=source_inputs(tmp_path)
+    instr=tmp_path/"request.txt";instr.write_text("Beamer")
+    output=tmp_path/"api.txt"
+    with pytest.raises(PaidAPIPolicyBlocked,match="SELENIUM_ONLY"):
+        slides_api.main(["--source",str(src),"--prompt",str(p),
+            "--dimensions",str(meta),"--instruction-file",str(instr),
+            "--output",str(output)])
+    assert not output.exists()
+
+
+@pytest.mark.parametrize("failures,expected",[(0,1),(2,3)])
+def test_selenium_only_slide_success_after_bounded_presend_recovery(
+        tmp_path,failures,expected):
+    src,p,meta=source_inputs(tmp_path)
+    calls=[]
+    def browser(backend,instruction):
         calls.append(backend)
-        if backend == "selenium" and calls.count("selenium") <= fail_selenium:
-            raise PreSendFailure("Gemini composer not ready before Send")
+        if len(calls)<=failures:
+            raise PreSendFailure("Composer not hydrated pre-send")
         return LATEX
-    create = _vendor_slide_function(monkeypatch)
-    path = tmp_path / "slides.tex"
-    assert create(None, src, prompt, dims, path, 30,
-                  response_provider=source, communication_plan=policy.plan("slides")) == path
-    assert calls == expected
-    assert path.read_text().strip() == LATEX
+    output=tmp_path/"slides.tex"
+    result=_vendor_slide_function()(
+        None,src,p,meta,output,30,response_provider=browser,
+        communication_plan=CommunicationPolicy().plan("slides"))
+    assert result==output
+    assert calls==["selenium"]*expected
+    assert output.read_text().strip()==LATEX
 
 
-def test_invalid_slide_response_triggers_fallback_without_false_completion(tmp_path, monkeypatch):
-    src, prompt, dims = source_inputs(tmp_path)
-    calls = []
-    def source(backend, instruction):
+def test_failed_selenium_never_switches_to_api_or_publishes(tmp_path):
+    src,p,meta=source_inputs(tmp_path)
+    calls=[]
+    def broken(backend,instruction):
         calls.append(backend)
-        return "I cannot perform the requested slide generation." if backend == "selenium" else LATEX
-    create = _vendor_slide_function(monkeypatch)
-    path = tmp_path / "slides.tex"
-    create(None, src, prompt, dims, path, 30, response_provider=source,
-           communication_plan=CommunicationPolicy(CommunicationMode.FALLBACK).plan("slides"))
-    assert calls == ["selenium"] * 3 + ["api"]
-    assert path.read_text().strip() == LATEX
+        raise PreSendFailure("Browser unavailable")
+    output=tmp_path/"slides.tex"
+    with pytest.raises(RuntimeError):
+        _vendor_slide_function()(
+            None,src,p,meta,output,30,response_provider=broken,
+            communication_plan=CommunicationPolicy().plan("slides"))
+    assert calls==["selenium"]*3
+    assert not output.exists()
 
 
-def test_all_invalid_slide_responses_leave_no_accepted_output(tmp_path, monkeypatch):
-    src, prompt, dims = source_inputs(tmp_path)
-    create = _vendor_slide_function(monkeypatch)
-    path = tmp_path / "slides.tex"
-    with pytest.raises(RuntimeError, match="Failed to produce a valid Beamer"):
-        create(None, src, prompt, dims, path, 30, response_provider=lambda *a: "No",
-               communication_plan=CommunicationPolicy(CommunicationMode.FALLBACK).plan("slides"))
-    assert not path.exists()
+@pytest.mark.parametrize("mode",[CommunicationMode.API,CommunicationMode.FALLBACK])
+def test_legacy_slide_api_modes_not_constructible(mode):
+    with pytest.raises(ValueError,match="SELENIUM_ONLY"):
+        CommunicationPolicy(mode)
 
 
-def test_api_slide_stage_never_eagerly_launches_browser(monkeypatch):
-    for mode, browser, sdk in [("selenium", True, False), ("api", False, True),
-                               ("fallback", False, True)]:
-        monkeypatch.setenv("MICROGEN_COMMUNICATION_MODE", mode)
-        assert _needs_browser("slides") is browser
-        assert _needs_api_python_for_stages(["slides"]) is sdk
+def test_runner_always_needs_chrome_for_content_never_sdk(monkeypatch):
+    monkeypatch.setenv("MICROGEN_COMMUNICATION_MODE","selenium")
+    assert _needs_browser("slides")
+    assert not _needs_api_python_for_stages(["slides"])
+    for invalid in ("api","fallback"):
+        monkeypatch.setenv("MICROGEN_COMMUNICATION_MODE",invalid)
+        with pytest.raises(ValueError,match="SELENIUM_ONLY"):
+            _needs_browser("slides")
 
 
-def test_vendor_cli_does_not_unconditionally_launch_chrome():
-    src = VENDOR.read_text(encoding="utf-8-sig")
-    assert 'if __name__ == "__main__":' in src
-    assert 'raise SystemExit(main())' in src
-    assert 'policy.plan("slides")' in src
-    assert "request_slides_api_once(" in src
+def test_vendor_has_pre_claim_api_denial():
+    text=VENDOR.read_text(encoding="utf-8-sig")
+    assert 'if backend != "selenium":' in text
+    assert 'require_paid_gemini_api("slides")' in text
+    assert 'policy.plan("slides")' in text

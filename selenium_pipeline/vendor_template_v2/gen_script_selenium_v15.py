@@ -914,12 +914,9 @@ def force_exact_titles_after_postprocessing(exact_titles: list[str]) -> None:
 
 def request_script_api_once(instruction: str, expected_slide_count: int,
                             *, ordinal: int = 1) -> Optional[str]:
-    """Use the same Flash PDF grounding without brittle Chrome submission/capture.
-
-    Launch through the vetted API/TTS Python, because some Docling environments
-    do not have a compatible google-genai SDK. Keep all raw/rejected answers in
-    the job workspace; script.txt is still published only after local QA.
-    """
+    """Legacy API narration adapter: disabled by mandatory Selenium policy."""
+    from selenium_pipeline.paid_api_policy import require_paid_gemini_api
+    require_paid_gemini_api("narration")
     repo = Path(os.environ.get("MICROGEN_PACKAGE_ROOT", "")).expanduser()
     executable = os.environ.get("MICROGEN_TTS_PYTHON", "").strip()
     if not repo.is_dir() or not executable or not Path(executable).is_file():

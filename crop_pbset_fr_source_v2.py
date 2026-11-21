@@ -322,8 +322,12 @@ JSON:
             text = getattr(resp, "text", "") or ""
         else:
             if backend == "openai":
+                from selenium_pipeline.paid_api_policy import require_paid_gemini_api
+                require_paid_gemini_api("lecture_generation")
                 key = os.getenv("OPENAI_API_KEY"); client = OpenAI(api_key=key)
             else:
+                from selenium_pipeline.paid_api_policy import require_paid_gemini_api
+                require_paid_gemini_api("lecture_generation")
                 key = os.getenv("DEEPSEEK_API_KEY"); client = OpenAI(api_key=key, base_url="https://api.deepseek.com")
             cr = client.chat.completions.create(model=model_name, messages=[{"role":"user","content":prompt}], temperature=0.1)
             text = cr.choices[0].message.content

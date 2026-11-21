@@ -96,104 +96,67 @@ def _main(tmp_path, monkeypatch, selenium_responses, api_responses):
     return ns["main"], calls, made, script
 
 
-@pytest.mark.parametrize("mode,selenium_answers,api_answers,expected", [
-    ("selenium", ["VALID"], [], ["selenium"]),
-    ("selenium", [None, None, "VALID"], [], ["selenium"] * 3),
-    ("api", [], ["VALID"], ["api"]),
-    ("fallback", ["VALID"], [], ["selenium"]),
-    ("fallback", [None, RuntimeError("stalled"), None], ["VALID"],
-     ["selenium"] * 3 + ["api"]),
+
+@pytest.mark.parametrize("answers,expected",[
+    (["VALID"],["selenium"]),
+    ([None,None,"VALID"],["selenium"]*3),
+    (["INVALID","VALID"],["selenium"]*2),
 ])
-def test_task_local_modes_retry_and_stop_on_valid_narration(
-    tmp_path, monkeypatch, mode, selenium_answers, api_answers, expected
-):
-    monkeypatch.setenv("MICROGEN_COMMUNICATION_MODE", mode)
-    run, calls, clients, script = _main(tmp_path, monkeypatch,
-                                         selenium_answers, api_answers)
-    assert run() == 0
-    assert calls == expected
-    assert script.read_text() == "VALID"
-    trace = json.loads((tmp_path / "gemini_narration_transport_attempts.json").read_text())
-    assert trace["completed"] is True
-    assert trace["mode"] == mode
-    if mode == "api":
-        assert not clients
-    else:
-        assert clients and clients[0].start_count == 1
-        assert clients[0].shutdown_count == 1
+def test_narration_uses_only_selenium(tmp_path,monkeypatch,answers,expected):
+    monkeypatch.setenv("MICROGEN_COMMUNICATION_MODE","selenium")
+    run,calls,clients,script=_main(tmp_path,monkeypatch,answers,["NEVER_API"])
+    assert run()==0
+    assert calls==expected
+    assert script.read_text()=="VALID"
+    assert clients and clients[0].shutdown_count==1
+    trace=json.loads((tmp_path/"gemini_narration_transport_attempts.json").read_text())
+    assert trace["mode"]=="selenium"
+    assert all(v["backend"]=="selenium" for v in trace["attempts"])
 
 
-def test_rejected_narration_never_published_as_valid(tmp_path, monkeypatch):
-    monkeypatch.setenv("MICROGEN_COMMUNICATION_MODE", "fallback")
-    run, calls, _, script = _main(tmp_path, monkeypatch,
-                                   ["INVALID" for _ in range(3)],
-                                   ["INVALID" for _ in range(2)])
-    assert run() == 1
+def test_invalid_narration_never_falls_back_or_publishes(tmp_path,monkeypatch):
+    monkeypatch.setenv("MICROGEN_COMMUNICATION_MODE","selenium")
+    run,calls,_,script=_main(tmp_path,monkeypatch,
+        ["INVALID"]*3,["WOULD_BE_CHARGEABLE"])
+    assert run()==1
     assert not script.exists()
-    assert calls == ["selenium"] * 3 + ["api"] * 2
-    assert len(list(tmp_path.glob("script.rejected_*_attempt_*.txt"))) == 5
-    trace = json.loads((tmp_path / "gemini_narration_transport_attempts.json").read_text())
+    assert calls==["selenium"]*3
+    trace=json.loads((tmp_path/"gemini_narration_transport_attempts.json").read_text())
     assert trace["completed"] is False
 
 
-def test_narration_fallback_only_after_all_selenium_validation_failures(tmp_path, monkeypatch):
-    monkeypatch.setenv("MICROGEN_COMMUNICATION_MODE", "fallback")
-    run, calls, _, script = _main(tmp_path, monkeypatch,
-                                  ["INVALID", "VALID"], ["SHOULD_NOT_RUN"])
-    assert run() == 0
-    assert calls == ["selenium", "selenium"]
-    assert script.read_text() == "VALID"
+def test_missing_source_no_browser_or_api(tmp_path,monkeypatch):
+    monkeypatch.setenv("MICROGEN_COMMUNICATION_MODE","selenium")
+    run,calls,_,_=_main(tmp_path,monkeypatch,["VALID"],["NEVER"])
+    (tmp_path/"source.pdf").unlink()
+    assert run()==1 and calls==[]
 
 
-def test_local_missing_source_fails_without_consulting_gemini(tmp_path, monkeypatch):
-    monkeypatch.setenv("MICROGEN_COMMUNICATION_MODE", "fallback")
-    run, calls, _, _ = _main(tmp_path, monkeypatch, ["VALID"], ["VALID"])
-    (tmp_path / "source.pdf").unlink()
-    assert run() == 1
-    assert calls == []
+def test_legacy_mode_denied_before_browser_or_api(tmp_path,monkeypatch):
+    for mode in ("api","fallback"):
+        monkeypatch.setenv("MICROGEN_COMMUNICATION_MODE",mode)
+        run,calls,_,script=_main(tmp_path,monkeypatch,["VALID"],["NEVER"])
+        with pytest.raises(ValueError,match="SELENIUM_ONLY"):
+            run()
+        assert calls==[] and not script.exists()
 
 
-def test_narration_browser_and_sdk_preflight_honor_central_setting(monkeypatch):
-    for mode, browser, sdk in (
-        ("selenium", True, False),
-        ("api", False, True),
-        ("fallback", False, True),
-    ):
-        monkeypatch.setenv("MICROGEN_COMMUNICATION_MODE", mode)
-        assert _needs_browser("narration") is browser
-        assert _needs_api_python_for_stages(["narration"]) is sdk
+def test_browser_stage_and_lock_require_selenium(monkeypatch):
+    monkeypatch.setenv("MICROGEN_COMMUNICATION_MODE","selenium")
+    for stage in ("figures","slides","narration"):
+        assert _needs_browser(stage)
+        assert _may_use_browser(stage)
+    assert not _needs_api_python_for_stages(["narration"])
+    for stage in ("script_qa","tts","tts_qa","video"):
+        assert not _may_use_browser(stage)
+    for mode in ("api","fallback"):
+        monkeypatch.setenv("MICROGEN_COMMUNICATION_MODE",mode)
+        with pytest.raises(ValueError,match="SELENIUM_ONLY"):
+            _needs_browser("narration")
 
 
-def test_production_launcher_has_override_and_no_forced_api_default():
-    root = VENDOR.parents[2]
-    script = (root / "operations/Start-MicroGen_AI_Web.ps1").read_text(encoding="utf-8-sig")
-    runner = (root / "selenium_pipeline/runner.py").read_text(encoding="utf-8-sig")
-    assert "[string]$CommunicationMode = ''" in script
+def test_launcher_never_forces_api_default():
+    root=VENDOR.parents[2]
+    script=(root/"operations/Start-MicroGen_AI_Web.ps1").read_text(encoding="utf-8-sig")
     assert "$env:MICROGEN_COMMUNICATION_MODE = 'selenium'" in script
     assert "$env:MICROGEN_NARRATION_BACKEND = 'api'" not in script
-    assert "--communication-mode" in runner
-
-
-def test_fallback_browsers_are_excluded_from_concurrent_local_use(monkeypatch):
-    # Fallback initializes the browser lazily, but it *can* use Selenium,
-    # so the local port lock must still be acquired by the runner.
-    for mode, expected in (("selenium", True), ("fallback", True), ("api", False)):
-        monkeypatch.setenv("MICROGEN_COMMUNICATION_MODE", mode)
-        for stage in ("figures", "slides", "narration"):
-            assert _may_use_browser(stage) is expected
-        for stage in ("script_qa", "tts", "tts_qa", "video"):
-            assert not _may_use_browser(stage)
-
-
-
-def test_uncertain_api_send_blocks_all_further_attempts(tmp_path, monkeypatch):
-    from selenium_pipeline.slide_transport_guard import IndeterminateSend
-    monkeypatch.setenv("MICROGEN_COMMUNICATION_MODE", "api")
-    run, calls, _, script = _main(
-        tmp_path, monkeypatch, [],
-        [IndeterminateSend("provider request may have completed"), "VALID"],
-    )
-    with pytest.raises(IndeterminateSend):
-        run()
-    assert calls == ["api"]
-    assert not script.exists()

@@ -259,6 +259,9 @@ def guess_block_run_based(texts: List[str]):
 
 def llm_suggest_range(texts: List[str], backend: str, model_name: str) -> Optional[Tuple[int, int]]:
     backend = (backend or "").lower()
+    if backend in {"gemini", "openai", "deepseek"}:
+        from selenium_pipeline.paid_api_policy import require_paid_gemini_api
+        require_paid_gemini_api("academic_review")
     have_key = False
     if backend == "gemini" and genai and os.getenv("GEMINI_API_KEY"):
         genai.configure(api_key=os.getenv("GEMINI_API_KEY")); have_key = True

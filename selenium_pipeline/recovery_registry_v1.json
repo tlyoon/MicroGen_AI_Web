@@ -814,6 +814,20 @@
       "environment": "HP Windows PowerShell Get-CimInstance Win32_Process and Get-WmiObject both Invalid class; Get-Process returns real PID Path StartTime",
       "retry_policy": "read-only finite WMI failure recovery; never accept stale heartbeat, reused PID with mismatched start time, absent executable, model Send or publication",
       "enabled": true
+    },
+    {
+      "id": "SELENIUM_ONLY_LECTURE_REVIEW_TTS_API_SCOPE",
+      "match_type": "paid_api_scope",
+      "signature": "SELENIUM_ONLY_CONTENT_TTS_PAID_GATE",
+      "mechanism": "DENY_CONTENT_API_ALLOW_TTS_AND_EXPLICIT_TTS_QA",
+      "classification": "PAID_GEMINI_API_FALLBACK_FROM_CONTENT_OR_REVIEW",
+      "handler": "NORMAL_SELENIUM_ONLY_GEMINI_EGRESS_GUARD",
+      "preconditions": "immutable explicit purpose; only audio synthesis or separately approved audio QA; stop unknown purpose before credentials, no browser-to-API substitution",
+      "verification_test": "tests/test_paid_api_selenium_only_gate.py",
+      "last_verified_date": "2026-11-21",
+      "environment": "MicroGen_AI_Web all PCs offline fail-closed provider egress tests",
+      "retry_policy": "API denial is permanent, never retry API after Selenium failure; TTS QA requires per-run explicit approval, no request on rejection",
+      "enabled": true
     }
   ]
 }

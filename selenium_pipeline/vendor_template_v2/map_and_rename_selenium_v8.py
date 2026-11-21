@@ -1472,6 +1472,8 @@ def map_and_rename_single_step(
     if backend not in {"api", "browser", "selenium"}:
         raise ValueError("Figure backend must be api or selenium/browser")
     if backend == "api":
+        from selenium_pipeline.paid_api_policy import require_paid_gemini_api
+        require_paid_gemini_api("figures")
         package_root = Path(os.getenv("MICROGEN_PACKAGE_ROOT", "")).expanduser()
         entry = package_root / "selenium_pipeline" / "figure_mapping_api.py"
         if not entry.is_file():

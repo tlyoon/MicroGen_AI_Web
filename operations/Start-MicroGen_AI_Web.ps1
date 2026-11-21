@@ -23,8 +23,10 @@ param(
 
     [switch]$DryRun,
 
-    [ValidateSet('selenium','api','fallback')]
+    [ValidateSet('selenium')]
     [string]$CommunicationMode = '',
+
+    [switch]$ConfirmPaidTtsQa,
 
     [string]$ConfigurationFile = ''
 )
@@ -99,11 +101,14 @@ if ($CommunicationMode) {
 } elseif (-not $env:MICROGEN_COMMUNICATION_MODE) {
     $env:MICROGEN_COMMUNICATION_MODE = 'selenium'
 }
-if ($env:MICROGEN_COMMUNICATION_MODE -notin @('selenium','api','fallback')) {
-    throw 'MICROGEN_COMMUNICATION_MODE must be selenium, api or fallback'
+if ($env:MICROGEN_COMMUNICATION_MODE -ne 'selenium') {
+    throw 'SELENIUM_ONLY_CONTENT_POLICY: paid API and fallback forbidden for lecture content and scientific review'
 }
-Remove-Item Env:MICROGEN_FIGURE_MAPPING_BACKEND -ErrorAction SilentlyContinue
-Remove-Item Env:MICROGEN_NARRATION_BACKEND -ErrorAction SilentlyContinue
+# This run alone can approve paid Gemini audio QA. Do not inherit a previously
+# exported approval when the owner did not pass -ConfirmPaidTtsQa.
+Remove-Item Env:MICROGEN_PAID_TTS_QA_APPROVAL -ErrorAction SilentlyContinue
+$env:MICROGEN_FIGURE_MAPPING_BACKEND = 'browser'
+$env:MICROGEN_NARRATION_BACKEND = 'ui'
 $env:MICROGEN_PIPELINE_PYTHON = [string]$config.pipeline_python
 $env:MICROGEN_TTS_PYTHON = [string]$config.runtime_python
 $env:PYTHONNOUSERSITE = '1'
@@ -123,6 +128,9 @@ if ($ForceFrom) {
 }
 if ($DryRun) {
     $pipelineArgs += '--dry-run'
+}
+if ($ConfirmPaidTtsQa) {
+    $pipelineArgs += '--confirm-paid-tts-qa'
 }
 Write-Output "[MicroGen_AI_Web] release=$release subchapter=$Subchapter root=$source work=$work gemini_mode=$env:MICROGEN_COMMUNICATION_MODE flash=enabled dry_run=$DryRun"
 Push-Location $repo

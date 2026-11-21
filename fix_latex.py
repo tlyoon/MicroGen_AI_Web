@@ -38,9 +38,13 @@ if model_choice == "gemini":
         raise RuntimeError("No Gemini API key is configured in the shared Microvid .env")
 elif model_choice == "openai":
     from openai import OpenAI
+    from selenium_pipeline.paid_api_policy import require_paid_gemini_api
+    require_paid_gemini_api("lecture_generation")
     client = OpenAI(api_key=api_key_oai)
 elif model_choice == "deepseek":
     from openai import OpenAI
+    from selenium_pipeline.paid_api_policy import require_paid_gemini_api
+    require_paid_gemini_api("lecture_generation")
     client = OpenAI(api_key=api_key_dsk, base_url="https://api.deepseek.com")
 print(f"model_choice: {model_choice}; model_name: {model_name}\n")
 

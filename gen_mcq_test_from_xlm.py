@@ -149,6 +149,8 @@ and contains properly formatted MCQs as instructed.
 
     # Create model
     # Create model
+    from selenium_pipeline.paid_api_policy import require_paid_gemini_api
+    require_paid_gemini_api("academic_review")
     model = genai.GenerativeModel(MODEL_NAME)
     
     # Combine instruction + data into one prompt
