@@ -41,6 +41,8 @@ RECOVERY_HANDLERS = {
         "RETEST_EXISTING_RESPONSE_WITH_ZERO_MODEL_REPLAY",
     "OLDER_MAIN_MODEL_RESPONSE_RECONCILIATION":
         "ATTEST_ORIGINAL_REPLIED_JOB_WITH_ZERO_NEW_MODEL_SENDS",
+    "CODEX_HOST_EFFECTIVE_READONLY":
+        "PERSIST_HOST_POLICY_CAPABILITY_BLOCK_NO_ADDITIONAL_MODEL_SENDS",
 }
 
 
@@ -249,6 +251,11 @@ def run_once(*,job_path:Path,repo:Path,state_dir:Path,checkpoint_root:Path,
                         "Accepted source changed after checkpoint admission")
                 return state
         else:
+            from .development_coding_provider_health_v71 import (
+                require_workspace_write_capability)
+            require_workspace_write_capability(
+                checkpoint_root=Path(checkpoint_root),
+                cli_sha256=job["codex_sha256"])
             cmd=_codex_command(Path(codex_path).resolve(),repo)
             state={"schema_version":1,"status":"EXTERNAL_MODEL_RESULT_UNCERTAIN",
                    "job_sha256":admission["job_sha256"],
@@ -281,6 +288,28 @@ def run_once(*,job_path:Path,repo:Path,state_dir:Path,checkpoint_root:Path,
                 response.encode("utf8")).hexdigest()
             state["model_output_chars"]=len(response)
             _atomic_json(state_file,state)
+            # Host policy can silently downgrade a requested workspace-write
+            # session to read-only. A successful text response is not proof
+            # that any coding capability existed. Persist a shared blocker
+            # before considering another model job.
+            from .development_coding_provider_health_v71 import (
+                is_host_readonly, persist_host_denial)
+            if is_host_readonly(str(result.stderr or "")):
+                remedy=require_recovery("CODEX_HOST_EFFECTIVE_READONLY")
+                health=persist_host_denial(
+                    checkpoint_root=Path(checkpoint_root),
+                    job_sha256=admission["job_sha256"],
+                    cli_sha256=job["codex_sha256"],
+                    stderr=str(result.stderr))
+                state["status"]="MODEL_NO_SOURCE_DIFF_QUARANTINED"
+                state["failure_class"]="CODEX_HOST_EFFECTIVE_READONLY"
+                state["recovery_action"]=remedy
+                state["provider_capability_status"]=health["status"]
+                state["next_independent_workstream_eligible"]=True
+                state["candidate_pr_pushed"]=False
+                state["student_release"]=False
+                _atomic_json(state_file,state)
+                return state
         # A response with no source change is a *real* model no-op, not a
         # successful code repair. Never re-Send the original model request.
         # Persist a registered source-bound quarantine and let the parent
@@ -364,6 +393,8 @@ def main(argv:list[str]|None=None)->int:
     actions=p.add_mutually_exclusive_group(required=True)
     actions.add_argument("--run",action="store_true")
     actions.add_argument("--reconcile-only",action="store_true")
+    actions.add_argument("--attest-provider-denial",action="store_true")
+    p.add_argument("--stderr-evidence",type=Path)
     a=p.parse_args(argv)
     try:
         if os.name=="nt":
@@ -372,6 +403,17 @@ def main(argv:list[str]|None=None)->int:
             allowed_cli=(Path(os.environ["APPDATA"])/"npm"/"codex.cmd").resolve()
             require(Path(a.codex).resolve()==allowed_cli,
                     "Only the actual current-user Codex CLI is authorized")
+        if a.attest_provider_denial:
+            require(a.stderr_evidence is not None,
+                    "Historical host denial needs original untrusted stderr")
+            from .development_coding_provider_health_v71 import (
+                reconcile_saved_denial)
+            result=reconcile_saved_denial(
+                checkpoint_root=a.checkpoint_root,
+                job_path=a.job,state_dir=a.state_dir,
+                cli_path=a.codex,stderr_path=a.stderr_evidence)
+            print(json.dumps(result,indent=2))
+            return 0  # Provider capability denied, not coding accepted.
         if a.reconcile_only:
             result=reconcile_existing_response(
                 job_path=a.job,repo=a.repo,state_dir=a.state_dir,
