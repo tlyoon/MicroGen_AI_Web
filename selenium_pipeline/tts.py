@@ -101,15 +101,13 @@ def _wav_bytes(response) -> bytes:
 
 
 def _gemini_say(client, text: str, model: str, voice: str) -> bytes:
-    response = client.models.generate_content(
-        model=model,
-        contents=[{"role": "user", "parts": [
-            {"text": text, "speech_metadata": {"style": STYLE}}
-        ]}],
-        config={"response_modalities": ["AUDIO"],
-                "speech_config": {"voice_config": {"voice": voice}}},
-    )
-    return _wav_bytes(response)
+    """Use the registered 3.8 Interactions route, never the legacy 1.x payload.
+
+    The Interactions SDK validates its immutable request locally before the
+    metered client's interactions.create() may write a pre-send cost claim.
+    """
+    from .gemini38_tts_interactions import generate_3_8_kore_wav
+    return generate_3_8_kore_wav(client, text, model, voice)
 
 
 def _gemini_failover_request(text: str, number: int, model: str, voice: str) -> bytes:
@@ -241,6 +239,54 @@ def _tts_child_request_env(timeout_seconds: float) -> dict[str, str]:
     return env
 
 
+def _verified_tts_worker_python() -> str:
+    """Choose the already-registered compatible SDK interpreter without installs.
+
+    A protected system Python can remain on google-genai 1.x. Reuse the
+    source-independent existing isolated Dell TTS SDK only when the executable
+    recovery registry explicitly permits it and a bounded no-network probe
+    verifies the SDK and Interactions transport. Failure is a NO SEND.
+    """
+    from .gemini38_tts_interactions import (
+        InteractionsTTSCompatError, require_modern_tts_sdk,
+    )
+    try:
+        require_modern_tts_sdk()
+    except InteractionsTTSCompatError:
+        from .recovery_registry import lookup_mechanism
+        mechanism = lookup_mechanism(
+            "tts_runtime_repair",
+            "DEFAULT_PYTHON_GEMINI38_TTS_SDK_INCOMPATIBLE",
+        )
+        if mechanism != "REUSE_PREVIOUSLY_INSTALLED_VERIFIED_ISOLATED_TTS_SDK_NO_API":
+            raise RuntimeError("TTS_SDK_RECOVERY_REGISTRY_MISSING_NO_SEND")
+        local_appdata = os.environ.get("LOCALAPPDATA", "")
+        if os.name != "nt" or not local_appdata:
+            raise RuntimeError("TTS_SDK_ISOLATED_WINDOWS_INTERPRETER_ABSENT_NO_SEND")
+        candidate = (Path(local_appdata) / "MicroGenGeminiSDK" / "venv"
+                     / "Scripts" / "python.exe")
+        if not candidate.is_file() or candidate.is_symlink():
+            raise RuntimeError("TTS_SDK_ISOLATED_INTERPRETER_UNAVAILABLE_NO_SEND")
+        probe = (
+            "import importlib.metadata as m, re;"
+            "from google import genai;"
+            "from google.genai import types;"
+            "v=m.version('google-genai');"
+            "s=re.match(r'^(\\d+)\\.(\\d+)(?:\\.(\\d+))?',v);"
+            "assert s and (2,25,0)<=tuple(int(x or 0) for x in s.groups())<(3,0,0);"
+            "assert hasattr(genai.Client,'interactions');"
+            "assert hasattr(types,'HttpRetryOptions');"
+        )
+        verified = subprocess.run(
+            [str(candidate), "-c", probe],
+            capture_output=True, text=True, timeout=15,
+        )
+        if verified.returncode != 0:
+            raise RuntimeError("TTS_SDK_ISOLATED_INTERPRETER_PREFLIGHT_FAILED_NO_SEND")
+        return str(candidate)
+    return sys.executable
+
+
 def _gemini_say_with_watchdog(
     text: str,
     number: int,
@@ -269,7 +315,7 @@ def _gemini_say_with_watchdog(
         with tempfile.TemporaryDirectory(prefix=f"microgen_tts_slide{number}_") as tmp:
             output = Path(tmp) / "result.wav"
             command = [
-                sys.executable,
+                _verified_tts_worker_python(),
                 "-m",
                 "selenium_pipeline.tts_worker",
                 "--output",

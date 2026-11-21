@@ -52,6 +52,20 @@ def fake_gemini_keys_module(models=None, keys=None):
 
 
 class TTSTests(unittest.TestCase):
+    def setUp(self):
+        # These are offline queue/publication tests. Stub the TTS transport
+        # only; real 3.8 Interactions SDK/audio/ledger behavior is tested by
+        # tests/test_tts_interactions_cost_integration.py.
+        from selenium_pipeline.tts import _wav_bytes
+        transport = patch(
+            "selenium_pipeline.tts._gemini_say",
+            side_effect=lambda client, text, model, voice: _wav_bytes(
+                client.models.generate_content(
+                    model=model, contents=text, config={"voice": voice})),
+        )
+        transport.start()
+        self.addCleanup(transport.stop)
+
     def make_folder(self, root):
         folder = Path(root)
         (folder / "script.txt").write_text(
@@ -421,7 +435,10 @@ class TTSTests(unittest.TestCase):
             "MICROGEN_TTS_HARD_TIMEOUT_SECONDS": "10",
             "MICROGEN_TTS_REQUEST_ATTEMPTS": "2",
         }):
-            with patch("selenium_pipeline.tts.subprocess.run", side_effect=timeout) as run:
+            with patch(
+                "selenium_pipeline.tts._verified_tts_worker_python",
+                return_value=sys.executable,
+            ), patch("selenium_pipeline.tts.subprocess.run", side_effect=timeout) as run:
                 with self.assertRaises(TimeoutError):
                     _gemini_say_with_watchdog("hello", 7, "gemini-3.8-flash-lite-tts", "Kore")
                 self.assertEqual(run.call_count, 2)

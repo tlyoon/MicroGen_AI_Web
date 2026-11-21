@@ -214,6 +214,20 @@ $env:GEMINI_API_KEY = "<YOUR_GEMINI_API_KEY>"
 
 The Gemini web subscription covers web-side interaction; **Gemini Flash-Lite TTS is a separate API call**, which requires its own API credentials, quota and billing rules. The `GEMINI_API_KEY` example above is a placeholder. Use Windows credential storage or an environment secret, never a committed key.
 
+**Gemini 3.8 TTS SDK/ledger recovery:** Production Gemini 3.8 TTS uses
+`client.interactions.create` (not the older `models.generate_content` speech
+payload) and requires `google-genai>=2.25,<3`. When Dell-115's protected
+default Python still has an older SDK, the normal TTS watchdog checks the
+registered `TTS_EXISTING_ISOLATED_SDK_RECOVERY` mechanism and reuses the
+existing, preflight-verified `%LOCALAPPDATA%\\MicroGenGeminiSDK\\venv`
+interpreter. It does not install software or send a paid request as recovery.
+A missing or invalid interpreter fails closed. Every subsequent authorized
+Interactions TTS create call is entered in the SQLite cost ledger *before*
+the provider send, with tokens from provider usage when available or a
+clearly labeled audio-duration estimate; failed/uncertain sends remain
+separately visible. This recovery never authorizes paid lecture content,
+scientific reviews or unapproved paid TTS audio QA.
+
 ### Resume from a failed stage / alternative voice
 
 ```powershell

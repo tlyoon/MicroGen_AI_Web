@@ -170,7 +170,8 @@ def _text_parts(value, depth: int = 0) -> tuple[str, bool]:
         return " ".join(p[0] for p in parts), any(p[1] for p in parts)
     if isinstance(value, dict):
         parts = [_text_parts(v, depth + 1) for k, v in value.items()
-                 if k in {"text", "parts", "contents", "role", "prompt"}]
+                 if k in {"text", "parts", "contents", "content", "input",
+                          "role", "prompt"}]
         opaque = any(k in value for k in (
             "inline_data", "file_data", "data", "mime_type", "file_uri"))
         return " ".join(p[0] for p in parts), opaque or any(p[1] for p in parts)
@@ -194,6 +195,30 @@ def _usage_number(metadata, *names: str) -> int | None:
 
 def _audio_token_estimate(response) -> int | None:
     try:
+        # Gemini 3.8 Interactions returns output_audio rather than candidates.
+        audio = getattr(response, "output_audio", None)
+        if audio is not None:
+            encoded = getattr(audio, "data", None)
+            if encoded:
+                raw = (base64.b64decode(encoded, validate=True)
+                       if isinstance(encoded, str) else bytes(encoded))
+                if not raw.startswith(b"RIFF"):
+                    # Some SDK builds expose base64 as bytes, not a string.
+                    try:
+                        decoded = base64.b64decode(raw, validate=True)
+                    except (ValueError, base64.binascii.Error):
+                        decoded = None
+                    if decoded is not None and len(decoded) > len(raw) // 2:
+                        raw = decoded
+                try:
+                    with wave.open(io.BytesIO(raw), "rb") as wav:
+                        seconds = wav.getnframes() / wav.getframerate()
+                except (wave.Error, EOFError, ZeroDivisionError):
+                    mime = str(getattr(audio, "mime_type", None) or "")
+                    matched = re.search(r"rate=(\d+)", mime)
+                    rate = int(matched.group(1)) if matched else 24000
+                    seconds = len(raw) / (rate * 2)
+                return max(1, round(seconds * 25))
         candidates = getattr(response, "candidates", None) or []
         raw_parts = getattr(getattr(candidates[0], "content", None),
                             "parts", []) or []
@@ -283,9 +308,14 @@ def finish(request_id: str, *, response=None, output_text: str | None = None,
         model, transport, input_count, input_source = row
         output = None
         output_source = "unknown"
-        meta = getattr(response, "usage_metadata", None)
-        reported_in = _usage_number(meta, "prompt_token_count", "promptTokenCount")
-        reported_out = _usage_number(meta, "candidates_token_count", "candidatesTokenCount")
+        meta = (getattr(response, "usage_metadata", None)
+                or getattr(response, "usage", None))
+        reported_in = _usage_number(
+            meta, "prompt_token_count", "promptTokenCount",
+            "input_tokens", "input_token_count")
+        reported_out = _usage_number(
+            meta, "candidates_token_count", "candidatesTokenCount",
+            "output_tokens", "output_token_count")
         thinking = _usage_number(meta, "thoughts_token_count", "thoughtsTokenCount") or 0
         if reported_in is not None:
             input_count, input_source = reported_in, "provider_reported"
@@ -398,6 +428,40 @@ class _ModelsMeter:
         return response
 
 
+class _InteractionsMeter:
+    """Meter real Gemini 3.8 TTS Interactions sends, including failed attempts."""
+
+    def __init__(self, original, purpose: str, logical_id: str, attempt: int):
+        self._original = original
+        self._purpose = purpose
+        self._logical_id = logical_id
+        self._attempt = attempt
+
+    def create(self, **kwargs):
+        from .paid_api_policy import (
+            require_paid_gemini_api, tts_qa_explicitly_approved,
+        )
+        require_paid_gemini_api(
+            self._purpose, qa_approved=tts_qa_explicitly_approved(),
+        )
+        model = kwargs.get("model")
+        text, opaque = _text_parts(kwargs.get("input"))
+        if not isinstance(model, str) or not model or not text.strip():
+            raise ValueError("Unmeterable Gemini Interactions payload: NO SEND")
+        request_id = begin(
+            model=model, purpose=self._purpose, transport="api",
+            input_text=text, opaque_input=opaque,
+            logical_id=self._logical_id, retry_count=self._attempt,
+        )
+        try:
+            result = self._original.create(**kwargs)
+        except BaseException as exc:
+            finish(request_id, failure=exc)
+            raise
+        finish(request_id, response=result)
+        return result
+
+
 class MeteredGeminiClient:
     def __init__(self, client, *, purpose: str, logical_id: str, attempt: int):
         self._client = client
@@ -409,6 +473,11 @@ class MeteredGeminiClient:
     def models(self):
         return _ModelsMeter(self._client.models, self._purpose,
                             self._logical_id, self._attempt)
+
+    @property
+    def interactions(self):
+        return _InteractionsMeter(self._client.interactions, self._purpose,
+                                  self._logical_id, self._attempt)
 
     def __getattr__(self, attr):
         return getattr(self._client, attr)
