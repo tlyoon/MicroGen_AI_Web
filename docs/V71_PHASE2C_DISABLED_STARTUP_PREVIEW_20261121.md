@@ -41,6 +41,12 @@ LOCALAPPDATA. It never modifies scheduled tasks.
 - Existing preview files are write-once. Any changed XML or attestation
   must be rejected rather than silently replaced. Symlinks and path escape
   are rejected.
+- Real Dell-115 Task Scheduler COM validation initially raised an encoding
+  switch error when a UTF-8 XML declaration was passed through Unicode
+  XmlText. The production preview now strips the declaration ONLY for an
+  in-memory NewTask(0).XmlText schema check, verifies the task and trigger
+  are both disabled, the principal remains limited/interactive, and leaves
+  the UTF-8 source XML unchanged. No task is registered or launched.
 
 ## Acceptance boundary
 

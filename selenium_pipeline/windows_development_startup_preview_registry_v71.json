@@ -6,5 +6,6 @@
   "may_register_or_enable_task": false,
   "may_modify_existing_tasks": false,
   "may_send_model_requests": false,
-  "may_publish_students": false
+  "may_publish_students": false,
+  "native_xml_validation": "STRIP_UTF8_DECLARATION_FOR_COM_BSTR_PARSE_WITHOUT_TASK_REGISTRATION"
 }

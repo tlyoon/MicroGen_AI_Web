@@ -110,6 +110,7 @@ def test_registry_is_registered_and_never_enables(tmp_path):
     ("may_modify_existing_tasks",True),
     ("may_send_model_requests",True),
     ("handler","UNRESTRICTED_TASK_CREATE"),
+    ("native_xml_validation","REGISTER_TASK_WITH_HIGH_PRIVILEGES"),
 ])
 def test_registry_tampering_fails_closed(tmp_path,field,value):
     data=json.loads(REGISTRY.read_text())
@@ -163,3 +164,23 @@ def test_prepare_cannot_mutate_native_tasks_on_non_windows(tmp_path):
     with pytest.raises(ValueError,match="Dell-115"):
         prepare(repo=tmp_path,plan=tmp_path/"plan",
                 state_dir=tmp_path/"state",output_dir=tmp_path/"preview")
+
+
+@pytest.mark.skipif(sys.platform!="win32",reason="Native Task Scheduler COM requires Windows")
+def test_real_native_task_scheduler_parses_preview_without_install(tmp_path):
+    import os
+    import re
+    from selenium_pipeline.windows_development_daemon_startup_preview_v71 import (
+        _validate_disabled_xml_with_task_scheduler,
+    )
+    account=chr(92).join((os.environ.get("USERDOMAIN",""),
+                         os.environ.get("USERNAME","")))
+    if not re.fullmatch(r"[A-Za-z0-9_.-]+\\[A-Za-z0-9_.-]+",account):
+        pytest.skip("Hosted Windows principal not a named limited interactive user")
+    xml=render_disabled_task_xml(
+        repo=tmp_path/"repo",python=tmp_path/"python.exe",
+        plan=tmp_path/"roadmap.json",state_dir=tmp_path/"state",user=account)
+    path=tmp_path/"DISABLED.xml"
+    path.write_bytes(xml)
+    _validate_disabled_xml_with_task_scheduler(path)
+    assert path.read_bytes()==xml

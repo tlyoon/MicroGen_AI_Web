@@ -49,6 +49,7 @@ def require_preview_registry(*, path: Path | None = None) -> None:
         "may_modify_existing_tasks": False,
         "may_send_model_requests": False,
         "may_publish_students": False,
+        "native_xml_validation": "STRIP_UTF8_DECLARATION_FOR_COM_BSTR_PARSE_WITHOUT_TASK_REGISTRATION",
     }
     _require(x == expected, "Unregistered or modified startup recovery")
 
@@ -128,6 +129,42 @@ def _native_task_exists() -> bool:
     _require(p.returncode == 0 and p.stdout.strip() in ("ABSENT","PRESENT"),
              "Cannot establish existing startup task ownership")
     return p.stdout.strip() == "PRESENT"
+
+
+def _validate_disabled_xml_with_task_scheduler(xml_path:Path)->None:
+    """OS-backed, read-only Task Scheduler COM schema + owner checks.
+
+    Native Task Definition.XmlText is a Unicode BSTR; parsing an XML string
+    carrying an encoding='utf-8' declaration raises 'unable to switch the
+    encoding'. Strip that declaration **only for in-memory COM validation**.
+    The saved XML bytes retain the correct UTF-8 declaration for later
+    explicitly authorized XML-file registration. No RegisterTaskDefinition.
+    """
+    _require(os.name=="nt","Windows OS Task Scheduler validation required")
+    command = (
+        "$ErrorActionPreference='Stop';"
+        "$raw=[IO.File]::ReadAllText($env:MICROGEN_STARTUP_XML_PREVIEW,"
+        "[Text.Encoding]::UTF8);"
+        "$raw=[regex]::Replace($raw,'^<\\?xml[^>]*\\?>\\s*','');"
+        "$service=New-Object -ComObject Schedule.Service;"
+        "$service.Connect();$definition=$service.NewTask(0);"
+        "$definition.XmlText=$raw;"
+        "if($definition.Settings.Enabled -or "
+        "$definition.Triggers.Count -ne 1 -or "
+        "$definition.Triggers.Item(1).Enabled -or "
+        "$definition.Principal.RunLevel -ne 0 -or "
+        "$definition.Principal.LogonType -ne 3 -or "
+        "$definition.Actions.Count -ne 1){throw 'Unsafe disabled task preview'};"
+        "'IN_MEMORY_DISABLED_XML_SCHEMA_VERIFIED'"
+    )
+    env=dict(os.environ)
+    env["MICROGEN_STARTUP_XML_PREVIEW"]=str(xml_path)
+    p=subprocess.run(["powershell.exe","-NoProfile","-NonInteractive",
+                      "-Command",command],env=env,capture_output=True,
+                     text=True,timeout=35)
+    _require(p.returncode==0
+             and p.stdout.strip()=="IN_MEMORY_DISABLED_XML_SCHEMA_VERIFIED",
+             "Task Scheduler schema or disabled native owner validation failed")
 
 
 def _git_clean_head(repo: Path) -> str:
@@ -211,6 +248,7 @@ def prepare(*,repo:Path,plan:Path,state_dir:Path,
         "task_xml_sha256":hashlib.sha256(xml).hexdigest(),
         "task_enabled":False,
         "native_task_installed":False,
+        "native_xml_schema_validated_without_registration":True,
         "startup_or_reboot_test_passed":False,
         "existing_tasks_changed":False,
         "provider_requests":0,
@@ -219,7 +257,11 @@ def prepare(*,repo:Path,plan:Path,state_dir:Path,
         "next_step":"EXPLICIT_APPROVAL_FOR_NATIVE_STARTUP_INSTALL_AND_REBOOT_TEST",
     }
     content=(json.dumps(manifest,sort_keys=True,indent=2)+"\n").encode()
-    _write_once(output_dir/"offline_daemon_DISABLED.xml",xml)
+    xml_file=output_dir/"offline_daemon_DISABLED.xml"
+    _write_once(xml_file,xml)
+    # Native schema check is part of the normal preparation path. Never
+    # mark this preview verified based on ElementTree alone.
+    _validate_disabled_xml_with_task_scheduler(xml_file)
     _write_once(output_dir/"startup_preview_attestation.json",content)
     return manifest
 
