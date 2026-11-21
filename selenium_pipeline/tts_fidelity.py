@@ -606,6 +606,24 @@ def _ground_truth_items(folder: Path) -> list[tuple[int, str]]:
         return script_items
     if any(not text for _, text in manifest_items):
         return script_items
+    # TTS input manifests are historical records of the words SENT to the
+    # synthesizer, not an authority to override a corrected current script.
+    # Compare recorded source_text with the source-bound current script before
+    # reusing transformed tts_text. A stale record must not conceal a corrected
+    # wrapped-title word from an independent acoustic reviewer.
+    try:
+        manifest_source = [
+            str(item.get("source_text", "")).strip()
+            for item in manifest.get("slides", [])
+        ]
+    except (TypeError, AttributeError):
+        return script_items
+    if any(source and source != text for source, (_, text)
+           in zip(manifest_source, script_items)):
+        print("[tts-qa] stale TTS input manifest: current script differs; "
+              "review against current script, preserving original manifest",
+              flush=True)
+        return script_items
     return manifest_items
 
 

@@ -241,14 +241,43 @@ def _is_meaningful_title_candidate(line: str) -> bool:
     return True
 
 
+def _source_verified_latex_title(slides_pdf: Path, pdf_first_page: str) -> str | None:
+    """Recover a PDF-wrapped opening title only when its own TeX proves it.
+
+    Never concatenate arbitrary PDF lines (which can absorb a speaker/author).
+    Ignore LaTeX macro titles; retain the existing strict PDF-only fallback.
+    """
+    tex = Path(slides_pdf).with_suffix(".tex")
+    if not tex.is_file() or tex.is_symlink():
+        return None
+    try:
+        body = tex.read_text(encoding="utf-8")
+    except (OSError, UnicodeError):
+        return None
+    m = re.search(r"\\title\s*(?:\[[^\[\]]{0,120}\]\s*)?\{([^{}]{3,250})\}", body)
+    if not m:
+        return None
+    title = _normalize_line(m.group(1))
+    if "\\" in title:
+        return None
+    if title not in _normalize_line(pdf_first_page):
+        return None
+    return title
+
+
 def extract_exact_slide_titles(slides_pdf: Path) -> list[str]:
     titles: list[str] = []
     texts = extract_page_texts(slides_pdf)
+    verified_first_title = (
+        _source_verified_latex_title(slides_pdf, texts[0]) if texts else None
+    )
 
     for idx, txt in enumerate(texts, start=1):
         lines = [_normalize_line(x) for x in txt.splitlines()]
         candidates = [x for x in lines if _is_meaningful_title_candidate(x)]
-        title = candidates[0] if candidates else f"Slide {idx}"
+        title = verified_first_title if idx == 1 and verified_first_title else (
+            candidates[0] if candidates else f"Slide {idx}"
+        )
         titles.append(title)
 
     counter_like = sum(1 for t in titles if is_page_counter_line(t))
