@@ -114,6 +114,32 @@ def test_changed_authorized_coding_cli_hash_fails_before_claim(isolated):
     assert not (isolated["state"]/"coding_job_state.json").exists()
 
 
+def test_accepted_checkpoint_rejects_subsequent_code_tampering(isolated):
+    sends=[]
+    dispatch(isolated,good_model(isolated,sends),fake_test)
+    (isolated["repo"]/"tests"/"generated_safe.py").write_text(
+        "def test_generated():\n    assert False\n")
+    with pytest.raises(ValueError,match="changed after checkpoint"):
+        dispatch(isolated,good_model(isolated,sends),fake_test)
+    assert len(sends)==1
+
+
+def test_new_required_test_is_admitted_only_if_exactly_allowlisted(isolated):
+    job=dict(isolated["manifest"])
+    job["required_tests"]=["tests/generated_safe.py"]
+    isolated["job"].write_text(json.dumps(job),encoding="utf8")
+    row=admit_job(job_path=isolated["job"],repo=isolated["repo"],
+                  state_dir=isolated["state"],
+                  checkpoint_root=isolated["root"],verify_remote=False)
+    assert row["job"]["required_tests"]==["tests/generated_safe.py"]
+    job["allowed_files"]=["docs/allowed.md"]
+    isolated["job"].write_text(json.dumps(job),encoding="utf8")
+    with pytest.raises(ValueError):
+        admit_job(job_path=isolated["job"],repo=isolated["repo"],
+                  state_dir=isolated["state"],
+                  checkpoint_root=isolated["root"],verify_remote=False)
+
+
 def test_uncertain_model_failure_is_persisted_and_never_replayed(isolated):
     calls=[]
     def uncertain(command,prompt,*,cwd,timeout):

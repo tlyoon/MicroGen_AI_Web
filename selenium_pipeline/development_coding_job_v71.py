@@ -8,6 +8,7 @@ Uncertain Codex outcomes are quarantined rather than blindly retried.
 from __future__ import annotations
 
 import argparse
+import ast
 import hashlib
 import json
 import os
@@ -95,7 +96,8 @@ def admit_job(*, job_path: Path, repo: Path, state_dir: Path,
         require(type(test) is str and SAFE_FILE.fullmatch(test)
                 and test.startswith("tests/") and test.endswith(".py")
                 and ".." not in Path(test).parts
-                and "\\" not in test and (repo / test).is_file(),
+                and "\\" not in test
+                and ((repo / test).is_file() or test in files),
                 "Cannot inject arbitrary test or shell command")
     require((allow_existing_candidate or _git(repo,"status","--porcelain")=="")
             and _git(repo,"rev-parse","HEAD")==job["main_sha"]
@@ -145,6 +147,8 @@ def _verify_changes(repo: Path, job: dict) -> dict:
         require(path.is_file() and not path.is_symlink()
                 and path.resolve().is_relative_to(repo),
                 "Only regular, allowed source files may be modified")
+        if path.suffix == ".py":
+            ast.parse(path.read_text(encoding="utf8"),filename=str(path))
     check=subprocess.run(["git","-C",str(repo),"diff","--check"],
                          capture_output=True,text=True,timeout=30)
     require(check.returncode==0,"Modified source diff contains whitespace errors")
@@ -195,8 +199,14 @@ def run_once(*,job_path:Path,repo:Path,state_dir:Path,checkpoint_root:Path,
                     "Model submission may have been consumed; reconcile, never resend")
             require(state["status"] in STATUS,"Unknown coding checkpoint")
             if state["status"]=="LOCAL_CODING_CANDIDATE_VERIFIED":
-                require(state.get("evidence") is not None,
+                prior=state.get("evidence")
+                require(type(prior) is dict
+                        and type(prior.get("file_sha256")) is dict,
                         "No preserved code acceptance")
+                verified=_verify_changes(repo,job)
+                require(verified["file_sha256"]==prior["file_sha256"]
+                        and verified["changed_files"]==prior["changed_files"],
+                        "Accepted source changed after checkpoint admission")
                 return state
         else:
             cmd=_codex_command(Path(codex_path).resolve(),repo)
@@ -224,7 +234,12 @@ def run_once(*,job_path:Path,repo:Path,state_dir:Path,checkpoint_root:Path,
             require(result.returncode==0,
                     "Coding model outcome uncertain, no replay permitted")
             state["status"]="MODEL_RESPONDED_UNVERIFIED"
-            state["model_stdout_excerpt"]=str(result.stdout)[-4000:]
+            # Never persist untrusted model text or possible credentials in
+            # the restart checkpoint. Evidence is hashed and output bounded.
+            response=str(result.stdout or "")
+            state["model_output_sha256"]=hashlib.sha256(
+                response.encode("utf8")).hexdigest()
+            state["model_output_chars"]=len(response)
             _atomic_json(state_file,state)
         evidence=_verify_changes(repo,job)
         tests=_verify_tests(repo=repo,job=job,runner=test_runner)
