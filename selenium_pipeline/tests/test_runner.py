@@ -61,7 +61,7 @@ class PipelineTests(unittest.TestCase):
                 with patch("selenium_pipeline.launch_gemini.launch", return_value=(9222, Path("profile"))):
                     with patch("selenium_pipeline.gemini_model.ensure_mode", side_effect=RuntimeError("Configured mode not confirmed")):
                         with self.assertRaisesRegex(RuntimeError, "Configured mode not confirmed"):
-                            execute(Settings(root, dest, "22.1"))
+                            execute(Settings(root, dest, "22.1", confirm_paid_tts_qa=True))
             self.assertFalse(dest.exists())
 
     def test_regeneration_preserves_previous_slide_files(self):
