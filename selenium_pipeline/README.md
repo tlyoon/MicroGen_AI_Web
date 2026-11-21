@@ -272,3 +272,59 @@ The central `paid_api_policy.require_paid_gemini_api` gate and versioned
 recovery registry prevent accidental paid requests before credentials,
 API client construction or failover. All revised guards are regression-tested
 with fake clients and **zero real paid requests**.
+
+
+## Automatic Gemini request accounting (2026-11-21)
+
+The code now writes a **local, restart-safe, one-row-per-Gemini-attempt**
+SQLite journal BEFORE potentially submitting requests. The cost ledger does
+not replay an uncertain model Send. Its default path on Windows is:
+
+`%LOCALAPPDATA%\MicroGen_AI_Web_Costs\gemini_requests.sqlite3`
+
+Each record contains UTC timestamp, machine, model, purpose, stage, chapter,
+subsection, transport (`selenium` or `api`), token counts with provenance,
+estimated USD cost, logical request ID, attempt number, retry count and
+request outcome. **API keys, prompt contents, attached PDFs, WAV bytes, raw
+response contents and email/user identities are never recorded.**
+
+Use in the verified checkout:
+
+```powershell
+python -m selenium_pipeline.gemini_request_cost --summary
+python -m selenium_pipeline.gemini_request_cost --csv "$env:LOCALAPPDATA\MicroGen_AI_Web_Costs\requests.csv" --summary
+```
+
+- For **paid API** TTS and explicitly authorized audio QA, prefer the SDK's
+  `usage_metadata.prompt_token_count` and
+  `usage_metadata.candidates_token_count` plus thinking tokens. If unavailable,
+  estimate text from UTF-8 length and TTS audio at 25 tokens per second of
+  returned audio, and explicitly mark the source. PDF/audio input estimates
+  without provider usage are **partial**, not measured token totals.
+- 2026-11-21 standard rates used until 2026-12-31 (USD per 1 million input /
+  output tokens): Gemini 3.8 Flash-Lite TTS **0.50 / 6.00** (audio output);
+  Gemini 3.8 Flash TTS **0.50 / 9.00** (audio output);
+  Gemini 3.8 Flash **0.75 / 3.75** (text output).
+  Source: https://ai.google.dev/gemini-api/docs/pricing .
+  Unknown-model or post-expiration paid costs remain `NULL`, never zero.
+- For **Selenium**, Google does not expose Developer API billing token metadata;
+  text counts are marked as heuristics and `estimated_usd_cost=0` means
+  **zero incremental Developer API usage charge**, NOT that the Gemini web
+  subscription is free. Uploaded files and hidden reasoning are not fully
+  measurable from the browser.
+- All outcomes are represented: captured, possibly submitted, registered but
+  pending response, or uncertain after timeout. A failed API attempt may have
+  incurred a fee; uncertain charges are **excluded from the captured-cost
+  subtotal** and shown separately, never represented as a verified $0.
+- SDK retries/key rotations and watchdog respawns carry logical attempt
+  identities; separate rows account for each possible provider request.
+  Concurrent local workers use SQLite WAL and committed pre-send records.
+- A missing ledger, unwritable disk or disabled versioned accounting registry
+  blocks a new Send. No paid fallback or QA authorization is enabled by this
+  feature. Original G2/G3 scientific acceptance and publisher gates remain
+  unchanged.
+
+A test environment automatically uses a separate temporary ledger; override
+only for explicit controlled diagnostics via `MICROGEN_GEMINI_COST_LEDGER_PATH`.
+For multi-PC reports, export/merge the three local ledgers by unique request ID;
+**do not point three PCs at one SQLite file on Google Drive**.

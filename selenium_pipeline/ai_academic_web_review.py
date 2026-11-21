@@ -286,6 +286,8 @@ def run_web_review(*,folder:Path,job:dict,mode:str,
             "Source review requires an explicitly verified model family")
     require(chrome_port in range(1,65536) and 60<=wait_cap_s<=600,
             "Browser request must be bounded")
+    from .gemini_request_cost import set_job_context
+    set_job_context(folder)
     call=transport or (lambda prompt,files:_academic_browser_request(
         prompt,files,chrome_port=chrome_port,wait_cap_s=wait_cap_s,
         required_runtime_family=required_model_family))

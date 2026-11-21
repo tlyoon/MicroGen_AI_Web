@@ -16,6 +16,10 @@ def main(argv: list[str] | None = None) -> int:
 
     request = json.loads(args.request.read_text(encoding="utf-8"))
     wav_path = Path(request["wav_path"])
+    from .gemini_request_cost import set_job_context
+    set_job_context(wav_path.parent)
+    import os
+    os.environ["MICROGEN_ACTIVE_GENERATION_STAGE"] = "tts_qa"
     script = str(request["script"])
     model = str(request["model"])
     output_path = Path(request["output_path"])

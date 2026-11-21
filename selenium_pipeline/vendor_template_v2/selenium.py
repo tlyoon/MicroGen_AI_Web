@@ -1671,6 +1671,7 @@ class GeminiSeleniumClient:
                 ) or ""
                 actual_norm = _norm(actual)
                 if expected and (actual_norm == expected or expected in actual_norm):
+                    self._microgen_cost_prompt_text = text
                     return True
 
                 log(
@@ -1802,7 +1803,15 @@ class GeminiSeleniumClient:
             except Exception:
                 log("[SEND-VERIFY] owned-tab baseline unavailable; "
                     "registration unverified; never resend this claim.", "WARN")
-            clicked = click_one_owned_gemini_send(self.driver, owned)
+            # Persist request intent BEFORE any possibly chargeable web Send.
+            from selenium_pipeline.gemini_request_cost import (
+                browser_begin, browser_finish)
+            browser_begin(self)
+            try:
+                clicked = click_one_owned_gemini_send(self.driver, owned)
+            except BaseException:
+                browser_finish(self, status="send_uncertain")
+                raise
             observed = {"registered": False, "status": "NO_BASELINE"}
             if baseline is not None:
                 try:
@@ -1824,6 +1833,10 @@ class GeminiSeleniumClient:
             else:
                 log("[SEND-VERIFY] no independently verified new Gemini "
                     "turn; possible Send remains uncertain. NO resend.", "WARN")
+            browser_finish(
+                self, status=("registered_response_pending"
+                              if observed.get("registered") is True
+                              else "send_uncertain"))
             return bool(clicked or observed.get("registered") is True)
         if self._hidden_send_button_preflight():
             log(
@@ -2385,7 +2398,11 @@ class GeminiSeleniumClient:
         if not self.click_send_with_fallbacks(retries=3):
             raise RuntimeError("Could not send the prompt after retries.")
         log(f"Waiting for model response to stabilize (adaptive, max_wait={wait_cap}) ÂÂ¦")
-        return adaptive_wait_and_copy(self.driver, preset="short", overrides={"max_wait": wait_cap})
+        response = adaptive_wait_and_copy(
+            self.driver, preset="short", overrides={"max_wait": wait_cap})
+        from selenium_pipeline.gemini_request_cost import browser_finish
+        browser_finish(self, response_text=response)
+        return response
   
     #
     def send_prompt_and_copy_response_full(self, instruction_text: str, wait_cap: int, min_chars: int = 200) -> str:

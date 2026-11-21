@@ -724,6 +724,9 @@ def _execute_unlocked(s: Settings) -> Path:
         # MoviePy 1.0.3's fps wrapper on Dell-115).
         "PYTHONNOUSERSITE": "1",
         "MICROGEN_PACKAGE_ROOT": str(REPO),
+        "MICROGEN_CHAPTER": s.subchapter.split(".")[0],
+        "MICROGEN_SUBSECTION": s.subchapter,
+        "MICROGEN_JOB_FOLDER": str(folder),
         "MICROGEN_COMMUNICATION_MODE": os.getenv(
             "MICROGEN_COMMUNICATION_MODE", "selenium").strip().lower(),
         # Legacy adapter setting is deliberately subordinate to the central
@@ -737,9 +740,10 @@ def _execute_unlocked(s: Settings) -> Path:
             "EXPLICIT_APPROVAL_FOR_THIS_RUN" if s.confirm_paid_tts_qa else ""
         ),
     })
-    if "slides" in planned:
-        # The source-bound slide claim permits only one real Send activation
-        # per attempt. Disable the legacy multiple-click/Enter fallback.
+    if any(stage in {"figures", "slides", "narration"} for stage in planned):
+        # Every model request, not only slides, uses a single claimed Send.
+        # The shared owned-tab pre-send boundary now writes a durable
+        # per-request cost record BEFORE any possibly accepted browser click.
         env["MICROGEN_SINGLE_PROVIDER_SEND"] = "1"
     if _needs_api_python_for_stages(planned):
         # Both API figure mapping and API narration may run under a Docling
@@ -749,6 +753,7 @@ def _execute_unlocked(s: Settings) -> Path:
         env["MICROGEN_TTS_PYTHON"] = tts_python_executable()
     changed_upstream = False
     for stage in planned:
+        env["MICROGEN_ACTIVE_GENERATION_STAGE"] = stage
         # A successful PDF compile can silently skip missing IfFileExists
         # figures. Never accept that as permission to generate narration.
         if stage == "video":

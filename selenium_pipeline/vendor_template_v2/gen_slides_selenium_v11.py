@@ -1004,6 +1004,7 @@ def send_prompt_and_capture_transport_block(
     claim=None,
 ) -> str:
     from selenium_pipeline.slide_transport_guard import PreSendFailure, IndeterminateSend
+    from selenium_pipeline.gemini_request_cost import browser_finish
     if client.driver is None:
         raise PreSendFailure("Gemini owned-tab driver not available before Send")
     if not client.type_prompt_text(instruction_text, retries=3):
@@ -1022,6 +1023,7 @@ def send_prompt_and_capture_transport_block(
     if copied:
         if claim is not None:
             claim.capture(copied.strip())
+        browser_finish(client, response_text=copied.strip())
         return copied.strip()
 
     # -----------------------------
@@ -1046,6 +1048,7 @@ def send_prompt_and_capture_transport_block(
             if "\\documentclass" in block and "\\end{document}" in block and stable >= 1:
                 if claim is not None:
                     claim.capture(block.strip())
+                browser_finish(client, response_text=block.strip())
                 return block.strip()
 
         time.sleep(0.8)
@@ -1056,9 +1059,11 @@ def send_prompt_and_capture_transport_block(
         if fenced:
             if claim is not None:
                 claim.capture(fenced.strip())
+            browser_finish(client, response_text=fenced.strip())
             return fenced.strip()
         if claim is not None:
             claim.capture(fallback)
+        browser_finish(client, response_text=fallback)
         return fallback
 
     raise IndeterminateSend("Gemini Send was attempted but no owned response was captured")
