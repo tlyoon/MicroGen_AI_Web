@@ -161,6 +161,9 @@ def _source_snapshot(folder: Path) -> dict:
     names = ["source.pdf", "slides.tex", "slides.pdf", "script.txt", "slides.mp4",
              ".microgen_completion.json"]
     names.extend(sorted(p.name for p in folder.glob("slide*.wav")))
+    names.extend(sorted(p.name for p in folder.glob("slides_part*.mp4")))
+    names.extend(["slides_parts_manifest.json", "slide_narration_sync.json",
+                  "tts_fidelity_report.json", "script_risk_report.json"])
     names.extend(sorted(p.name for p in folder.iterdir()
                         if p.is_file() and p.suffix.lower() in
                         {".png", ".jpg", ".jpeg", ".eps"}))
@@ -294,6 +297,118 @@ def bootstrap_legacy_source_figures(work: Path) -> dict:
             "source_sha256":verified["source_sha256"]}
 
 
+
+def _completed_legacy_split_lecture(source_pdf: Path) -> bool:
+    """Admit historical fully hash-verified multipart lectures for isolated retrofit.
+
+    Legacy lectures may have completion receipts and split videos but no
+    archival slides.mp4; the modern cleanup.completed_lecture gate rejects
+    those even when their receipts accurately cover all active split videos.
+    This is a strict input admission only; corrected staging must still pass
+    ALL current source-crop, LaTeX, raster, audio, sync and video checks.
+    """
+    try:
+        folder = Path(source_pdf).parent
+        receipt_file = folder / ".microgen_completion.json"
+        manifest_file = folder / "slides_parts_manifest.json"
+        if not receipt_file.is_file() or not manifest_file.is_file():
+            return False
+        receipt = json.loads(receipt_file.read_text(encoding="utf8"))
+        parts = json.loads(manifest_file.read_text(encoding="utf8"))
+        if receipt.get("source_sha256") != digest(source_pdf):
+            return False
+        hashes = receipt.get("final_sha256")
+        if not isinstance(hashes, dict):
+            return False
+        basics = {"slides.tex", "slides.pdf", "script.txt"}
+        for name in basics:
+            file = folder / name
+            if name not in hashes or not file.is_file() or file.is_symlink() or digest(file) != hashes[name]:
+                return False
+        records = parts.get("parts")
+        if not isinstance(records, list) or not records or len(records)>30:
+            return False
+        names = [r.get("name",r.get("file")) for r in records if isinstance(r,dict)]
+        if len(names)!=len(records) or len(names)!=len(set(names)):
+            return False
+        if any(not re.fullmatch(r"slides_part\d{2}\.mp4",str(n)) for n in names):
+            return False
+        actual = {p.name for p in folder.glob("slides_part*.mp4") if p.is_file()}
+        if set(names)!=actual:
+            return False
+        if set(hashes)!=(basics|set(names)):
+            return False
+        for name, rec in zip(names, records):
+            file = folder/name
+            if (not file.is_file() or file.is_symlink() or file.stat().st_size<100
+                    or digest(file)!=hashes[name] or
+                    rec.get("sha256")!=hashes[name]):
+                return False
+            seconds = _probe_duration(file)
+            declared = float(rec["duration_seconds"])
+            if not (0<seconds<600 and abs(seconds-declared)<=2.0):
+                return False
+        if parts.get("image_repair_pdf_sha256") is not None and (
+              parts["image_repair_pdf_sha256"]!=hashes["slides.pdf"]):
+            return False
+        from .slide_narration_sync import verify as verify_sync
+        sync = folder/"slide_narration_sync.json"
+        if not sync.is_file() or (
+              receipt.get("structural_sync_sha256")!=digest(sync)):
+            return False
+        # The historical PDF-reader revision may produce different
+        # page_text_sha256 values for identical, hash-matched PDF bytes.
+        # Do NOT accept unverified narration/audio: require all stored
+        # original binary hashes, exact WAV hashes and blocks to match.
+        sync_data=json.loads(sync.read_text(encoding="utf8"))
+        from .slide_narration_sync import script_blocks
+        blocks=script_blocks((folder/"script.txt").read_text(encoding="utf8"))
+        if (sync_data.get("pdf_sha256")!=hashes["slides.pdf"] or
+            sync_data.get("script_sha256")!=hashes["script.txt"] or
+            sync_data.get("pages")!=len(blocks) or
+            sync_data.get("narration_sha256")!=[
+                hashlib.sha256(body.encode()).hexdigest() for body in blocks]):
+            return False
+        original_wavs=sync_data.get("wav")
+        if not isinstance(original_wavs,list) or len(original_wavs)!=len(blocks):
+            return False
+        for pos,stored in enumerate(original_wavs,1):
+            audio_file=folder/f"slide{pos}.wav"
+            if (stored.get("file")!=audio_file.name or
+                stored.get("sha256")!=digest(audio_file)):
+                return False
+        # This admits the old package for isolated staging ONLY; the
+        # rebuilt slide package must regenerate and verify a new sync.
+            import fitz
+        with fitz.open(folder/"slides.pdf") as deck:
+            slide_count=len(deck)
+        wavs = sorted((p for p in folder.glob("slide*.wav")
+                      if re.fullmatch(r"slide[1-9]\d*\.wav",p.name)),
+                      key=lambda p:int(p.stem[5:]))
+        if len(wavs)!=slide_count or [p.name for p in wavs]!=[
+                f"slide{i}.wav" for i in range(1,slide_count+1)]:
+            return False
+        for wav in wavs:
+            with wave.open(str(wav),"rb") as track:
+                if track.getnframes()<=0 or track.getframerate()<=0:
+                    return False
+        fidelity=json.loads((folder/"tts_fidelity_report.json").read_text("utf8"))
+        summary=fidelity.get("summary",{})
+        threshold=float(fidelity.get("threshold_percent",99.0))
+        if (summary.get("slides")!=slide_count or
+                summary.get("passed")!=slide_count or
+                summary.get("blocking_failures")!=0 or summary.get("review",0)!=0 or
+                float(summary.get("minimum_fidelity_percent",-1))<threshold):
+            return False
+        risk=json.loads((folder/"script_risk_report.json").read_text("utf8"))
+        if risk.get("summary",{}).get("blocking")!=0:
+            return False
+        return True
+    except (OSError,ValueError,TypeError,KeyError,AttributeError,
+            json.JSONDecodeError,RuntimeError,IndexError):
+        return False
+
+
 def stage_rebuild(original: Path, patch: Path, work: Path) -> dict:
     """Rebuild a repaired legacy deck without touching the published folder."""
     import fitz
@@ -304,7 +419,8 @@ def stage_rebuild(original: Path, patch: Path, work: Path) -> dict:
     if work.exists() and any(work.iterdir()):
         raise FileExistsError("Work directory is not empty: " + str(work))
     work.mkdir(parents=True, exist_ok=True)
-    if not completed_lecture(original / "source.pdf"):
+    if not (completed_lecture(original / "source.pdf")
+            or _completed_legacy_split_lecture(original / "source.pdf")):
         raise ValueError("Original package lacks valid completion proof; use full recovery pipeline")
     before = _source_snapshot(original)
     for p in original.iterdir():

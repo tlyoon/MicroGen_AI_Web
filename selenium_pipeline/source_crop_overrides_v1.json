@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "description": "Original-PDF-SHA and printed-figure-ID pinned geometry. Crops must still pass panel, source-pixel and edge verification. One specifically registered figure uses a COMPLETE printed caption because the diagram and caption physically share the same source rectangle; partial caption crops are never accepted.",
+  "description": "Original-PDF-SHA and printed-figure-ID pinned geometry. Crops must still pass panel, source-pixel and edge verification. One specifically registered figure uses a COMPLETE printed caption because the diagram and caption physically share the same source rectangle; partial caption crops are never accepted. Chapter 9 verified source-bound geometry migrated from Yoga 6 v3; all original page/caption, source-pixel and visual checks remain mandatory.",
   "overrides": {
     "fb33af9a5fd164702c6b2aac708bd409098476fa48044535d9aec4e4a18a8a1f": {
       "10.1": [
@@ -80,6 +80,126 @@
         510,
         585,
         605
+      ]
+    },
+    "08c450e780e95aab57cfd7425df1401893c52378a2a5e890df4bbcd58c3d0578": {
+      "9.10": [
+        115,
+        80,
+        548,
+        238
+      ],
+      "9.11": [
+        294,
+        176,
+        550,
+        282
+      ],
+      "9.5": [
+        315,
+        53,
+        592,
+        225
+      ],
+      "9.9": [
+        260,
+        78,
+        595,
+        275
+      ]
+    },
+    "1e73735b2b44f6b287f3e3fcd1a2d8febd85fcd5aeba273a4b83bcf038929717": {
+      "9.14": [
+        443,
+        61,
+        582,
+        420
+      ],
+      "9.15": [
+        443,
+        480,
+        582,
+        574
+      ],
+      "9.16": [
+        31,
+        59,
+        174,
+        205
+      ],
+      "9.17": [
+        30,
+        257,
+        173,
+        478
+      ],
+      "9.18": [
+        183,
+        507,
+        440,
+        607
+      ],
+      "9.19": [
+        400,
+        610,
+        560,
+        736
+      ],
+      "9.20": [
+        440,
+        311,
+        580,
+        399
+      ]
+    },
+    "3c3d2c145d7fa3ff86e8632144c7be695225372591d95df0a594b75c5b381049": {
+      "9.12": [
+        30,
+        53,
+        176,
+        313
+      ],
+      "9.13": [
+        438,
+        130,
+        580,
+        285
+      ]
+    },
+    "4210d2a5de455f9a1d98fbf9848fcc5a2de76b25d4423674d1638c82995c8a10": {
+      "9.23": [
+        441.1764705882353,
+        282.94117647058823,
+        582.3529411764706,
+        593.5294117647059
+      ]
+    },
+    "a813202fdd9155b310027c73e1bc4b3d5eff3b8a0c29f428061352b1b6634a25": {
+      "9.3": [
+        105,
+        53,
+        445,
+        264
+      ],
+      "9.5": [
+        315,
+        53,
+        592,
+        225
+      ]
+    },
+    "a9d234cc86ce1cf99d8891034ec96296109776c5df239fa74d74f28306325b1c": {
+      "9.22": [
+        406,
+        85,
+        542,
+        197
+      ],
+      "9.23": [
+        441.1764705882353,
+        282.94117647058823,
+        582.3529411764706,
+        593.5294117647059
       ]
     }
   },
