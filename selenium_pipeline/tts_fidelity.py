@@ -618,7 +618,7 @@ def _ground_truth_items(folder: Path) -> list[tuple[int, str]]:
         ]
     except (TypeError, AttributeError):
         return script_items
-    if any(source and source != text for source, (_, text)
+    if any(not source or source != text for source, (_, text)
            in zip(manifest_source, script_items)):
         print("[tts-qa] stale TTS input manifest: current script differs; "
               "review against current script, preserving original manifest",
