@@ -93,7 +93,8 @@ def collect_tts_risks(text: str, *, slide: int | None = None) -> list[dict[str, 
     explicit_role_re = re.compile(
         r"(?:variable|charge|point|object|sphere|axis|component|coordinate|"
         r"denoted|option|choice|letter|capital|radius|distance|area|length|field|"
-        r"magnitude|constant|density|volume|surface|line|plate|rod)\s+$"
+        r"magnitude|constant|density|volume|surface|line|plate|rod|"
+        r"labeled|labelled|marked)\s+$"
     )
 
     for match in STANDALONE_LETTER.finditer(text):
