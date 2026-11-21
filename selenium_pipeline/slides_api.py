@@ -49,7 +49,9 @@ def request_slides(source: Path, prompt: Path, dimension_json: Path,
         )
     reply = call_with_client_failover(
         create_gemini_client, operation, label=f"MicroGen slides PDF {source.name}",
-        max_retries=1,
+        # One SDK invocation per source-bound claim. Transient response
+        # uncertainty must be reconciled from saved evidence, not retried.
+        max_retries=0,
     )
     candidates = getattr(reply, "candidates", None) or []
     reason = str(getattr(candidates[0], "finish_reason", "")).upper() if candidates else ""

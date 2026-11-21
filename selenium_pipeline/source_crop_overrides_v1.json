@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "description": "Original-PDF-SHA and printed-figure-ID pinned geometry. Crops must still pass panel, source-pixel and edge verification. One specifically registered figure uses a COMPLETE printed caption because the diagram and caption physically share the same source rectangle; partial caption crops are never accepted.",
+  "overrides": {
+    "fb33af9a5fd164702c6b2aac708bd409098476fa48044535d9aec4e4a18a8a1f": {
+      "10.1": [
+        29.997,
+        289.466,
+        175.997,
+        523.466
+      ],
+      "10.3": [
+        25,
+        245,
+        176,
+        425
+      ]
+    },
+    "ffbd6a6e0a1b4ab59ba661ce848f0799de1c7864b554275a64fb05f9d8214123": {
+      "10.6": [
+        395,
+        225,
+        550,
+        354
+      ],
+      "10.7": [
+        442,
+        191.639,
+        593,
+        395.639
+      ]
+    },
+    "547267a441f68aa27d21224ff1412f1ca11e79107c1d96095cc41128c5188b66": {
+      "10.18": [
+        442,
+        213.291,
+        593,
+        422.291
+      ],
+      "10.19": [
+        293,
+        135,
+        547,
+        327
+      ]
+    },
+    "407c32dde1432ee36d455e53347b472d9bc8ec61db3ed15cb710caf9733bce32": {
+      "10.22": [
+        315,
+        60,
+        570,
+        231
+      ],
+      "10.23": [
+        159,
+        625,
+        556,
+        774
+      ],
+      "10.24": [
+        441,
+        53,
+        593,
+        186.547
+      ],
+      "10.25": [
+        78,
+        575,
+        449,
+        740
+      ],
+      "10.26": [
+        30,
+        185,
+        176,
+        308.447
+      ],
+      "10.27": [
+        415,
+        510,
+        585,
+        605
+      ]
+    }
+  },
+  "caption_inclusive": {
+    "407c32dde1432ee36d455e53347b472d9bc8ec61db3ed15cb710caf9733bce32": [
+      "10.22"
+    ]
+  }
+}

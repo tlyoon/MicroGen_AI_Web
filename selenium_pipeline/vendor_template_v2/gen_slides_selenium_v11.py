@@ -1000,21 +1000,28 @@ def send_prompt_and_capture_transport_block(
     client: "gemsel.GeminiSeleniumClient",
     instruction_text: str,
     wait_cap: int,
+    *,
+    claim=None,
 ) -> str:
+    from selenium_pipeline.slide_transport_guard import PreSendFailure, IndeterminateSend
     if client.driver is None:
-        raise RuntimeError("Selenium client driver is not available.")
-
+        raise PreSendFailure("Gemini owned-tab driver not available before Send")
     if not client.type_prompt_text(instruction_text, retries=3):
-        raise RuntimeError("Could not type into Gemini prompt field after retries.")
-
-    if not client.click_send_with_fallbacks(retries=3):
-        raise RuntimeError("Could not send the prompt after retries.")
+        raise PreSendFailure("Gemini composer did not verify typed input before Send")
+    # This exclusive persisted claim precedes the ONE possible outbound click.
+    # All response-free or ambiguous outcomes are quarantined, never retried.
+    if claim is not None:
+        claim.mark_send_may_have_occurred()
+    if not client.click_send_with_fallbacks(retries=1):
+        raise IndeterminateSend("Gemini Send outcome is not independently verified")
 
     # -----------------------------
     # First choice: use Gemini's own Copy action
     # -----------------------------
     copied = capture_transport_block_via_copy_icon(client, wait_cap=wait_cap, retries=8)
     if copied:
+        if claim is not None:
+            claim.capture(copied.strip())
         return copied.strip()
 
     # -----------------------------
@@ -1037,6 +1044,8 @@ def send_prompt_and_capture_transport_block(
                 stable = 0
 
             if "\\documentclass" in block and "\\end{document}" in block and stable >= 1:
+                if claim is not None:
+                    claim.capture(block.strip())
                 return block.strip()
 
         time.sleep(0.8)
@@ -1045,10 +1054,14 @@ def send_prompt_and_capture_transport_block(
     if fallback:
         fenced = extract_fenced_latex_block(fallback)
         if fenced:
+            if claim is not None:
+                claim.capture(fenced.strip())
             return fenced.strip()
+        if claim is not None:
+            claim.capture(fallback)
         return fallback
 
-    return ""
+    raise IndeterminateSend("Gemini Send was attempted but no owned response was captured")
 
 
 def request_slides_api_once(
@@ -1057,8 +1070,11 @@ def request_slides_api_once(
     prompt_path: Path,
     png_json_path: Path,
     response_path: Path,
+    *,
+    claim=None,
 ) -> str:
     """Invoke SDK-capable Python; API responses still face Beamer sanity QA."""
+    from selenium_pipeline.slide_transport_guard import IndeterminateSend
     package_root = Path(os.environ.get("MICROGEN_PACKAGE_ROOT", "")).expanduser()
     sdk_python = Path(os.getenv("MICROGEN_TTS_PYTHON", "")).expanduser()
     if not (package_root / "selenium_pipeline" / "slides_api.py").is_file():
@@ -1079,16 +1095,24 @@ def request_slides_api_once(
     ]
     env = os.environ.copy()
     env.setdefault("MICROGEN_GEMINI_MAX_RETRIES", "1")
-    task = subprocess.run(
-        cmd, cwd=str(package_root), env=env,
-        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
-        timeout=max(30, int(env.get("MICROGEN_SLIDES_API_TIMEOUT_SECONDS", "480"))),
-        check=False,
-    )
-    log(f"[slides-api] exit={task.returncode} " + (task.stdout or "")[-1800:])
+    if claim is not None:
+        claim.mark_send_may_have_occurred()
+    try:
+        task = subprocess.run(
+            cmd, cwd=str(package_root), env=env,
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+            timeout=max(30, int(env.get("MICROGEN_SLIDES_API_TIMEOUT_SECONDS", "480"))),
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise IndeterminateSend("Slides API transport outcome uncertain") from exc
+    log(f"[slides-api] exit={task.returncode}; response-file-present={response_path.is_file()}")
     if task.returncode or not response_path.is_file():
-        raise RuntimeError("Slides API transport did not produce a raw reply")
-    return response_path.read_text(encoding="utf-8")
+        raise IndeterminateSend("Slides API request has no verified raw response")
+    response = response_path.read_text(encoding="utf-8")
+    if claim is not None:
+        claim.capture(response)
+    return response
 
 
 def generate_slides_tex(
@@ -1110,6 +1134,7 @@ def generate_slides_tex(
       - extract that code block directly from the latest response DOM
       - sanitize and compile-gate before accepting
     """
+    from selenium_pipeline.slide_transport_guard import PreSendFailure, IndeterminateSend
     last_latex = ""
     last_preview = ""
     legibility_feedback = ""
@@ -1181,12 +1206,20 @@ def generate_slides_tex(
                 backend = communication_plan[attempt - 1].backend.value
                 log(f"[slides-transport] attempt={attempt}/{max_attempts} backend={backend}")
                 response_text = response_provider(backend, instruction)
+        except IndeterminateSend as exc:
+            log(f"[slides-transport] attempt {attempt}: "
+                f"UNCERTAIN_SEND; no automatic resubmission: {exc}", "ERROR")
+            raise
+        except PreSendFailure as exc:
+            log(f"[slides-transport] attempt {attempt}: "
+                f"VERIFIED_PRE_SEND_FAILURE: {exc}; next planned transport eligible", "WARN")
+            continue
         except Exception as exc:
             if isinstance(exc, (FileNotFoundError, PermissionError, ValueError)):
                 raise
             log(f"[slides-transport] attempt {attempt}: "
-                f"{type(exc).__name__}; no response accepted", "WARN")
-            continue
+                f"{type(exc).__name__}; no response accepted; unknown transport state", "ERROR")
+            raise
         
         raw_attempt_path = out_tex.with_name(f"slides_attempt_{attempt}_raw.txt")
         raw_attempt_path.write_text(response_text or "", encoding="utf-8", newline="\n")
@@ -1432,34 +1465,64 @@ def main() -> int:
     )
     log(f"[slides-transport] mode={policy.mode.value}", "INFO")
     client = None
+    backend_ordinals = {"selenium": 0, "api": 0}
 
     def request_backend(backend: str, instruction: str) -> str:
         nonlocal client
+        from selenium_pipeline.slide_transport_guard import (
+            SlideAttemptClaim, PreSendFailure, IndeterminateSend)
+        if backend not in backend_ordinals:
+            raise ValueError(f"Unsupported slides communication backend: {backend}")
+        backend_ordinals[backend] += 1
+        claim = SlideAttemptClaim(
+            pdf_path, rendered_prompt_path, instruction,
+            backend=backend, ordinal=backend_ordinals[backend])
+        cached = claim.read_existing()
+        if cached is not None:
+            log(f"[slides-transport] verified existing {backend} response reused without new Send")
+            return cached
         if backend == "api":
             return request_slides_api_once(
                 instruction, pdf_path, rendered_prompt_path, png_json_path,
-                out_tex.with_name("slides_api_transport_response.txt"),
-            )
-        if backend != "selenium":
-            raise ValueError(f"Unsupported slides communication backend: {backend}")
+                out_tex.with_name("slides_api_transport_response.txt"), claim=claim)
         if client is None:
             fresh = gemsel.GeminiSeleniumClient(cfg)
             try:
                 fresh.start(ensure_gemini_on_launch=True)
                 from selenium_pipeline.gemini_model import ensure_mode
                 ensure_mode(cfg.debug_port, os.getenv("MICROGEN_GEMINI_UI_MODE", "flash"))
-            except Exception:
+            except Exception as exc:
                 try:
                     fresh.shutdown()
                 except Exception:
                     pass
-                raise
+                raise PreSendFailure("Gemini browser/model bootstrap failed before Send") from exc
             client = fresh
-        client.open_clean_gemini_chat()
-        client.upload_files([pdf_path, rendered_prompt_path, png_json_path])
-        return send_prompt_and_capture_transport_block(
-            client=client, instruction_text=instruction, wait_cap=wait_cap,
-        )
+        try:
+            client.open_clean_gemini_chat()
+        except Exception as exc:
+            stage = str(getattr(client, "_microgen_presend_stage", "OWNED_TAB"))
+            log(f"[slides-transport] owned Gemini pre-send stage failure: {stage}", "WARN")
+            raise PreSendFailure(f"Owned Gemini tab not ready at {stage}") from exc
+        try:
+            client.upload_files([pdf_path, rendered_prompt_path, png_json_path])
+        except Exception as exc:
+            raise PreSendFailure("Gemini attachments not ready before Send") from exc
+        try:
+            return send_prompt_and_capture_transport_block(
+                client=client, instruction_text=instruction, wait_cap=wait_cap,
+                claim=claim,
+            )
+        except PreSendFailure:
+            raise
+        except IndeterminateSend:
+            raise
+        except Exception as exc:
+            # The claimed Send may have reached Gemini even if Selenium
+            # subsequently raised. Never retry or switch to API blindly.
+            if claim.path.is_file():
+                raise IndeterminateSend("Gemini slide response interrupted after claimed Send") from exc
+            raise PreSendFailure("Gemini editor failed before Send") from exc
 
     try:
         generate_slides_tex(

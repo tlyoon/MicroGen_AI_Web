@@ -183,6 +183,16 @@ def run_stage(
         "MICROGEN_TTS_PYTHON": os.getenv("MICROGEN_WORKER_TTS_PYTHON", sys.executable),
         "MICROGEN_GEMINI_LANE_STALE_SECONDS": "1800",
     })
+    if stage == "slides":
+        # One independently verified pre-Send Selenium failure may fall back
+        # to one Gemini API request. Uncertain post-Send outcomes cannot.
+        # Other stages retain their existing transport policy.
+        env["MICROGEN_COMMUNICATION_MODE"] = os.getenv(
+            "MICROGEN_WORKER_SLIDES_MODE", "fallback")
+        env["MICROGEN_SELENIUM_ATTEMPTS"] = os.getenv(
+            "MICROGEN_WORKER_SLIDES_SELENIUM_ATTEMPTS", "1")
+        env["MICROGEN_API_ATTEMPTS"] = os.getenv(
+            "MICROGEN_WORKER_SLIDES_API_ATTEMPTS", "1")
     logfile.parent.mkdir(parents=True, exist_ok=True)
     start = time.monotonic()
     last_child_output = start
@@ -445,11 +455,16 @@ def main(argv: list[str] | None = None) -> int:
             process_job(root, job, args.chrome_port, 2, local_logs, lane,
                         args.idle_seconds, args.hard_seconds, state["jobs"], persist)
         unfinished = [j for j in jobs if state["jobs"].get(j, {}).get("status") != "complete"]
-        state["phase"] = "finished"
+        state["phase"] = "recovery_pending" if unfinished else "finished"
         state["unfinished"] = unfinished
-        state["finished_utc"] = timestamp()
+        state["pass_finished_utc"] = timestamp()
+        if not unfinished:
+            state["finished_utc"] = timestamp()
         persist()
-        print(f"[worker] FINISHED {args.worker}: complete={len(jobs)-len(unfinished)} unfinished={len(unfinished)}", flush=True)
+        print(
+            f"[worker] PASS_COMPLETE {args.worker}: "
+            f"complete={len(jobs)-len(unfinished)} unfinished={len(unfinished)} "
+            f"phase={state['phase']}", flush=True)
         return 2 if unfinished else 0
 
 
