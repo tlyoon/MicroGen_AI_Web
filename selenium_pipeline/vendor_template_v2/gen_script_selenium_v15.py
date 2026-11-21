@@ -883,7 +883,8 @@ def force_exact_titles_after_postprocessing(exact_titles: list[str]) -> None:
     log("Re-applied the exact first-slide title after post-processing.", "INFO")
 
 
-def request_script_api_once(instruction: str, expected_slide_count: int) -> Optional[str]:
+def request_script_api_once(instruction: str, expected_slide_count: int,
+                            *, ordinal: int = 1) -> Optional[str]:
     """Use the same Flash PDF grounding without brittle Chrome submission/capture.
 
     Launch through the vetted API/TTS Python, because some Docling environments
@@ -894,6 +895,16 @@ def request_script_api_once(instruction: str, expected_slide_count: int) -> Opti
     executable = os.environ.get("MICROGEN_TTS_PYTHON", "").strip()
     if not repo.is_dir() or not executable or not Path(executable).is_file():
         raise RuntimeError("Gemini API narration requires code root and TTS Python")
+    from selenium_pipeline.narration_transport_guard import (
+        narration_api_claim, IndeterminateSend)
+    claim = narration_api_claim(
+        SOURCE_PDF, SLIDES_PDF, RENDERED_PROMPT_FILE, instruction,
+        ordinal=ordinal)
+    previously_captured = claim.read_existing()
+    if previously_captured is not None:
+        log("Reused SHA-verified prior narration API response; no new Send.", "INFO")
+        return (previously_captured if raw_response_has_real_narration(
+            previously_captured, expected_slide_count) else None)
     instruction_file = Path.cwd() / "narration_api_instruction.txt"
     output = Path.cwd() / "narration_api_response.txt"
     instruction_file.write_text(instruction, encoding="utf-8")
@@ -911,12 +922,21 @@ def request_script_api_once(instruction: str, expected_slide_count: int) -> Opti
     log(f"Requesting {expected_slide_count} source-grounded narration blocks via Gemini Flash API.", "INFO")
     # The child inherits non-committed AppData keys from the launcher; no token
     # is passed in arguments or written to a staging file.
-    result = subprocess.run(command, cwd=repo, check=False, timeout=480)
+    # Exclusive persistent claim immediately precedes the single SDK call.
+    # HTTP timeout/504 is *not* proof that the provider did not generate
+    # an answer. Never automatically replay the same unverified request.
+    claim.mark_send_may_have_occurred()
+    try:
+        result = subprocess.run(command, cwd=repo, check=False, timeout=480)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise IndeterminateSend("Narration API request outcome uncertain") from exc
     if result.returncode != 0:
-        raise RuntimeError(f"Gemini narration API failed (exit={result.returncode}); see rejected diagnostic")
+        raise IndeterminateSend(
+            f"Narration API exit={result.returncode}; provider outcome unverified")
     if not output.is_file():
-        raise RuntimeError("Gemini narration API returned no validated raw response")
+        raise IndeterminateSend("Narration API returned no attributable raw response")
     response = output.read_text(encoding="utf-8")
+    claim.capture(response)
     if not raw_response_has_real_narration(response, expected_slide_count):
         log("API returned only incomplete narration; refusing to publish it.", "WARN")
         return None
@@ -1020,6 +1040,7 @@ def main() -> int:
     from selenium_pipeline.communication_policy import (
         CommunicationBackend, policy_from_configuration,
     )
+    from selenium_pipeline.slide_transport_guard import IndeterminateSend
     policy = policy_from_configuration(
         selenium_attempts=int(os.getenv("MICROGEN_SELENIUM_ATTEMPTS", "3")),
         api_attempts=int(os.getenv("MICROGEN_API_ATTEMPTS", "2")),
@@ -1053,6 +1074,28 @@ def main() -> int:
     except Exception as e:
         log(f"Could not render prompt or title metadata: {e}", "ERR")
         return 1
+
+    # Inspect already captured, rejected narration BEFORE any fresh Send.
+    # A deterministic TTS false-positive fix may make an original answer
+    # acceptable; always apply the complete present-day source/title/speech
+    # validation and preserve all academic quality gates.
+    from selenium_pipeline.narration_saved_recovery import recover_saved_narration
+    saved = recover_saved_narration(
+        Path.cwd(), source_pdf=SOURCE_PDF, slides_pdf=SLIDES_PDF,
+        check_warnings=lambda candidate: collect_all_warnings(
+            candidate, SLIDES_PDF, exact_titles),
+    )
+    if saved is not None:
+        receipt = Path.cwd() / "gemini_narration_transport_attempts.json"
+        receipt.write_text(json.dumps({
+            "mode": "saved_verified", "completed": True,
+            "source_sha256": saved["source_sha256"],
+            "slides_sha256": saved["slides_sha256"],
+            "candidate": saved["candidate"], "model_requests": 0,
+        }, indent=2) + "\n", encoding="utf-8")
+        log("Recovered previously rejected narration after current full QA: "
+            "zero new model requests", "OK")
+        return 0
 
     client = None
     gemsel = None
@@ -1093,10 +1136,18 @@ def main() -> int:
                             client.shutdown()
                         finally:
                             client = None
-                    response = request_script_api_once(revised, slide_count)
+                    response = request_script_api_once(
+                        revised, slide_count, ordinal=step.number)
             except (ValueError, FileNotFoundError, PermissionError):
                 # Invalid local inputs must fail closed without retry or API
                 # escalation. Do not spend model quota on a bad source.
+                raise
+            except IndeterminateSend as e:
+                trace.append({"backend": backend, "attempt": step.number,
+                              "result": "uncertain_send_no_replay",
+                              "error_type": type(e).__name__})
+                log(f"[transport] {backend} request outcome uncertain; "
+                    "persistent claim prevents automatic duplicate Send", "ERROR")
                 raise
             except Exception as e:
                 trace.append({"backend": backend, "attempt": step.number,

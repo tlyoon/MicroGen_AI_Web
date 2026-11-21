@@ -82,7 +82,7 @@ def _main(tmp_path, monkeypatch, selenium_responses, api_responses):
                             GeminiSeleniumClient=FakeClient),
         request_script_once=lambda client, gemsel, instr, pages:
             next_result("selenium", selenium_responses),
-        request_script_api_once=lambda instr, pages:
+        request_script_api_once=lambda instr, pages, **kwargs:
             next_result("api", api_responses),
         sanitize_and_rebuild_script=lambda text, titles: text,
         save_script_text=save_script,
@@ -183,3 +183,17 @@ def test_fallback_browsers_are_excluded_from_concurrent_local_use(monkeypatch):
             assert _may_use_browser(stage) is expected
         for stage in ("script_qa", "tts", "tts_qa", "video"):
             assert not _may_use_browser(stage)
+
+
+
+def test_uncertain_api_send_blocks_all_further_attempts(tmp_path, monkeypatch):
+    from selenium_pipeline.slide_transport_guard import IndeterminateSend
+    monkeypatch.setenv("MICROGEN_COMMUNICATION_MODE", "api")
+    run, calls, _, script = _main(
+        tmp_path, monkeypatch, [],
+        [IndeterminateSend("provider request may have completed"), "VALID"],
+    )
+    with pytest.raises(IndeterminateSend):
+        run()
+    assert calls == ["api"]
+    assert not script.exists()

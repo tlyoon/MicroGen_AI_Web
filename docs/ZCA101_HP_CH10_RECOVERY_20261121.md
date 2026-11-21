@@ -21,3 +21,11 @@ User-login Startup entry provides restart after logging into HP; it is not a Win
 
 ## Testing contract
 Run offline and fault-injection tests for transport, source crop source-SHA, stale or tampered raw response, per-PC worker status, retry/backoff, PDF source image visibility and real Chapter 10.9 figure geometry. Confirm no Send retry after ambiguous outcome, no silent incomplete-to-complete transition, no source PDF overwrite and no unverified MP4 release. A production pilot for 10.1 demonstrated pre-Send picker failure classification, one API response, Beamer compile and three source figures accepted; saved slides published without an additional Gemini Send.
+
+
+## Narration API recovery follow-up (21 November 2026)
+The live regeneration of Chapter 10.1 returned 14 complete source-grounded narration blocks via API. The original full narration QA rejected the physically unambiguous phrase "position labeled A" as a mid-sentence article, then a later API attempt encountered Gemini 504 deadline errors. PR #575 refined only explicit labeling contexts: unlabeled ambiguous capital A remains blocking, and labeled A retains pronunciation review.
+
+The executable narration recovery now checks previously rejected postprocessed API narration against the original source SHA, the chronology of the compiled slide PDF and every current narration QA rule before restoring script.txt. No new model request is made to reuse saved verified words. Narration API calls now use one SDK attempt per source-bound request, with independent request/response SHA claims and no automatic replay on an uncertain 504/timeout. The chapter supervisor fingerprints these narration mechanisms and wakes deferred jobs after verified code repairs. An HP-only worker stage policy may select API narration without changing the default modes on other PCs. The user-login HP launcher explicitly enables this path.
+
+Real HP validation: the original saved 10.1 narration passed all current complete narration validators, with 14 slide titles and zero warnings. The full targeted source/supervisor/narration regression suite passed 66 tests prior to integration. This validates the saved narration as a candidate for stage publication, not the final audio or MP4 acceptance.
