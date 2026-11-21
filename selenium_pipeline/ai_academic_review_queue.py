@@ -151,6 +151,8 @@ def execute_one_review(*,queue_root:Path,folder:Path,
                        slide:int,mode:str,
                        attempt:int=1,transport=None,
                        wrapped_recovery_only:bool=False,
+                       certified_presend_only:bool=False,
+                       expected_failed_attempt_sha256:str|None=None,
                        health_family:str="pro")->dict:
     queue_root=Path(queue_root).absolute();folder=Path(folder).absolute()
     require(type(attempt) is int and 1<=attempt<=3,"No unbounded AI retry loop")
@@ -217,6 +219,55 @@ def execute_one_review(*,queue_root:Path,folder:Path,
                 "Envelope recovery needs existing invalid saved reply")
         evidence_file=queue_root/(
             f"slide_{slide:03d}_{mode.lower()}_envelope_recovered_after_attempt_{attempt:02d}.json")
+    require(type(certified_presend_only) is bool
+            and not (certified_presend_only and wrapped_recovery_only),
+            "Only one exact historical review recovery mode may run")
+    certified_prior_digest=None
+    if certified_presend_only:
+        from .academic_review_checkpoint import (
+            _load, _verify_certified_unsent, fingerprint,
+            MAX_CERTIFIED_PRESEND_RECOVERIES)
+        require(transport is None and attempt == 1
+                and type(expected_failed_attempt_sha256) is str
+                and re.fullmatch(r"[a-f0-9]{64}", expected_failed_attempt_sha256)
+                and evidence_file.is_file() and not evidence_file.is_symlink()
+                and _sha(evidence_file) == expected_failed_attempt_sha256,
+                "Certified pre-Send resume needs exact original failed receipt")
+        old=json.loads(evidence_file.read_text(encoding="utf8"))
+        require(old.get("slide")==slide and old.get("mode")==mode
+                and old.get("attempt")==1
+                and old.get("status")=="FAILED_GEMINI_REVIEW_ATTEMPT_QUARANTINED"
+                and old.get("provider_submission_state")==
+                    "UNKNOWN_AFTER_POSSIBLE_SUBMISSION"
+                and old.get("manual_retry_eligible") is False
+                and old.get("student_publication_authorized") is False,
+                "Only the original ambiguous failure may gain a stronger typed no-Send witness")
+        original_claim=_load(live_checkpoint)
+        proof_count=_verify_certified_unsent(live_checkpoint,original_claim)
+        job_before=build_review_job(folder=folder,slide_numbers=[slide])
+        prompt_fingerprint=fingerprint(
+            request_text=review_instructions(job_before,mode=mode),
+            source_hashes={
+                "source.pdf":job_before["source_sha256"],
+                "slides.pdf":job_before["slides_sha256"],
+                "script.txt":job_before["script_sha256"],
+            },
+            review_mode=mode)
+        original_index=queue_root/".microgen_academic_review_once"/(
+            prompt_fingerprint+".claim")
+        require(original_claim["status"]=="CERTIFIED_PRESEND_UNSENT"
+                and 1<=proof_count<MAX_CERTIFIED_PRESEND_RECOVERIES
+                and original_claim["request_fingerprint"]==prompt_fingerprint
+                and all(original_claim[k]==job_before[k] for k in
+                        ("source_sha256","slides_sha256","script_sha256"))
+                and job_before["utterance_count"]==row["utterance_count"]
+                and original_index.is_file() and not original_index.is_symlink(),
+                "No source-bound certified original academic reviewer Send window")
+        certified_prior_digest=expected_failed_attempt_sha256
+        # The old immutable JSON remains a historical failure; this
+        # write-once successor records the exact bounded SAME-claim resume.
+        evidence_file=queue_root/(
+            f"slide_{slide:03d}_{mode.lower()}_certified_presend_resumed_after_attempt_01.json")
     require(not evidence_file.exists() and not evidence_file.is_symlink(),
             "Observed attempt/reconciliation receipt must never be overwritten")
     # Fail immediately after previous failures unless caller explicitly elects next attempt.
@@ -343,6 +394,12 @@ def execute_one_review(*,queue_root:Path,folder:Path,
                         mode=mode),
                     required_model_family=required_model_family,
                 )
+            elif checkpoint_state["status"] == "CERTIFIED_PRESEND_UNSENT":
+                # This status is NOT ordinarily safe to retry. Admission
+                # above must have source-fingerprint-validated typed no-click
+                # witnesses and the original immutable failed receipt.
+                require(certified_presend_only,
+                        "Certified review recovery requires exact prior-claim evidence")
             elif checkpoint_state["status"] not in {"PREPARED_NOT_SENT"}:
                 raise RuntimeError(
                     "Academic browser Send may already have occurred; "
@@ -414,6 +471,17 @@ def execute_one_review(*,queue_root:Path,folder:Path,
           "receipt_sha256":_sha(success),
           "academic_independent_challenge_complete":False,
           "student_publication_authorized":False}
+    if certified_presend_only:
+        done["certified_presend_original_claim_provenance"]={
+            "schema_version":1,
+            "status":"EXACT_ORIGINAL_NO_CLICK_CLAIM_RESUMED_FOR_ONE_SOURCE_REVIEW",
+            "original_failed_attempt_sha256":certified_prior_digest,
+            "original_source_sha256":_sha(folder/"source.pdf"),
+            "certified_presend_count_before_resume":proof_count,
+            "old_historical_receipt_preserved":True,
+            "independent_math_accepted":False,
+            "student_publication_authorized":False,
+        }
     if wrapped_recovery_only:
         # Audit the write-once successor. Original request and prior failed
         # reconciliation receipts stay immutable, and the next academic
@@ -459,6 +527,42 @@ def select_next_safe_review(*,queue_root:Path,folder:Path,
         if scope["planning_result"]=="EXISTING_PASS_MUST_NOT_BE_REPEATED":
             completed+=1
             continue
+        if scope.get("certified_presend_same_claim_recovery_ready") is True:
+            from .recovery_registry import lookup_mechanism
+            require(lookup_mechanism(
+                "source_review_claim",
+                "G2_TYPED_PRESEND_UNSENT_REUSE_EXACT_ORIGINAL_WINDOW") ==
+                "RESUME_ONLY_ORIGINAL_CERTIFIED_UNSENT_CLAIM_ONCE",
+                "No executable registry admission for certified academic pre-Send")
+            # A proven no-click request does not cure repeated unattributed
+            # Sends from other slides. Preserve the provider-health circuit.
+            prior = _prior_unattributed_streak(
+                queue_root=queue_root, slide_jobs=plan["slide_jobs"],
+                before_slide=slide)
+            if len(prior)>=2:
+                blocked.append({"slide":slide,"mode":mode,
+                                "reason":"CERTIFIED_UNSENT_HELD_BY_PROVIDER_HEALTH"})
+                continue
+            old_receipt = queue_root/(
+                f"slide_{slide:03d}_{mode.lower()}_attempt_01.json")
+            require(old_receipt.is_file() and not old_receipt.is_symlink(),
+                    "Missing original failed attempt for typed pre-Send recovery")
+            return {
+                "status":"ONE_SAFE_ACADEMIC_REVIEW_UNIT_READY",
+                "next_slide":slide,"next_mode":mode,"attempt":1,
+                "action":"RESUME_CERTIFIED_UNSENT_ORIGINAL_CLAIM",
+                "original_failed_attempt_sha256":_sha(old_receipt),
+                "original_source_sha256":scope["original_source_sha256"],
+                "certified_presend_count":
+                    scope["review_stages"][mode]["certified_presend_count"],
+                "previously_completed_slides":completed,
+                "blocked_other_slides":blocked,
+                "new_model_requests":False,
+                "original_request_replay_authorized":False,
+                "same_original_claim_pre_click_recovery_only":True,
+                "per_slide_approval_required":False,
+                "student_publication_authorized":False,
+            }
         # A previous failed attempt does not invalidate bytes already saved
         # by the SAME claimed review request. Reconcile the immutable saved
         # response before considering another browser Send; never erase its
@@ -794,13 +898,18 @@ def advance_one_safe_review(*,queue_root:Path,folder:Path,
     if not execute or selection["status"]!="ONE_SAFE_ACADEMIC_REVIEW_UNIT_READY":
         return selection
     saved_envelope=selection.get("action")=="RECOVER_WRAPPED_SAVED_REPLY_NO_SEND"
-    require(not saved_envelope or transport is None,
-            "No injected/model transport for historical envelope recovery")
+    certified_presend=selection.get("action")=="RESUME_CERTIFIED_UNSENT_ORIGINAL_CLAIM"
+    require((not saved_envelope and not certified_presend) or transport is None,
+            "Historical academic recoveries require original owned browser transport")
     result=execute_one_review(
         queue_root=queue_root,folder=folder,
         slide=selection["next_slide"],mode=selection["next_mode"],
         attempt=1,transport=transport,
-        wrapped_recovery_only=saved_envelope,health_family=health_family)
+        wrapped_recovery_only=saved_envelope,
+        certified_presend_only=certified_presend,
+        expected_failed_attempt_sha256=selection.get(
+            "original_failed_attempt_sha256") if certified_presend else None,
+        health_family=health_family)
     return {
         "status":"ONE_AUTONOMOUS_ACADEMIC_REVIEW_ATTEMPT_FINISHED",
         "selection":selection,"review":result,

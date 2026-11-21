@@ -758,6 +758,20 @@
       "environment": "Dell-115 original historical October source renderer reproduced real preflight ImportError and exact original 160x100 RGB pixel SHA",
       "retry_policy": "reuse one exact historical pure local image-compositing function, bounded geometry and scale, zero provider requests, zero WAV synthesis and zero student publication",
       "enabled": true
+    },
+    {
+      "id": "G2_ORIGINAL_TYPED_PRESEND_UNSENT_SAME_WINDOW",
+      "match_type": "source_review_claim",
+      "signature": "G2_TYPED_PRESEND_UNSENT_REUSE_EXACT_ORIGINAL_WINDOW",
+      "mechanism": "RESUME_ONLY_ORIGINAL_CERTIFIED_UNSENT_CLAIM_ONCE",
+      "classification": "OLD_UNKNOWN_RECEIPT_CONTRADICTED_BY_LATER_TYPED_OWNED_PRECLICK_WITNESS",
+      "handler": "NORMAL_ORIGINAL_G2_HISTORICAL_CLAIM_PREVENT_NEW_SEND",
+      "preconditions": "exact immutable original source and reviewer fingerprint, original attempt01 UNKNOWN receipt, certified owned preSend no-click witnesses, original one-Send global claim, finite bounded same-window recovery",
+      "verification_test": "tests/test_g2_certified_presend_same_claim_resume.py",
+      "last_verified_date": "2026-11-21",
+      "environment": "Dell-115 original Serway 1.3 slide1 real request window; typed no-click witness and SHA exact against current source and original prompt",
+      "retry_policy": "only reuse exact original single Send claim when no click is verified; never reset consumed claim or old failure, never retry uncertain response, preserve health circuit, no scientific acceptance or release",
+      "enabled": true
     }
   ]
 }

@@ -30,8 +30,46 @@ def plan_manual_review_attempt(queue_root:Path,*,slide:int,mode:str)->dict:
     if mode=="INDEPENDENT_CHALLENGE":
         prior=q/f"slide_{slide:03d}_initial_review.json"
         if not prior.is_file():return {"status":"BLOCKED_MISSING_INITIAL_REVIEW","dispatch_authorized":False}
+    certified_presend_count = 0
+    certified_successor = q/(label+"_certified_presend_resumed_after_attempt_01.json")
+    successor_consumed = certified_successor.exists() or certified_successor.is_symlink()
+    if successor_consumed:
+        if not certified_successor.is_file() or certified_successor.is_symlink():
+            raise ValueError("Untrusted historical certified pre-Send successor")
+        prior_successor=json.loads(certified_successor.read_text(encoding="utf8"))
+        if (type(prior_successor) is not dict
+            or prior_successor.get("slide")!=slide
+            or prior_successor.get("mode")!=mode
+            or prior_successor.get("attempt")!=1
+            or prior_successor.get("status") not in {
+                "FAILED_GEMINI_REVIEW_ATTEMPT_QUARANTINED",
+                "GEMINI_SOURCE_REVIEW_ONE_SLIDE_COMPLETED",
+            }):
+            raise ValueError("Unattributed historical certified pre-Send successor")
+    if (not successor_consumed and len(failures) == 1
+        and failures[0] == (
+            1, "FAILED_GEMINI_REVIEW_ATTEMPT_QUARANTINED",
+            "UNKNOWN_AFTER_POSSIBLE_SUBMISSION", False)
+        and not success.exists()):
+        # The original attempt receipt is immutable and may predate a later
+        # certified pre-click exception. Do not mistake UNKNOWN for UNSENT:
+        # only exact checkpoint-owned typed witnesses can override it.
+        from .academic_review_checkpoint import (
+            _load, _verify_certified_unsent, MAX_CERTIFIED_PRESEND_RECOVERIES)
+        checkpoint = q / (label + "_attempt_01_request")
+        if checkpoint.is_dir() and not checkpoint.is_symlink():
+            state = _load(checkpoint)
+            if state["status"] == "CERTIFIED_PRESEND_UNSENT":
+                count = _verify_certified_unsent(checkpoint, state)
+                claim = (q / ".microgen_academic_review_once" /
+                         (state["request_fingerprint"] + ".claim"))
+                if (count < MAX_CERTIFIED_PRESEND_RECOVERIES
+                    and claim.is_file() and not claim.is_symlink()):
+                    certified_presend_count = count
     if success.exists():
         status="ALREADY_COMPLETED_NO_RESUBMISSION"
+    elif certified_presend_count:
+        status="CERTIFIED_PRESEND_ORIGINAL_CLAIM_SAME_WINDOW_RECOVERY"
     elif any(e[1]!="FAILED_GEMINI_REVIEW_ATTEMPT_QUARANTINED" for e in failures):
         status="BLOCKED_UNVERIFIED_ATTEMPT_RECEIPT"
     elif len(failures)==3:status="MAX_THREE_ATTEMPTS_EXHAUSTED"
@@ -51,8 +89,12 @@ def plan_manual_review_attempt(queue_root:Path,*,slide:int,mode:str)->dict:
         status="BLOCKED_AMBIGUOUS_PROVIDER_REQUEST_NEEDS_RECONCILIATION"
     elif failures:status="EXPLICIT_MANUAL_RETRY_DECISION_REQUIRED"
     else:status="NEW_ATTEMPT_REQUIRES_EXPLICIT_REQUEST"
-    return {"status":status,"next_possible_attempt":(len(failures)+1 if status in
+    return {"status":status,"next_possible_attempt":(
+                1 if certified_presend_count else
+                len(failures)+1 if status in
                 ("NEW_ATTEMPT_REQUIRES_EXPLICIT_REQUEST",
                  "EXPLICIT_MANUAL_RETRY_DECISION_REQUIRED") else None),
             "observed_attempts":len(failures),"dispatch_authorized":False,
+            "certified_presend_count":certified_presend_count,
+            "new_provider_request_dispatched":False,
             "student_publication_authorized":False}
