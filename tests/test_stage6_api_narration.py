@@ -120,7 +120,9 @@ def test_production_launcher_and_runner_expose_three_modes():
     assert "$env:MICROGEN_NARRATION_BACKEND = 'api'" not in ps
     assert '--communication-mode' in runner
     assert 'policy.plan("narration")' in vendor
-    assert 'request_script_api_once(revised, slide_count)' in vendor
+    # Narration API now uses a source-bound ordinal send claim (PR #576).
+    assert 'request_script_api_once(' in vendor
+    assert 'ordinal=step.number' in vendor
     assert 'request_script_once(client, gemsel, revised, slide_count)' in vendor
     from selenium_pipeline.runner import _needs_browser
     with patch.dict("os.environ", {"MICROGEN_COMMUNICATION_MODE": "selenium"}):

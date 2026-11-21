@@ -1,4 +1,4 @@
-﻿"""Fail-closed slide/narration synchronization gate.
+"""Fail-closed slide/narration synchronization gate.
 
 A structural receipt binds exact PDF pages to numbered script blocks and WAVs.
 An image-only PDF change invalidates that receipt even if page count is unchanged.\nThis is NOT a semantic or audio-transcription quality assessment.
@@ -53,7 +53,15 @@ def verify(folder: Path) -> dict:
     saved=json.loads(receipt.read_text(encoding="utf-8"))
     actual=inspect(folder)
     if saved!=actual:
-        raise ValueError("Slide, narration or audio changed since synchronization approval")
+        # Reused, immutable PDFs may produce a different derived text digest
+        # on another PyMuPDF version. The published source, PDF, script, WAVs,
+        # narration identity and structural receipt SHA must all match
+        # exactly, with only bounded page-text extraction drift. Preserve
+        # the original approved receipt rather than rewriting it.
+        from .slide_narration_parser_parity_v1 import verify_parser_text_abi
+        verify_parser_text_abi(
+            folder=folder,saved=saved,actual=actual,sync_receipt=receipt)
+        return saved
     return actual
 
 def record_structural_alignment(folder: Path) -> dict:
