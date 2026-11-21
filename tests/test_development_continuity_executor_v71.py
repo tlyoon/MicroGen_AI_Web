@@ -338,3 +338,36 @@ def test_plan_and_executor_sha_are_pinned_in_committed_state(tmp_path):
     assert v["plan_sha256"]==_sha(p)
     assert v["executor_sha256"]==_sha(
         ROOT/"selenium_pipeline"/"development_continuity_executor_v71.py")
+
+
+def test_concurrent_executor_byte_lock_fails_closed_without_second_dispatch(tmp_path):
+    import time
+    from selenium_pipeline.development_continuity_executor_v71 import _exclusive
+    state=tmp_path/"lockcase"
+    state.mkdir()
+    witness=state/"first_owner_ready"
+    child_code=(
+        "import sys,time;from pathlib import Path;"
+        "from selenium_pipeline.development_continuity_executor_v71 import _exclusive;"
+        "p=Path(sys.argv[1]);"
+        "with _exclusive(p):\\n"
+        "  (p/'first_owner_ready').write_text('owned');time.sleep(5)\\n"
+    )
+    # Construct an actual executable child source: use exec() to avoid a
+    # compound with statement after a semicolon on Windows/Python 3.12.
+    child_code="from pathlib import Path\\nfrom selenium_pipeline.development_continuity_executor_v71 import _exclusive\\nimport time,sys\\np=Path(sys.argv[1])\\nwith _exclusive(p):\\n (p/'first_owner_ready').write_text('owned')\\n time.sleep(5)\\n"
+    child_code=child_code.replace("\\n","\n")
+    proc=subprocess.Popen([sys.executable,"-c",child_code,str(state)],
+                          cwd=ROOT,stdout=subprocess.DEVNULL,
+                          stderr=subprocess.DEVNULL)
+    try:
+        for _ in range(100):
+            if witness.exists():break
+            time.sleep(.05)
+        assert witness.is_file(),"Actual first executor lock never acquired"
+        with pytest.raises(RuntimeError,match="already running"):
+            with _exclusive(state):
+                raise AssertionError("Second executor should never own lock")
+    finally:
+        proc.kill()
+        proc.wait(timeout=10)
