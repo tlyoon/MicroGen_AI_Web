@@ -199,7 +199,11 @@ def test_approved_start_fails_closed_on_restart_drift(tmp_path,alter):
                     reason="Native task creation requires actual Windows")
 def test_unknown_native_task_install_fails_closed(tmp_path):
     user,old=fixtures(tmp_path)
-    with patch.object(n,"_security_preflight",return_value=(
+    # This is a mocked *Dell-115* native-integration test. A real hosted
+    # Windows CI runner is not Dell-115 and must otherwise fail closed.
+    with patch.dict(os.environ,{"COMPUTERNAME":"DELL-115",
+                               "LOCALAPPDATA":str(tmp_path)}),patch.object(
+        n,"_security_preflight",return_value=(
         {"source_git_sha":"a"*40,"source_plan_sha256":"b"*64},b"xml",user,old
     )),patch.object(n,"_register_new_native_task") as create,patch.object(
         n,"_native_snapshot",return_value={**old,TASK_NAME:{
@@ -211,6 +215,17 @@ def test_unknown_native_task_install_fails_closed(tmp_path):
                       plan=tmp_path,state_dir=tmp_path/"state",
                       output_dir=tmp_path/"out",python=tmp_path/"python.exe")
     assert create.call_count == 1
+
+
+@pytest.mark.skipif(os.name!="nt",reason="Windows native owner guard")
+def test_native_install_refuses_other_windows_computer_before_sends(tmp_path):
+    with patch.dict(os.environ,{"COMPUTERNAME":"WINDOWS-CI"}),patch.object(
+        n,"_register_new_native_task") as create:
+        with pytest.raises(ValueError,match="Dell-115 only"):
+            n.install(preview_dir=tmp_path,repo=tmp_path,
+                      plan=tmp_path,state_dir=tmp_path/"state",
+                      output_dir=tmp_path/"out",python=tmp_path/"python.exe")
+    create.assert_not_called()
 
 
 @pytest.mark.skipif(os.name=="nt",reason="Unix-specific admission check")
