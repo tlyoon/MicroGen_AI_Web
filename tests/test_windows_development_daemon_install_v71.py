@@ -287,6 +287,7 @@ def test_real_claim_reconciliation_audit_never_registers_or_enables(tmp_path):
             receipt,(stage/"offline_daemon_ENABLED_approved.xml").read_bytes(),
             user,{**old,TASK_NAME:pending}
         )),patch.object(n,"_current_sid",return_value=pending["principal_sid"]
+        ),patch.object(n,"_git_clean_head",return_value="a"*40
         ),patch.object(n,"_register_new_native_task") as register,patch.object(
         n,"_powershell") as enable:
         result=n.reconcile_existing(
@@ -310,6 +311,7 @@ def test_native_reconciliation_enables_only_previously_created_owned_task(tmp_pa
             receipt,(stage/"offline_daemon_ENABLED_approved.xml").read_bytes(),
             user,{**old,TASK_NAME:pending}
         )),patch.object(n,"_current_sid",return_value=pending["principal_sid"]
+        ),patch.object(n,"_git_clean_head",return_value="a"*40
         ),patch.object(n,"_register_new_native_task") as register,patch.object(
         n,"_powershell",return_value="EXACT_PREVIOUS_OFFLINE_TASK_ENABLED"
         ) as native,patch.object(n,"_native_snapshot",

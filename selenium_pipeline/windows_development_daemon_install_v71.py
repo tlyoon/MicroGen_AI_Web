@@ -52,6 +52,9 @@ def require_install_registry(*, path: Path | None = None) -> None:
         "may_release_students":False,
         "installer_action":"INSTALL_EXACT_PINNED_NEW_OFFLINE_LOGON_TASK",
         "start_action":"START_ONLY_EXACT_OWNED_OFFLINE_TASK",
+        "partial_create_ancestor_admission":
+            "ALLOW_PREVIOUS_MAIN_ANCESTOR_ONLY_WITH_UNCHANGED_DAEMON_PLAN_PYTHON",
+        "may_repeat_task_creation_after_unknown":False,
     }
     _require(actual==expected,"Unregistered/modified native installation policy")
 
@@ -136,6 +139,31 @@ def _current_sid() -> str:
     return sid
 
 
+def _preview_git_admission(*,repo:Path,preview_sha:str,
+                           current_sha:str,existing_policy:str)->bool:
+    """An older merged preview is allowed ONLY to reconcile its old CREATE.
+
+    The original registered XML must additionally match native task action,
+    current owner SID and immutable staged bytes at the call site. The
+    unchanged current daemon/roadmap/Python hashes remain required.
+    """
+    if preview_sha==current_sha:
+        return True
+    if (existing_policy!="must_be_disabled"
+        or not isinstance(preview_sha,str)
+        or not bool(re.fullmatch(r"[0-9a-f]{40}",preview_sha))
+        or not bool(re.fullmatch(r"[0-9a-f]{40}",current_sha))):
+        return False
+    require_install_registry()
+    try:
+        p=subprocess.run([
+            "git","-C",str(repo),"merge-base","--is-ancestor",
+            preview_sha,current_sha],capture_output=True,text=True,timeout=30)
+    except (OSError,subprocess.TimeoutExpired):
+        return False
+    return p.returncode==0
+
+
 def _security_preflight(preview_dir: Path,repo: Path,plan: Path,
                         state_dir: Path,python: Path, *,
                         existing_policy: str="must_be_absent"
@@ -173,7 +201,9 @@ def _security_preflight(preview_dir: Path,repo: Path,plan: Path,
     receipt=json.loads(manifest_path.read_text(encoding="utf8"))
     _require(receipt.get("status")=="DISABLED_STARTUP_PREVIEW_ONLY"
              and receipt.get("task")==TASK_NAME
-             and receipt.get("source_git_sha")==sha
+             and _preview_git_admission(
+                 repo=repo,preview_sha=receipt.get("source_git_sha"),
+                 current_sha=sha,existing_policy=existing_policy)
              and receipt.get("source_plan_sha256")==_sha(plan)
              and receipt.get("daemon_sha256")==_sha(
                  repo/"selenium_pipeline"/"development_continuity_daemon_v71.py")
@@ -357,6 +387,7 @@ def reconcile_existing(*,preview_dir:Path,repo:Path,plan:Path,
             "task":TASK_NAME,
             "user_sid":owner_sid,
             "source_git_sha":approved["source_git_sha"],
+            "current_git_sha":_git_clean_head(repo),
             "approved_xml_sha256":_sha(candidate),
             "task_enabled":False,
             "created_again":False,
@@ -389,7 +420,8 @@ def reconcile_existing(*,preview_dir:Path,repo:Path,plan:Path,
         "schema_version":1,
         "status":"NATIVE_OFFLINE_LOGON_TASK_INSTALLED",
         "task":TASK_NAME,
-        "git_sha":approved["source_git_sha"],
+        "git_sha":_git_clean_head(repo),
+        "registered_from_git_sha":approved["source_git_sha"],
         "approved_roadmap_sha256":approved["source_plan_sha256"],
         "enabled_xml_sha256":_sha(candidate),
         "user":account,

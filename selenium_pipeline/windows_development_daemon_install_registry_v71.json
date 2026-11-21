@@ -10,5 +10,7 @@
   "may_author_code_changes": false,
   "may_release_students": false,
   "installer_action": "INSTALL_EXACT_PINNED_NEW_OFFLINE_LOGON_TASK",
-  "start_action": "START_ONLY_EXACT_OWNED_OFFLINE_TASK"
+  "start_action": "START_ONLY_EXACT_OWNED_OFFLINE_TASK",
+  "partial_create_ancestor_admission": "ALLOW_PREVIOUS_MAIN_ANCESTOR_ONLY_WITH_UNCHANGED_DAEMON_PLAN_PYTHON",
+  "may_repeat_task_creation_after_unknown": false
 }
