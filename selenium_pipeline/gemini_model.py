@@ -694,8 +694,13 @@ def browser_model_evidence(label: str, *, requested_mode: str,
     }
 
 
-def ensure_mode(port: int = 9222, mode: str | None = None, timeout: float = 15) -> str:
-    """Select and confirm the requested authenticated Gemini browser mode."""
+def ensure_mode(port: int = 9222, mode: str | None = None,
+                timeout: float = 15, *, stage: str | None = None) -> str:
+    """Verify a chosen owned browser family, including registered stage fallback.
+
+    Without an explicit task, exact requested-family behavior is unchanged.
+    Never send a prompt or infer an API model name from a browser family.
+    """
     from selenium import webdriver
     from selenium.webdriver.chrome.options import Options
     from selenium.webdriver.common.by import By
@@ -769,9 +774,21 @@ def ensure_mode(port: int = 9222, mode: str | None = None, timeout: float = 15) 
                 "recovery; check authentication before resuming."
             )
 
-        # The parent preflight and copied vendor workers must use the
-        # exact SAME owned-tab selector and current Gemini menu structure.
-        # A parent Flash label is not proof of the model in a later owned tab.
+        # Task-scoped fallback reuses the official-model-catalog and live
+        # owned-tab selector already registered in the normal repair engine.
+        # No heuristic rename, paid API fallback or new model Send occurs.
+        task_scoped = stage in {"figures", "slides", "narration"}
+        if task_scoped:
+            from .recovery_registry import lookup_mechanism
+            if lookup_mechanism(
+                "presend_capability_repair",
+                "V3_CHAPTER_RUNNER_FLASH_PREFLIGHT_BLOCKS_VERIFIED_DYNAMIC_ROUTE"
+            ) != "TASK_SCOPED_REGISTERED_OWNED_UI_MODEL_FALLBACK_NO_SEND":
+                raise GeminiModelError("V3_TASK_ROUTER_NOT_REGISTERED_NO_SEND")
+            return select_owned_gemini_with_recovery(
+                driver, driver.current_window_handle, mode=target_mode,
+                timeout=max(1.0, min(float(timeout), 30.0)),
+                stage=stage, allow_fallback=True)
         return select_owned_gemini_mode(
             driver, driver.current_window_handle, mode=target_mode,
             timeout=max(1.0, min(float(timeout), 30.0)))

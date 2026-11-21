@@ -241,6 +241,12 @@ def slide_pages(folder: Path) -> int:
 
 def valid(stage: str, folder: Path) -> bool:
     if stage == "figures":
+        # Registered v3 source-SHA/figure-ID figures can replace the old
+        # LLM-driven crop mapping only after a durable exact-source receipt.
+        # The independent source-page and every-figure checks still run.
+        from .source_bound_v3_repair import valid_source_only_figures
+        if valid_source_only_figures(folder):
+            return True
         # Complete original-source vector/raster figure inventory, even if
         # Docling found zero PictureItem objects.
         from .source_caption_figure_chain_v1 import (
@@ -673,7 +679,11 @@ def _execute_unlocked(s: Settings) -> Path:
     if "tts_qa" in planned and not s.confirm_paid_tts_qa:
         from .paid_api_policy import require_paid_gemini_api
         require_paid_gemini_api("tts_qa")
-    if any(_needs_browser(x) for x in planned):
+    from .source_bound_v3_repair import registered_and_complete
+    v3_figures_only = registered_and_complete(source)
+    first_browser_stage = next((x for x in planned if _needs_browser(x)
+        and not (x == "figures" and v3_figures_only)), None)
+    if first_browser_stage is not None:
         from .launch_gemini import launch
         requested_port = s.chrome_port
         # Keep 9222 for the normal persistent account. If alternate mode is
@@ -683,7 +693,10 @@ def _execute_unlocked(s: Settings) -> Path:
         actual_port, _ = launch(s.alternate_gemini_user, requested_port)
         s.chrome_port = actual_port
         from .gemini_model import ensure_mode
-        print(f"[microgen] verified Gemini mode: {ensure_mode(s.chrome_port, DEFAULT_BROWSER_UI_MODE)}")
+        os.environ["MICROGEN_ACTIVE_GENERATION_STAGE"] = first_browser_stage
+        picked = ensure_mode(
+            s.chrome_port, DEFAULT_BROWSER_UI_MODE, stage=first_browser_stage)
+        print(f"[microgen] verified Gemini mode for {first_browser_stage}: {picked}")
     prepare(source, folder)
     if s.from_stage == "video":
         hydrate_video_only_inputs(source, folder)
@@ -695,12 +708,13 @@ def _execute_unlocked(s: Settings) -> Path:
     state["source_sha256"] = signature
     state["requested_models"] = {
         "phase": MODEL_PHASE,
-        "browser_ui": DEFAULT_BROWSER_UI_MODE,
-        "caption": DEFAULT_CAPTION_MODEL,
+        "browser_ui_requested": DEFAULT_BROWSER_UI_MODE,
+        "browser_ui": os.getenv("MICROGEN_GEMINI_UI_MODE", DEFAULT_BROWSER_UI_MODE),
+        "caption": os.getenv("MICROGEN_LLM_MODEL", DEFAULT_CAPTION_MODEL),
         "caption_benchmark": CAPTION_BENCHMARK_MODEL,
         "slides": DEFAULT_SLIDE_MODEL,
         "narration": DEFAULT_NARRATION_MODEL,
-        "ui_selection_verified_automatically": any(_needs_browser(x) for x in planned),
+        "ui_selection_verified_automatically": first_browser_stage is not None,
         "tts": s.tts_model,
         "tts_provider": s.tts_provider,
         "tts_qa": s.tts_qa_model,
@@ -715,8 +729,10 @@ def _execute_unlocked(s: Settings) -> Path:
         "SAFE_CHROME": "1",
         "GEMINI_DEBUG_PORT": str(s.chrome_port),
         "MICROGEN_MODEL_PHASE": MODEL_PHASE,
-        "MICROGEN_GEMINI_UI_MODE": DEFAULT_BROWSER_UI_MODE,
-        "MICROGEN_LLM_MODEL": ACTIVE_LLM_MODEL,
+        "MICROGEN_GEMINI_UI_MODE": os.getenv(
+            "MICROGEN_GEMINI_UI_MODE",DEFAULT_BROWSER_UI_MODE),
+        "MICROGEN_LLM_MODEL": os.getenv(
+            "MICROGEN_LLM_MODEL",ACTIVE_LLM_MODEL),
         "PYTHONIOENCODING": "utf-8",
         "PYTHONUTF8": "1",
         # Prevent incompatible per-user Python packages from shadowing the
@@ -768,8 +784,11 @@ def _execute_unlocked(s: Settings) -> Path:
             from .figure_audit import enforce_graphics
             enforce_graphics(source.parent, repair=True)
         # A changed stage invalidates every downstream stage, including final video.
-        browser_model = {"figures": DEFAULT_CAPTION_MODEL, "slides": DEFAULT_SLIDE_MODEL,
-                         "narration": DEFAULT_NARRATION_MODEL}.get(stage, "deterministic-local")
+        browser_model = ("source-sha-verified-v3"
+            if stage == "figures" and v3_figures_only else
+            os.getenv("MICROGEN_LLM_MODEL",ACTIVE_LLM_MODEL)
+            if stage in {"figures","slides","narration"}
+            else "deterministic-local")
         if stage == "script_qa":
             model_stamp = "script-risk-v1"
         elif stage == "tts":
@@ -825,9 +844,15 @@ def _execute_unlocked(s: Settings) -> Path:
                     result=recover_printed_source_figures(folder)
                     print("[microgen][source_figures] local pre-crop",
                           result.get("status"),flush=True)
-            if _needs_browser(stage):
+            if _needs_browser(stage) and not (stage == "figures" and v3_figures_only):
                 from .gemini_model import ensure_mode
-                print(f"[microgen] {stage} Gemini mode: {ensure_mode(s.chrome_port, DEFAULT_BROWSER_UI_MODE)}")
+                os.environ["MICROGEN_ACTIVE_GENERATION_STAGE"] = stage
+                picked=ensure_mode(s.chrome_port,DEFAULT_BROWSER_UI_MODE,stage=stage)
+                env["MICROGEN_GEMINI_UI_MODE"]=os.getenv(
+                    "MICROGEN_GEMINI_UI_MODE",DEFAULT_BROWSER_UI_MODE)
+                env["MICROGEN_LLM_MODEL"]=os.getenv(
+                    "MICROGEN_LLM_MODEL",ACTIVE_LLM_MODEL)
+                print(f"[microgen] {stage} verified owned Gemini mode: {picked}")
             if stage not in {"tts", "video"}:
                 # Video assembly archives the prior MP4 only after its new
                 # candidate passes stream and duration validation.
@@ -900,10 +925,22 @@ def _execute_unlocked(s: Settings) -> Path:
             else:
                 stage_python = pipeline_python_executable()
                 print(f"[microgen] pipeline Python: {stage_python}")
-                for script in SCRIPTS[stage]:
+                v3_source_figures = False
+                if stage == "figures":
+                    from .source_bound_v3_repair import registered_and_complete
+                    v3_source_figures = registered_and_complete(folder / "source.pdf")
+                scripts = (("crop_figs_v3.py",) if v3_source_figures
+                           else SCRIPTS[stage])
+                for script in scripts:
                     if not (folder / script).is_file():
                         raise FileNotFoundError(f"Missing reference entrypoint: {script}")
                     run_cmd([stage_python, script], folder, log_file, env)
+                if v3_source_figures:
+                    from .source_bound_v3_repair import publish_source_only_receipt
+                    proof = publish_source_only_receipt(folder)
+                    print("[microgen][v3] original source-only figure coverage",
+                          proof["count"],"verified; no Gemini mapping Send",
+                          flush=True)
                 if stage == "video":
                     # Stage split PDFs locally before publishing; vendor
                     # slice_pdf.py writes directly to cloud drives and can stall.

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "description": "Original-PDF-SHA and printed-figure-ID pinned geometry. Crops must still pass panel, source-pixel and edge verification. One specifically registered figure uses a COMPLETE printed caption because the diagram and caption physically share the same source rectangle; partial caption crops are never accepted. Chapter 9 verified source-bound geometry migrated from Yoga 6 v3; all original page/caption, source-pixel and visual checks remain mandatory.",
+  "description": "Original-PDF-SHA and printed-figure-ID pinned geometry. Crops must still pass panel, source-pixel and edge verification. One specifically registered figure uses a COMPLETE printed caption because the diagram and caption physically share the same source rectangle; partial caption crops are never accepted. Chapter 9 verified source-bound geometry migrated from Yoga 6 v3; all original page/caption, source-pixel and visual checks remain mandatory. Chapter 11 v3 recovery adds five original-PDF-SHA-pinned, source-pixel/edge/panel verified crops for defective 11.1, 11.3 and 11.5.",
   "overrides": {
     "fb33af9a5fd164702c6b2aac708bd409098476fa48044535d9aec4e4a18a8a1f": {
       "10.1": [
@@ -330,6 +330,42 @@
         637,
         557,
         774
+      ]
+    },
+    "5dc3543cbbe3c73cba9924d10348fbe84d70f1fd5e35cebbffddbd99f032c683": {
+      "11.1": [
+        29.997,
+        53.0,
+        175.997,
+        236.647
+      ],
+      "11.2": [
+        29.815,
+        327.247,
+        175.815,
+        531.247
+      ]
+    },
+    "ccf736c348e95830d352e415400bd4c7660403487d259a575dc3e80d5a2b1a62": {
+      "11.7": [
+        437.997,
+        155.347,
+        592.809,
+        333.347
+      ],
+      "11.8": [
+        399.123,
+        157.046,
+        582.0,
+        314.912
+      ]
+    },
+    "10e0607f79648751c8fec7783f69d793bbbce62e76d1ca758d9ded1a3ca4b056": {
+      "11.12": [
+        437.993,
+        58.0,
+        595.0,
+        581.646
       ]
     }
   },

@@ -9,6 +9,14 @@
       "handler": "NORMAL_FIGURES_STAGE_ORIGINAL_SOURCE_HYBRID_CROP_POST_MAPPING",
       "attempt_limit": 2,
       "enabled": true
+    },
+    {
+      "match_type": "source_figure_recovery",
+      "signature": "SOURCE_SHA_BOUND_V3_COMPLETE_FIGURES",
+      "mechanism": "RECOVER_SHA_PINNED_SOURCE_CROPS_WITH_NO_LEGACY_MAPPING_SEND",
+      "handler": "NORMAL_FIGURES_STAGE_ORIGINAL_SOURCE_HYBRID_CROP_POST_MAPPING",
+      "attempt_limit": 2,
+      "enabled": true
     }
   ]
 }

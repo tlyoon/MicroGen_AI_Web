@@ -611,6 +611,13 @@ def recover_printed_source_figures(folder: Path) -> dict:
             existing = json.loads(current.read_text(encoding="utf-8"))
             _require(existing.get("source_sha256") == source_sha,
                      "Existing crop ledger is bound to another source PDF")
+    # v3 source-SHA pinned recovery is eligible only when the registry
+    # covers every printed figure. Never replay old failed crops or model
+    # requests, and preserve all historical candidate directories untouched.
+    from .source_bound_v3_repair import (
+        registered_and_complete, recover_source_figures_v3)
+    if registered_and_complete(source):
+        return recover_source_figures_v3(folder)
     failed = []
     for index in range(2):
         stage = folder / (".microgen_source_caption_crop_stage_v1"
