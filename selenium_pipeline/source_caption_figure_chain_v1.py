@@ -142,6 +142,45 @@ def _rect_list(rect) -> list[float]:
     return [round(float(x), 3) for x in tuple(rect)]
 
 
+def _caption_block_parser_parity(source_sha: str, row: dict,
+                                 fig: dict, page) -> bool:
+    """Bound an observed MuPDF caption-block grouping difference.
+
+    A newer parser may end a caption after its first line while an older
+    parser includes the next source line. Only allow this on a fully
+    source-SHA-registered v3 figure, with identical printed heading,
+    panel inventory, source words as a prefix, and strictly bounded
+    *expanded* caption geometry that remains disjoint from the crop.
+    """
+    actual, old = row.get("caption_bbox"), fig.get("caption_bbox")
+    if actual == old:
+        return True
+    if not (isinstance(actual, list) and isinstance(old, list)
+            and len(actual)==len(old)==4):
+        return False
+    registered = _source_sha_bound_crop_override(source_sha,row,page)
+    if registered is None:
+        return False
+    clip=registered[0]
+    rec_rect, new_rect=fitz.Rect(old),fitz.Rect(actual)
+    if (not rec_rect.is_valid or not new_rect.is_valid
+            or clip.intersects(rec_rect) or clip.intersects(new_rect)):
+        return False
+    if not (abs(old[0]-actual[0])<=0.05
+            and abs(old[1]-actual[1])<=0.05
+            and abs(old[2]-actual[2])<=5.0
+            and 0<=abs(old[3]-actual[3])<=25.0
+            and (rec_rect.contains(new_rect) or new_rect.contains(rec_rect))):
+        return False
+    def normalize(value):
+        return re.sub(r"\s+"," ",str(value or "")).strip()
+    before=normalize(fig.get("caption_text"))
+    after=normalize(row.get("caption_text"))
+    return (len(before)>=16 and len(after)>=16
+            and (before.startswith(after) or after.startswith(before))
+            and fig.get("expected_panels")==row.get("expected_panels"))
+
+
 def _crop_proposal(page, row: dict) -> tuple[object, str]:
     """Two source-layout hypotheses; fail closed if the geometry is empty.
 
@@ -451,10 +490,11 @@ def verify_figure_crops(folder: Path, *, require_semantic: bool = False) -> dict
                      [r["id"] for r in captions],
                  "Source caption IDs and crop ledger mismatch")
         for cap, fig in zip(captions, recorded):
+            page = doc[cap["page"] - 1]
             _require(fig.get("source_sha256") == src_sha
                      and fig.get("page") == cap["page"]
                      and fig.get("heading_bbox") == cap["heading_bbox"]
-                     and fig.get("caption_bbox") == cap["caption_bbox"]
+                     and _caption_block_parser_parity(src_sha, cap, fig, page)
                      and fig.get("expected_panels") == cap["expected_panels"]
                      and fig.get("filename") == cap["filename"],
                      f"Source figure identity mismatch: {cap['id']}")

@@ -82,3 +82,27 @@ def test_verified_source_only_figures_do_not_acquire_shared_browser_lock(tmp_pat
             side_effect=AssertionError("Docling-only v3 must not hold Gemini lock")):
   assert runner.execute(settings)==tmp_path
  work.assert_called_once_with(settings)
+
+
+@pytest.mark.skipif(not ROOT.exists(),reason="original Serway source absent")
+def test_bounded_cross_parser_caption_grouping_preserves_source_identity():
+ from selenium_pipeline.source_caption_figure_chain_v1 import (
+     _caption_rows,_caption_block_parser_parity,fitz)
+ variants={
+  "11.1":("11.2",[35.051,537.247,158.107,579.113],
+           " S is a third vector C having a magnitude AB sin theta"),
+  "11.3":("11.7",[452.997,339.347,573.809,391.213],
+           " S is in the same direction as angular velocity"),
+ }
+ for sec,(figure,alternate,extended_text) in variants.items():
+  with fitz.open(str(ROOT/sec/"source.pdf")) as doc:
+   fig=next(r for r in _caption_rows(doc) if r["id"]==figure)
+   page=doc[fig["page"]-1]
+   extended=dict(fig,caption_bbox=alternate,
+                 caption_text=fig["caption_text"]+extended_text)
+   assert _caption_block_parser_parity(SHA[sec],extended,fig,page)
+   tamper=dict(extended,caption_bbox=[
+       alternate[0],alternate[1],alternate[2],alternate[3]+30])
+   assert not _caption_block_parser_parity(SHA[sec],tamper,fig,page)
+   malicious=dict(extended,caption_text="unrelated source figure claim")
+   assert not _caption_block_parser_parity(SHA[sec],malicious,fig,page)
