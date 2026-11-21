@@ -41,6 +41,7 @@ _HANDLERS = {
     "browser_coding_transport": "NORMAL_ONE_CLAIM_SELENIUM_CODE_REVIEW",
     "browser_stdout_encoding": "NORMAL_WINDOWS_BROWSER_NONASCII_LOGGER_RECOVERY",
     "browser_coding_response_shape": "NORMAL_GEMINI_SOURCE_ONLY_CODE_CAPTURE_RECOVERY",
+    "bounded_coding_dispatch": "NORMAL_SINGLE_OWNER_BROWSER_CODE_DISPATCH",
     "head_patch_format": "NORMAL_WINDOWS_CUMULATIVE_PATCH_FORMAT_PREFLIGHT",
 }
 _REQUIRED = {

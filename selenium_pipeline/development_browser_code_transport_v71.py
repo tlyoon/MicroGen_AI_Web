@@ -110,6 +110,11 @@ def parse_response(text: str) -> str:
     """
     ensure(type(text) is str and 70 <= len(text.encode("utf8")) <= MAX_REPLY,
            "Model response blank, binary or unbounded")
+    # Checkpoint bytes remain unchanged and SHA-pinned. Reconcile may read
+    # the original Gemini UI reply from a Windows text file that used CRLF
+    # rather than the browser's LF. Normalize line boundaries for parsing
+    # only; never rewrite/reinterpret the original signed response.
+    text = text.replace("\r\n", "\n")
     ui_plain = text.startswith("Gemini said\n\n")
     if ui_plain:
         text = text[len("Gemini said\n\n"):]
