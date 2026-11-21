@@ -15,7 +15,7 @@ import re
 from pathlib import Path
 
 from .ai_academic_review_queue import _check_queue
-from .ai_academic_web_review import build_review_job
+from .ai_academic_web_review import build_review_job, review_instructions
 from .review_retry_plan import plan_manual_review_attempt
 from .figure_source_identity import _sha
 
@@ -78,7 +78,9 @@ def inspect_original_review_eligibility(*, folder: Path, queue_root: Path,
             "recorded_status": attempt["status"],
             "observed_attempts": attempt.get("observed_attempts", 0),
             "next_possible_attempt_number": attempt.get("next_possible_attempt"),
-            "confirmed_unsubmitted_prior_provider_attempts": False,
+            "confirmed_unsubmitted_prior_provider_attempts": (
+                attempt.get("certified_presend_count", 0) > 0),
+            "certified_presend_count": attempt.get("certified_presend_count", 0),
             "no_automatic_provider_retry": True,
         }
     next_mode = ("INDEPENDENT_CHALLENGE" if
@@ -94,7 +96,25 @@ def inspect_original_review_eligibility(*, folder: Path, queue_root: Path,
     # A checkpoint with an uncertain Send is authoritative even when the
     # JSON retry planner reports zero observed attempts. This is distinct
     # from a verified PREPARED_NOT_SENT claim with no dispatch marker.
-    if (observed["recorded_status"] == "NEW_ATTEMPT_REQUIRES_EXPLICIT_REQUEST"
+    if observed["recorded_status"] == "CERTIFIED_PRESEND_ORIGINAL_CLAIM_SAME_WINDOW_RECOVERY":
+        from .academic_review_checkpoint import _load, fingerprint, _verify_certified_unsent
+        request = q / (f"slide_{slide:03d}_{next_mode.lower()}_attempt_01_request")
+        original_claim = _load(request)
+        expected = fingerprint(
+            request_text=review_instructions(job, mode=next_mode),
+            source_hashes={
+                "source.pdf": job["source_sha256"],
+                "slides.pdf": job["slides_sha256"],
+                "script.txt": job["script_sha256"],
+            },
+            review_mode=next_mode)
+        if (original_claim["request_fingerprint"] != expected
+            or original_claim["source_sha256"] != original_hashes["source.pdf"]
+            or _verify_certified_unsent(request, original_claim) !=
+                observed["certified_presend_count"]):
+            raise ValueError("Certified pre-Send does not match exact original G2 source/prompt")
+        state = "CERTIFIED_PRESEND_SAME_CLAIM_RECOVERY_READY"
+    elif (observed["recorded_status"] == "NEW_ATTEMPT_REQUIRES_EXPLICIT_REQUEST"
         and observed["observed_attempts"] == 0
         and previous_status is not None
         and (previous_status != "PREPARED_NOT_SENT" or previous_dispatch)):
@@ -146,6 +166,8 @@ def inspect_original_review_eligibility(*, folder: Path, queue_root: Path,
         "separate_per_slide_owner_approval_required": False,
         "fresh_claimed_internal_selenium_review_ready": (
             state == "FRESH_INTERNAL_SELENIUM_QA_READY_UNDER_STANDING_CONTRACT"),
+        "certified_presend_same_claim_recovery_ready": (
+            state == "CERTIFIED_PRESEND_SAME_CLAIM_RECOVERY_READY"),
         "live_browser_ownership_must_be_verified_at_dispatch": True,
         "historical_slide1_special_window_reusable": False,
         "independent_source_mathematics_approved": False,
