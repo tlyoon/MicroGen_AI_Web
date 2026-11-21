@@ -242,6 +242,8 @@ def _generate_polished(slides: list[dict[str, Any]], source_blocks: list[dict[st
     except ImportError as exc:
         raise RuntimeError("The pri narration engine requires google-genai. Install requirements.txt.") from exc
 
+    from selenium_pipeline.paid_api_policy import require_paid_gemini_api
+    require_paid_gemini_api("narration")
     client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
     config = types.GenerateContentConfig(
         response_mime_type="application/json",

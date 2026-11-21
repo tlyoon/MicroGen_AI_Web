@@ -59,7 +59,9 @@ def validate_mapping(text: str, crops: list[Path]) -> list[str]:
 
 
 def request_mapping(page: Path, crops: list[Path], model: str) -> str:
-    """Call the same failover-managed Gemini client already used by TTS."""
+    """Legacy API adapter must not submit figure/caption requests."""
+    from .paid_api_policy import require_paid_gemini_api
+    require_paid_gemini_api("figures")
     repo = Path(__file__).resolve().parents[1]
     if str(repo) not in sys.path:
         sys.path.insert(0, str(repo))

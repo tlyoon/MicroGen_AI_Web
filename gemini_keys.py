@@ -9,6 +9,10 @@ from typing import Callable, TypeVar
 from google import genai
 from google.genai import types
 
+from selenium_pipeline.paid_api_policy import (
+    require_paid_gemini_api, tts_qa_explicitly_approved,
+)
+
 from gemini_lane import (
     GeminiBillingError,
     assert_gemini_available,
@@ -47,8 +51,10 @@ def _env_float(name: str, default: float) -> float:
     return float(raw) if raw else default
 
 
-def create_gemini_client(api_key: str):
-    """Create a Gemini client whose timeout/retries are owned by MicroGen."""
+def create_gemini_client(api_key: str, *, purpose: str | None = None):
+    """Only create an API client for explicitly identified permitted TTS work."""
+    require_paid_gemini_api(
+        purpose, qa_approved=tts_qa_explicitly_approved())
     timeout_ms = max(1_000, _env_int("MICROGEN_GEMINI_REQUEST_TIMEOUT_MS", 120_000))
     sdk_attempts = max(1, _env_int("MICROGEN_GEMINI_SDK_RETRY_ATTEMPTS", 1))
     # Google GenAI SDK ABI differs across installed versions. Older
@@ -136,8 +142,10 @@ def call_with_client_failover(
     *,
     label: str = "Gemini request",
     max_retries: int | None = None,
+    purpose: str | None = None,
 ) -> T:
-    """Run a Gemini operation while keeping each SDK client alive for the full request."""
+    """Reject unclassified paid work BEFORE choosing API keys."""
+    require_paid_gemini_api(purpose, qa_approved=tts_qa_explicitly_approved())
     def operation_for_key(api_key: str) -> T:
         client = client_factory(api_key)
         try:
@@ -151,6 +159,7 @@ def call_with_client_failover(
         operation_for_key,
         label=label,
         max_retries=max_retries,
+        purpose=purpose,
     )
 
 
@@ -159,8 +168,10 @@ def call_with_key_failover(
     *,
     label: str = "Gemini request",
     max_retries: int | None = None,
+    purpose: str | None = None,
 ) -> T:
-    """Run one Gemini operation using the configured key pool in priority order."""
+    """No API key discovery, retry or billed Send for unapproved purposes."""
+    require_paid_gemini_api(purpose, qa_approved=tts_qa_explicitly_approved())
     assert_gemini_available()
     keys = get_gemini_api_keys()
     if not keys:

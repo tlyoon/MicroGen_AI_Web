@@ -70,6 +70,8 @@ elif model_choice == 'openai':
     if not api_key:
         print("❌ No valid API key found")
         sys.exit()
+    from selenium_pipeline.paid_api_policy import require_paid_gemini_api
+    require_paid_gemini_api("lecture_generation")
     client = OpenAI(api_key=api_key)
 
 elif model_choice == 'deepseek':
@@ -78,6 +80,8 @@ elif model_choice == 'deepseek':
     if not api_key:
         print("❌ No valid API key found")
         sys.exit()
+    from selenium_pipeline.paid_api_policy import require_paid_gemini_api
+    require_paid_gemini_api("lecture_generation")
     client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
 print(' ')
 

@@ -76,15 +76,21 @@ gem_model = None
 if model_choice == "gemini":
     if not api_key_gemini:
         print("❌ No GEMINI_API_KEY found in environment."); sys.exit(1)
+    from selenium_pipeline.paid_api_policy import require_paid_gemini_api
+    require_paid_gemini_api("academic_review")
     genai.configure(api_key=api_key_gemini)
     gem_model = genai.GenerativeModel(model_name)
 elif model_choice == "openai":
     if not api_key_oai:
         print("❌ No OPENAI_API_KEY found in environment."); sys.exit(1)
+    from selenium_pipeline.paid_api_policy import require_paid_gemini_api
+    require_paid_gemini_api("lecture_generation")
     client = OpenAI(api_key=api_key_oai)
 elif model_choice == "deepseek":
     if not api_key_dsk:
         print("❌ No DEEPSEEK_API_KEY found in environment."); sys.exit(1)
+    from selenium_pipeline.paid_api_policy import require_paid_gemini_api
+    require_paid_gemini_api("lecture_generation")
     client = OpenAI(api_key=api_key_dsk, base_url="https://api.deepseek.com")
 else:
     print(f"❌ Unknown model_choice: {model_choice}"); sys.exit(1)

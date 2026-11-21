@@ -42,10 +42,14 @@ if api_key_gemini:
 elif api_key_oai:
     model_choice = 'openai'
     model_name   = "gpt-4o"
+    from selenium_pipeline.paid_api_policy import require_paid_gemini_api
+    require_paid_gemini_api("lecture_generation")
     client = OpenAI(api_key=api_key_oai)
 elif api_key_dsk:
     model_choice = 'deepseek'
     model_name   = "deepseek-reasoner"
+    from selenium_pipeline.paid_api_policy import require_paid_gemini_api
+    require_paid_gemini_api("lecture_generation")
     client = OpenAI(api_key=api_key_dsk, base_url="https://api.deepseek.com")
 else:
     raise EnvironmentError("❌ No valid API key found in .env (GEMINI_API_KEY / OPENAI_API_KEY / DEEPSEEK_API_KEY).")
@@ -144,6 +148,8 @@ if model_choice == 'gemini':
         {"text": prompt},
         {"mime_type": "application/pdf", "data": pdf_bytes},
     ]
+    from selenium_pipeline.paid_api_policy import require_paid_gemini_api
+    require_paid_gemini_api("academic_review")
     response_text = genai.GenerativeModel(model_name).generate_content(
         parts,
         request_options={"timeout": 600},

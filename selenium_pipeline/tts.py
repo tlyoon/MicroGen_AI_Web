@@ -115,9 +115,9 @@ def _gemini_say(client, text: str, model: str, voice: str) -> bytes:
 def _gemini_failover_request(text: str, number: int, model: str, voice: str) -> bytes:
     from gemini_keys import call_with_client_failover, create_gemini_client
     return call_with_client_failover(
-        create_gemini_client,
+        lambda key: create_gemini_client(key, purpose="tts"),
         lambda client: _gemini_say(client, text, model, voice),
-        label=f"Gemini TTS slide{number}",
+        label=f"Gemini TTS slide{number}", purpose="tts",
     )
 
 
@@ -726,10 +726,10 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
                     attempts_override=1,
                 )
             return call_with_client_failover(
-                create_gemini_client,
+                lambda key: create_gemini_client(key, purpose="tts"),
                 lambda client: _gemini_say(client, narration, model, voice),
                 label=f"Gemini TTS slide{number}",
-                max_retries=0,
+                max_retries=0, purpose="tts",
             )
     elif provider == "chirp3":
         _configure_cloud_adc_from_microvid()
@@ -1083,7 +1083,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--provider", choices=("gemini", "chirp3"), default="gemini")
     parser.add_argument("--model", default="gemini-3.8-flash-lite-tts")
     parser.add_argument("--voice", default="Kore")
+    parser.add_argument("--confirm-paid-tts-qa", action="store_true",
+                        help="Approve paid voice-continuity QA for this TTS run only")
     args = parser.parse_args(argv)
+    from .paid_api_policy import set_tts_qa_approval_for_run
+    set_tts_qa_approval_for_run(args.confirm_paid_tts_qa)
     # A direct `python -m selenium_pipeline.tts` subprocess must load the
     # same per-user AppData Microvid settings as the main pipeline runner.
     # Otherwise Gemini/Cloud credentials may exist but be unavailable to
@@ -1091,6 +1095,8 @@ def main(argv: list[str] | None = None) -> int:
     # The loader never overwrites explicitly exported environment variables.
     from .runner import load_microvid_env
     load_microvid_env()
+    # Never inherit approval from a saved .env after parsing CLI.
+    set_tts_qa_approval_for_run(args.confirm_paid_tts_qa)
     synthesize_folder(args.folder, args.provider, args.model, args.voice)
     return 0
 

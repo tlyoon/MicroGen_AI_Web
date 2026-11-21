@@ -66,6 +66,8 @@ def _parse_json(text: str) -> dict[str, Any]:
 
 
 def _inspect_direct(candidate: Path, references: list[Path], model: str) -> dict[str, Any]:
+    from .paid_api_policy import require_paid_gemini_api, tts_qa_explicitly_approved
+    require_paid_gemini_api("tts_qa", qa_approved=tts_qa_explicitly_approved())
     from google import genai
     from google.genai import types
     from gemini_keys import call_with_client_failover
@@ -99,7 +101,7 @@ def _inspect_direct(candidate: Path, references: list[Path], model: str) -> dict
             config={"temperature": 0, "response_mime_type": "application/json"},
         ),
         label=f"TTS voice continuity {candidate.name}",
-        max_retries=1,
+        max_retries=1, purpose="tts_qa",
     )
     return _parse_json(_response_text(response))
 
@@ -128,6 +130,8 @@ def compare_voice(
     model: str = "gemini-3.8-flash",
     threshold: float | None = None,
 ) -> dict[str, Any]:
+    from .paid_api_policy import require_paid_gemini_api, tts_qa_explicitly_approved
+    require_paid_gemini_api("tts_qa", qa_approved=tts_qa_explicitly_approved())
     if len(references) < 2:
         raise RuntimeError("At least two primary-voice reference WAVs are required")
     threshold = (
@@ -196,7 +200,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--reference", type=Path, action="append", required=True)
     parser.add_argument("--model", default="gemini-3.8-flash")
     parser.add_argument("--threshold", type=float, default=None)
+    parser.add_argument("--confirm-paid-tts-qa", action="store_true")
     args = parser.parse_args(argv)
+    from .paid_api_policy import set_tts_qa_approval_for_run
+    set_tts_qa_approval_for_run(args.confirm_paid_tts_qa)
     result = compare_voice(args.candidate, args.reference, model=args.model, threshold=args.threshold)
     print(json.dumps(result, indent=2))
     return 0 if result["accepted"] else 2

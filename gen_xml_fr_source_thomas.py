@@ -38,6 +38,8 @@ load_dotenv(dotenv_path=env_path)
 api_key = os.getenv("GEMINI_API_KEY")
 if not api_key:
     print("❌ No GEMINI_API_KEY found in environment."); sys.exit(1)
+from selenium_pipeline.paid_api_policy import require_paid_gemini_api
+require_paid_gemini_api("academic_review")
 genai.configure(api_key=api_key)
 _gem_model = genai.GenerativeModel(model_name)
 print(f"✅ Model initialized: {model_name}\n")

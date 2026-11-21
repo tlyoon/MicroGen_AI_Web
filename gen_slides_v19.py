@@ -50,6 +50,8 @@ if model_choice == 'gemini':
     if not api_key:
         print("âŒ No valid API key found")
         sys.exit()
+    from selenium_pipeline.paid_api_policy import require_paid_gemini_api
+    require_paid_gemini_api("slides")
     client = genai.Client(api_key=api_key)
     
 elif model_choice == 'openai':
@@ -59,6 +61,8 @@ elif model_choice == 'openai':
         print("âŒ No valid API key found")
         sys.exit()
     from openai import OpenAI
+    from selenium_pipeline.paid_api_policy import require_paid_gemini_api
+    require_paid_gemini_api("lecture_generation")
     client = OpenAI(api_key=api_key)
     
 elif model_choice == 'deepseek':    
@@ -68,6 +72,8 @@ elif model_choice == 'deepseek':
         print("âŒ No valid API key found")
         sys.exit()
     from openai import OpenAI
+    from selenium_pipeline.paid_api_policy import require_paid_gemini_api
+    require_paid_gemini_api("lecture_generation")
     client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
 
 print(' ')
@@ -280,10 +286,16 @@ def _strip_pause_commands(tex: str) -> str:
 #print(f"[INFO] Configuring LLM client for model: {model_choice}")
 
 if model_choice == 'gemini':
+    from selenium_pipeline.paid_api_policy import require_paid_gemini_api
+    require_paid_gemini_api("slides")
     client = genai.Client(api_key=api_key)
 elif model_choice == 'openai':
+    from selenium_pipeline.paid_api_policy import require_paid_gemini_api
+    require_paid_gemini_api("lecture_generation")
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 elif model_choice == 'deepseek':
+    from selenium_pipeline.paid_api_policy import require_paid_gemini_api
+    require_paid_gemini_api("lecture_generation")
     client = OpenAI(api_key=os.getenv("DEEPSEEK_API_KEY"), base_url="https://api.deepseek.com")
 else:
     raise ValueError("Unsupported LLM model")

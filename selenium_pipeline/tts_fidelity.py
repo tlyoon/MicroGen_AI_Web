@@ -294,6 +294,8 @@ def _inspect_audio_direct(
     *,
     model: str = DEFAULT_MODEL,
 ) -> dict[str, Any]:
+    from .paid_api_policy import require_paid_gemini_api, tts_qa_explicitly_approved
+    require_paid_gemini_api("tts_qa", qa_approved=tts_qa_explicitly_approved())
     from google import genai
     from google.genai import types
     from gemini_keys import call_with_client_failover
@@ -328,7 +330,7 @@ def _inspect_audio_direct(
         qa_client,
         request,
         label=f"TTS fidelity {wav_path.name}",
-        max_retries=2,
+        max_retries=2, purpose="tts_qa",
     )
     return _parse_json_payload(_response_text(response))
 
@@ -370,6 +372,8 @@ def inspect_audio(
     *,
     model: str = DEFAULT_MODEL,
 ) -> dict[str, Any]:
+    from .paid_api_policy import require_paid_gemini_api, tts_qa_explicitly_approved
+    require_paid_gemini_api("tts_qa", qa_approved=tts_qa_explicitly_approved())
     attempts = max(1, int(os.environ.get("MICROGEN_TTS_QA_HARD_ATTEMPTS", "2")))
     timeout_seconds = _qa_hard_timeout_seconds(wav_path)
     last_error: Exception | None = None
@@ -733,6 +737,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--folder", type=Path, required=True)
     parser.add_argument("--model", default=DEFAULT_MODEL)
     parser.add_argument("--threshold", type=float, default=DEFAULT_THRESHOLD)
+    parser.add_argument("--confirm-paid-tts-qa", action="store_true",
+                        help="Explicitly approve paid Gemini audio QA for this invocation")
     parser.add_argument(
         "--workers",
         type=int,
@@ -747,7 +753,10 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
     args = parser.parse_args(argv)
+    from .paid_api_policy import set_tts_qa_approval_for_run
+    set_tts_qa_approval_for_run(args.confirm_paid_tts_qa)
     load_microvid_env()
+    set_tts_qa_approval_for_run(args.confirm_paid_tts_qa)
     report = build_report(
         args.folder,
         model=args.model,

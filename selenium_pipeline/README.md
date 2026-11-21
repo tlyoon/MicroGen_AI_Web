@@ -238,3 +238,37 @@ While generation is incomplete, checkpoint state stays in `.selenium_pipeline_st
 - [ ] Pedagogical/phonetic quality evaluated before merge into `main`.
 
 Known limitations: the Selenium UI may change; the manual Pro-model attestation is not automated verification; a failed browser stage can require an operator to restore login/model selection; old scripts have their own per-stage retry/wait behavior. Avoid running two Selenium workers simultaneously against one Chrome debug port/profile.
+
+
+## Non-negotiable Gemini transport policy (November 2026)
+
+**Selenium only** for all lecture-content generation (figure crop/caption mapping,
+slide generation and narration scripts) and independent scientific/pedagogical
+review. No failure, timeout, exhausted retry, fallback setting, local API key,
+other provider, or historical authorisation permits a chargeable API request
+for these stages. If Gemini Selenium is unavailable or a Send is uncertain,
+preserve source-bound checkpoints and stop; never switch to paid API.
+
+**Paid Gemini API is permitted for TTS synthesis** (subject to the established
+provider/model/cost controls). Paid Gemini API for **TTS fidelity or voice
+quality checking** is permitted **only when explicitly approved for that
+invocation**. That separate approval does not authorise scientific/text
+review or content generation. By default, running a full pipeline through
+the `tts_qa` stage without explicit approval fails closed before generating
+the QA report or making a billed request.
+
+Example for an explicitly authorised paid audio-QA run:
+
+```powershell
+python -m selenium_pipeline.runner --source-root "<source-root>" --subchapter 8.2 --from-stage tts_qa --through-stage tts_qa --confirm-paid-tts-qa
+```
+
+The production launcher accepts `-ConfirmPaidTtsQa` for this purpose.
+Do not pass it unless this run's TTS quality checking has been approved.
+Old `--communication-mode api`, `--communication-mode fallback`,
+`MICROGEN_COMMUNICATION_MODE=api|fallback`, and legacy per-stage
+text-content API backends are rejected or forced to browser mode.
+The central `paid_api_policy.require_paid_gemini_api` gate and versioned
+recovery registry prevent accidental paid requests before credentials,
+API client construction or failover. All revised guards are regression-tested
+with fake clients and **zero real paid requests**.

@@ -41,7 +41,7 @@ class FakeModels:
 def fake_gemini_keys_module(models=None, keys=None):
     module = types.ModuleType("gemini_keys")
     module.get_gemini_api_keys = lambda: list(["TEST_NOT_REAL"] if keys is None else keys)
-    module.create_gemini_client = lambda api_key: SimpleNamespace(models=models)
+    module.create_gemini_client = lambda api_key, *, purpose=None: SimpleNamespace(models=models)
 
     def call_with_client_failover(client_factory, operation, **_kwargs):
         client = client_factory("TEST_NOT_REAL")

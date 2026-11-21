@@ -23,6 +23,8 @@ def failing_slides(report: dict) -> list[int]:
 
 def repair(folder: Path, *, model: str, threshold: float, provider: str,
            tts_model: str, voice: str, max_repairs: int = 2) -> dict:
+    from .paid_api_policy import require_paid_gemini_api, tts_qa_explicitly_approved
+    require_paid_gemini_api("tts_qa", qa_approved=tts_qa_explicitly_approved())
     if max_repairs < 0:
         raise ValueError("max_repairs must be nonnegative")
     narrations = dict(blocks((folder / "script.txt").read_text(encoding="utf-8")))
@@ -85,8 +87,13 @@ def main(argv=None) -> int:
     parser.add_argument("--tts-model", required=True)
     parser.add_argument("--voice", required=True)
     parser.add_argument("--max-repairs", type=int, default=2)
+    parser.add_argument("--confirm-paid-tts-qa", action="store_true",
+                        help="Approve paid TTS fidelity/voice QA for this repair run")
     args = parser.parse_args(argv)
+    from .paid_api_policy import set_tts_qa_approval_for_run
+    set_tts_qa_approval_for_run(args.confirm_paid_tts_qa)
     load_microvid_env()
+    set_tts_qa_approval_for_run(args.confirm_paid_tts_qa)
     repair(args.folder, model=args.model, threshold=args.threshold,
            provider=args.provider, tts_model=args.tts_model, voice=args.voice,
            max_repairs=args.max_repairs)

@@ -1,4 +1,5 @@
 import io
+import os
 import subprocess
 import tempfile
 import unittest
@@ -165,7 +166,11 @@ class TTSFidelityTests(unittest.TestCase):
                     ("", None),
                 ]
                 workers.append(worker)
-            with patch(
+            from selenium_pipeline.paid_api_policy import (
+                TTS_QA_APPROVAL_ENV, TTS_QA_APPROVAL_LITERAL)
+            with patch.dict(os.environ,{
+                TTS_QA_APPROVAL_ENV:TTS_QA_APPROVAL_LITERAL,
+            }), patch(
                 "selenium_pipeline.tts_fidelity._qa_hard_timeout_seconds",
                 return_value=1,
             ), patch(

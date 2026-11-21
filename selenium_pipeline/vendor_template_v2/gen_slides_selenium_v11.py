@@ -1473,6 +1473,9 @@ def main() -> int:
             SlideAttemptClaim, PreSendFailure, IndeterminateSend)
         if backend not in backend_ordinals:
             raise ValueError(f"Unsupported slides communication backend: {backend}")
+        if backend != "selenium":
+            from selenium_pipeline.paid_api_policy import require_paid_gemini_api
+            require_paid_gemini_api("slides")
         backend_ordinals[backend] += 1
         claim = SlideAttemptClaim(
             pdf_path, rendered_prompt_path, instruction,
@@ -1482,6 +1485,8 @@ def main() -> int:
             log(f"[slides-transport] verified existing {backend} response reused without new Send")
             return cached
         if backend == "api":
+            from selenium_pipeline.paid_api_policy import require_paid_gemini_api
+            require_paid_gemini_api("slides")
             return request_slides_api_once(
                 instruction, pdf_path, rendered_prompt_path, png_json_path,
                 out_tex.with_name("slides_api_transport_response.txt"), claim=claim)

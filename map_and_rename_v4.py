@@ -76,9 +76,13 @@ if model_choice == "gemini":
     chat_session = model.start_chat()
 elif model_choice == "openai":
     api_key = api_key_oai
+    from selenium_pipeline.paid_api_policy import require_paid_gemini_api
+    require_paid_gemini_api("lecture_generation")
     client = OpenAI(api_key=api_key)
 elif model_choice == "deepseek":
     api_key = api_key_dsk
+    from selenium_pipeline.paid_api_policy import require_paid_gemini_api
+    require_paid_gemini_api("lecture_generation")
     client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
 else:
     raise ValueError("Unsupported model_choice")

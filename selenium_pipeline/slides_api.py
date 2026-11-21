@@ -13,6 +13,8 @@ from pathlib import Path
 
 def request_slides(source: Path, prompt: Path, dimension_json: Path,
                    instruction: str, *, model: str = "gemini-3.8-flash") -> str:
+    from .paid_api_policy import require_paid_gemini_api
+    require_paid_gemini_api("slides")
     from google.genai import types
     from gemini_keys import create_gemini_client, call_with_client_failover
 

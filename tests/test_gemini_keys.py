@@ -33,7 +33,7 @@ class GeminiKeyPoolTests(unittest.TestCase):
             },
             clear=True,
         ), patch("gemini_keys.genai.Client", return_value=sentinel) as client_ctor:
-            self.assertIs(gemini_keys.create_gemini_client("secret"), sentinel)
+            self.assertIs(gemini_keys.create_gemini_client("secret", purpose="tts"), sentinel)
 
         kwargs = client_ctor.call_args.kwargs
         self.assertEqual(kwargs["api_key"], "secret")
@@ -54,7 +54,7 @@ class GeminiKeyPoolTests(unittest.TestCase):
                               return_value=sentinel) as maker, patch.object(
                                   gemini_keys.types,"HttpRetryOptions",None,
                                   create=True):
-            self.assertIs(gemini_keys.create_gemini_client("secret"), sentinel)
+            self.assertIs(gemini_keys.create_gemini_client("secret", purpose="tts"), sentinel)
         self.assertEqual(maker.call_args.kwargs["http_options"].timeout,9000)
 
     def test_sdk_old_abi_rejects_unrepresentable_multiple_retries_no_send(self):
@@ -63,7 +63,7 @@ class GeminiKeyPoolTests(unittest.TestCase):
         },clear=True),patch("gemini_keys.genai.Client") as maker,patch.object(
             gemini_keys.types,"HttpRetryOptions",None,create=True):
             with self.assertRaisesRegex(RuntimeError,"cannot configure HTTP retries"):
-                gemini_keys.create_gemini_client("secret")
+                gemini_keys.create_gemini_client("secret", purpose="tts")
             maker.assert_not_called()
 
     def test_sdk_new_abi_explicitly_preserves_retry_limit(self):
@@ -76,7 +76,7 @@ class GeminiKeyPoolTests(unittest.TestCase):
             side_effect=lambda **kw: SimpleNamespace(**kw),create=True),patch.object(
                 gemini_keys.types,"HttpOptions",side_effect=fake_opts),patch(
                 "gemini_keys.genai.Client") as maker:
-            gemini_keys.create_gemini_client("secret")
+            gemini_keys.create_gemini_client("secret", purpose="tts")
             self.assertEqual(maker.call_args.kwargs[
                 "http_options"].retry_options.attempts,2)
 
@@ -105,7 +105,7 @@ class GeminiKeyPoolTests(unittest.TestCase):
                 return "ok"
 
             with patch.dict(os.environ, env, clear=True):
-                self.assertEqual(gemini_keys.call_with_key_failover(operation), "ok")
+                self.assertEqual(gemini_keys.call_with_key_failover(operation, purpose="tts"), "ok")
                 self.assertEqual(calls, ["first", "second"])
                 self.assertFalse((Path(tmp) / "circuit_breaker.json").exists())
 
@@ -128,7 +128,7 @@ class GeminiKeyPoolTests(unittest.TestCase):
         with patch.dict(os.environ, env, clear=True), patch("gemini_keys.time.sleep"), patch(
             "gemini_keys.random.uniform", return_value=0.0
         ):
-            self.assertEqual(gemini_keys.call_with_key_failover(operation), "ok")
+            self.assertEqual(gemini_keys.call_with_key_failover(operation, purpose="tts"), "ok")
             self.assertEqual(calls, ["first", "first"])
 
     def test_repeated_transient_errors_rotate_to_second_key(self):
@@ -151,7 +151,7 @@ class GeminiKeyPoolTests(unittest.TestCase):
         with patch.dict(os.environ, env, clear=True), patch("gemini_keys.time.sleep"), patch(
             "gemini_keys.random.uniform", return_value=0.0
         ):
-            self.assertEqual(gemini_keys.call_with_key_failover(operation), "ok")
+            self.assertEqual(gemini_keys.call_with_key_failover(operation, purpose="tts"), "ok")
             self.assertEqual(calls, ["first", "first", "second"])
 
     def test_mixed_transient_and_billing_failure_does_not_open_circuit(self):
@@ -176,7 +176,7 @@ class GeminiKeyPoolTests(unittest.TestCase):
                 "gemini_keys.random.uniform", return_value=0.0
             ):
                 with self.assertRaises(RuntimeError):
-                    gemini_keys.call_with_key_failover(operation)
+                    gemini_keys.call_with_key_failover(operation, purpose="tts")
                 self.assertEqual(calls, ["first", "second"])
                 self.assertFalse((Path(tmp) / "circuit_breaker.json").exists())
 
@@ -190,7 +190,7 @@ class GeminiKeyPoolTests(unittest.TestCase):
             }
             with patch.dict(os.environ, env, clear=True):
                 with self.assertRaises(GeminiBillingError):
-                    gemini_keys.call_with_key_failover(lambda key: (_ for _ in ()).throw(FakeBillingError()))
+                    gemini_keys.call_with_key_failover(lambda key: (_ for _ in ()).throw(FakeBillingError()), purpose="tts")
                 self.assertTrue((Path(tmp) / "circuit_breaker.json").is_file())
 
 
@@ -213,7 +213,7 @@ class GeminiKeyPoolTests(unittest.TestCase):
             return "ok"
 
         with patch.dict(os.environ, {"GEMINI_API_KEY_1": "first"}, clear=True):
-            result = gemini_keys.call_with_client_failover(FakeClient, operation)
+            result = gemini_keys.call_with_client_failover(FakeClient, operation, purpose="tts")
 
         self.assertEqual(result, "ok")
         self.assertEqual(events, [("created", "first"), ("used", "first"), ("closed", "first")])

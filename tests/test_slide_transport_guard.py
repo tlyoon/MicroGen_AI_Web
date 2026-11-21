@@ -79,69 +79,63 @@ def _vendor_function():
 LATEX = r"\documentclass{beamer}\begin{document}\begin{frame}Test\end{frame}\end{document}"
 
 
-def test_safe_presend_failure_can_use_api_fallback(tmp_path):
-    src, prompt = _fixtures(tmp_path)
-    png = tmp_path / "dimensions.json"
-    png.write_text("{}")
-    calls = []
-    def transport(backend, instruction):
+
+def test_presend_failure_never_escalates_to_paid_api(tmp_path):
+    src,prompt=_fixtures(tmp_path)
+    meta=tmp_path/"dimensions.json";meta.write_text("{}")
+    calls=[]
+    def only_browser(backend,instruction):
         calls.append(backend)
-        if backend == "selenium":
-            raise PreSendFailure("owned picker not hydrated")
-        return LATEX
-    _vendor_function()(None, src, prompt, png, tmp_path / "slides.tex", 20,
-                       response_provider=transport,
-                       communication_plan=CommunicationPolicy(
-                           CommunicationMode.FALLBACK,
-                           selenium_attempts=1, api_attempts=1).plan("slides"))
-    assert calls == ["selenium", "api"]
+        raise PreSendFailure("Owned browser picker not ready")
+    with pytest.raises(RuntimeError):
+        _vendor_function()(None,src,prompt,meta,tmp_path/"slides.tex",20,
+            response_provider=only_browser,
+            communication_plan=CommunicationPolicy(selenium_attempts=2).plan("slides"))
+    assert calls==["selenium"]*2
+    assert not (tmp_path/"slides.tex").exists()
 
 
-def test_unknown_or_uncertain_send_never_triggers_fallback(tmp_path):
-    src, prompt = _fixtures(tmp_path)
-    png = tmp_path / "dimensions.json"
-    png.write_text("{}")
-    for failure in (IndeterminateSend("claimed send"), RuntimeError("unclassified")):
-        calls = []
-        def transport(backend, instruction):
-            calls.append(backend)
-            raise failure
-        with pytest.raises(type(failure)):
-            _vendor_function()(None, src, prompt, png, tmp_path / "slides.tex", 20,
-                               response_provider=transport,
-                               communication_plan=CommunicationPolicy(
-                                   CommunicationMode.FALLBACK,
-                                   selenium_attempts=1, api_attempts=1).plan("slides"))
-        assert calls == ["selenium"]
+def test_unknown_send_cannot_be_replayed_or_switched(tmp_path):
+    src,prompt=_fixtures(tmp_path)
+    meta=tmp_path/"dimensions.json";meta.write_text("{}")
+    calls=[]
+    def uncertain(backend,instruction):
+        calls.append(backend)
+        raise IndeterminateSend("Original browser Send uncertain")
+    with pytest.raises(IndeterminateSend):
+        _vendor_function()(None,src,prompt,meta,tmp_path/"slides.tex",20,
+            response_provider=uncertain,
+            communication_plan=CommunicationPolicy().plan("slides"))
+    assert calls==["selenium"]
 
 
-def test_model_identity_is_recorded_and_mismatch_is_not_reused(tmp_path, monkeypatch):
-    src, prompt = _fixtures(tmp_path)
-    monkeypatch.setenv("MICROGEN_GEMINI_UI_MODE", "flash")
-    a = SlideAttemptClaim(src, prompt, "A", backend="selenium",
-                          ordinal=1, root=tmp_path / "claims")
+def test_old_api_attempt_cannot_be_newly_scheduled():
+    with pytest.raises(ValueError,match="SELENIUM_ONLY"):
+        CommunicationPolicy(CommunicationMode.FALLBACK)
+    with pytest.raises(ValueError,match="SELENIUM_ONLY"):
+        CommunicationPolicy(CommunicationMode.API)
+
+
+def test_direct_api_slide_request_blocked_before_mocked_sdk(tmp_path):
+    src,prompt=_fixtures(tmp_path)
+    meta=tmp_path/"dimensions.json";meta.write_text("{}")
+    from selenium_pipeline.slides_api import request_slides
+    from selenium_pipeline.paid_api_policy import PaidAPIPolicyBlocked
+    with patch("gemini_keys.call_with_client_failover") as send:
+        with pytest.raises(PaidAPIPolicyBlocked,match="SELENIUM_ONLY"):
+            request_slides(src,prompt,meta,"Beamer")
+        send.assert_not_called()
+
+
+def test_model_identity_is_recorded_and_mismatch_is_not_reused(tmp_path,monkeypatch):
+    src,prompt=_fixtures(tmp_path)
+    monkeypatch.setenv("MICROGEN_GEMINI_UI_MODE","flash")
+    a=SlideAttemptClaim(src,prompt,"A",backend="selenium",ordinal=1,
+                        root=tmp_path/"claims")
     a.mark_send_may_have_occurred()
     a.capture(LATEX)
-    monkeypatch.setenv("MICROGEN_GEMINI_UI_MODE", "pro")
-    b = SlideAttemptClaim(src, prompt, "A", backend="selenium",
-                          ordinal=1, root=tmp_path / "claims")
-    with pytest.raises(IndeterminateSend, match="mismatch"):
+    monkeypatch.setenv("MICROGEN_GEMINI_UI_MODE","pro")
+    b=SlideAttemptClaim(src,prompt,"A",backend="selenium",ordinal=1,
+                        root=tmp_path/"claims")
+    with pytest.raises(IndeterminateSend,match="mismatch"):
         b.read_existing()
-
-
-def test_api_single_sdk_invocation_budget(tmp_path):
-    src, prompt = _fixtures(tmp_path)
-    metadata = tmp_path / "dimensions.json"
-    metadata.write_text("{}")
-    from types import SimpleNamespace
-    from selenium_pipeline.slides_api import request_slides
-    seen = {}
-    def request(factory, operation, **kwargs):
-        seen.update(kwargs)
-        return operation(SimpleNamespace(models=SimpleNamespace(
-            generate_content=lambda **kw: SimpleNamespace(
-                candidates=[SimpleNamespace(finish_reason="STOP")],
-                text=LATEX))))
-    with patch("gemini_keys.call_with_client_failover", side_effect=request):
-        assert request_slides(src, prompt, metadata, "Beamer") == LATEX
-    assert seen["max_retries"] == 0

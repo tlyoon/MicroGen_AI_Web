@@ -504,6 +504,8 @@ def judge_pair(
     mapping: dict[str, str],
     judge_model: str,
 ) -> dict[str, Any]:
+    from .paid_api_policy import require_paid_gemini_api
+    require_paid_gemini_api("scientific_review")
     load_microvid_env()
     from google import genai
     from google.genai import types

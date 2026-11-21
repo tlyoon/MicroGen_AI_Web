@@ -36,6 +36,8 @@ def request_narration(
     *,
     model: str = "gemini-3.8-flash",
 ) -> str:
+    from .paid_api_policy import require_paid_gemini_api
+    require_paid_gemini_api("narration")
     from google.genai import types
     from gemini_keys import call_with_client_failover, create_gemini_client
 

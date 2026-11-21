@@ -16,6 +16,8 @@ def test_failing_slides_selects_only_nonpass():
 
 
 def test_selective_repair_and_recheck(tmp_path, monkeypatch):
+    from selenium_pipeline.paid_api_policy import TTS_QA_APPROVAL_ENV,TTS_QA_APPROVAL_LITERAL
+    monkeypatch.setenv(TTS_QA_APPROVAL_ENV,TTS_QA_APPROVAL_LITERAL)
     (tmp_path / "script.txt").write_text(
         "**Slide 1 [1 min]:\nGood.\n**Slide 2 [1 min]:\nBad.",
         encoding="utf-8",
@@ -44,6 +46,8 @@ def test_selective_repair_and_recheck(tmp_path, monkeypatch):
 
 
 def test_repair_exhaustion_blocks_video(tmp_path, monkeypatch):
+    from selenium_pipeline.paid_api_policy import TTS_QA_APPROVAL_ENV,TTS_QA_APPROVAL_LITERAL
+    monkeypatch.setenv(TTS_QA_APPROVAL_ENV,TTS_QA_APPROVAL_LITERAL)
     (tmp_path / "script.txt").write_text("**Slide 1 [1 min]:\nBad.", encoding="utf-8")
     (tmp_path / "slide1.wav").write_bytes(b"RIFF" + b"a" * 64)
     monkeypatch.setattr(tts_qa_repair, "build_report",

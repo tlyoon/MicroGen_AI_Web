@@ -46,15 +46,14 @@ def test_api_mapping_never_claims_validity_without_crops():
 
 
 def test_api_figure_backend_bypasses_browser(monkeypatch):
-    # Selenium is the new Phase 1 default; API-only must not touch Chrome.
+    # Former API-only/fallback options are now REJECTED before browser work.
     monkeypatch.delenv("MICROGEN_COMMUNICATION_MODE", raising=False)
     assert _needs_browser("figures")
     assert _needs_browser("slides")
-    monkeypatch.setenv("MICROGEN_COMMUNICATION_MODE", "api")
-    assert not _needs_browser("figures")
-    monkeypatch.setenv("MICROGEN_COMMUNICATION_MODE", "fallback")
-    assert not _needs_browser("figures")  # lazy browser initialization
-    assert not _needs_browser("narration")  # fallback lazily opens UI
+    for value in ("api", "fallback"):
+        monkeypatch.setenv("MICROGEN_COMMUNICATION_MODE", value)
+        with pytest.raises(ValueError, match="SELENIUM_ONLY"):
+            _needs_browser("figures")
     monkeypatch.setenv("MICROGEN_COMMUNICATION_MODE", "selenium")
     assert _needs_browser("narration")
     monkeypatch.setenv("MICROGEN_FIGURE_MAPPING_BACKEND", "api")
