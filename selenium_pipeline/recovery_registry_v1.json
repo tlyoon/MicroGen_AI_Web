@@ -898,6 +898,20 @@
       "environment": "Dell-115 owned Gemini Hydrogen Medium UI, actual saved 613-character single-send coding model response",
       "retry_policy": "zero new Sends; strip only the verified Gemini said UI wrapper and reindent assert lines only inside test_ functions, then require strict AST and real pytest",
       "enabled": true
+    },
+    {
+      "id": "V71_EXPLICIT_SINGLE_OWNER_BROWSER_CODE_DISPATCH",
+      "match_type": "bounded_coding_dispatch",
+      "signature": "V71_SINGLE_OWNER_SOURCE_PINNED_BROWSER_CODE_INBOX",
+      "mechanism": "CLAIM_DISPATCH_ONCE_RECONCILE_ORIGINAL_REPLY_NO_RESEND",
+      "classification": "CODING_MODEL_TRANSPORT_REQUIRES_DURABLE_INBOX_AND_OS_LOCK",
+      "handler": "NORMAL_SINGLE_OWNER_BROWSER_CODE_DISPATCH",
+      "preconditions": "explicit authorized per-job immutable manifest; local isolated Git worktree; bounded queue; one owner; zero paid model API and no student release",
+      "verification_test": "tests/test_development_browser_code_dispatch_v71.py",
+      "last_verified_date": "2026-11-22",
+      "environment": "separate on-demand Dell-115 coding worker; offline continuous development supervisor remains model-free",
+      "retry_policy": "write-ahead single-claim before worker start; crash or uncertain request never resent; reconcile previously captured original response only; finite scan and quarantine",
+      "enabled": true
     }
   ]
 }
