@@ -30,6 +30,12 @@ def strict_json(path):
          "Missing/linked/oversized bundle JSON")
     return json.loads(path.read_text(encoding="utf8"),object_pairs_hook=unique)
 def verify_original_five_bundle(*,original:Path,bundle:Path)->dict:
+    from .recovery_registry import lookup_mechanism
+    need(lookup_mechanism(
+        "source_highlight_abi",
+        "HISTORICAL_SOURCE_PIXEL_PREVIEW_PRODUCER_SYMBOL_MISSING",
+    ) == "RESTORE_PIXEL_EQUIVALENT_SINGLE_HIGHLIGHT_ROUTINE",
+         "Missing or disabled source-pixel compositor recovery")
     root=Path(original).absolute()
     dest=Path(bundle).absolute()
     need(root.is_dir() and dest.is_dir() and not dest.is_symlink()
