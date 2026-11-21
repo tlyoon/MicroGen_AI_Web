@@ -29,13 +29,26 @@ def registered_and_complete(source: Path) -> bool:
     source=Path(source)
     if not source.is_file() or source.is_symlink():
         return False
+    # First filter by the literal SHA registry, *before* using MuPDF.
+    # Legacy tests and user-supplied sources can contain non-PDF placeholder
+    # bytes. Those are not v3 candidates and must reach the normal
+    # preservation/error guard without opening or locking malformed PDFs.
+    sha=_sha(source)
+    override=Path(crop.__file__).with_name("source_crop_overrides_v1.json")
+    data=json.loads(override.read_text(encoding="utf-8"))
+    if data.get("schema_version")!=1 or not isinstance(data.get("overrides"),dict):
+        raise crop.FigureChainError("Invalid source-SHA crop registry")
+    known=data["overrides"].get(sha)
+    if not isinstance(known,dict) or not known:
+        return False
     if lookup_mechanism("source_figure_recovery",SIGNATURE)!=MECHANISM:
         raise crop.FigureChainError("V3 source-bound recovery registry missing/disabled")
     with crop.fitz.open(str(source)) as doc:
         captions=crop._caption_rows(doc)
         if not captions:
             return False
-        sha=_sha(source)
+        if set(known)!={row["id"] for row in captions}:
+            return False
         for row in captions:
             if crop._source_sha_bound_crop_override(sha,row,doc[row["page"]-1]) is None:
                 return False

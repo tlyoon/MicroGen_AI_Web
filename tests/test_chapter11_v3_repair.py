@@ -106,3 +106,14 @@ def test_bounded_cross_parser_caption_grouping_preserves_source_identity():
    assert not _caption_block_parser_parity(SHA[sec],tamper,fig,page)
    malicious=dict(extended,caption_text="unrelated source figure claim")
    assert not _caption_block_parser_parity(SHA[sec],malicious,fig,page)
+
+
+def test_v3_nonmatching_sha_skips_pdf_parser_before_any_legacy_gate(tmp_path):
+ from selenium_pipeline import source_bound_v3_repair
+ file=tmp_path/"source.pdf"
+ file.write_bytes(b"%PDF-1.7\n"+b"NOT A REAL PDF OBJECT\n"*20)
+ with patch("selenium_pipeline.source_bound_v3_repair._sha",
+            return_value="a"*64), \
+      patch("selenium_pipeline.source_caption_figure_chain_v1.fitz.open",
+            side_effect=AssertionError("Unregistered PDF must never open")):
+  assert not source_bound_v3_repair.registered_and_complete(file)
