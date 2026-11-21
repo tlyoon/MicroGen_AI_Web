@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "status": "MICROGEN_V71_SINGLE_NATIVE_OFFLINE_STARTUP_V1",
+  "task_name": "MicroGen_AI_Web_v71_OfflineDevelopment",
+  "computer": "DELL-115",
+  "allowed_role": "interactive_limited_current_user",
+  "can_create_only_when_absent": true,
+  "may_modify_existing_v71_tasks": false,
+  "may_send_model_requests": false,
+  "may_author_code_changes": false,
+  "may_release_students": false,
+  "installer_action": "INSTALL_EXACT_PINNED_NEW_OFFLINE_LOGON_TASK",
+  "start_action": "START_ONLY_EXACT_OWNED_OFFLINE_TASK"
+}
