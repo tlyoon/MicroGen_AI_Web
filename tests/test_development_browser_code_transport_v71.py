@@ -213,7 +213,7 @@ def test_post_send_windows_cp1252_logger_cannot_abort_model_capture(monkeypatch)
     """Reproduce exact Dell-115 UnicodeEncodeError without a browser Send."""
     import io
     import sys
-    from selenium_pipeline.vendor_template_v2 import selenium as vendor
+    from selenium_pipeline.windows_safe_logging import safe_log
     from selenium_pipeline.recovery_registry import lookup_mechanism
     assert lookup_mechanism(
         "browser_stdout_encoding",
@@ -225,7 +225,7 @@ def test_post_send_windows_cp1252_logger_cannot_abort_model_capture(monkeypatch)
     original = sys.stdout
     try:
         sys.stdout = stdout
-        vendor.log("Waiting for model response to stabilize \ufffd", "INFO")
+        safe_log("Waiting for model response to stabilize \ufffd", "INFO")
         stdout.flush()
     finally:
         sys.stdout = original
@@ -237,13 +237,13 @@ def test_post_send_windows_cp1252_logger_cannot_abort_model_capture(monkeypatch)
 def test_stdout_utf8_still_preserves_original_unicode():
     import io
     import sys
-    from selenium_pipeline.vendor_template_v2 import selenium as vendor
+    from selenium_pipeline.windows_safe_logging import safe_log
     buf = io.BytesIO()
     stdout = io.TextIOWrapper(buf, encoding="utf-8", write_through=True)
     prior = sys.stdout
     try:
         sys.stdout = stdout
-        vendor.log("Processing model reply …", "INFO")
+        safe_log("Processing model reply …", "INFO")
         stdout.flush()
     finally:
         sys.stdout = prior

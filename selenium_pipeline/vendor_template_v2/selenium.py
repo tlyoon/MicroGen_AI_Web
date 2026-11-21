@@ -26,20 +26,9 @@ from typing import List, Optional, Tuple, Dict, Any
 
 # ---------------- Logging ----------------
 def log(msg: str, level: str = "INFO") -> None:
-    """Never crash after a Gemini Send on a legacy Windows CP1252 stdout.
-
-    A model reply can be registered and awaiting capture while an ordinary
-    progress message includes a Unicode ellipsis. Escaping ONLY unsupported
-    logger characters retains the provider claim and lets capture continue.
-    """
-    ts = time.strftime("%Y-%m-%d %H:%M:%S")
-    line = f"[{ts}] [{level}] {msg}"
-    encoding = getattr(sys.stdout, "encoding", None) or "utf-8"
-    try:
-        line.encode(encoding)
-    except (UnicodeEncodeError, LookupError):
-        line = line.encode("ascii", errors="backslashreplace").decode("ascii")
-    print(line, flush=True)
+    # stdlib-only adapter tested on machines without Selenium installed.
+    from selenium_pipeline.windows_safe_logging import safe_log
+    safe_log(msg, level)
 
 DEFAULT_TIMEOUT = 6
 
