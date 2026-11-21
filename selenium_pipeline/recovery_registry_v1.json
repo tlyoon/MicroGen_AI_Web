@@ -744,6 +744,20 @@
       "environment": "Dell-115 real Serway 1.3 slide 4 challenge: submitted-or-uncertain with no attempt receipt",
       "retry_policy": "zero new provider Sends for possible prior submission; preserve source and previous claim, permit genuine saved-response-only reconciliation, never grant student release",
       "enabled": true
+    },
+    {
+      "id": "HISTORICAL_SOURCE_PIXEL_HIGHLIGHT_RENDERER_ABI",
+      "match_type": "source_highlight_abi",
+      "signature": "HISTORICAL_SOURCE_PIXEL_PREVIEW_PRODUCER_SYMBOL_MISSING",
+      "mechanism": "RESTORE_PIXEL_EQUIVALENT_SINGLE_HIGHLIGHT_ROUTINE",
+      "classification": "SOURCE_HIGHLIGHT_RENDERER_EXPORT_REMOVED_BREAKS_OFFLINE_VISUAL_AUDIO_VIDEO_VERIFIERS",
+      "handler": "NORMAL_HISTORICAL_SOURCE_PIXEL_COMPOSITOR",
+      "preconditions": "verified archived historical renderer and actual pixel SHA witness; original source PDF immutable; future source-highlight PNGs must remain source-bound",
+      "verification_test": "tests/test_historical_highlight_abi_recovery.py",
+      "last_verified_date": "2026-11-21",
+      "environment": "Dell-115 original historical October source renderer reproduced real preflight ImportError and exact original 160x100 RGB pixel SHA",
+      "retry_policy": "reuse one exact historical pure local image-compositing function, bounded geometry and scale, zero provider requests, zero WAV synthesis and zero student publication",
+      "enabled": true
     }
   ]
 }
