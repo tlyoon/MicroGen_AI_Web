@@ -13,6 +13,10 @@ from selenium_pipeline.development_coding_job_v71 import (
     admit_job, run_once, _codex_command, require_recovery, REGISTRY,
     reconcile_existing_response,
 )
+from selenium_pipeline.development_coding_provider_health_v71 import (
+    is_host_readonly, persist_host_denial, blocker_path,
+    require_workspace_write_capability, reconcile_saved_denial,
+)
 
 
 def git(repo,*args):
@@ -21,9 +25,11 @@ def git(repo,*args):
 
 
 @pytest.fixture
-def isolated(tmp_path):
-    root=tmp_path/"MicroGen_AI_Web_Checkpoints"
-    repo=root/"job1"/"repo"
+def isolated(tmp_path,monkeypatch):
+    # Isolate the simulated LOCALAPPDATA owner without touching Dell state.
+    monkeypatch.setenv("LOCALAPPDATA",str(tmp_path))
+    root=tmp_path/"MicroGen_AI_Web_Checkpoints"/"job1"
+    repo=root/"repo"
     repo.mkdir(parents=True)
     git(repo,"init","-q")
     git(repo,"config","user.name","safe tester")
@@ -309,6 +315,120 @@ def test_reconcile_only_requires_existing_response_checkpoint(isolated):
             job_path=isolated["job"],repo=isolated["repo"],
             state_dir=isolated["state"],checkpoint_root=isolated["root"],
             codex_path=isolated["codex"],test_runner=fake_test)
+
+
+SAMPLE_HOST_POLICY_STDERR = (
+    "OpenAI Codex v0.155.1\\n"
+    "workdir: C:/isolated/source\\n"
+    "sandbox: read-only\\n"
+    "model: gpt-6-astra\\n"
+    "exec_command failed: blocked by policy\\n"
+).replace("\\n","\n")
+
+
+def test_real_coding_model_effective_readonly_detection_is_exact():
+    assert is_host_readonly(SAMPLE_HOST_POLICY_STDERR)
+    assert not is_host_readonly(
+        SAMPLE_HOST_POLICY_STDERR.replace("read-only","workspace-write"))
+    assert not is_host_readonly(
+        SAMPLE_HOST_POLICY_STDERR.replace("blocked by policy","executed"))
+
+
+def test_host_denial_persisted_and_blocks_subsequent_model_sends(isolated):
+    count=[]
+    def forced_readonly(command,prompt,*,cwd,timeout):
+        count.append(1)
+        return subprocess.CompletedProcess(
+            command,0,stdout="Read-only workspace, cannot create file",
+            stderr=SAMPLE_HOST_POLICY_STDERR)
+    returned=dispatch(isolated,forced_readonly,fake_test)
+    assert returned["status"]=="MODEL_NO_SOURCE_DIFF_QUARANTINED"
+    assert returned["failure_class"]=="CODEX_HOST_EFFECTIVE_READONLY"
+    assert returned["model_invocations_claimed"]==1
+    assert returned["candidate_pr_pushed"] is False
+    policy=blocker_path(isolated["root"])
+    assert policy.is_file()
+    assert json.loads(policy.read_text())["block_additional_model_calls"] is True
+    with pytest.raises(ValueError,match="Codex host enforced read-only"):
+        run_once(job_path=isolated["job"],repo=isolated["repo"],
+                 state_dir=isolated["root"]/"fresh_state",
+                 checkpoint_root=isolated["root"],
+                 codex_path=isolated["codex"],
+                 model_runner=forced_readonly,test_runner=fake_test,
+                 verify_remote=False)
+    assert len(count)==1
+    assert not (isolated["root"]/"fresh_state"/"coding_job_state.json").exists()
+
+
+def test_valid_original_stderr_reconciles_without_new_model_send(isolated):
+    calls=[]
+    def original_noop(command,prompt,*,cwd,timeout):
+        calls.append(1)
+        return subprocess.CompletedProcess(command,0,stdout="No write")
+    result=dispatch(isolated,original_noop,fake_test)
+    assert result["status"]=="MODEL_NO_SOURCE_DIFF_QUARANTINED"
+    evidence=isolated["root"]/"original_codex_stderr.txt"
+    evidence.write_text(SAMPLE_HOST_POLICY_STDERR)
+    saved=reconcile_saved_denial(
+        checkpoint_root=isolated["root"],job_path=isolated["job"],
+        state_dir=isolated["state"],cli_path=isolated["codex"],
+        stderr_path=evidence)
+    assert saved["status"]=="CODING_CLI_EFFECTIVE_READONLY_BLOCKED"
+    assert saved["observed_sandbox"]=="read-only"
+    assert saved["source_job_sha256"]==hashlib.sha256(
+        isolated["job"].read_bytes()).hexdigest()
+    assert len(calls)==1
+    assert reconcile_saved_denial(
+        checkpoint_root=isolated["root"],job_path=isolated["job"],
+        state_dir=isolated["state"],cli_path=isolated["codex"],
+        stderr_path=evidence)==saved
+    assert len(calls)==1
+
+
+def test_forged_host_stderr_cannot_create_global_policy_block(isolated):
+    evidence=isolated["root"]/"faked_stderr.txt"
+    evidence.write_text("sandbox: read-only\nNo actual blocked commands")
+    calls=[]
+    def noop(command,prompt,*,cwd,timeout):
+        calls.append(1)
+        return subprocess.CompletedProcess(command,0,stdout="no changes")
+    dispatch(isolated,noop,fake_test)
+    with pytest.raises(ValueError,match="Unverified"):
+        reconcile_saved_denial(
+            checkpoint_root=isolated["root"],job_path=isolated["job"],
+            state_dir=isolated["state"],cli_path=isolated["codex"],
+            stderr_path=evidence)
+    assert not blocker_path(isolated["root"]).exists()
+    assert len(calls)==1
+
+
+def test_unknown_model_outcome_not_reconciled_as_readonly(isolated):
+    def timeout(command,prompt,*,cwd,timeout):
+        raise subprocess.TimeoutExpired(command,timeout)
+    with pytest.raises(RuntimeError):
+        dispatch(isolated,timeout,fake_test)
+    evidence=isolated["root"]/"read_only_stderr.txt"
+    evidence.write_text(SAMPLE_HOST_POLICY_STDERR)
+    with pytest.raises(ValueError,match="previously returned"):
+        reconcile_saved_denial(
+            checkpoint_root=isolated["root"],job_path=isolated["job"],
+            state_dir=isolated["state"],cli_path=isolated["codex"],
+            stderr_path=evidence)
+
+
+def test_tampered_global_capability_gate_fails_closed(isolated):
+    denial=persist_host_denial(
+        checkpoint_root=isolated["root"],
+        job_sha256="a"*64,cli_sha256="b"*64,
+        stderr=SAMPLE_HOST_POLICY_STDERR)
+    assert denial["status"]=="CODING_CLI_EFFECTIVE_READONLY_BLOCKED"
+    file=blocker_path(isolated["root"])
+    fake=dict(denial)
+    fake["block_additional_model_calls"]=False
+    file.write_text(json.dumps(fake))
+    with pytest.raises(ValueError,match="tampered"):
+        require_workspace_write_capability(
+            checkpoint_root=isolated["root"],cli_sha256="b"*64)
 
 
 def test_non_model_script_cannot_be_coding_program(isolated):
