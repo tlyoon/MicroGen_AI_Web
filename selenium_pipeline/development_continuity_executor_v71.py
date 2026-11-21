@@ -49,6 +49,10 @@ RECOVERY_ACTIONS = {
         "REFUSE_DUPLICATE_EXECUTOR_DISPATCH_WAIT_FOR_OS_OWNER",
     "CONCURRENT_DAEMON_OWNER":
         "REFUSE_SECOND_DAEMON_OWNER_PRESERVE_ORIGINAL_PROCESS",
+    "IMMUTABLE_GLOBAL_OFFLINE_HANDOFF":
+        "SCAN_PINNED_INDEPENDENT_OFFLINE_PLANS_NO_MODEL_OR_RELEASE",
+    "WINDOWS_SOURCE_PINNED_JSON_UTF8_BOM":
+        "PARSE_SINGLE_UTF8_BOM_WITH_UNCHANGED_RAW_SHA_AND_REGISTRY",
 }
 
 
@@ -89,7 +93,17 @@ def _sha(path: Path) -> str:
 def _read_json(path: Path) -> dict:
     _file(path)
     _require(path.stat().st_size <= 240000, "Unbounded JSON input")
-    data = json.loads(path.read_text(encoding="utf-8"))
+    source_text=path.read_text(encoding="utf-8")
+    if source_text.startswith("\ufeff"):
+        require_recovery("WINDOWS_SOURCE_PINNED_JSON_UTF8_BOM")
+        from .recovery_registry import lookup_mechanism
+        if (lookup_mechanism(
+            "historical_format_disposition",
+            "WINDOWS_SOURCE_PINNED_JSON_UTF8_BOM")
+            != "ACCEPT_ONE_BOM_PRESERVE_RAW_PLAN_HASH"):
+            raise ValueError("Missing verified raw-SHA UTF-8 BOM source recovery")
+        source_text=source_text[1:]  # only one BOM; hash remains on ORIGINAL bytes
+    data = json.loads(source_text)
     _require(type(data) is dict, "JSON root must be an object")
     return data
 
