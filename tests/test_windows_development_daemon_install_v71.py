@@ -2,6 +2,7 @@
 from __future__ import annotations
 import copy
 import json
+import os
 from pathlib import Path
 import xml.etree.ElementTree as ET
 from unittest.mock import patch
@@ -194,6 +195,8 @@ def test_approved_start_fails_closed_on_restart_drift(tmp_path,alter):
     send.assert_not_called()
 
 
+@pytest.mark.skipif(os.name!="nt",
+                    reason="Native task creation requires actual Windows")
 def test_unknown_native_task_install_fails_closed(tmp_path):
     user,old=fixtures(tmp_path)
     with patch.object(n,"_security_preflight",return_value=(
@@ -208,6 +211,16 @@ def test_unknown_native_task_install_fails_closed(tmp_path):
                       plan=tmp_path,state_dir=tmp_path/"state",
                       output_dir=tmp_path/"out",python=tmp_path/"python.exe")
     assert create.call_count == 1
+
+
+@pytest.mark.skipif(os.name=="nt",reason="Unix-specific admission check")
+def test_native_installer_rejects_linux_without_attempting_register(tmp_path):
+    with patch.object(n,"_register_new_native_task") as create:
+        with pytest.raises(ValueError,match="Dell-115 only"):
+            n.install(preview_dir=tmp_path,repo=tmp_path,
+                      plan=tmp_path,state_dir=tmp_path/"state",
+                      output_dir=tmp_path/"out",python=tmp_path/"python.exe")
+    create.assert_not_called()
 
 
 def test_duplicate_task_refused_during_security_preflight(tmp_path):

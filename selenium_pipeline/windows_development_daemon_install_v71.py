@@ -220,6 +220,9 @@ def _register_new_native_task(enabled_xml_path: Path,account: str)->None:
 
 def install(*,preview_dir:Path,repo:Path,plan:Path,state_dir:Path,
             output_dir:Path,python:Path|None=None)->dict:
+    _require(os.name=="nt" and
+             os.environ.get("COMPUTERNAME","").casefold()=="dell-115",
+             "Native startup registration is authorized on Dell-115 only")
     python=Path(python or sys.executable).resolve()
     preview_dir=Path(preview_dir).resolve()
     repo=Path(repo).resolve()
