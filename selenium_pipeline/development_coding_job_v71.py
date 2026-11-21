@@ -27,7 +27,41 @@ JOB_ID = re.compile(r"[a-z][a-z0-9_-]{2,55}")
 BRANCH = re.compile(r"feature/pr[0-9]+-[a-z0-9-]{8,90}")
 SAFE_FILE = re.compile(r"[a-zA-Z0-9_.\-/]{5,170}")
 STATUS = ("EXTERNAL_MODEL_RESULT_UNCERTAIN",
-          "MODEL_RESPONDED_UNVERIFIED", "LOCAL_CODING_CANDIDATE_VERIFIED")
+          "MODEL_RESPONDED_UNVERIFIED", "LOCAL_CODING_CANDIDATE_VERIFIED",
+          "MODEL_NO_SOURCE_DIFF_QUARANTINED",
+          "MODEL_SOURCE_CHANGE_QUARANTINED")
+REGISTRY = Path(__file__).with_name(
+    "development_coding_recovery_registry_v71.json")
+RECOVERY_HANDLERS = {
+    "MODEL_RESPONDED_NO_SOURCE_DIFF":
+        "QUARANTINE_NOOP_PRESERVE_RESPONSE_AND_ADVANCE_OFFLINE_BACKLOG",
+    "MODEL_MODIFIED_UNAPPROVED_FILES":
+        "QUARANTINE_UNTRUSTED_DIFF_NEVER_PUSH_OR_PUBLISH",
+    "MODEL_RESPONDED_TEST_FAILED":
+        "RETEST_EXISTING_RESPONSE_WITH_ZERO_MODEL_REPLAY",
+    "OLDER_MAIN_MODEL_RESPONSE_RECONCILIATION":
+        "ATTEST_ORIGINAL_REPLIED_JOB_WITH_ZERO_NEW_MODEL_SENDS",
+}
+
+
+def require_recovery(signature:str, *,registry:Path|None=None)->str:
+    file=Path(registry or REGISTRY)
+    require(file.is_file() and not file.is_symlink()
+            and 1 <= file.stat().st_size <= 4096,
+            "Missing executable source-bound coding recovery registry")
+    config=json.loads(file.read_text(encoding="utf8"))
+    expected={
+        "schema_version":1,
+        "status":"MICROGEN_V71_SOURCE_BOUND_CODING_RECOVERY_V1",
+        "enabled":True,
+        "max_additional_model_calls":0,
+        "may_create_or_merge_pr":False,
+        "may_release_students":False,
+        "handlers":RECOVERY_HANDLERS,
+    }
+    require(config==expected and signature in RECOVERY_HANDLERS,
+            "Unregistered or modified source-bound coding recovery")
+    return RECOVERY_HANDLERS[signature]
 
 
 def require(value: bool, reason: str) -> None:
@@ -198,6 +232,12 @@ def run_once(*,job_path:Path,repo:Path,state_dir:Path,checkpoint_root:Path,
                 raise RuntimeError(
                     "Model submission may have been consumed; reconcile, never resend")
             require(state["status"] in STATUS,"Unknown coding checkpoint")
+            if state["status"] in (
+                "MODEL_NO_SOURCE_DIFF_QUARANTINED",
+                "MODEL_SOURCE_CHANGE_QUARANTINED"):
+                require(state.get("recovery_action") in RECOVERY_HANDLERS.values(),
+                        "Unknown quarantined coding job")
+                return state
             if state["status"]=="LOCAL_CODING_CANDIDATE_VERIFIED":
                 prior=state.get("evidence")
                 require(type(prior) is dict
@@ -241,12 +281,77 @@ def run_once(*,job_path:Path,repo:Path,state_dir:Path,checkpoint_root:Path,
                 response.encode("utf8")).hexdigest()
             state["model_output_chars"]=len(response)
             _atomic_json(state_file,state)
-        evidence=_verify_changes(repo,job)
-        tests=_verify_tests(repo=repo,job=job,runner=test_runner)
+        # A response with no source change is a *real* model no-op, not a
+        # successful code repair. Never re-Send the original model request.
+        # Persist a registered source-bound quarantine and let the parent
+        # roadmap advance independent workstreams.
+        try:
+            evidence=_verify_changes(repo,job)
+        except (ValueError,SyntaxError) as exc:
+            try:
+                altered=changed_files(repo)
+            except ValueError:
+                altered=["UNTRUSTED_RENAME_OR_GIT_STATUS"]
+            signature=("MODEL_RESPONDED_NO_SOURCE_DIFF" if not altered
+                       else "MODEL_MODIFIED_UNAPPROVED_FILES")
+            remedy=require_recovery(signature)
+            state["status"]=(
+                "MODEL_NO_SOURCE_DIFF_QUARANTINED" if not altered
+                else "MODEL_SOURCE_CHANGE_QUARANTINED")
+            state["recovery_action"]=remedy
+            state["failure_class"]=signature
+            state["changed_files_observed"]=altered[:12]
+            state["model_invocations_claimed"]=1
+            state["candidate_pr_pushed"]=False
+            state["next_independent_workstream_eligible"]=True
+            state["student_release"]=False
+            _atomic_json(state_file,state)
+            return state
+        try:
+            tests=_verify_tests(repo=repo,job=job,runner=test_runner)
+        except ValueError:
+            state["recovery_action"]=require_recovery(
+                "MODEL_RESPONDED_TEST_FAILED")
+            state["status"]="MODEL_RESPONDED_UNVERIFIED"
+            state["next_model_send_authorized"]=False
+            _atomic_json(state_file,state)
+            raise
         state["status"]="LOCAL_CODING_CANDIDATE_VERIFIED"
         state["evidence"]={**evidence,**tests,"main_sha":job["main_sha"]}
         _atomic_json(state_file,state)
         return state
+
+
+def reconcile_existing_response(*,job_path:Path,repo:Path,state_dir:Path,
+                               checkpoint_root:Path,codex_path:Path,
+                               test_runner=None)->dict:
+    """Reconcile already returned model output from an older admitted main.
+
+    The saved historical job remains source- and branch-locked; remote main
+    advancement cannot force a duplicate model Send. Never accepts an
+    unfinished or possibly consumed request as eligible for regeneration.
+    """
+    state_file=Path(state_dir).resolve()/"coding_job_state.json"
+    require(state_file.is_file() and not state_file.is_symlink(),
+            "No original model response claim for safe reconciliation")
+    prior=_read_json(state_file)
+    require(prior.get("status") in (
+                "MODEL_RESPONDED_UNVERIFIED",
+                "MODEL_NO_SOURCE_DIFF_QUARANTINED",
+                "MODEL_SOURCE_CHANGE_QUARANTINED",
+                "LOCAL_CODING_CANDIDATE_VERIFIED"),
+            "Only a known completed model response may be reconciled")
+    remedy=require_recovery("OLDER_MAIN_MODEL_RESPONSE_RECONCILIATION")
+    def forbidden_model_invocation(*args,**kwargs):
+        raise RuntimeError("No provider Send is allowed during historical reconciliation")
+    result=run_once(
+        job_path=job_path,repo=repo,state_dir=state_dir,
+        checkpoint_root=checkpoint_root,codex_path=codex_path,
+        model_runner=forbidden_model_invocation,
+        test_runner=test_runner,verify_remote=False)
+    require(result.get("model_invocations_claimed")==1,
+            "Unattributable old coding-model invocation")
+    return result
 
 
 def main(argv:list[str]|None=None)->int:
@@ -256,7 +361,9 @@ def main(argv:list[str]|None=None)->int:
     p.add_argument("--state-dir",type=Path,required=True)
     p.add_argument("--checkpoint-root",type=Path,required=True)
     p.add_argument("--codex",type=Path,required=True)
-    p.add_argument("--run",action="store_true",required=True)
+    actions=p.add_mutually_exclusive_group(required=True)
+    actions.add_argument("--run",action="store_true")
+    actions.add_argument("--reconcile-only",action="store_true")
     a=p.parse_args(argv)
     try:
         if os.name=="nt":
@@ -265,10 +372,15 @@ def main(argv:list[str]|None=None)->int:
             allowed_cli=(Path(os.environ["APPDATA"])/"npm"/"codex.cmd").resolve()
             require(Path(a.codex).resolve()==allowed_cli,
                     "Only the actual current-user Codex CLI is authorized")
-        result=run_once(job_path=a.job,repo=a.repo,state_dir=a.state_dir,
-                        checkpoint_root=a.checkpoint_root,codex_path=a.codex)
+        if a.reconcile_only:
+            result=reconcile_existing_response(
+                job_path=a.job,repo=a.repo,state_dir=a.state_dir,
+                checkpoint_root=a.checkpoint_root,codex_path=a.codex)
+        else:
+            result=run_once(job_path=a.job,repo=a.repo,state_dir=a.state_dir,
+                            checkpoint_root=a.checkpoint_root,codex_path=a.codex)
         print(json.dumps(result,indent=2))
-        return 0
+        return (0 if result["status"]=="LOCAL_CODING_CANDIDATE_VERIFIED" else 2)
     except (RuntimeError,ValueError,OSError,subprocess.TimeoutExpired) as exc:
         print(json.dumps({"status":"CODE_CANDIDATE_BLOCKED_NOT_RELEASED",
                           "error_type":type(exc).__name__,
