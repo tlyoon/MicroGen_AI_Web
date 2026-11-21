@@ -71,7 +71,8 @@ def request_narration(
     response = call_with_client_failover(
         create_gemini_client, operation,
         label=f"MicroGen_AI_Web Flash narration {slides_pdf.name}",
-        max_retries=1,
+        # One SDK invocation per source-bound claim; 504s are uncertain Sends.
+        max_retries=0,
     )
     candidates = getattr(response, "candidates", None) or []
     reason = str(getattr(candidates[0], "finish_reason", "")).upper() if candidates else ""

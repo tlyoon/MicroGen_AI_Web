@@ -64,6 +64,10 @@ def _code_fingerprint() -> str:
         "vendor_template_v2/gen_slides_selenium_v11.py",
         "source_caption_figure_chain_v1.py", "source_crop_overrides_v1.json",
         "slide_transport_guard.py",
+        "vendor_template_v2/gen_script_selenium_v15.py",
+        "vendor_template_v2/script_tts_risk.py",
+        "narration_api.py", "narration_transport_guard.py",
+        "narration_saved_recovery.py",
     )
     digest = hashlib.sha256()
     for name in names:

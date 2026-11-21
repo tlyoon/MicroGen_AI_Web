@@ -193,6 +193,15 @@ def run_stage(
             "MICROGEN_WORKER_SLIDES_SELENIUM_ATTEMPTS", "1")
         env["MICROGEN_API_ATTEMPTS"] = os.getenv(
             "MICROGEN_WORKER_SLIDES_API_ATTEMPTS", "1")
+    elif stage == "narration":
+        # A dedicated PC campaign may select the vetted source-grounded API
+        # when owned Gemini browser picker hydration is repeatedly absent.
+        # No cross-PC/whole-project transport change is implied by this flag.
+        env["MICROGEN_COMMUNICATION_MODE"] = os.getenv(
+            "MICROGEN_WORKER_NARRATION_MODE",
+            os.getenv("MICROGEN_COMMUNICATION_MODE", "selenium"))
+        env["MICROGEN_API_ATTEMPTS"] = os.getenv(
+            "MICROGEN_WORKER_NARRATION_API_ATTEMPTS", "1")
     logfile.parent.mkdir(parents=True, exist_ok=True)
     start = time.monotonic()
     last_child_output = start
