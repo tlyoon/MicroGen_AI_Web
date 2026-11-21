@@ -45,6 +45,10 @@ RECOVERY_ACTIONS = {
         "QUARANTINE_ON_LIMIT_AND_SCAN_INDEPENDENT_WORKSTREAM",
     "AUTHORIZATION_GATE":
         "HOLD_UNAUTHORIZED_TASK_SCAN_INDEPENDENT_WORKSTREAM",
+    "CONCURRENT_EXECUTOR_OWNER":
+        "REFUSE_DUPLICATE_EXECUTOR_DISPATCH_WAIT_FOR_OS_OWNER",
+    "CONCURRENT_DAEMON_OWNER":
+        "REFUSE_SECOND_DAEMON_OWNER_PRESERVE_ORIGINAL_PROCESS",
 }
 
 
@@ -113,10 +117,17 @@ def _exclusive(state_dir: Path):
     path = state_dir / "executor.lock"
     _require(not path.is_symlink(), "Linked executor lock is forbidden")
     path.touch(exist_ok=True)
-    with path.open("r+b") as file:
-        file.seek(0)
-        file.write(b"1")
-        file.flush()
+    try:
+        stream=path.open("r+b")
+    except PermissionError as exc:
+        require_recovery("CONCURRENT_EXECUTOR_OWNER")
+        raise RuntimeError("Development executor already running") from exc
+    with stream as file:
+        # A competing Windows reader may be forbidden to WRITE a locked
+        # byte before msvcrt.locking; leave initialized lock bytes intact.
+        if file.seek(0,os.SEEK_END)==0:
+            file.write(b"1")
+            file.flush()
         # Windows msvcrt.locking applies to the CURRENT file offset.
         # Acquire and release the exact same first-byte range.
         file.seek(0)
@@ -128,6 +139,7 @@ def _exclusive(state_dir: Path):
                 import fcntl
                 fcntl.flock(file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
         except OSError as exc:
+            require_recovery("CONCURRENT_EXECUTOR_OWNER")
             raise RuntimeError("Development executor already running") from exc
         try:
             yield
