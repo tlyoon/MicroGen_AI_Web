@@ -856,6 +856,48 @@
       "environment": "Dell-115 isolated Windows Git and Python source/test handoff after Codex host read-only denial",
       "retry_policy": "write-ahead claim before any file, finite atomic replace with old/new SHA recovery, fail closed for foreign diff, quarantine failed tests; never clear Codex policy",
       "enabled": true
+    },
+    {
+      "id": "SELENIUM_BROWSER_CODING_RESPONSE_V71",
+      "match_type": "browser_coding_transport",
+      "signature": "GEMINI_SELENIUM_CODING_ONE_CLAIM_NO_REPLAY",
+      "mechanism": "CLAIM_ONCE_CAPTURE_REPLY_STATIC_TEST_AND_HANDOFF",
+      "classification": "AUTHORIZED_INDEPENDENT_CODE_MODEL_TRANSPORT_AFTER_CODEX_HOST_DENIAL",
+      "handler": "NORMAL_ONE_CLAIM_SELENIUM_CODE_REVIEW",
+      "preconditions": "explicit authorized immutable source-SHA-bound coding job; authenticated existing Gemini Chrome; unique independent feature worktree; only one browser Send and no paid API fallback; pure statically bounded tests accepted",
+      "verification_test": "tests/test_development_browser_code_transport_v71.py",
+      "last_verified_date": "2026-11-22",
+      "environment": "Dell-115 existing Selenium-owned Gemini tab and isolated local Git worktree; no changes to host Codex sandbox",
+      "retry_policy": "persist potentially consumed one-send claim before browser request; never resend uncertain request; reconcile original saved reply only; reject all untrusted code outside the AST-bound classifier-test profile; no publication",
+      "enabled": true
+    },
+    {
+      "id": "WINDOWS_SELENIUM_LOGGER_AFTER_SEND_UNICODE",
+      "match_type": "browser_stdout_encoding",
+      "signature": "WINDOWS_CP1252_NONASCII_PROVIDER_WAIT_LOG_AFTER_SEND",
+      "mechanism": "ESCAPE_NONENCODABLE_LOG_CHARS_NEVER_ABORT_CAPTURE",
+      "classification": "WINDOWS_STDOUT_UNICODEENCODEERROR_POST_SEND_RESPONSE_CAPTURE",
+      "handler": "NORMAL_WINDOWS_BROWSER_NONASCII_LOGGER_RECOVERY",
+      "preconditions": "source-pinned single-claimed Gemini Selenium job and stdout codec must never throw when logging non-ASCII progress after a registered Send",
+      "verification_test": "tests/test_development_browser_code_transport_v71.py",
+      "last_verified_date": "2026-11-22",
+      "environment": "Dell-115 Windows legacy CP1252 PowerShell Python stdout",
+      "retry_policy": "log unsupported characters with safe Unicode backslash escaping; never resend original claimed provider request; preserve original uncertain job",
+      "enabled": true
+    },
+    {
+      "id": "GEMINI_OWNED_COPY_ASSERT_INDENT_RECOVERY",
+      "match_type": "browser_coding_response_shape",
+      "signature": "GEMINI_OWNED_COPY_FLATTENED_SAFE_TEST_MODULE",
+      "mechanism": "RESTORE_ASSERT_INDENT_ONLY_AFTER_TEST_DEF_VERIFY_STATIC_AST",
+      "classification": "GEMINI_OWNED_UI_READOUT_ADDS_GEMINI_SAID_PREFIX_AND_FLATTENS_ASSERT_INDENT",
+      "handler": "NORMAL_GEMINI_SOURCE_ONLY_CODE_CAPTURE_RECOVERY",
+      "preconditions": "immutable source-pinned original saved Gemini reply with exactly one unambiguous bounded pure read-only pytest module; do not interpret arbitrary prose as code",
+      "verification_test": "tests/test_development_browser_code_transport_v71.py",
+      "last_verified_date": "2026-11-22",
+      "environment": "Dell-115 owned Gemini Hydrogen Medium UI, actual saved 613-character single-send coding model response",
+      "retry_policy": "zero new Sends; strip only the verified Gemini said UI wrapper and reindent assert lines only inside test_ functions, then require strict AST and real pytest",
+      "enabled": true
     }
   ]
 }

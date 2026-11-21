@@ -26,8 +26,9 @@ from typing import List, Optional, Tuple, Dict, Any
 
 # ---------------- Logging ----------------
 def log(msg: str, level: str = "INFO") -> None:
-    ts = time.strftime("%Y-%m-%d %H:%M:%S")
-    print(f"[{ts}] [{level}] {msg}", flush=True)
+    # stdlib-only adapter tested on machines without Selenium installed.
+    from selenium_pipeline.windows_safe_logging import safe_log
+    safe_log(msg, level)
 
 DEFAULT_TIMEOUT = 6
 
@@ -1837,6 +1838,12 @@ class GeminiSeleniumClient:
                 self, status=("registered_response_pending"
                               if observed.get("registered") is True
                               else "send_uncertain"))
+            if os.getenv("MICROGEN_ACTIVE_GENERATION_STAGE") == "code_authoring":
+                # An attempted click is not sufficient model-code provenance.
+                # It may have sent remotely, but absent an independently
+                # observed registered turn its claim stays uncertain and the
+                # caller must not ingest a stale/foreign response or retry.
+                return observed.get("registered") is True
             return bool(clicked or observed.get("registered") is True)
         if self._hidden_send_button_preflight():
             log(
