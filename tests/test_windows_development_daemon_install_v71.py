@@ -123,7 +123,9 @@ def _pinned_native_start_fixture(tmp_path):
     node=ET.fromstring(xml)
     args=node.findtext("t:Actions/t:Exec/t:Arguments",namespaces={"t":NS})
     own={"name":TASK_NAME,"state":"Ready","action":str(py),
-         "arguments":args,"principal":user,
+         "arguments":args,"principal":"tlyoon",
+         "principal_sid":"S-1-12-1-111-222-333-444",
+         "task_enabled":True,"trigger_enabled":True,
          "run_level":"Limited","logon":"Interactive"}
     receipt={
         "status":"NATIVE_OFFLINE_LOGON_TASK_INSTALLED",
@@ -134,6 +136,7 @@ def _pinned_native_start_fixture(tmp_path):
         "state_dir":str(state),
         "python":str(py),
         "user":user,
+        "user_sid":"S-1-12-1-111-222-333-444",
         "approved_roadmap_sha256":n._sha(plan),
         "python_sha256":n._sha(py),
         "daemon_sha256":n._sha(daemon),
@@ -148,7 +151,8 @@ def _pinned_native_start_fixture(tmp_path):
 
 def test_approved_start_never_reinstalls_and_verifies_other_tasks(tmp_path):
     old,own,state,p,plan,py,receipt=_pinned_native_start_fixture(tmp_path)
-    with patch.object(n,"_git_clean_head",return_value=receipt["git_sha"]),patch.object(
+    with patch.object(n,"_current_sid",return_value=receipt["user_sid"]),patch.object(
+        n,"_git_clean_head",return_value=receipt["git_sha"]),patch.object(
         n,"_native_snapshot",return_value={**old,TASK_NAME:own}),patch.object(
         n,"_powershell",return_value="OFFLINE_TASK_START_REQUESTED") as send,patch.object(
         n,"attest_live_daemon",return_value={"running_verified":False}):
@@ -162,7 +166,8 @@ def test_approved_start_never_reinstalls_and_verifies_other_tasks(tmp_path):
 def test_approved_start_fails_if_original_task_enabled(tmp_path):
     old,own,state,p,plan,py,receipt=_pinned_native_start_fixture(tmp_path)
     old["MicroGen_AI_Web_v71_SourceOnly"]["state"]="Ready"
-    with patch.object(n,"_git_clean_head",return_value=receipt["git_sha"]),patch.object(
+    with patch.object(n,"_current_sid",return_value=receipt["user_sid"]),patch.object(
+        n,"_git_clean_head",return_value=receipt["git_sha"]),patch.object(
         n,"_native_snapshot",return_value={**old,TASK_NAME:own}),patch.object(
         n,"_powershell") as send:
         with pytest.raises(ValueError):
@@ -187,7 +192,8 @@ def test_approved_start_fails_closed_on_restart_drift(tmp_path,alter):
         head="b"*40
     elif alter=="state":
         state=tmp_path/"another_state"
-    with patch.object(n,"_git_clean_head",return_value=head),patch.object(
+    with patch.object(n,"_current_sid",return_value=receipt["user_sid"]),patch.object(
+        n,"_git_clean_head",return_value=head),patch.object(
         n,"_native_snapshot",return_value={**old,TASK_NAME:own}),patch.object(
         n,"_powershell") as send:
         with pytest.raises(ValueError):
@@ -245,3 +251,120 @@ def test_duplicate_task_refused_during_security_preflight(tmp_path):
         n,"_native_snapshot",return_value={TASK_NAME:{"state":"Ready"}}):
         with pytest.raises(ValueError):
             n._security_preflight(tmp_path,tmp_path,tmp_path,tmp_path,tmp_path)
+
+
+def _pending_native_reconcile_fixture(tmp_path):
+    user,old=fixtures(tmp_path)
+    approved=n.enabled_xml_from_disabled_preview(preview(tmp_path))
+    stage=tmp_path/"native_stage"
+    stage.mkdir()
+    (stage/"offline_daemon_ENABLED_approved.xml").write_bytes(approved)
+    node=ET.fromstring(approved)
+    args=node.findtext("t:Actions/t:Exec/t:Arguments",namespaces={"t":NS})
+    exe=node.findtext("t:Actions/t:Exec/t:Command",namespaces={"t":NS})
+    pending={"name":TASK_NAME,"state":"Disabled",
+             "task_enabled":False,"trigger_enabled":True,
+             "principal":"tlyoon",
+             "principal_sid":"S-1-12-1-111-222-333-444",
+             "run_level":"Limited","logon":"Interactive",
+             "action":exe,"arguments":args}
+    after={**pending,"state":"Ready","task_enabled":True}
+    receipt={
+        "source_git_sha":"a"*40,
+        "source_plan_sha256":"b"*64,
+        "daemon_sha256":"c"*64,
+        "python_sha256":"d"*64,
+    }
+    return user,old,stage,pending,after,receipt
+
+
+@pytest.mark.skipif(os.name!="nt",reason="Native reconciliation is Windows-specific")
+def test_real_claim_reconciliation_audit_never_registers_or_enables(tmp_path):
+    user,old,stage,pending,after,receipt=_pending_native_reconcile_fixture(tmp_path)
+    with patch.dict(os.environ,{"LOCALAPPDATA":str(tmp_path),
+                               "COMPUTERNAME":"DELL-115"}),patch.object(
+        n,"_security_preflight",return_value=(
+            receipt,(stage/"offline_daemon_ENABLED_approved.xml").read_bytes(),
+            user,{**old,TASK_NAME:pending}
+        )),patch.object(n,"_current_sid",return_value=pending["principal_sid"]
+        ),patch.object(n,"_register_new_native_task") as register,patch.object(
+        n,"_powershell") as enable:
+        result=n.reconcile_existing(
+            preview_dir=tmp_path,repo=tmp_path/"repo",plan=tmp_path/"roadmap",
+            state_dir=tmp_path/"state",output_dir=stage,
+            python=Path(pending["action"]),activate=False)
+    assert result["status"]=="EXISTING_NATIVE_CREATE_ATTESTED_REMAINING_DISABLED"
+    assert result["native_registration_attempts"]==0
+    assert result["task_enabled"] is False
+    assert not (stage/"native_installed_attestation.json").exists()
+    register.assert_not_called()
+    enable.assert_not_called()
+
+
+@pytest.mark.skipif(os.name!="nt",reason="Native reconciliation is Windows-specific")
+def test_native_reconciliation_enables_only_previously_created_owned_task(tmp_path):
+    user,old,stage,pending,after,receipt=_pending_native_reconcile_fixture(tmp_path)
+    with patch.dict(os.environ,{"LOCALAPPDATA":str(tmp_path),
+                               "COMPUTERNAME":"DELL-115"}),patch.object(
+        n,"_security_preflight",return_value=(
+            receipt,(stage/"offline_daemon_ENABLED_approved.xml").read_bytes(),
+            user,{**old,TASK_NAME:pending}
+        )),patch.object(n,"_current_sid",return_value=pending["principal_sid"]
+        ),patch.object(n,"_register_new_native_task") as register,patch.object(
+        n,"_powershell",return_value="EXACT_PREVIOUS_OFFLINE_TASK_ENABLED"
+        ) as native,patch.object(n,"_native_snapshot",
+             return_value={**old,TASK_NAME:after}):
+        result=n.reconcile_existing(
+            preview_dir=tmp_path,repo=tmp_path/"repo",plan=tmp_path/"roadmap",
+            state_dir=tmp_path/"state",output_dir=stage,
+            python=Path(pending["action"]),activate=True)
+    assert result["status"]=="NATIVE_OFFLINE_LOGON_TASK_INSTALLED"
+    assert result["reconciled_previously_created_task"] is True
+    assert result["native_registration_attempts"]==0
+    assert result["user"]=="USM\\tlyoon"
+    assert result["registered_principal"]=="tlyoon"
+    assert result["user_sid"]==pending["principal_sid"]
+    assert result["student_release"] is False
+    assert json.loads((stage/"native_installed_attestation.json").read_text(
+        encoding="utf8"))["git_sha"]=="a"*40
+    register.assert_not_called()
+    assert native.call_count==1
+    assert "Enable-ScheduledTask" in native.call_args.args[0]
+    assert "MicroGen_AI_Web_v71_SourceOnly" not in native.call_args.args[0]
+    assert "RegisterTaskDefinition" not in native.call_args.args[0]
+
+
+@pytest.mark.skipif(os.name!="nt",reason="Native reconciliation is Windows-specific")
+@pytest.mark.parametrize("defect",["different_sid","altered_args","missing_source_receipt",
+                                  "high_privilege","wrong_action","enabled_already"])
+def test_native_reconciliation_rejects_foreign_or_unattested_task_without_enable(
+        tmp_path,defect):
+    user,old,stage,pending,after,receipt=_pending_native_reconcile_fixture(tmp_path)
+    if defect=="different_sid":
+        pending["principal_sid"]="S-1-5-18"
+    elif defect=="altered_args":
+        pending["arguments"]+=" --malicious"
+    elif defect=="missing_source_receipt":
+        (stage/"offline_daemon_ENABLED_approved.xml").unlink()
+    elif defect=="high_privilege":
+        pending["run_level"]="Highest"
+    elif defect=="wrong_action":
+        pending["action"]=str(tmp_path/"malicious.exe")
+    elif defect=="enabled_already":
+        pending["state"]="Ready"
+    with patch.dict(os.environ,{"LOCALAPPDATA":str(tmp_path),
+                               "COMPUTERNAME":"DELL-115"}),patch.object(
+        n,"_security_preflight",return_value=(
+            receipt, n.enabled_xml_from_disabled_preview(preview(tmp_path)),
+            user,{**old,TASK_NAME:pending}
+        )),patch.object(n,"_current_sid",return_value="S-1-12-1-111-222-333-444"
+        ),patch.object(n,"_register_new_native_task") as register,patch.object(
+        n,"_powershell") as enable:
+        with pytest.raises(ValueError):
+            n.reconcile_existing(
+                preview_dir=tmp_path,repo=tmp_path/"repo",
+                plan=tmp_path/"roadmap",
+                state_dir=tmp_path/"state",output_dir=stage,
+                python=tmp_path/"python.exe",activate=True)
+    register.assert_not_called()
+    enable.assert_not_called()

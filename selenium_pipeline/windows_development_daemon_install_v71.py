@@ -104,10 +104,17 @@ def _native_snapshot()->dict:
         "$t=Get-ScheduledTask -TaskName $n -ErrorAction SilentlyContinue;"
         "if($null -eq $t){$rows+=@{name=$n;state='Absent'};continue};"
         "$i=Get-ScheduledTaskInfo -TaskName $n;"
+        "$sid='UNRESOLVED';try{"
+        "$account=New-Object Security.Principal.NTAccount($t.Principal.UserId);"
+        "$sid=$account.Translate([Security.Principal.SecurityIdentifier]).Value"
+        "}catch{};"
         "$rows+=@{name=$n;state=[string]$t.State;"
         "action=[string]$t.Actions[0].Execute;"
         "arguments=[string]$t.Actions[0].Arguments;"
         "principal=[string]$t.Principal.UserId;"
+        "principal_sid=[string]$sid;"
+        "task_enabled=[bool]$t.Settings.Enabled;"
+        "trigger_enabled=[bool]$t.Triggers[0].Enabled;"
         "run_level=[string]$t.Principal.RunLevel;"
         "logon=[string]$t.Principal.LogonType;"
         "last_result=[int]$i.LastTaskResult};}"
@@ -120,8 +127,19 @@ def _native_snapshot()->dict:
     return {v["name"]:v for v in data}
 
 
+def _current_sid() -> str:
+    # Task Scheduler may normalize DOMAIN\\user to bare username on readback.
+    # The resolved security identifier, not the display string, controls owner.
+    sid=_powershell("[Security.Principal.WindowsIdentity]::GetCurrent().User.Value")
+    _require(bool(re.fullmatch(r"S-1-[0-9-]+",sid)),
+             "Current interactive identity SID cannot be attested")
+    return sid
+
+
 def _security_preflight(preview_dir: Path,repo: Path,plan: Path,
-                        state_dir: Path,python: Path)->tuple[dict,bytes,str,dict]:
+                        state_dir: Path,python: Path, *,
+                        existing_policy: str="must_be_absent"
+                        )->tuple[dict,bytes,str,dict]:
     require_preview_registry()
     require_install_registry()
     _require(os.name=="nt" and os.environ.get("COMPUTERNAME","").casefold()=="dell-115",
@@ -182,8 +200,14 @@ def _security_preflight(preview_dir: Path,repo: Path,plan: Path,
              .casefold()==account.casefold(),
              "Preview is owned by another user")
     actual=_native_snapshot()
-    _require(actual[TASK_NAME]["state"]=="Absent",
-             "An existing native offline task cannot be overwritten")
+    _require(existing_policy in ("must_be_absent","must_be_disabled"),
+             "Unknown native task admission mode")
+    if existing_policy=="must_be_absent":
+        _require(actual[TASK_NAME]["state"]=="Absent",
+                 "An existing native offline task cannot be overwritten")
+    else:
+        _require(actual[TASK_NAME]["state"]=="Disabled",
+                 "Only a previously-created, disabled task can be reconciled")
     _require(all(actual[n]["state"]=="Disabled" for n in ALLOWED_TASKS),
              "Original v7.1 task state changed; refuse installation")
     return receipt,enabled,account,actual
@@ -242,7 +266,9 @@ def install(*,preview_dir:Path,repo:Path,plan:Path,state_dir:Path,
     own=after[TASK_NAME]
     _require(own.get("state") in ("Ready","Running")
              and Path(own.get("action","")).resolve()==python
-             and own.get("principal","").casefold()==owner.casefold()
+             and own.get("principal_sid")==_current_sid()
+             and own.get("task_enabled") is True
+             and own.get("trigger_enabled") is True
              and own.get("run_level")=="Limited"
              and own.get("logon")=="Interactive"
              and all(after[n]["state"]==before[n]["state"]=="Disabled"
@@ -256,6 +282,8 @@ def install(*,preview_dir:Path,repo:Path,plan:Path,state_dir:Path,
         "approved_roadmap_sha256":old["source_plan_sha256"],
         "enabled_xml_sha256":_sha(task_xml),
         "user":owner,
+        "user_sid":_current_sid(),
+        "registered_principal":own.get("principal"),
         "task_state":own["state"],
         "repository":str(repo),
         "source_plan":str(plan),
@@ -275,6 +303,119 @@ def install(*,preview_dir:Path,repo:Path,plan:Path,state_dir:Path,
     _write_once(output_dir/"native_installed_attestation.json",
                 (json.dumps(result,sort_keys=True,indent=2)+"\n").encode())
     return result
+
+
+def reconcile_existing(*,preview_dir:Path,repo:Path,plan:Path,
+                       state_dir:Path,output_dir:Path,python:Path|None=None,
+                       activate:bool=False)->dict:
+    """Recover a verified prior native CREATE that lacked an attestation.
+
+    Never calls RegisterTaskDefinition and cannot overwrite another task.
+    An original byte-identical enabled XML file must already exist; native
+    task must be Disabled, SID-owned, and match every pinned action/argument.
+    Activation modifies ONLY this previously-created task after admission.
+    """
+    _require(os.name=="nt" and
+             os.environ.get("COMPUTERNAME","").casefold()=="dell-115",
+             "Native reconciliation is authorized on Dell-115 only")
+    preview_dir=Path(preview_dir).resolve()
+    repo=Path(repo).resolve()
+    plan=Path(plan).resolve()
+    state_dir=Path(state_dir).resolve()
+    output_dir=Path(output_dir).resolve()
+    python=Path(python or sys.executable).resolve()
+    _require(output_dir.is_relative_to(Path(os.environ["LOCALAPPDATA"]).resolve())
+             and not output_dir.is_relative_to(repo)
+             and output_dir.is_dir() and not output_dir.is_symlink(),
+             "Missing exact original native installation staging directory")
+    approved,enabled,account,before=_security_preflight(
+        preview_dir,repo,plan,state_dir,python,
+        existing_policy="must_be_disabled")
+    candidate=output_dir/"offline_daemon_ENABLED_approved.xml"
+    _require(candidate.is_file() and not candidate.is_symlink()
+             and candidate.read_bytes()==enabled,
+             "Original possibly-created task has no identical approved XML")
+    doc=ET.fromstring(enabled)
+    ns={"t":NS}
+    expected_action=doc.findtext("t:Actions/t:Exec/t:Command",namespaces=ns)
+    expected_args=doc.findtext("t:Actions/t:Exec/t:Arguments",namespaces=ns)
+    own=before[TASK_NAME]
+    owner_sid=_current_sid()
+    _require(own["state"]=="Disabled"
+             and own.get("task_enabled") is False
+             and own.get("trigger_enabled") is True
+             and own.get("principal_sid")==owner_sid
+             and own.get("run_level")=="Limited"
+             and own.get("logon")=="Interactive"
+             and Path(own.get("action","")).resolve()==python
+             and own.get("action")==expected_action
+             and own.get("arguments")==expected_args,
+             "Existing task is not the exact source/owner-attested prior CREATE")
+    if not activate:
+        return {
+            "status":"EXISTING_NATIVE_CREATE_ATTESTED_REMAINING_DISABLED",
+            "task":TASK_NAME,
+            "user_sid":owner_sid,
+            "source_git_sha":approved["source_git_sha"],
+            "approved_xml_sha256":_sha(candidate),
+            "task_enabled":False,
+            "created_again":False,
+            "native_registration_attempts":0,
+            "new_model_sends":0,
+        }
+    # User-authorized activation: enable ONLY the exact previously-created
+    # task, never SourceOnly, StatusMonitor or another owner's task.
+    result=_powershell("$ErrorActionPreference='Stop';"
+                      "Enable-ScheduledTask -TaskName '"
+                      +TASK_NAME+"'|Out-Null;"
+                      "'EXACT_PREVIOUS_OFFLINE_TASK_ENABLED'")
+    _require(result=="EXACT_PREVIOUS_OFFLINE_TASK_ENABLED",
+             "Native task activation did not complete")
+    after=_native_snapshot()
+    active=after[TASK_NAME]
+    _require(active.get("state") in ("Ready","Running")
+             and active.get("task_enabled") is True
+             and active.get("trigger_enabled") is True
+             and active.get("principal_sid")==owner_sid
+             and active.get("run_level")=="Limited"
+             and active.get("logon")=="Interactive"
+             and active.get("action")==expected_action
+             and active.get("arguments")==expected_args
+             and all(after[n]["state"]==before[n]["state"]=="Disabled"
+                     and after[n]["action"]==before[n]["action"]
+                     for n in ALLOWED_TASKS),
+             "Only the exact registered offline task may be activated")
+    payload={
+        "schema_version":1,
+        "status":"NATIVE_OFFLINE_LOGON_TASK_INSTALLED",
+        "task":TASK_NAME,
+        "git_sha":approved["source_git_sha"],
+        "approved_roadmap_sha256":approved["source_plan_sha256"],
+        "enabled_xml_sha256":_sha(candidate),
+        "user":account,
+        "user_sid":owner_sid,
+        "registered_principal":active.get("principal"),
+        "task_state":active["state"],
+        "repository":str(repo),
+        "source_plan":str(plan),
+        "state_dir":str(state_dir),
+        "python":str(python),
+        "daemon_sha256":approved["daemon_sha256"],
+        "python_sha256":approved["python_sha256"],
+        "registered_action":active["action"],
+        "registered_arguments":active["arguments"],
+        "other_tasks_unchanged":True,
+        "native_reboot_acceptance":False,
+        "run_actually_started":active["state"]=="Running",
+        "reconciled_previously_created_task":True,
+        "native_registration_attempts":0,
+        "model_sends":0,
+        "code_writing":False,
+        "student_release":False,
+    }
+    _write_once(output_dir/"native_installed_attestation.json",
+                (json.dumps(payload,sort_keys=True,indent=2)+"\n").encode())
+    return payload
 
 
 def start_approved(*,installation_dir:Path,state_dir:Path)->dict:
@@ -315,7 +456,9 @@ def start_approved(*,installation_dir:Path,state_dir:Path)->dict:
     _require(current.get("state") in ("Ready","Running")
              and saved["registered_action"]==current.get("action")==expected_cmd
              and saved["registered_arguments"]==current.get("arguments")==expected_arg
-             and current.get("principal","").casefold()==saved["user"].casefold()
+             and current.get("principal_sid")==saved["user_sid"]==_current_sid()
+             and current.get("task_enabled") is True
+             and current.get("trigger_enabled") is True
              and current.get("run_level")=="Limited"
              and current.get("logon")=="Interactive"
              and all(snapshot[n]["state"]=="Disabled" for n in ALLOWED_TASKS),
@@ -341,6 +484,9 @@ def main(argv:list[str]|None=None)->int:
     a=p.add_mutually_exclusive_group(required=True)
     a.add_argument("--install",action="store_true")
     a.add_argument("--start",action="store_true")
+    a.add_argument("--reconcile-existing",action="store_true")
+    p.add_argument("--activate",action="store_true",
+                   help="Enable only an attested previously-created task")
     p.add_argument("--preview-dir",type=Path)
     p.add_argument("--repo",type=Path)
     p.add_argument("--plan",type=Path)
@@ -349,12 +495,22 @@ def main(argv:list[str]|None=None)->int:
     arg=p.parse_args(argv)
     try:
         if arg.install:
-            _require(all((arg.preview_dir,arg.repo,arg.plan)),
+            _require(not arg.activate and all((arg.preview_dir,arg.repo,arg.plan)),
                      "Install needs exact preview, repo and roadmap")
             result=install(preview_dir=arg.preview_dir,repo=arg.repo,
                            plan=arg.plan,state_dir=arg.state_dir,
                            output_dir=arg.output_dir)
+        elif arg.reconcile_existing:
+            _require(all((arg.preview_dir,arg.repo,arg.plan)),
+                     "Reconcile needs original preview, repo and roadmap")
+            result=reconcile_existing(
+                preview_dir=arg.preview_dir,repo=arg.repo,plan=arg.plan,
+                state_dir=arg.state_dir,output_dir=arg.output_dir,
+                activate=arg.activate)
         else:
+            _require(not arg.activate and not any((
+                arg.preview_dir,arg.repo,arg.plan)),
+                "Start uses only original immutable admission receipt")
             result=start_approved(installation_dir=arg.output_dir,
                                   state_dir=arg.state_dir)
         print(json.dumps(result,indent=2))
