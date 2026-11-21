@@ -268,3 +268,22 @@ def test_source_checkout_internal_handoff_is_rejected_not_relaxed(tmp_path):
         scan_and_dispatch(
             handoff_dir=internal,state_dir=state,repo_root=fake_checkout)
     assert not (state/LEDGER_NAME).exists()
+
+
+@pytest.mark.skipif(os.name!="nt",reason="Windows path casing is platform-specific")
+def test_windows_case_alias_cannot_make_in_repo_handoff_appear_external(tmp_path):
+    """Preserve the hosted Windows security boundary under path aliases."""
+    checkout=tmp_path/"repo"
+    checkout.mkdir()
+    intake=checkout/"handoffs"
+    intake.mkdir()
+    state=tmp_path/"state"
+    state.mkdir()
+    witness=source(tmp_path,"case")
+    plan(intake/"next_alias.json",[task("case",witness)])
+    # C:\\Users\\RUNNER~1 versus its resolved long-path spelling may differ;
+    # on Windows the casing also differs without changing the filesystem.
+    with pytest.raises(ValueError,match="ownership invalid"):
+        scan_and_dispatch(handoff_dir=Path(str(intake).swapcase()),
+                          state_dir=state,repo_root=checkout)
+    assert not (state/LEDGER_NAME).exists()

@@ -36,13 +36,21 @@ def scan_and_dispatch(*, handoff_dir: Path, state_dir: Path,
         "V71_IMMUTABLE_INDEPENDENT_OFFLINE_HANDOFF")
         != "DISCOVER_SOURCE_PINNED_OFFLINE_PLANS_AFTER_LOCAL_BATCH"):
         raise ValueError("Missing executable global handoff recovery registration")
-    handoff_dir=Path(handoff_dir).absolute()
-    state_dir=Path(state_dir).absolute()
-    repo_root=Path(repo_root).resolve()
-    if (not handoff_dir.is_dir() or handoff_dir.is_symlink()
-        or not state_dir.is_dir() or state_dir.is_symlink()
-        or not repo_root.is_dir() or repo_root.is_symlink()
-        or handoff_dir.is_relative_to(repo_root)
+    # Windows can spell one directory using its 8.3 short-name alias while
+    # Path.resolve() expands another. Compare CANONICAL paths, never an
+    # absolute string against a resolved repository identity. Preserve
+    # fail-closed symlink checks on the *supplied* paths before resolution.
+    handoff_input=Path(handoff_dir).absolute()
+    state_input=Path(state_dir).absolute()
+    repo_input=Path(repo_root).absolute()
+    if (not handoff_input.is_dir() or handoff_input.is_symlink()
+        or not state_input.is_dir() or state_input.is_symlink()
+        or not repo_input.is_dir() or repo_input.is_symlink()):
+        raise ValueError("Offline handoff directory/state/repository ownership invalid")
+    handoff_dir=handoff_input.resolve(strict=True)
+    state_dir=state_input.resolve(strict=True)
+    repo_root=repo_input.resolve(strict=True)
+    if (handoff_dir.is_relative_to(repo_root)
         or state_dir.is_relative_to(repo_root)
         or repo_root.is_relative_to(handoff_dir)):
         raise ValueError("Offline handoff directory/state/repository ownership invalid")
