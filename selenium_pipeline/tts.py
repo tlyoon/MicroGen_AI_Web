@@ -258,6 +258,10 @@ def _gemini_say_with_watchdog(
         else max(1, int(os.environ.get("MICROGEN_TTS_REQUEST_ATTEMPTS", "3")))
     )
     label = request_label or f"slide{number}"
+    # Retain one logical request ID across killed/restarted TTS children.
+    # The ledger derives the next attempt ordinal from committed prior Sends.
+    import uuid
+    logical_cost_request_id = uuid.uuid4().hex
     last_error: BaseException | None = None
     timed_out_attempts = 0
 
@@ -284,7 +288,10 @@ def _gemini_say_with_watchdog(
                     text=True,
                     capture_output=True,
                     timeout=timeout_seconds,
-                    env=_tts_child_request_env(timeout_seconds),
+                    env={
+                        **_tts_child_request_env(timeout_seconds),
+                        "MICROGEN_GEMINI_REQUEST_LOGICAL_ID": logical_cost_request_id,
+                    },
                 )
             except subprocess.TimeoutExpired:
                 timed_out_attempts += 1
@@ -1073,6 +1080,9 @@ def _synthesize_folder_unlocked(folder: Path, provider: str, model: str, voice: 
 
 
 def synthesize_folder(folder: Path, provider: str, model: str, voice: str) -> None:
+    from .gemini_request_cost import set_job_context
+    set_job_context(folder)
+    os.environ["MICROGEN_ACTIVE_GENERATION_STAGE"] = "tts"
     with _tts_workspace_lock(folder):
         _synthesize_folder_unlocked(folder, provider, model, voice)
 

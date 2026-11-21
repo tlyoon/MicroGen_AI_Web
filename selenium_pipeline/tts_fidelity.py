@@ -757,6 +757,9 @@ def main(argv: list[str] | None = None) -> int:
     set_tts_qa_approval_for_run(args.confirm_paid_tts_qa)
     load_microvid_env()
     set_tts_qa_approval_for_run(args.confirm_paid_tts_qa)
+    from .gemini_request_cost import set_job_context
+    set_job_context(args.folder)
+    os.environ["MICROGEN_ACTIVE_GENERATION_STAGE"] = "tts_qa"
     report = build_report(
         args.folder,
         model=args.model,

@@ -36,6 +36,7 @@ _HANDLERS = {
     "global_checkpoint_handoff": "NORMAL_V71_PROJECT_WIDE_OBSERVABLE_SUPERVISOR",
     "daemon_owner_attestation": "NORMAL_V71_PROJECT_WIDE_OBSERVABLE_SUPERVISOR",
     "paid_api_scope": "NORMAL_SELENIUM_ONLY_GEMINI_EGRESS_GUARD",
+    "request_cost_accounting": "NORMAL_DURABLE_GEMINI_REQUEST_COST_LEDGER",
     "head_patch_format": "NORMAL_WINDOWS_CUMULATIVE_PATCH_FORMAT_PREFLIGHT",
 }
 _REQUIRED = {

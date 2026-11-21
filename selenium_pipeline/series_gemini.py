@@ -244,11 +244,17 @@ def _browser_request(instruction: str,attachments: list[Path],
                 arm_owned_network_baseline)
             network_before=arm_owned_network_baseline(
                 client.driver,owned_handle)
+            from .gemini_request_cost import browser_begin,browser_finish
+            browser_begin(client, prompt_text=instruction)
             send_boundary_entered=True
             clicked=click_one_owned_gemini_send(
                 client.driver,owned_handle)
             registration=observe_gemini_send_registration(
                 client.driver,owned_handle,baseline,wait_s=8,poll_s=0.25)
+            browser_finish(
+                client, status=("registered_response_pending"
+                                if registration["registered"]
+                                else "send_uncertain"))
             print("[MicroGen] Gemini Selenium one-Send registration: "
                   +registration["status"]+" (clicked="+str(clicked)+").",
                   file=sys.stderr,flush=True)
@@ -352,6 +358,7 @@ def _browser_request(instruction: str,attachments: list[Path],
                                 "Gemini response present but NEW user turn "
                                 "not registered after a possible Send; "
                                 "do not attribute this reply or resend.")
+                        browser_finish(client, response_text=recovered)
                         return OwnedGeminiResponse(
                             recovered, registration_status=registration["status"],
                             new_turn_verified=True, late_reconciled=True,
@@ -456,6 +463,7 @@ def _browser_request(instruction: str,attachments: list[Path],
                     "Gemini reply text was captured without a positively "
                     "registered NEW user turn on the owned tab; preserved "
                     "as untrusted. Do not repeat the Send.")
+            browser_finish(client, response_text=response)
             return OwnedGeminiResponse(
                 response, registration_status=registration["status"],
                 new_turn_verified=True, late_reconciled=False,

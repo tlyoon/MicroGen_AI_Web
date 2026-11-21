@@ -1019,6 +1019,8 @@ def request_script_once(client, gemsel_module, instruction: str, expected_slide_
         )
 
     if response and response.strip():
+        from selenium_pipeline.gemini_request_cost import browser_finish
+        browser_finish(client, response_text=response)
         save_raw_gemini_response(response)
 
     if response and len(response.strip()) >= MIN_RESPONSE_CHARS and raw_response_has_real_narration(response, expected_slide_count):

@@ -828,6 +828,20 @@
       "environment": "MicroGen_AI_Web all PCs offline fail-closed provider egress tests",
       "retry_policy": "API denial is permanent, never retry API after Selenium failure; TTS QA requires per-run explicit approval, no request on rejection",
       "enabled": true
+    },
+    {
+      "id": "GEMINI_DURABLE_REQUEST_ACCOUNTING_V1",
+      "match_type": "request_cost_accounting",
+      "signature": "GEMINI_REQUEST_COST_SQLITE_V1",
+      "mechanism": "PERSIST_BEFORE_SEND_UPDATE_ON_RESPONSE",
+      "classification": "GEMINI_REQUEST_USAGE_OR_PRICE_EVIDENCE_MISSING",
+      "handler": "NORMAL_DURABLE_GEMINI_REQUEST_COST_LEDGER",
+      "preconditions": "no model send before local SQLite committed row, per-request unique identity; no secrets, API only for TTS or explicitly approved TTS QA; provider reported tokens preferred",
+      "verification_test": "tests/test_gemini_request_cost.py",
+      "last_verified_date": "2026-11-21",
+      "environment": "Dell-115 immutable main clone isolated no-Send accounting tests",
+      "retry_policy": "request accounting failure blocks Send; ambiguous outcomes persist as possible_send; never resolve by replay; missing pricing cannot be assumed zero",
+      "enabled": true
     }
   ]
 }

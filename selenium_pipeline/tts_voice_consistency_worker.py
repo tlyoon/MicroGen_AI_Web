@@ -9,6 +9,10 @@ def main(argv=None):
     p.add_argument("--request", type=Path, required=True)
     a = p.parse_args(argv)
     req = json.loads(a.request.read_text(encoding="utf-8"))
+    from .gemini_request_cost import set_job_context
+    set_job_context(Path(req["candidate"]).parent)
+    import os
+    os.environ["MICROGEN_ACTIVE_GENERATION_STAGE"] = "tts_qa"
     result = _inspect_direct(
         Path(req["candidate"]),
         [Path(x) for x in req["references"]],

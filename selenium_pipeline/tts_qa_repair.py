@@ -25,6 +25,9 @@ def repair(folder: Path, *, model: str, threshold: float, provider: str,
            tts_model: str, voice: str, max_repairs: int = 2) -> dict:
     from .paid_api_policy import require_paid_gemini_api, tts_qa_explicitly_approved
     require_paid_gemini_api("tts_qa", qa_approved=tts_qa_explicitly_approved())
+    from .gemini_request_cost import set_job_context
+    set_job_context(folder)
+    os.environ["MICROGEN_ACTIVE_GENERATION_STAGE"] = "tts_qa"
     if max_repairs < 0:
         raise ValueError("max_repairs must be nonnegative")
     narrations = dict(blocks((folder / "script.txt").read_text(encoding="utf-8")))

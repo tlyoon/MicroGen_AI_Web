@@ -1337,6 +1337,7 @@ def _send_prompt_and_capture_mapping_text(client, instruction_text: str, wait_ca
         # with a visible Send button, and its pywinauto fallback was broken on
         # HP by a pywin32 DLL mismatch. No unverified repeated clicking.
         t_step = _ts_now()
+        client._microgen_cost_prompt_text = instruction_text
         clicked = client.click_send_with_fallbacks(retries=1)
         log_timing(
             f"attempt {attempt+1} verified send",
@@ -1364,12 +1365,16 @@ def _send_prompt_and_capture_mapping_text(client, instruction_text: str, wait_ca
     early = wait_for_mapping_response_ready(client, baseline_text=baseline_response, timeout=direct_wait, poll=0.20)
     log_timing("direct mapping DOM wait", t_step, f"hit={bool(early)}; timeout={direct_wait:.0f}s")
     if early:
+        from selenium_pipeline.gemini_request_cost import browser_finish
+        browser_finish(client, response_text=early)
         log_timing("prompt send pipeline total", t_total, "returned from direct DOM mapping confirmation")
         return early
 
     latest_diag = clean_model_text(get_latest_response_text(client.driver))
     log(f"[DIAG] Direct mapping watcher timed out; latest response={repr(latest_diag[-1200:])}", "WARN")
     if latest_diag and parse_mapping_lines(latest_diag):
+        from selenium_pipeline.gemini_request_cost import browser_finish
+        browser_finish(client, response_text=latest_diag)
         log_timing("prompt send pipeline total", t_total, "returned from timeout-edge DOM mapping")
         return latest_diag
 
@@ -1384,6 +1389,8 @@ def _send_prompt_and_capture_mapping_text(client, instruction_text: str, wait_ca
     dom_parseable = bool(dom_ready and parse_mapping_lines(dom_ready))
     log_timing("post-finish DOM check", t_step, f"parseable={dom_parseable}")
     if dom_parseable:
+        from selenium_pipeline.gemini_request_cost import browser_finish
+        browser_finish(client, response_text=dom_ready)
         log_timing("prompt send pipeline total", t_total, "returned from post-finish DOM check")
         return dom_ready
 
@@ -1399,6 +1406,8 @@ def _send_prompt_and_capture_mapping_text(client, instruction_text: str, wait_ca
     cleaned = clean_model_text(copied or "")
     log_timing("manual-copy capture", t_step, f"chars={len(cleaned)}")
     if cleaned:
+        from selenium_pipeline.gemini_request_cost import browser_finish
+        browser_finish(client, response_text=cleaned)
         log_timing("prompt send pipeline total", t_total, "returned from manual-copy capture")
         return cleaned
 
@@ -1417,6 +1426,8 @@ def _send_prompt_and_capture_mapping_text(client, instruction_text: str, wait_ca
     cleaned = clean_model_text(dom or "")
     log_timing("bounded DOM extraction", t_step, f"chars={len(cleaned)}")
     if cleaned:
+        from selenium_pipeline.gemini_request_cost import browser_finish
+        browser_finish(client, response_text=cleaned)
         log_timing("prompt send pipeline total", t_total, "returned from bounded DOM extraction")
         return cleaned
 
@@ -1432,6 +1443,8 @@ def _send_prompt_and_capture_mapping_text(client, instruction_text: str, wait_ca
     cleaned = clean_model_text(copied or "")
     log_timing("final manual-copy capture", t_step, f"chars={len(cleaned)}")
     if cleaned:
+        from selenium_pipeline.gemini_request_cost import browser_finish
+        browser_finish(client, response_text=cleaned)
         log_timing("prompt send pipeline total", t_total, "returned from final manual-copy capture")
         return cleaned
 

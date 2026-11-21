@@ -146,14 +146,26 @@ def call_with_client_failover(
 ) -> T:
     """Reject unclassified paid work BEFORE choosing API keys."""
     require_paid_gemini_api(purpose, qa_approved=tts_qa_explicitly_approved())
+    from selenium_pipeline.gemini_request_cost import MeteredGeminiClient
+    import uuid
+    from selenium_pipeline.gemini_request_cost import next_attempt_index
+    logical_id = (os.getenv("MICROGEN_GEMINI_REQUEST_LOGICAL_ID", "").strip()
+                  or uuid.uuid4().hex)
+    calls_started = next_attempt_index(logical_id)
+
     def operation_for_key(api_key: str) -> T:
+        nonlocal calls_started
+        # One logical operation can legitimately use several provider keys.
+        # The next *actual* generate_content() receives its attempt ordinal.
         client = client_factory(api_key)
+        metered = MeteredGeminiClient(
+            client, purpose=purpose, logical_id=logical_id,
+            attempt=calls_started)
+        calls_started += 1
         try:
-            return operation_for_client(client)
+            return operation_for_client(metered)
         finally:
-            close = getattr(client, "close", None)
-            if callable(close):
-                close()
+            metered.close()
 
     return call_with_key_failover(
         operation_for_key,
