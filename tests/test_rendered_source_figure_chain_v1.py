@@ -108,3 +108,43 @@ class SourcePixelRenderingTests(TestCase):
         self._cover_page_image("half")
         with self.assertRaisesRegex(FigureChainError,"lacks visible exact"):
             verify_rendered_pdf_source_figures(self.job)
+
+
+
+def test_physical_pdf_sparse_figure_remains_visible_when_downsampled():
+    """Use the source-derived Chapter 10.1 regression fixture if available on HP.
+
+    Never turn this into a mandatory CI dependency on the user's Google Drive.
+    Older sparse-figure raster matching falsely rejected the complete figure,
+    while the independent half-occlusion tests above must still be rejected.
+    """
+    root = Path(r"G:\My Drive\Serway\Serway_8_14\10\10.1\.microgen_work")
+    target = root / "Figure 10.2.png"
+    pdf_path = root / "slides.pdf"
+    if not target.is_file() or not pdf_path.is_file():
+        import pytest
+        pytest.skip("Original HP Chapter 10.1 validation artifacts unavailable")
+    import hashlib
+    import io
+    from selenium_pipeline.rendered_figure_visibility_v1 import render_visibility
+    with Image.open(target) as original:
+        expected = original.convert("RGB")
+        identity = (expected.size, hashlib.sha256(expected.tobytes()).hexdigest())
+        matching = []
+        with fitz.open(str(pdf_path)) as doc:
+            for page in doc:
+                for record in page.get_images(full=True):
+                    xref = record[0]
+                    try:
+                        data = doc.extract_image(xref)["image"]
+                        with Image.open(io.BytesIO(data)) as im:
+                            actual = im.convert("RGB")
+                            candidate = (actual.size,
+                                         hashlib.sha256(actual.tobytes()).hexdigest())
+                    except (KeyError, OSError, ValueError):
+                        continue
+                    if candidate != identity:
+                        continue
+                    for rect in page.get_image_rects(xref):
+                        matching.append(render_visibility(page, rect, expected))
+        assert matching and any(item.get("verified") for item in matching)

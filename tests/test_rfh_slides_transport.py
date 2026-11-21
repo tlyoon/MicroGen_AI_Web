@@ -9,6 +9,7 @@ from unittest.mock import patch
 import pytest
 
 from selenium_pipeline import slides_api
+from selenium_pipeline.slide_transport_guard import PreSendFailure
 from selenium_pipeline.communication_policy import CommunicationPolicy, CommunicationMode
 from selenium_pipeline.runner import _needs_browser, _needs_api_python_for_stages
 
@@ -128,7 +129,7 @@ def test_actual_slide_qa_stops_on_valid_backend_response(
     def source(backend, instruction):
         calls.append(backend)
         if backend == "selenium" and calls.count("selenium") <= fail_selenium:
-            raise RuntimeError("Gemini composer or response stalled")
+            raise PreSendFailure("Gemini composer not ready before Send")
         return LATEX
     create = _vendor_slide_function(monkeypatch)
     path = tmp_path / "slides.tex"

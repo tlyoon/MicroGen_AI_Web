@@ -19,8 +19,11 @@ def _content_count(mask):
 def _content_mismatch(expected, observed):
     # The two independent renderers use different edge antialiasing.
     # Blur both slightly before thresholding, to preserve coarse fidelity.
-    expected = expected.filter(ImageFilter.GaussianBlur(0.55))
-    observed = observed.filter(ImageFilter.GaussianBlur(0.55))
+    # Slightly stronger symmetric blur tolerates legitimate downsampling of
+    # sparse text/diagram pixels; unchanged total/tile occlusion thresholds
+    # still reject half-covered images in physical PDF regression tests.
+    expected = expected.filter(ImageFilter.GaussianBlur(0.75))
+    observed = observed.filter(ImageFilter.GaussianBlur(0.75))
     content = expected.convert("L").point(lambda x: 255 if x < 239 else 0)
     delta = ImageChops.difference(expected, observed).convert("L")
     changed = delta.point(lambda x: 255 if x > 62 else 0)

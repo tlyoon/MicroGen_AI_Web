@@ -747,6 +747,10 @@ def _execute_unlocked(s: Settings) -> Path:
         "MICROGEN_NARRATION_BACKEND": os.getenv(
             "MICROGEN_NARRATION_BACKEND", "ui").strip().lower(),
     })
+    if "slides" in planned:
+        # The source-bound slide claim permits only one real Send activation
+        # per attempt. Disable the legacy multiple-click/Enter fallback.
+        env["MICROGEN_SINGLE_PROVIDER_SEND"] = "1"
     if _needs_api_python_for_stages(planned):
         # Both API figure mapping and API narration may run under a Docling
         # pipeline Python without the google-genai SDK. Always pass the
@@ -787,6 +791,26 @@ def _execute_unlocked(s: Settings) -> Path:
                 from .figure_audit import enforce_graphics
                 enforce_graphics(source.parent, repair=True)
             print(f"[microgen] reuse validated {stage}; published {len(published)} artifact(s) beside source.pdf")
+            continue
+        # After a response was captured and Beamer compiled, a later PDF
+        # appearance check may have failed without invalidating the model's
+        # output. Resume that exact source-bound deck ONLY once the complete
+        # current figure/LaTeX/rendered-PDF validation now passes. Preserve
+        # valid Gemini work; never spend another Send on this repair.
+        if (stage == "slides" and not s.force_from and not changed_upstream
+                and state.get("failed_stage") == "slides"
+                and state.get("source_sha256") == signature
+                and check_valid("slides", folder)):
+            state["completed"][stage] = {"at_utc": utc(), "model": model_stamp,
+                                         "recovered_from_validated_saved_artifacts": True}
+            state.pop("failed_stage", None)
+            state.pop("failed_at_utc", None)
+            save_pipeline_state(stamp, state)
+            published = publish_stage_outputs(folder, source, stage)
+            from .figure_audit import enforce_graphics
+            enforce_graphics(source.parent, repair=True)
+            print(f"[microgen] recovered validated saved slides; published {len(published)} "
+                  "artifact(s) with zero new Gemini Sends", flush=True)
             continue
         state["completed"].pop(stage, None)
         invalidated = invalidate_downstream(state, stage)

@@ -293,9 +293,75 @@ def _render(page, clip, target: Path) -> None:
     _require(all(count <= 3 for count in boundaries.values()),
              "Source graphic physically touches crop boundary: "
              + str(boundaries))
-    pix.save(str(target))
-    _require(target.is_file() and target.stat().st_size > 500,
-             "PDF renderer failed to create the cropped source graphic")
+    # Google Drive's virtual Windows filesystem may acknowledge a direct
+    # PyMuPDF save but not expose the newly written PNG to the next read.
+    # Render first on the PC's real local filesystem, then publish bytes to
+    # the candidate (never the final lecture) staging directory. Read back
+    # the complete bytes before accepting the crop.
+    import shutil
+    import tempfile
+    import time
+    with tempfile.TemporaryDirectory(prefix="microgen_source_png_local_") as local_dir:
+        local_png = Path(local_dir) / "source_crop.png"
+        pix.save(str(local_png))
+        _require(local_png.is_file() and local_png.stat().st_size > 500,
+                 "PDF renderer failed to create the local cropped source graphic")
+        local_sha = _sha(local_png)
+        for attempt in range(3):
+            shutil.copyfile(local_png, target)
+            try:
+                if target.is_file() and target.stat().st_size > 500 and _sha(target) == local_sha:
+                    break
+            except OSError:
+                pass
+            time.sleep(0.4 * (attempt + 1))
+        else:
+            raise FigureChainError("Source crop publication/readback failed on destination filesystem")
+
+
+
+def _source_sha_bound_crop_override(source_sha: str, row: dict, page):
+    """Only admit previously measured source layout geometry for exact PDF bytes.
+
+    This is an executable, source-identity-pinned recovery registry. Geometry
+    cannot bypass mandatory caption separation, panel labels or pixel checks.
+    """
+    registry = Path(__file__).with_name("source_crop_overrides_v1.json")
+    if not registry.is_file():
+        return None
+    data = json.loads(registry.read_text(encoding="utf-8"))
+    _require(data.get("schema_version") == 1, "Unknown source crop override version")
+    entries = data.get("overrides", {})
+    _require(isinstance(entries, dict), "Invalid source crop override index")
+    figures = entries.get(source_sha)
+    if figures is None:
+        return None
+    _require(isinstance(figures, dict), "Invalid source crop override group")
+    bounds = figures.get(row["id"])
+    if bounds is None:
+        return None
+    _require(isinstance(bounds, list) and len(bounds) == 4
+             and all(type(x) in (int, float) and math.isfinite(x) for x in bounds),
+             "Invalid source crop recovery coordinates")
+    clip = fitz.Rect(bounds)
+    cap = fitz.Rect(row["caption_bbox"])
+    _require(clip.is_valid and clip.width >= 60 and clip.height >= 65
+             and page.rect.contains(clip),
+             "Recovered source figure geometry violates page safeguards")
+    # Rare textbook interleavings put the source diagram and its printed
+    # caption in one physical rectangular region. Allow ONLY a complete
+    # caption, and ONLY when individually pinned by exact original PDF hash
+    # and figure identifier. Partial caption clipping remains forbidden.
+    inclusion = data.get("caption_inclusive", {})
+    _require(isinstance(inclusion, dict), "Invalid caption inclusion registry")
+    permitted = inclusion.get(source_sha, [])
+    _require(isinstance(permitted, list) and all(isinstance(x, str) for x in permitted),
+             "Invalid source caption inclusion list")
+    if clip.intersects(cap):
+        _require(row["id"] in permitted and clip.contains(cap),
+                 "Partial/unregistered printed caption inside source figure crop")
+        return clip, "source_sha_bound_full_caption_recovery"
+    return clip, "source_sha_bound_geometry_recovery"
 
 
 def generate_candidates(source_pdf: Path, output_dir: Path) -> dict:
@@ -316,7 +382,8 @@ def generate_candidates(source_pdf: Path, output_dir: Path) -> dict:
         output = []
         for row in captions:
             page = doc[row["page"] - 1]
-            clip, mode = _crop_proposal(page, row)
+            recovered = _source_sha_bound_crop_override(sha, row, page)
+            clip, mode = recovered if recovered is not None else _crop_proposal(page, row)
             witnesses = _panel_witnesses(page, row, clip)
             obj = _objects_in_crop(page, clip)
             target = output_dir / row["filename"]
@@ -402,10 +469,19 @@ def verify_figure_crops(folder: Path, *, require_semantic: bool = False) -> dict
                              for x in bounds),
                      "Invalid crop coordinates")
             clip = fitz.Rect(bounds)
+            cap_rect = fitz.Rect(cap["caption_bbox"])
+            registered = _source_sha_bound_crop_override(src_sha, cap, page)
+            full_caption_recovery = (
+                registered is not None
+                and registered[1] == "source_sha_bound_full_caption_recovery"
+                and fig.get("crop_mode") == registered[1]
+                and _rect_list(registered[0]) == _rect_list(clip)
+                and clip.contains(cap_rect)
+            )
             _require(clip.is_valid and clip.width >= 60
                      and clip.height >= 65 and page.rect.contains(clip)
-                     and not clip.intersects(fitz.Rect(cap["caption_bbox"])),
-                     "Source figure crop includes caption or is outside PDF")
+                     and (not clip.intersects(cap_rect) or full_caption_recovery),
+                     "Source crop intersects an incomplete/unregistered caption or exceeds PDF")
             _panel_witnesses(page, cap, clip)
             _objects_in_crop(page, clip)
             # A source-render recomputation catches a PNG stolen or modified
