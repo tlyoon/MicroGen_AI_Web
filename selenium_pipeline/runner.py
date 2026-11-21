@@ -624,9 +624,6 @@ def _execute_unlocked(s: Settings) -> Path:
     if first > last:
         raise ValueError("--from-stage must precede --through-stage")
     planned = STAGES[first:last + 1]
-    if "tts_qa" in planned and not s.confirm_paid_tts_qa and not s.dry_run:
-        from .paid_api_policy import require_paid_gemini_api
-        require_paid_gemini_api("tts_qa")
     print(f"[microgen] code root: {REPO} | job: {s.subchapter}")
     print(f"[microgen] input: {source} | work: {folder}")
     print(f"[microgen] model phase: {MODEL_PHASE}")
@@ -670,6 +667,12 @@ def _execute_unlocked(s: Settings) -> Path:
     # Check the independently configured PDF root and this subchapter before
     # launching Chrome or consuming paid model/API calls.
     verify_source_tree(s.source_root, source)
+    # Verify earlier source/media preservation gates first, but still reject
+    # unapproved paid audio QA before launching Chrome, making a billed call,
+    # archiving artifacts or invalidating downstream checkpoints.
+    if "tts_qa" in planned and not s.confirm_paid_tts_qa:
+        from .paid_api_policy import require_paid_gemini_api
+        require_paid_gemini_api("tts_qa")
     if any(_needs_browser(x) for x in planned):
         from .launch_gemini import launch
         requested_port = s.chrome_port
