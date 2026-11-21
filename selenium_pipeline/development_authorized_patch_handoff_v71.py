@@ -101,14 +101,23 @@ def _path(repo: Path, name: str) -> Path:
 
 
 def _validate_manifest(raw: dict) -> dict:
-    ensure(type(raw) is dict and set(raw) == {
+    ensure(type(raw) is dict and set(raw) in ({
         "schema_version", "project", "job_id", "base_sha",
         "branch", "authorized", "source", "files", "tests",
-    }, "Unexpected code handoff schema")
+    }, {
+        "schema_version", "project", "job_id", "base_sha",
+        "branch", "authorized", "source", "files", "tests",
+        "model_provenance",
+    }), "Unexpected code handoff schema")
+    is_model = raw.get("source") == "source_pinned_selenium_model_reply"
+    ensure(("model_provenance" in raw) == is_model
+           and raw.get("source") in {
+               "trusted_connected_coding_session",
+               "source_pinned_selenium_model_reply",
+           }, "Untrusted code source identity or authorization")
     ensure(raw["schema_version"] == 1
            and raw["project"] == "MicroGen_AI_Web"
            and raw["authorized"] is True
-           and raw["source"] == "trusted_connected_coding_session"
            and isinstance(raw["job_id"], str)
            and JOB.fullmatch(raw["job_id"])
            and isinstance(raw["base_sha"], str)
@@ -173,6 +182,46 @@ def _load_candidate(job_path: Path, payload_dir: Path, repo: Path) -> tuple[dict
         _path(repo, name)
         ensure(name in paths or (repo / name).is_file(),
                "Mandatory regression test missing")
+    if job["source"] == "source_pinned_selenium_model_reply":
+        provenance = job["model_provenance"]
+        ensure(type(provenance) is dict
+               and set(provenance) == {"receipt_path", "receipt_sha256"}
+               and isinstance(provenance["receipt_sha256"], str)
+               and HEX.fullmatch(provenance["receipt_sha256"]),
+               "Invalid browser model receipt identity")
+        receipt_path = Path(provenance["receipt_path"]).absolute()
+        ensure(receipt_path.is_file() and not receipt_path.is_symlink()
+               and not receipt_path.is_relative_to(repo)
+               and receipt_path.stat().st_size <= 20000
+               and _sha(receipt_path) == provenance["receipt_sha256"],
+               "Missing or changed authenticated browser model receipt")
+        receipt = _read_json(receipt_path)
+        ensure(type(receipt) is dict
+               and receipt.get("status") == "MODEL_REPLY_CAPTURED_UNTRUSTED"
+               and receipt.get("transport") == "gemini_selenium"
+               and receipt.get("model_requests_claimed") == 1
+               and receipt.get("authorized") is True
+               and type(receipt.get("response_sha256")) is str
+               and HEX.fullmatch(receipt["response_sha256"])
+               and type(receipt.get("job_sha256")) is str
+               and HEX.fullmatch(receipt["job_sha256"])
+               and len(entries) == 1
+               and len(job["tests"]) == 1
+               and entries[0][0]["path"] == job["tests"][0]
+               and receipt.get("target_path") == entries[0][0]["path"]
+               and receipt.get("source_sha256") == entries[0][0]["new_sha256"],
+               "Model response provenance does not identify authorized candidate")
+        reply_path = receipt_path.parent / "model_response_untrusted.txt"
+        ensure(reply_path.is_file() and not reply_path.is_symlink()
+               and reply_path.stat().st_size <= 50000
+               and _sha(reply_path) == receipt["response_sha256"],
+               "Original model response missing or altered; NO WRITE")
+        # Untrusted source must be statically safe before any pytest execution.
+        from .development_browser_code_transport_v71 import safe_test_source
+        ensure(entries[0][0]["path"].startswith("tests/test_")
+               and entries[0][0]["path"].endswith(".py"),
+               "Untrusted browser model may write only a verified test module")
+        safe_test_source(entries[0][2].decode("utf8"))
     return job, entries
 
 

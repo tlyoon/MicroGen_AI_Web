@@ -38,6 +38,9 @@ _HANDLERS = {
     "paid_api_scope": "NORMAL_SELENIUM_ONLY_GEMINI_EGRESS_GUARD",
     "request_cost_accounting": "NORMAL_DURABLE_GEMINI_REQUEST_COST_LEDGER",
     "code_authoring_handoff": "NORMAL_AUTHORIZED_SOURCE_PATCH_HANDOFF",
+    "browser_coding_transport": "NORMAL_ONE_CLAIM_SELENIUM_CODE_REVIEW",
+    "browser_stdout_encoding": "NORMAL_WINDOWS_BROWSER_NONASCII_LOGGER_RECOVERY",
+    "browser_coding_response_shape": "NORMAL_GEMINI_SOURCE_ONLY_CODE_CAPTURE_RECOVERY",
     "head_patch_format": "NORMAL_WINDOWS_CUMULATIVE_PATCH_FORMAT_PREFLIGHT",
 }
 _REQUIRED = {
@@ -52,7 +55,10 @@ def load_registry(path: Path | None = None) -> dict:
     target = Path(path or REGISTRY_PATH)
     if not target.is_file() or target.is_symlink():
         raise ValueError("Recovery registry absent or linked: stop before stage execution")
-    if not 0 < target.stat().st_size <= 65536:
+    # Versioned registry has grown with executable, verified repairs. Retain
+    # finite 128-KiB byte cap PLUS the original strict 200-entry/schema gates;
+    # the legacy 64-KiB cap would otherwise strand all verified recoveries.
+    if not 0 < target.stat().st_size <= 131072:
         raise ValueError("Invalid size of persistent recovery registry")
     obj = json.loads(target.read_text(encoding="utf8"))
     if (type(obj) is not dict or obj.get("schema_version") != 1

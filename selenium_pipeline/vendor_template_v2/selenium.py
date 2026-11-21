@@ -26,8 +26,20 @@ from typing import List, Optional, Tuple, Dict, Any
 
 # ---------------- Logging ----------------
 def log(msg: str, level: str = "INFO") -> None:
+    """Never crash after a Gemini Send on a legacy Windows CP1252 stdout.
+
+    A model reply can be registered and awaiting capture while an ordinary
+    progress message includes a Unicode ellipsis. Escaping ONLY unsupported
+    logger characters retains the provider claim and lets capture continue.
+    """
     ts = time.strftime("%Y-%m-%d %H:%M:%S")
-    print(f"[{ts}] [{level}] {msg}", flush=True)
+    line = f"[{ts}] [{level}] {msg}"
+    encoding = getattr(sys.stdout, "encoding", None) or "utf-8"
+    try:
+        line.encode(encoding)
+    except (UnicodeEncodeError, LookupError):
+        line = line.encode("ascii", errors="backslashreplace").decode("ascii")
+    print(line, flush=True)
 
 DEFAULT_TIMEOUT = 6
 
@@ -1837,6 +1849,12 @@ class GeminiSeleniumClient:
                 self, status=("registered_response_pending"
                               if observed.get("registered") is True
                               else "send_uncertain"))
+            if os.getenv("MICROGEN_ACTIVE_GENERATION_STAGE") == "code_authoring":
+                # An attempted click is not sufficient model-code provenance.
+                # It may have sent remotely, but absent an independently
+                # observed registered turn its claim stays uncertain and the
+                # caller must not ingest a stale/foreign response or retry.
+                return observed.get("registered") is True
             return bool(clicked or observed.get("registered") is True)
         if self._hidden_send_button_preflight():
             log(

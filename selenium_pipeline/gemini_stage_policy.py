@@ -87,6 +87,23 @@ def browser_stage_needs_thinking(*, mode: str | None = None,
     selected = mode if mode is not None else configured_ui_mode()
     active = (stage if stage is not None else
               os.getenv("MICROGEN_ACTIVE_GENERATION_STAGE", "").strip().lower())
+    if active == "code_authoring":
+        # Coding-model browser routing is deliberately separate from
+        # scientific-review and lecture-task model requalification. Accept
+        # only known higher-capability families, plus exact owned-tab model
+        # and Medium/High thinking checks enforced by the sender.
+        from .recovery_registry import lookup_mechanism
+        registered = lookup_mechanism(
+            "browser_coding_transport",
+            "GEMINI_SELENIUM_CODING_ONE_CLAIM_NO_REPLAY",
+        )
+        if registered != "CLAIM_ONCE_CAPTURE_REPLY_STATIC_TEST_AND_HANDOFF":
+            raise GeminiStagePolicyError(
+                "Unregistered coding-mode verification; NO SEND")
+        if selected not in ("hydrogen", "neon"):
+            raise GeminiStagePolicyError(
+                "Coding requires independently verified Hydrogen/Neon UI")
+        return True
     if active == "figures":
         # Default Flash-Lite remains light and needs no effort submenu.
         # When physically unavailable, an independently verified full
