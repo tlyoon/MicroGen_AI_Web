@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "status": "MICROGEN_V71_DISABLED_STARTUP_PREVIEW",
+  "enabled": true,
+  "handler": "GENERATE_DISABLED_LOGON_XML_REQUIRING_SEPARATE_APPROVAL",
+  "may_register_or_enable_task": false,
+  "may_modify_existing_tasks": false,
+  "may_send_model_requests": false,
+  "may_publish_students": false
+}
