@@ -800,6 +800,20 @@
       "environment": "Dell-115 real PowerShell Set-Content UTF8 EFBBBF JSON handoff was previously quarantined before any workers",
       "retry_policy": "allow one BOM prefix only, preserve original byte SHA and any existing consumed identity, never reinterpret source model claims or bypass release",
       "enabled": true
+    },
+    {
+      "id": "V71_HP_WIN32_PROCESS_CLASS_UNAVAILABLE_NATIVE_OWNER",
+      "match_type": "daemon_owner_attestation",
+      "signature": "V71_WINDOWS_WMI_PROCESS_CLASS_UNAVAILABLE",
+      "mechanism": "VERIFY_NATIVE_PID_EXE_AND_STARTTIME_WITHOUT_MODEL_SEND",
+      "classification": "HP_WINDOWS_WMI_WIN32_PROCESS_INVALID_CLASS_WHILE_DAEMON_PROCESS_EXISTS",
+      "handler": "NORMAL_V71_PROJECT_WIDE_OBSERVABLE_SUPERVISOR",
+      "preconditions": "existing fresh pinned heartbeat, actual OS PID live, native Get-Process verifies python executable and process birth close to immutable daemon start, no invented commandline",
+      "verification_test": "tests/test_development_windows_native_owner_recovery.py",
+      "last_verified_date": "2026-11-21",
+      "environment": "HP Windows PowerShell Get-CimInstance Win32_Process and Get-WmiObject both Invalid class; Get-Process returns real PID Path StartTime",
+      "retry_policy": "read-only finite WMI failure recovery; never accept stale heartbeat, reused PID with mismatched start time, absent executable, model Send or publication",
+      "enabled": true
     }
   ]
 }

@@ -11,6 +11,7 @@ also establish actual OS PID ownership and freshness.
 from __future__ import annotations
 
 import argparse
+import json
 from contextlib import contextmanager
 from datetime import datetime, timezone
 import os
@@ -46,6 +47,7 @@ def attest_live_daemon(*,state_dir:Path,max_age_seconds:float=90)->dict:
             or saved.get("provider_sends")!=0
             or saved.get("student_publication_authorized") is not False):
             return missing
+        attestation_method="UNVERIFIED"
         if os.name=="nt":
             cmd=(
                 "$p=Get-CimInstance Win32_Process -Filter 'ProcessId = "
@@ -55,14 +57,55 @@ def attest_live_daemon(*,state_dir:Path,max_age_seconds:float=90)->dict:
                                 capture_output=True,text=True,timeout=12)
             live=(proc.returncode==0
                   and "development_continuity_daemon_v71" in proc.stdout)
+            if live:
+                attestation_method="WINDOWS_CIM_COMMAND_LINE"
+            elif "invalid class" in (proc.stderr+" "+proc.stdout).casefold():
+                # On HP, the Windows WMI Win32_Process class is unavailable.
+                # Do NOT substitute PID existence or a heartbeat alone:
+                # prove this is the same real python.exe PROCESS CREATION
+                # as the independently persisted initial daemon heartbeat.
+                from .recovery_registry import lookup_mechanism
+                if lookup_mechanism(
+                    "daemon_owner_attestation",
+                    "V71_WINDOWS_WMI_PROCESS_CLASS_UNAVAILABLE"
+                ) != "VERIFY_NATIVE_PID_EXE_AND_STARTTIME_WITHOUT_MODEL_SEND":
+                    return missing
+                native=(
+                    "$ErrorActionPreference='Stop';"
+                    "$p=Get-Process -Id "+str(pid)+" -ErrorAction Stop;"
+                    "@{name=[string]$p.ProcessName;"
+                    "exe=[string]$p.Path;"
+                    "started_utc=$p.StartTime.ToUniversalTime().ToString('o')}"
+                    "|ConvertTo-Json -Compress")
+                os_process=subprocess.run([
+                    "powershell.exe","-NoProfile","-NonInteractive",
+                    "-Command",native],capture_output=True,text=True,
+                    timeout=12)
+                if os_process.returncode!=0 or not os_process.stdout.strip():
+                    return missing
+                observed=json.loads(os_process.stdout)
+                started=datetime.fromisoformat(
+                    saved["started_utc"].replace("Z","+00:00"))
+                os_started=datetime.fromisoformat(
+                    observed["started_utc"].replace("Z","+00:00"))
+                difference=(started-os_started).total_seconds()
+                live=(observed.get("name","").casefold() in {"python","pythonw"}
+                      and Path(observed.get("exe","")).name.casefold()
+                      in {"python.exe","pythonw.exe"}
+                      and -2<=difference<=30)
+                if live:
+                    attestation_method="WINDOWS_NATIVE_PID_EXE_STARTTIME"
         else:
             cmdline=Path("/proc")/str(pid)/"cmdline"
             live=(cmdline.is_file()
                   and b"development_continuity_daemon_v71" in cmdline.read_bytes())
+            if live:
+                attestation_method="LINUX_PROCFS_COMMAND_LINE"
         if not live:
             return missing
         return {"status":"LIVE_OFFLINE_EXECUTOR_ATTESTED",
                 "running_verified":True,
+                "identity_attestation_method":attestation_method,
                 "owner_pid":pid,
                 "run_id":saved["run_id"],
                 "heartbeat_age_seconds":round(age,2),
