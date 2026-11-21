@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 
 import pytest
 
@@ -14,6 +15,17 @@ from selenium_pipeline.development_continuity_handoff_v71 import (
     scan_and_dispatch, LEDGER_NAME)
 
 ROOT=Path(__file__).resolve().parents[1]
+
+
+@pytest.fixture
+def tmp_path():
+    """GitHub CI uses --basetemp inside checkout; production forbids that.
+
+    Keep the safety check strict by testing handoffs in the OS temp directory,
+    as they run on actual Dell-115 under AppData Local checkpoints.
+    """
+    with tempfile.TemporaryDirectory(prefix="microgen-v71-handoff-") as folder:
+        yield Path(folder)
 
 
 def source(tmp, name="source"):
@@ -241,3 +253,18 @@ def test_disabled_bom_remedy_blocks_windows_authored_plan(tmp_path,monkeypatch):
     assert report["new_worker_starts"]==0
     assert report["outcomes"][0]["status"]=="QUARANTINED_INVALID_PLAN"
     assert not started(state,"next_powershell")
+
+
+def test_source_checkout_internal_handoff_is_rejected_not_relaxed(tmp_path):
+    fake_checkout=tmp_path/"repo"
+    fake_checkout.mkdir()
+    internal=fake_checkout/"handoffs"
+    internal.mkdir()
+    state=tmp_path/"state"
+    state.mkdir()
+    f=source(tmp_path)
+    plan(internal/"next_internal.json",[task("internal",f)])
+    with pytest.raises(ValueError,match="ownership invalid"):
+        scan_and_dispatch(
+            handoff_dir=internal,state_dir=state,repo_root=fake_checkout)
+    assert not (state/LEDGER_NAME).exists()
