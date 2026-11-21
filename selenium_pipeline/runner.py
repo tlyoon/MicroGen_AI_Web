@@ -612,7 +612,14 @@ def execute(s: Settings) -> Path:
     process exit; a crash cannot leave a permanently owned lock.
     """
     first, last = STAGES.index(s.from_stage), STAGES.index(s.through_stage)
-    uses_gemini = any(_may_use_browser(stage) for stage in STAGES[first:last+1])
+    # Source-SHA complete v3 figure extraction is deterministic and does
+    # not touch the shared Gemini browser. Holding the same browser lock for
+    # Docling-only work would unnecessarily strand unrelated slides jobs.
+    from .source_bound_v3_repair import registered_and_complete
+    no_browser_figures = registered_and_complete(s.source())
+    uses_gemini = any(_may_use_browser(stage)
+        and not (stage == "figures" and no_browser_figures)
+        for stage in STAGES[first:last+1])
     if s.dry_run or not uses_gemini:
         return _execute_unlocked(s)
     from .three_pc_worker import LocalInstanceLock

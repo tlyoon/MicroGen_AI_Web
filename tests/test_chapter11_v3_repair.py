@@ -68,3 +68,17 @@ def test_unregistered_v3_recovery_is_fail_closed(tmp_path):
  with patch("selenium_pipeline.source_bound_v3_repair.registered_and_complete",
             return_value=False),pytest.raises(crop.FigureChainError,match="incomplete"):
   recover_source_figures_v3(tmp_path)
+
+
+def test_verified_source_only_figures_do_not_acquire_shared_browser_lock(tmp_path):
+ from selenium_pipeline import runner
+ settings=runner.Settings(source_root=tmp_path,work_root=None,
+                          subchapter="11.3",through_stage="figures")
+ with patch("selenium_pipeline.source_bound_v3_repair.registered_and_complete",
+            return_value=True), \
+      patch("selenium_pipeline.runner._execute_unlocked",
+            return_value=tmp_path) as work, \
+      patch("selenium_pipeline.three_pc_worker.LocalInstanceLock",
+            side_effect=AssertionError("Docling-only v3 must not hold Gemini lock")):
+  assert runner.execute(settings)==tmp_path
+ work.assert_called_once_with(settings)
