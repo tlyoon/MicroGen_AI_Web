@@ -298,3 +298,11 @@ def test_inactive_accounting_registry_blocks_send(account,monkeypatch,tmp_path):
     with pytest.raises(RuntimeError,match="GEMINI_ACCOUNTING_REGISTRY_INVALID_NO_SEND"):
         proxy.models.generate_content(
             model="gemini-3.8-flash-lite-tts",contents="hello")
+
+
+def test_empty_new_ledger_has_numeric_zero_counts_and_cost(account):
+    report=cost.summary()
+    assert report["requests"]==0
+    assert report["captured_api_cost_estimate_usd"]==0
+    assert report["uncertain_api_attempts_excluded_from_captured_total"]==0
+    assert report["groups"]==[]

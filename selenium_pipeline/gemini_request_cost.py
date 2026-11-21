@@ -437,8 +437,8 @@ def summary() -> dict:
         stats = con.execute("""SELECT COUNT(*),COALESCE(SUM(
             CASE WHEN transport='api' AND status='response_captured'
             THEN estimated_usd_cost ELSE 0 END),0),
-            SUM(CASE WHEN transport='api' AND status!='response_captured'
-                     THEN 1 ELSE 0 END) FROM gemini_requests""").fetchone()
+            COALESCE(SUM(CASE WHEN transport='api' AND status!='response_captured'
+                     THEN 1 ELSE 0 END),0) FROM gemini_requests""").fetchone()
         by_context = con.execute("""SELECT chapter,subsection,purpose,model,
             transport,COUNT(*),ROUND(SUM(estimated_usd_cost),8)
             FROM gemini_requests GROUP BY 1,2,3,4,5
