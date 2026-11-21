@@ -730,6 +730,20 @@
       "environment": "native Dell-115 Windows Git, Git diff preflight and syntax-preserving targeted recovery",
       "retry_policy": "finite 50 safe diagnostics, bound 4MB journal and 2MB/source, one SHA-bound write-ahead intent and completion receipt; resume only exact old/new bytes, reject foreign dirty source; no automatic commits",
       "enabled": true
+    },
+    {
+      "id": "G2_ORIGINAL_UNRECORDED_DISPATCH_CLAIM",
+      "match_type": "source_review_claim",
+      "signature": "G2_PREFLIGHT_FALSE_FRESH_WITH_HISTORICAL_REQUEST_WINDOW",
+      "mechanism": "RECONCILE_OWNED_CLAIM_BEFORE_ANY_NEW_SOURCE_SEND",
+      "classification": "G2_ATTEMPT_RECEIPT_ABSENT_BUT_PREVIOUS_MODEL_DISPATCH_CLAIM_PRESENT",
+      "handler": "NORMAL_ORIGINAL_G2_HISTORICAL_CLAIM_PREVENT_NEW_SEND",
+      "preconditions": "source SHA matches original Serway queue, immutable prior owned request checkpoint and exact saved dispatch claim; an absent attempt JSON never proves an unsent request",
+      "verification_test": "tests/test_development_g2_review_preflight_v71.py",
+      "last_verified_date": "2026-11-21",
+      "environment": "Dell-115 real Serway 1.3 slide 4 challenge: submitted-or-uncertain with no attempt receipt",
+      "retry_policy": "zero new provider Sends for possible prior submission; preserve source and previous claim, permit genuine saved-response-only reconciliation, never grant student release",
+      "enabled": true
     }
   ]
 }

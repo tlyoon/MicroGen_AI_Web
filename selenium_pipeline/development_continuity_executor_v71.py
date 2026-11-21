@@ -26,7 +26,7 @@ import uuid
 SCHEMA = 1
 SAFE_ACTIONS = frozenset({
     "verify_file_sha256", "pytest_suite", "g2_source_reconciliation",
-    "lecture_completion_readonly",
+    "g2_review_preflight", "lecture_completion_readonly",
 })
 ID_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9_-]{0,55}$")
 MAX_TASKS = 96
@@ -209,6 +209,7 @@ def _validate_params(task: dict) -> None:
         "verify_file_sha256": {"path", "sha256"},
         "pytest_suite": {"tests", "timeout_seconds"},
         "g2_source_reconciliation": {"queue_root", "folder"},
+        "g2_review_preflight": {"queue_root", "folder", "slide"},
         "lecture_completion_readonly": {"source_pdf"},
     }[action]
     _require(set(params) == allowed, "Unregistered worker input")
@@ -226,6 +227,12 @@ def _validate_params(task: dict) -> None:
                  and type(params["timeout_seconds"]) is int
                  and 10 <= params["timeout_seconds"] <= 900,
                  "Only bounded repository test modules are allowed")
+    elif action == "g2_review_preflight":
+        _require(type(params["folder"]) is str
+                 and type(params["queue_root"]) is str
+                 and type(params["slide"]) is int
+                 and 1 <= params["slide"] <= 200,
+                 "Invalid exact G2 source-review preflight parameters")
     else:
         _require(all(type(v) is str for v in params.values()),
                  "Invalid source-bound verifier path")
@@ -282,12 +289,50 @@ def _worker(plan_path: Path, state_dir: Path, task_id: str, token: str,
             from .ai_academic_review_consensus import reconcile_actual_review_queue
             report = reconcile_actual_review_queue(
                 queue_root=Path(p["queue_root"]), folder=Path(p["folder"]))
+            accepted = report.get("accepted_ai_evidence")
+            total = report.get("original_utterances")
+            pending = report.get("pending_or_disputed")
+            _require(report.get("status") ==
+                     "INDEPENDENTLY_REVALIDATED_AI_SOURCE_MATH_AGREEMENT_QUEUE"
+                     and type(accepted) is list and type(total) is int
+                     and type(pending) is int and total > 0
+                     and 0 <= pending <= total
+                     and len(accepted) + pending == total
+                     and report.get("student_publication_authorized") is False,
+                     "Unverified G2 source agreement; no false acceptance")
             outcome["evidence"] = {
-                "status": report.get("status"),
-                "accepted": len(report.get("accepted_ai_evidence", [])),
-                "total": report.get("original_utterances"),
-                "pending": report.get("pending_or_disputed"),
+                "status": report["status"],
+                "accepted": len(accepted),
+                "total": total,
+                "pending": pending,
                 "no_provider_requests": True,
+                "scientific_review_complete": pending == 0,
+                "student_release": False,
+            }
+        elif action == "g2_review_preflight":
+            from .source_review_eligibility_preflight import (
+                inspect_original_review_eligibility)
+            report = inspect_original_review_eligibility(
+                folder=Path(p["folder"]), queue_root=Path(p["queue_root"]),
+                slide=p["slide"])
+            _require(report.get("status") ==
+                     "SOURCE_BOUND_ACADEMIC_REVIEW_SCOPE_PREFLIGHT_NO_SEND"
+                     and report.get("slide") == p["slide"]
+                     and report.get("review_model_request_sent") is False
+                     and report.get("automatic_retry_authorized") is False
+                     and report.get("student_publication_authorized") is False
+                     and report.get("independent_source_mathematics_approved") is False,
+                     "Source preflight must not claim any review, retry or release")
+            planning_result = report.get("planning_result")
+            _require(type(planning_result) is str
+                     and len(planning_result) <= 120,
+                     "Unattributable G2 preflight disposition")
+            outcome["evidence"] = {
+                "slide":p["slide"], "planning_result":planning_result,
+                "fresh_internal_review_ready":report.get(
+                    "fresh_claimed_internal_selenium_review_ready") is True,
+                "model_requests":0, "scientific_acceptance":False,
+                "student_release":False,
             }
         elif action == "lecture_completion_readonly":
             from .cleanup import completed_lecture

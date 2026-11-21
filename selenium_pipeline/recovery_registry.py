@@ -15,6 +15,7 @@ REGISTRY_PATH = Path(__file__).resolve().parent / "recovery_registry_v1.json"
 _STATUS = "MICROGEN_EXECUTABLE_RECOVERY_REGISTRY_V1"
 _HANDLERS = {
     "selection_action": "NORMAL_SOURCE_BOUND_G2_SUPERVISOR_AND_QUEUE",
+    "source_review_claim": "NORMAL_ORIGINAL_G2_HISTORICAL_CLAIM_PREVENT_NEW_SEND",
     "supervisor_status": "NORMAL_SOURCE_BOUND_G2_SUPERVISOR_AND_QUEUE",
     "owned_transport_diagnostic": "OWNED_GEMINI_SELENIUM_RESPONSE_QUARANTINE",
     "offline_dependency": "NORMAL_G2_INDEPENDENT_SOURCE_READINESS",
