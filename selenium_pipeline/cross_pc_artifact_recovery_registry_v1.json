@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "status": "CROSS_PC_SOURCE_BOUND_ARTIFACT_RECOVERY_V1",
+  "handlers": {
+    "SOURCE_CROP_PIXELS_DIFFER_ACROSS_RENDERERS": "COMPARE_SHA_BOUND_PNG_SOURCE_PIXELS_UNDER_BOUNDED_ANTIALIASING",
+    "PUBLISHED_PDF_TEXT_HASH_DIFFERS_ACROSS_RENDERERS": "ATTEST_EXACT_SOURCE_PDF_SCRIPT_WAV_AND_RECEIPT_BEFORE_PARSER_DRIFT"
+  },
+  "max_model_sends": 0,
+  "may_modify_published_artifacts": false,
+  "student_release": false
+}
