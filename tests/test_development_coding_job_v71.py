@@ -10,7 +10,8 @@ import sys
 import pytest
 
 from selenium_pipeline.development_coding_job_v71 import (
-    admit_job, run_once, _codex_command,
+    admit_job, run_once, _codex_command, require_recovery, REGISTRY,
+    reconcile_existing_response,
 )
 
 
@@ -171,18 +172,27 @@ def test_worker_modifies_disallowed_source_and_is_not_accepted(isolated):
     def bad(command,prompt,*,cwd,timeout):
         (cwd/"outside.py").write_text("danger")
         return subprocess.CompletedProcess(command,0,stdout="oops")
-    with pytest.raises(ValueError,match="allowlist"):
-        dispatch(isolated,bad,fake_test)
-    state=json.loads((isolated["state"]/"coding_job_state.json").read_text())
-    assert state["status"]=="MODEL_RESPONDED_UNVERIFIED"
+    state=dispatch(isolated,bad,fake_test)
+    assert state["status"]=="MODEL_SOURCE_CHANGE_QUARANTINED"
+    assert state["failure_class"]=="MODEL_MODIFIED_UNAPPROVED_FILES"
     assert state["candidate_pr_pushed"] is False
+    assert state["next_independent_workstream_eligible"] is True
 
 
 def test_empty_model_change_not_accepted(isolated):
     def no_change(command,prompt,*,cwd,timeout):
         return subprocess.CompletedProcess(command,0,stdout="done")
-    with pytest.raises(ValueError):
-        dispatch(isolated,no_change,fake_test)
+    seen=[]
+    def tracked(command,prompt,*,cwd,timeout):
+        seen.append(1)
+        return no_change(command,prompt,cwd=cwd,timeout=timeout)
+    result=dispatch(isolated,tracked,fake_test)
+    assert result["status"]=="MODEL_NO_SOURCE_DIFF_QUARANTINED"
+    assert result["failure_class"]=="MODEL_RESPONDED_NO_SOURCE_DIFF"
+    assert result["model_invocations_claimed"]==1
+    assert result["candidate_pr_pushed"] is False
+    second=dispatch(isolated,tracked,fake_test)
+    assert second==result and len(seen)==1
 
 
 def test_changed_original_manifest_cannot_reissue_model(isolated):
@@ -221,6 +231,84 @@ def test_dirty_start_repository_is_refused(isolated):
     (isolated["repo"]/"private.txt").write_text("untracked")
     with pytest.raises(ValueError,match="source-pinned"):
         dispatch(isolated,good_model(isolated,[]),fake_test)
+
+
+@pytest.mark.parametrize("tamper",[
+    ("enabled",False),
+    ("max_additional_model_calls",1),
+    ("may_create_or_merge_pr",True),
+    ("may_release_students",True),
+    ("handlers",{}),
+])
+def test_noop_recovery_registry_fails_closed_when_modified(tmp_path,tamper):
+    data=json.loads(REGISTRY.read_text(encoding="utf8"))
+    data[tamper[0]]=tamper[1]
+    path=tmp_path/"unsafe_recovery.json"
+    path.write_text(json.dumps(data))
+    with pytest.raises(ValueError,match="Unregistered"):
+        require_recovery("MODEL_RESPONDED_NO_SOURCE_DIFF",registry=path)
+
+
+def test_registered_noop_handler_preserves_original_provider_claim():
+    assert require_recovery("MODEL_RESPONDED_NO_SOURCE_DIFF")==(
+        "QUARANTINE_NOOP_PRESERVE_RESPONSE_AND_ADVANCE_OFFLINE_BACKLOG")
+
+
+def test_coding_model_test_failure_records_no_resend_recovery(isolated):
+    sends=[]
+    def failing(command,*,cwd,capture_output,text,timeout):
+        return subprocess.CompletedProcess(command,1,stdout="error")
+    with pytest.raises(ValueError,match="regressions"):
+        dispatch(isolated,good_model(isolated,sends),failing)
+    state=json.loads((isolated["state"]/"coding_job_state.json").read_text())
+    assert state["recovery_action"]==(
+        "RETEST_EXISTING_RESPONSE_WITH_ZERO_MODEL_REPLAY")
+    assert state["next_model_send_authorized"] is False
+    accepted=dispatch(isolated,good_model(isolated,sends),fake_test)
+    assert accepted["status"]=="LOCAL_CODING_CANDIDATE_VERIFIED"
+    assert len(sends)==1
+
+
+def test_completed_noop_response_can_reconcile_on_new_main_without_model_send(
+        isolated):
+    calls=[]
+    def original_model(command,prompt,*,cwd,timeout):
+        calls.append(1)
+        return subprocess.CompletedProcess(command,0,stdout="no change")
+    result=dispatch(isolated,original_model,fake_test)
+    assert result["status"]=="MODEL_NO_SOURCE_DIFF_QUARANTINED"
+    prior=reconcile_existing_response(
+        job_path=isolated["job"],repo=isolated["repo"],
+        state_dir=isolated["state"],checkpoint_root=isolated["root"],
+        codex_path=isolated["codex"],test_runner=fake_test)
+    assert prior==result
+    assert len(calls)==1
+    assert prior["model_invocations_claimed"]==1
+    assert prior["candidate_pr_pushed"] is False
+
+
+def test_reconcile_only_refuses_uncertain_model_request_without_replay(
+        isolated):
+    calls=[]
+    def ambiguous(command,prompt,*,cwd,timeout):
+        calls.append(1)
+        raise subprocess.TimeoutExpired(command,timeout)
+    with pytest.raises(RuntimeError):
+        dispatch(isolated,ambiguous,fake_test)
+    with pytest.raises(ValueError,match="known completed model"):
+        reconcile_existing_response(
+            job_path=isolated["job"],repo=isolated["repo"],
+            state_dir=isolated["state"],checkpoint_root=isolated["root"],
+            codex_path=isolated["codex"],test_runner=fake_test)
+    assert len(calls)==1
+
+
+def test_reconcile_only_requires_existing_response_checkpoint(isolated):
+    with pytest.raises(ValueError,match="No original"):
+        reconcile_existing_response(
+            job_path=isolated["job"],repo=isolated["repo"],
+            state_dir=isolated["state"],checkpoint_root=isolated["root"],
+            codex_path=isolated["codex"],test_runner=fake_test)
 
 
 def test_non_model_script_cannot_be_coding_program(isolated):
