@@ -772,6 +772,34 @@
       "environment": "Dell-115 original Serway 1.3 slide1 real request window; typed no-click witness and SHA exact against current source and original prompt",
       "retry_policy": "only reuse exact original single Send claim when no click is verified; never reset consumed claim or old failure, never retry uncertain response, preserve health circuit, no scientific acceptance or release",
       "enabled": true
+    },
+    {
+      "id": "V71_IMMUTABLE_GLOBAL_OFFLINE_HANDOFF_AFTER_BATCH",
+      "match_type": "global_checkpoint_handoff",
+      "signature": "V71_IMMUTABLE_INDEPENDENT_OFFLINE_HANDOFF",
+      "mechanism": "DISCOVER_SOURCE_PINNED_OFFLINE_PLANS_AFTER_LOCAL_BATCH",
+      "classification": "PRIMARY_FIXED_ROADMAP_EXHAUSTED_WHILE_INDEPENDENT_OFFLINE_WORK_ARRIVES",
+      "handler": "NORMAL_V71_PROJECT_WIDE_OBSERVABLE_SUPERVISOR",
+      "preconditions": "explicit source-pinned local offline handoff directory, immutable plan filename and sha, existing allowlisted read-only worker actions, durable pre-dispatch claim",
+      "verification_test": "tests/test_development_global_handoff_v71.py",
+      "last_verified_date": "2026-11-21",
+      "environment": "Dell-115 real v7.1 daemon external child worker receipts, restart and immutable-plan fault injection",
+      "retry_policy": "never replay changed plan; quarantine malformed plan and proceed on independent eligible tasks; no model request, code writing, task scheduling or release",
+      "enabled": true
+    },
+    {
+      "id": "WINDOWS_POWERSHELL_BOM_PINNED_HANDOFF_JSON",
+      "match_type": "historical_format_disposition",
+      "signature": "WINDOWS_SOURCE_PINNED_JSON_UTF8_BOM",
+      "mechanism": "ACCEPT_ONE_BOM_PRESERVE_RAW_PLAN_HASH",
+      "classification": "POWERSHELL_NATIVE_UTF8_BOM_REJECTED_BY_STRICT_JSON_HANDOFF_READER",
+      "handler": "NORMAL_WINDOWS_SOURCE_BOUND_HISTORY_FORMAT_DISPOSITION",
+      "preconditions": "exact source file remains regular, JSON contains at most one UTF8 BOM at offset zero, immutable claim hashes the original raw bytes, no external Send",
+      "verification_test": "tests/test_development_global_handoff_v71.py",
+      "last_verified_date": "2026-11-21",
+      "environment": "Dell-115 real PowerShell Set-Content UTF8 EFBBBF JSON handoff was previously quarantined before any workers",
+      "retry_policy": "allow one BOM prefix only, preserve original byte SHA and any existing consumed identity, never reinterpret source model claims or bypass release",
+      "enabled": true
     }
   ]
 }

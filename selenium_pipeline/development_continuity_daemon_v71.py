@@ -121,7 +121,7 @@ def _daemon_lock(directory: Path):
 
 def daemon(*,plan_path: Path,state_dir: Path,repo_root: Path,
            poll_seconds:float=120.0,heartbeat_seconds:float=5.0,
-           max_cycles:int=0)->dict:
+           max_cycles:int=0,handoff_dir:Path|None=None)->dict:
     """Explicitly invoked persistent process. max_cycles=0 means indefinite."""
     if (not 1<=poll_seconds<=3600
         or not .5<=heartbeat_seconds<=600
@@ -132,6 +132,10 @@ def daemon(*,plan_path: Path,state_dir: Path,repo_root: Path,
     repo_root=Path(repo_root).resolve()
     _plan(plan_path)
     plan_sha=_sha(plan_path)
+    if handoff_dir is not None:
+        handoff_dir=Path(handoff_dir).absolute()
+        if not handoff_dir.is_dir() or handoff_dir.is_symlink():
+            raise ValueError("Explicit immutable handoff intake directory missing")
     state_dir.mkdir(parents=True,exist_ok=True)
     if state_dir.is_symlink():
         raise ValueError("Linked daemon checkpoint directory")
@@ -153,6 +157,10 @@ def daemon(*,plan_path: Path,state_dir: Path,repo_root: Path,
         "provider_sends":0,
         "student_publication_authorized":False,
         "existing_scheduled_tasks_modified":False,
+        "handoff_dir":str(handoff_dir) if handoff_dir is not None else None,
+        "last_handoff_status":"NOT_CONFIGURED",
+        "handoff_worker_starts_total":0,
+        "code_authoring_executor":False,
     }
     guard=threading.Lock()
 
@@ -182,11 +190,29 @@ def daemon(*,plan_path: Path,state_dir: Path,repo_root: Path,
                     raise ValueError("Roadmap mutated while persistent supervisor active")
                 outcome=execute(plan_path=plan_path,state_dir=state_dir,
                                 repo_root=repo_root)
+                # The fixed source plan may be blocked at a release gate.
+                # Do not stop there: discover newly placed, explicitly
+                # authored *offline-only* independent work in the same
+                # live daemon execution opportunity.
+                handoff=None
+                if handoff_dir is not None:
+                    from .development_continuity_handoff_v71 import (
+                        scan_and_dispatch)
+                    handoff=scan_and_dispatch(
+                        handoff_dir=handoff_dir,state_dir=state_dir,
+                        repo_root=repo_root)
                 with guard:
                     state["last_controller_status"]=outcome["status"]
                     state["last_controller_completed"]=outcome["project_complete"]
                     state["cycles"]+=1
-                report("WAITING_FOR_ELIGIBLE_WORK"
+                    if handoff is not None:
+                        state["last_handoff_status"]=handoff["status"]
+                        state["handoff_worker_starts_total"]+=handoff[
+                            "new_worker_starts"]
+                report("HANDOFF_DISPATCH_VERIFIED"
+                       if handoff is not None and handoff[
+                           "new_worker_starts"]>0 else
+                       "WAITING_FOR_ELIGIBLE_WORK"
                        if not outcome["project_complete"]
                        else "LOCAL_PLAN_COMPLETE_MONITORING")
                 if max_cycles and state["cycles"]>=max_cycles:
@@ -210,12 +236,14 @@ def main(argv:list[str]|None=None)->int:
     a.add_argument("--poll-seconds",type=float,default=120)
     a.add_argument("--heartbeat-seconds",type=float,default=5)
     a.add_argument("--max-cycles",type=int,default=0)
+    a.add_argument("--handoff-dir",type=Path,default=None,
+                   help="Explicit source-pinned next_*.json offline plan inbox")
     arg=a.parse_args(argv)
     final=daemon(plan_path=arg.plan,state_dir=arg.state_dir,
                  repo_root=arg.repo_root,
                  poll_seconds=arg.poll_seconds,
                  heartbeat_seconds=arg.heartbeat_seconds,
-                 max_cycles=arg.max_cycles)
+                 max_cycles=arg.max_cycles,handoff_dir=arg.handoff_dir)
     print("MicroGen v7.1 offline supervisor stopped; cycles:",
           final["cycles"],"last:",final["last_controller_status"])
     return 0
