@@ -912,6 +912,20 @@
       "environment": "separate on-demand Dell-115 coding worker; offline continuous development supervisor remains model-free",
       "retry_policy": "write-ahead single-claim before worker start; crash or uncertain request never resent; reconcile previously captured original response only; finite scan and quarantine",
       "enabled": true
+    },
+    {
+      "id": "CH11_V3_PRESEND_GEMINI_BROWSER_FAMILY_RECOVERY",
+      "match_type": "presend_capability_repair",
+      "signature": "V3_CHAPTER_RUNNER_FLASH_PREFLIGHT_BLOCKS_VERIFIED_DYNAMIC_ROUTE",
+      "mechanism": "TASK_SCOPED_REGISTERED_OWNED_UI_MODEL_FALLBACK_NO_SEND",
+      "classification": "PRESEND_FLASH_ABSENT_BROWSER_FAMILY_MISMATCH_NO_MODEL_SEND",
+      "handler": "NORMAL_EXISTING_OWNED_GEMINI_ACCOUNT_CAPABILITY_PREFLIGHT",
+      "preconditions": "Explicit slides/narration stage; existing task router; Google official catalog and live authenticated owned picker; no original source request replay",
+      "verification_test": "tests/test_chapter11_v3_repair.py",
+      "last_verified_date": "2026-11-22",
+      "environment": "Dell-115 / Windows / Chapter 11 Selenium-only source-bound content",
+      "retry_policy": "No unverified model aliases or API fallback; require exact supported browser family and task Thinking before one new Send",
+      "enabled": true
     }
   ]
 }
