@@ -1038,6 +1038,20 @@
       "environment": "Dell-115 actual Serway Chapter 11; 11 canonical MP4s, three repaired subsections, five verified preview videos",
       "retry_policy": "reuse cached validated preview bytes without re-encoding, TTS or model API; refuse conflicting MP4 and changed source; never mark full G3 or highlight verified",
       "enabled": true
+    },
+    {
+      "id": "YOUTUBE_MULTIPART_SOURCE_PDF_DOCX_V2_20261122",
+      "match_type": "youtube_multipart_publication",
+      "signature": "ONE_OLD_YOUTUBE_VIDEO_SUPERSEDED_BY_MULTIPLE_VERIFIED_MP4_PARTS",
+      "mechanism": "SOURCE_QA_PART_HASH_DOCX_REMOTE_PDF_PLAYLIST_TWO_PHASE_RETIREMENT",
+      "classification": "LEGACY_SINGLE_VIDEO_MUST_BE_REPLACED_WITH_N_ACCEPTED_PARTS_WITH_EXACT_LINK_AND_SOURCE_ATTESTATION",
+      "handler": "NORMAL_SOURCE_PINNED_ONE_TO_N_YOUTUBE_DOCX_RECONCILIATION",
+      "preconditions": "An explicitly selected chapter; complete accepted source-video part manifest; authorized YouTube channel; exact original Drive DOCX ID and verified remote PDF hashes",
+      "verification_test": "tests/test_youtube_multipart_recovery_v2.py",
+      "last_verified_date": "2026-11-22",
+      "environment": "Real Yoga6 YouTube Serway Chapter 11 5-to-11 replacement and remote DOCX on Drive; Dell115 verified 18 regression tests",
+      "retry_policy": "Never reupload uncertain MP4 or repeat acknowledged deletion; reconcile by source hash, remote video ID and content; only retire old once all N public, DOCX+PDF remotely verified",
+      "enabled": true
     }
   ]
 }
