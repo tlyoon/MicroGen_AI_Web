@@ -926,6 +926,34 @@
       "environment": "Dell-115 / Windows / Chapter 11 Selenium-only source-bound content",
       "retry_policy": "No unverified model aliases or API fallback; require exact supported browser family and task Thinking before one new Send",
       "enabled": true
+    },
+    {
+      "id": "G3_LEGACY_STATIC_MP4_NO_VISUAL_HIGHLIGHTS",
+      "match_type": "g3_legacy_visual_recovery",
+      "signature": "G3_LEGACY_STATIC_MP4_SOURCE_BOUND_REBUILD",
+      "mechanism": "VERIFY_REAL_ENCODED_FRAMES_STAGE_IMMUTABLE_ISOLATED_REBUILD",
+      "classification": "SERWAY_LEGACY_STATIC_PDF_WAV_MP4_HAS_NO_TIME_SYNCHRONIZED_HIGHLIGHT_EVIDENCE",
+      "handler": "NORMAL_G3_SOURCE_PINNED_ISOLATED_HIGHLIGHT_REBUILD",
+      "preconditions": "exact original source/slides/script, manifest-bound WAVs and MP4 hashes, real decoded within-slide frames from at least two source-bound parts",
+      "verification_test": "tests/test_g3_legacy_visual_recovery_v71.py",
+      "last_verified_date": "2026-11-22",
+      "environment": "Dell-115 actual Serway 8.2 and 8.3 source-bound legacy video, readonly independent encoded pixel audit",
+      "retry_policy": "reject static output as G3 accepted; create immutable SHA-pinned isolated rebuild worklist, retain legacy PDF/WAV/MP4, require independent new acoustic/synchronized video/scientific review before release",
+      "enabled": true
+    },
+    {
+      "id": "CH11_SAME_GEOMETRY_UNRELATED_CAPTION_TEXT",
+      "match_type": "caption_identity_parity",
+      "signature": "CH11_SAME_BBOX_DIFFERENT_CAPTION_TEXT_FALSE_ACCEPT",
+      "mechanism": "REQUIRE_EXACT_SOURCE_WORDS_AND_FIGURE_ID_FOR_EQUAL_BBOX",
+      "classification": "CROSS_PARSER_FIGURE_CAPTION_GEOMETRY_IDENTITY_FALSE_POSITIVE",
+      "handler": "NORMAL_REAL_SOURCE_FIGURE_CAPTION_CROSS_PARSER_CHECK",
+      "preconditions": "a cross-parser caption with identical source bounding box must retain exact normalized real PDF caption text, figure ID, page and panel inventory",
+      "verification_test": "tests/test_ch11_caption_same_bbox_source_gate_v71.py",
+      "last_verified_date": "2026-11-22",
+      "environment": "Dell-115 original Serway chapter 11.1 and 11.3 real-source CI failure encountered during G3 development",
+      "retry_policy": "no Gemini or source file modification; reject unrelated source words even when caption bounding boxes are identical; independently regression-test original physical Serway source",
+      "enabled": true
     }
   ]
 }
