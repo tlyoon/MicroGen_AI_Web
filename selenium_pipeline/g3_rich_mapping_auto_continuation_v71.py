@@ -211,6 +211,11 @@ def _verified_source_rejection(*,source_folder:Path,checkpoint:Path,n:int,
     request, original response bytes, parsed model bytes, and re-run the
     independent PDF grounding check to confirm this still rejects.
     """
+    need(lookup_mechanism(
+        "g3_rejected_content_continuation",
+        "CAPTURED_REJECTED_PUBLISHER_QUOTE_COUNTED_AS_PROVIDER_UNCERTAINTY",
+    )=="REVERIFY_ORIGINAL_REJECTED_BYTES_QUARANTINE_SLIDE_ADVANCE_OTHER_SLIDES",
+         "No registered executable recovery for captured source rejection")
     claim=_read(files["claim"])
     need(claim.get("status")=="CAPTURED_SOURCE_REJECTED_NO_REPLAY"
          and claim.get("model_response_accepted") is False

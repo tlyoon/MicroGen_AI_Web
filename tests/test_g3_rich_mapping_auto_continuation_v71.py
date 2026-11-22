@@ -441,3 +441,10 @@ def test_forged_source_rejection_capture_treated_as_unknown_and_never_trusted(
     assert out["quarantined_or_uncertain_slides"]==1
     assert out["slides"][0]["status"]=="SAVED_SOURCE_REPLY_UNTRUSTED_NO_REPLAY"
     assert out["student_publication_authorized"] is False
+
+
+def test_source_rejection_reclassification_is_registered_executable_recovery():
+    assert g3.lookup_mechanism(
+        "g3_rejected_content_continuation",
+        "CAPTURED_REJECTED_PUBLISHER_QUOTE_COUNTED_AS_PROVIDER_UNCERTAINTY",
+    )=="REVERIFY_ORIGINAL_REJECTED_BYTES_QUARANTINE_SLIDE_ADVANCE_OTHER_SLIDES"
