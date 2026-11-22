@@ -100,7 +100,13 @@ def test_bounded_cross_parser_caption_grouping_preserves_source_identity():
    page=doc[fig["page"]-1]
    extended=dict(fig,caption_bbox=alternate,
                  caption_text=fig["caption_text"]+extended_text)
-   assert _caption_block_parser_parity(SHA[sec],extended,fig,page)
+   # Real MuPDF versions can disagree by ~3-20 pt on the caption BBOX.
+   # With the same printed source words this bounded geometry change is
+   # eligible, but the synthetic appended paraphrase is not a PDF citation.
+   genuine=dict(fig,caption_bbox=alternate)
+   assert _caption_block_parser_parity(SHA[sec],genuine,fig,page)
+   assert not _caption_block_parser_parity(SHA[sec],extended,fig,page)
+   assert _caption_block_parser_parity(SHA[sec],dict(fig),fig,page)
    tamper=dict(extended,caption_bbox=[
        alternate[0],alternate[1],alternate[2],alternate[3]+30])
    assert not _caption_block_parser_parity(SHA[sec],tamper,fig,page)

@@ -28,20 +28,50 @@ def complete_from_published(*, source: Path, require_slide_tts_qa: bool = False)
     audio/text coverage has been verified. A partial element batch is NEVER
     silently replaced, and prior published part files are NEVER overwritten.
     """
-    from .runner import check_valid
     source = Path(source).absolute()
     lecture = source.parent
     require(source.is_file() and not source.is_symlink()
             and source.name == "source.pdf", "Original source.pdf unavailable")
-    # Re-use a complete previously accepted multipart series without opening
-    # Gemini, synthesizing WAVs, rendering new video, or replacing any MP4.
-    if check_valid("video", lecture):
+    # A legacy static slides.mp4 is NOT independently accepted highlighted
+    # multipart media. Only the strict SHA-bound event/pixel media contract
+    # can authorize a reusable technically accepted production series.
+    if (lecture / "lecture_completion.json").is_file():
+        from .production_video_contract import verify_series
+        verified = verify_series(lecture)
+        require(verified["status"] == "accepted_synchronized_series"
+                and verified["verification_scope"] == "technical_media_only"
+                and verified["student_publication_permitted"] is False,
+                "Malformed production-series evidence")
         return {"status": "REUSED_TECHNICALLY_ACCEPTED_MULTIPART_VIDEO",
                 "new_generation_performed": False,
                 "student_publication_authorized": False}
     require(not (lecture / "lecture_completion.json").exists()
             and not any(lecture.glob("part_[0-9][0-9]")),
             "Partial or conflicting multipart publication requires targeted recovery")
+    if ((lecture / "slides.mp4").is_file()
+            and (lecture / "slides_parts_manifest.json").is_file()
+            and (lecture / "slide_narration_sync.json").is_file()):
+        # Executable, registered recovery in the NORMAL video handoff, not
+        # merely an advisory document. Inspect the real encoded pixels and
+        # stage the exact original hashes OUTSIDE the textbook folder.
+        from .g3_legacy_visual_recovery_v71 import (
+            inspect_legacy, stage_recovery)
+        report = inspect_legacy(folder=lecture)
+        if report["status"] == "G3_LEGACY_STATIC_VIDEO_REBUILD_REQUIRED":
+            from pathlib import Path as _Path
+            base = _Path(os.environ.get("LOCALAPPDATA")
+                         or str(_Path.home() / ".cache"))
+            staging = (base / "MicroGen_AI_Web_Checkpoints" /
+                       "G3_Legacy_Video_Rebuild_V71")
+            staging.mkdir(parents=True, exist_ok=True)
+            worklist = stage_recovery(report=report, staging_root=staging)
+            raise VideoHandoffBlocked(
+                "Verified legacy static-slide MP4 cannot satisfy G3 "
+                "synchronized highlight acceptance; protected original "
+                "assets. Isolated source-pinned rebuild: " + str(worklist))
+        raise VideoHandoffBlocked(
+            "Legacy MP4 may contain motion but independent source-bound "
+            "highlight timing is not accepted; preserve original output")
     require(not (lecture / "slides.mp4").exists(),
             "Old slide MP4 is protected; no silent video replacement")
     # Legacy but independently source-proven video-only jobs may already
@@ -54,6 +84,7 @@ def complete_from_published(*, source: Path, require_slide_tts_qa: bool = False)
             and slides.stat().st_size > 0,
             "Missing real published slides.pdf prior to synchronized video")
     if require_slide_tts_qa:
+        from .runner import check_valid
         require(check_valid("tts_qa", lecture),
                 "Complete passing original slide-WAV pronunciation QA is required "
                 "before the full seven-stage video handoff")
