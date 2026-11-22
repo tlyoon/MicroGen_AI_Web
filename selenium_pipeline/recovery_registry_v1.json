@@ -996,6 +996,20 @@
       "environment": "Dell-115 Serway 11.5 slide2 model returned a quote that independent physical source verification rejected",
       "retry_policy": "Save verbatim and parsed model response before source audit; permanently quarantine rejected result; never retry uncertain original send",
       "enabled": true
+    },
+    {
+      "id": "G3_REUSE_ORIGINAL_RICH_MAPPING_NO_MANUAL_REPEAT_V71",
+      "match_type": "g3_semantic_mapping_continuation",
+      "signature": "HISTORICAL_RICH_MAPPING_WORKLIST_NOT_AUTOMATICALLY_DISPATCHED",
+      "mechanism": "REUSE_SOURCE_PINNED_BROWSER_REVIEW_CLAIMS_RESUME_SAVED_REPLY",
+      "classification": "VALID_G3_RICH_MAPPING_WORKLIST_STRANDED_DESPITE_EXISTING_BROWSER_REVIEWER",
+      "handler": "NORMAL_SOURCE_PINNED_G3_BROWSER_REVIEW_AUTOCONTINUATION",
+      "preconditions": "immutable source+slide+script+candidate checkpoint; single original browser claim per slide; isolated worker and no cross-app source mutation",
+      "verification_test": "tests/test_g3_rich_mapping_auto_continuation_v71.py",
+      "last_verified_date": "2026-11-22",
+      "environment": "Dell-115 original Serway 8.2 and 8.3 mapping worklists with owned Gemini Selenium browser; no Developer API",
+      "retry_policy": "revalidate exact old model captures; never re-Send claimed or source-rejected slide; maximum three new browser attempts per run; stop after two uncertain outcomes",
+      "enabled": true
     }
   ]
 }
