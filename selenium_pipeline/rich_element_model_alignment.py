@@ -439,6 +439,19 @@ def main(argv=None):
         attempt=a.out.with_suffix(".submission_held.json")
         require(not attempt.exists(), "Previous Gemini submission may be in flight; "
                 "reconcile its browser-owned response before another attempt")
+        # The direct rich-mapping CLI historically skipped the chapter runner
+        # model-family preflight. On new Gemini Apps menus this failed inside
+        # open_clean_gemini_chat *after* creating a false MAY_HAVE_SENT claim.
+        # Qualify official-catalog + authenticated owned picker for precisely
+        # rich_mapping BEFORE a send ledger, attachment, prompt or paid API.
+        import os
+        from .gemini_model import ensure_mode
+        os.environ["MICROGEN_ACTIVE_GENERATION_STAGE"] = "rich_mapping"
+        selected = ensure_mode(
+            port=a.browser_port, mode="flash", timeout=30,
+            stage="rich_mapping")
+        print("[rich_mapping] verified source-bound no-Send model: "
+              + selected, flush=True)
         with attempt.open("x",encoding="utf8") as stream:
             json.dump({"status":"MAY_HAVE_SENT_AWAIT_RECONCILIATION",
                 "request_sha256":request["request_sha256"],
