@@ -349,3 +349,102 @@ def test_prior_reply_adoption_rejects_conflicting_existing_bytes(
         g3.adopt_prior_owned_review(
             source_folder=source,checkpoint=checkpoint,review_root=root,
             slide=1,previous=old)
+
+
+def _source_rejected_claim(root,n):
+    f=save_response(root,n)
+    f["claim"].unlink()
+    g3._new_json(f["claim"],{
+        "status":"CAPTURED_SOURCE_REJECTED_NO_REPLAY",
+        "request_sha256":str(n)*64,
+        "source_inputs_sha256":{
+            "source.pdf":"a"*64,"slides.pdf":"b"*64,"script.txt":"c"*64},
+        "verbatim_capture_sha256":g3._sha(f["capture"]),
+        "parsed_model_response_sha256":g3._sha(f["response"]),
+        "source_rejection_type":"RichMappingError",
+        "source_rejection_reason":"Missing exact publisher citation",
+        "model_response_accepted":False,
+        "academic_approval":False,
+        "paid_tts_authorized":False,
+        "student_publication_authorized":False,
+    })
+    f["audit"].unlink()
+    return f
+
+
+def test_authentic_source_rejection_has_distinct_no_replay_status(
+        tmp_path,monkeypatch):
+    source,checkpoint,root=fixture(tmp_path,monkeypatch)
+    g3.prepare(source_folder=source,checkpoint=checkpoint,review_root=root)
+    f=_source_rejected_claim(root,1)
+    original=g3.assess_response
+    def source_grounding(**kw):
+        if kw["slide_number"]==1:
+            raise g3.RichMappingError("Missing exact publisher citation")
+        return original(**kw)
+    monkeypatch.setattr(g3,"assess_response",source_grounding)
+    with patch("selenium_pipeline.rich_element_model_alignment.main") as browser:
+        outcome=g3.run(source_folder=source,checkpoint=checkpoint,
+                       review_root=root,max_new_sends=0)
+    browser.assert_not_called()
+    assert outcome["source_rejected_slides"]==1
+    assert outcome["quarantined_or_uncertain_slides"]==0
+    assert outcome["remaining_unreviewed_slides"]==3
+    assert outcome["slides"][0]["status"]=="SOURCE_QUOTE_REJECTED_NO_REPLAY"
+    assert outcome["student_publication_authorized"] is False
+    assert not f["audit"].exists()
+
+
+def test_two_source_rejections_leave_other_untouched_slides_dispatch_eligible(
+        tmp_path,monkeypatch):
+    source,checkpoint,root=fixture(tmp_path,monkeypatch)
+    g3.prepare(source_folder=source,checkpoint=checkpoint,review_root=root)
+    for n in (1,2):
+        _source_rejected_claim(root,n)
+    original=g3.assess_response
+    def source_grounding(**kw):
+        if kw["slide_number"] in (1,2):
+            raise g3.RichMappingError("Missing exact publisher citation")
+        return original(**kw)
+    monkeypatch.setattr(g3,"assess_response",source_grounding)
+    submitted=[]
+    def fake_send(args):
+        n=int(args[args.index("--slide")+1])
+        submitted.append(n)
+        save_response(root,n)
+    with patch("selenium_pipeline.rich_element_model_alignment.main",
+               side_effect=fake_send):
+        result=g3.run(source_folder=source,checkpoint=checkpoint,
+                      review_root=root,max_new_sends=2)
+    assert sorted(submitted)==[3,4]
+    assert result["source_rejected_slides"]==2
+    assert result["quarantined_or_uncertain_slides"]==0
+    assert result["original_reviewed_slides_reused"]==2
+    assert result["student_publication_authorized"] is False
+    assert all(g3._files(root,n)["claim"].exists() for n in (1,2))
+    assert not any(g3._files(root,n)["audit"].exists() for n in (1,2))
+
+
+def test_forged_source_rejection_capture_treated_as_unknown_and_never_trusted(
+        tmp_path,monkeypatch):
+    source,checkpoint,root=fixture(tmp_path,monkeypatch)
+    g3.prepare(source_folder=source,checkpoint=checkpoint,review_root=root)
+    files=_source_rejected_claim(root,1)
+    files["capture"].write_text("tampered original browser capture",
+                                encoding="utf8")
+    original=g3.assess_response
+    monkeypatch.setattr(g3,"assess_response",
+       lambda **kw: (_ for _ in ()).throw(
+           AssertionError("Tampered rejected evidence reached publisher audit")))
+    out=g3.run(source_folder=source,checkpoint=checkpoint,review_root=root)
+    assert out["source_rejected_slides"]==0
+    assert out["quarantined_or_uncertain_slides"]==1
+    assert out["slides"][0]["status"]=="SAVED_SOURCE_REPLY_UNTRUSTED_NO_REPLAY"
+    assert out["student_publication_authorized"] is False
+
+
+def test_source_rejection_reclassification_is_registered_executable_recovery():
+    assert g3.lookup_mechanism(
+        "g3_rejected_content_continuation",
+        "CAPTURED_REJECTED_PUBLISHER_QUOTE_COUNTED_AS_PROVIDER_UNCERTAINTY",
+    )=="REVERIFY_ORIGINAL_REJECTED_BYTES_QUARANTINE_SLIDE_ADVANCE_OTHER_SLIDES"
