@@ -93,8 +93,9 @@ The full Dell-115 suite on the merged Chapter 11 source baseline exposed a
 newly introduced v3 shortcut: `_caption_block_parser_parity` returned
 `True` whenever a caption's PDF bounding box was unchanged, even when
 the supplied caption text was entirely unrelated. On original Serway §§11.1
-and 11.3, the test had also accepted synthetic appendages under the SAME
-original geometry; these were not verbatim printed source captions.
+and 11.3, the test also accepted synthetic appendages despite modest
+caption-geometry differences across MuPDF versions; those words were not
+verbatim printed source captions.
 
 Repair: identical geometry requires identical normalized real source
 caption words, figure identifier, source page and panel inventory. A

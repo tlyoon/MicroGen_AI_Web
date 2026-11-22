@@ -948,7 +948,7 @@
       "mechanism": "REQUIRE_EXACT_SOURCE_WORDS_AND_FIGURE_ID_FOR_EQUAL_BBOX",
       "classification": "CROSS_PARSER_FIGURE_CAPTION_GEOMETRY_IDENTITY_FALSE_POSITIVE",
       "handler": "NORMAL_REAL_SOURCE_FIGURE_CAPTION_CROSS_PARSER_CHECK",
-      "preconditions": "a cross-parser caption with identical source bounding box must retain exact normalized real PDF caption text, figure ID, page and panel inventory",
+      "preconditions": "same bounding box requires exact printed caption words and figure ID/page/panels; a registered alternate bounding box permits a longer caption only when its extra words occur inside the actual original PDF source region",
       "verification_test": "tests/test_ch11_caption_same_bbox_source_gate_v71.py",
       "last_verified_date": "2026-11-22",
       "environment": "Dell-115 original Serway chapter 11.1 and 11.3 real-source CI failure encountered during G3 development",

@@ -187,9 +187,21 @@ def _caption_block_parser_parity(source_sha: str, row: dict,
         return False
     before=normalize(fig.get("caption_text"))
     after=normalize(row.get("caption_text"))
-    return (len(before)>=16 and len(after)>=16
-            and (before.startswith(after) or after.startswith(before))
-            and fig.get("expected_panels")==row.get("expected_panels"))
+    if not (len(before)>=16 and len(after)>=16
+            and fig.get("expected_panels")==row.get("expected_panels")):
+        return False
+    if before==after:
+        return True
+    # Parser-version geometry changes can include a real *adjacent PDF line*.
+    # Do not equate an arbitrary model/synthetic appended phrase with the
+    # source caption just because all the earlier words are a prefix.
+    if not after.startswith(before) or len(after)<=len(before):
+        return False
+    suffix=after[len(before):].strip()
+    if len(suffix)<8:
+        return False
+    source_patch=normalize(page.get_textbox(new_rect))
+    return suffix in source_patch
 
 
 def _crop_proposal(page, row: dict) -> tuple[object, str]:
