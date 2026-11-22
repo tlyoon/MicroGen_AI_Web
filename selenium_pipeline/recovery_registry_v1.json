@@ -1052,6 +1052,20 @@
       "environment": "Real Yoga6 YouTube Serway Chapter 11 5-to-11 replacement and remote DOCX on Drive; Dell115 verified 18 regression tests",
       "retry_policy": "Never reupload uncertain MP4 or repeat acknowledged deletion; reconcile by source hash, remote video ID and content; only retire old once all N public, DOCX+PDF remotely verified",
       "enabled": true
+    },
+    {
+      "id": "G3_SOURCE_QUOTE_REJECTION_IS_NOT_UNCERTAIN_SEND_20261123",
+      "match_type": "g3_rejected_content_continuation",
+      "signature": "CAPTURED_REJECTED_PUBLISHER_QUOTE_COUNTED_AS_PROVIDER_UNCERTAINTY",
+      "mechanism": "REVERIFY_ORIGINAL_REJECTED_BYTES_QUARANTINE_SLIDE_ADVANCE_OTHER_SLIDES",
+      "classification": "G3_MODEL_CONTENT_REJECTED_BY_EXACT_PDF_QUOTE_CHECK_NOT_A_PROVIDER_TRANSPORT_FAILURE",
+      "handler": "NORMAL_SOURCE_REJECTION_WITHOUT_PROVIDER_UNCERTAINTY",
+      "preconditions": "SHA-pinned original one-Send capture and parsed reply, exact source request identity, source-rejected claim and independently reproduced exact publisher-quote failure",
+      "verification_test": "tests/test_g3_rich_mapping_auto_continuation_v71.py and tests/test_g3_multisection_autoforward_v71.py",
+      "last_verified_date": "2026-11-23",
+      "environment": "Dell-115 Serway original 8.2 slide 2 and 8.3 slide 3 source-publisher quote rejection with immutable saved original responses",
+      "retry_policy": "Never repeat rejected original model Send or accept its quote; count only unverifiable or uncertain outcomes in the provider circuit breaker, continue separate eligible source-review slides without changing release requirements",
+      "enabled": true
     }
   ]
 }

@@ -193,6 +193,8 @@ def _counts(observed):
             x["report"]["remaining_unreviewed_slides"] for x in observed),
         "quarantined_or_uncertain_original_slides":sum(
             x["report"]["quarantined_or_uncertain_slides"] for x in observed),
+        "source_rejected_original_slides":sum(
+            x["report"].get("source_rejected_slides",0) for x in observed),
     }
 
 
@@ -230,7 +232,8 @@ def run_campaign(*,manifest:Path,state_dir:Path,
             if not ready:
                 stopped_reason=("NO_UNREVIEWED_SLIDES_LEFT"
                     if totals["quarantined_or_uncertain_original_slides"]==0
-                    else "REMAINING_CLAIMS_QUARANTINED_NO_SAFE_SEND")
+                    and totals["source_rejected_original_slides"]==0
+                    else "REMAINING_SOURCE_REJECTIONS_OR_UNCERTAIN_CLAIMS_NO_REPLAY")
                 break
             # Fairness: least recently selected source first, with a
             # deterministic higher-backlog tie-break; no starvation.
@@ -275,12 +278,17 @@ def run_campaign(*,manifest:Path,state_dir:Path,
             prior_sha=reviewer._sha(event_path)
             events.append(record)
             observations=_survey(specs)
-            if new["dispatch_failures"]:
+            if any(x.get("failure_classification")!=
+                   "SOURCE_QUOTE_REJECTED_NO_REPLAY"
+                   for x in new["dispatch_failures"]):
                 failures+=1
                 if failures>=2:
                     stopped_reason="TWO_CONSECUTIVE_BROWSER_FAILURES_NO_REPEAT"
                     break
             else:
+                # Publisher-quote rejection is a scientific-model-content
+                # failure on ONE immutable slide, not provider unavailability.
+                # Preserve it and advance independent eligible source work.
                 failures=0
         if stopped_reason is None:
             stopped_reason=("BOUNDED_RUN_BUDGET_REACHED"
@@ -291,6 +299,7 @@ def run_campaign(*,manifest:Path,state_dir:Path,
             "status":("G3_SOURCE_MAPPING_INPUT_REVIEW_COVERAGE_COMPLETE_REVIEW_ONLY"
                       if counters["untouched_original_slides"]==0 and
                          counters["quarantined_or_uncertain_original_slides"]==0
+                         and counters["source_rejected_original_slides"]==0
                       else "G3_SOURCE_MAPPING_CONTINUATION_CHECKPOINTED"),
             "stopped_reason":stopped_reason,
             **counters,
@@ -298,6 +307,7 @@ def run_campaign(*,manifest:Path,state_dir:Path,
                 "source_audited_slides":x["report"]["original_reviewed_slides_reused"],
                 "untouched_slides":x["report"]["remaining_unreviewed_slides"],
                 "quarantined_slides":x["report"]["quarantined_or_uncertain_slides"],
+                "source_rejected_slides":x["report"].get("source_rejected_slides",0),
                 "source_text_anchors":x["report"][
                     "original_textbook_and_rendered_text_anchors_proven"]}
                 for x in observations],

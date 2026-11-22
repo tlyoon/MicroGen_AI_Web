@@ -203,6 +203,56 @@ def _verified_saved(*,source_folder:Path,checkpoint:Path,n:int,
             "student_publication_authorized":False}
 
 
+def _verified_source_rejection(*,source_folder:Path,checkpoint:Path,n:int,
+                               files:dict)->dict:
+    """Recognize a REAL captured content rejection, not a failed provider Send.
+
+    Never promote any rejected text anchor. Require the exact original
+    request, original response bytes, parsed model bytes, and re-run the
+    independent PDF grounding check to confirm this still rejects.
+    """
+    claim=_read(files["claim"])
+    need(claim.get("status")=="CAPTURED_SOURCE_REJECTED_NO_REPLAY"
+         and claim.get("model_response_accepted") is False
+         and claim.get("academic_approval") is False
+         and claim.get("paid_tts_authorized") is False
+         and claim.get("student_publication_authorized") is False,
+         "Not an independently rejected source-grounded model reply")
+    request=request_for_slide(source_folder=source_folder,
+                              checkpoint=checkpoint,slide_number=n)
+    need(claim.get("request_sha256")==request["request_sha256"]
+         and claim.get("source_inputs_sha256")==request["source_inputs_sha256"],
+         "Original rejected request and source identity differ")
+    need(files["capture"].is_file() and not files["capture"].is_symlink()
+         and 0<files["capture"].stat().st_size<=2_000_000
+         and claim.get("verbatim_capture_sha256")==_sha(files["capture"])
+         and claim.get("parsed_model_response_sha256")==_sha(files["response"]),
+         "Original rejected response SHA provenance invalid")
+    response=parse_response(files["capture"].read_text(encoding="utf8"))
+    need(response.get("request_sha256")==request["request_sha256"]
+         and _read(files["response"])==response,
+         "Original captured rejected response disagrees with parsed evidence")
+    need(not files["audit"].exists() and not files["audit"].is_symlink(),
+         "Rejected model response has contradictory accepted source audit")
+    reason=claim.get("source_rejection_reason")
+    need(claim.get("source_rejection_type")=="RichMappingError"
+         and type(reason) is str and bool(reason),
+         "Original source rejection lacks an independently recorded reason")
+    try:
+        assess_response(source_folder=source_folder,checkpoint=checkpoint,
+                        slide_number=n,proposed=response)
+    except RichMappingError as exc:
+        need(str(exc)[:250]==reason,
+             "Revalidated publisher-source rejection reason changed")
+    else:
+        raise RichMappingError(
+            "Original source-rejected model has become accepted without review")
+    return {"slide":n,"status":"SOURCE_QUOTE_REJECTED_NO_REPLAY",
+            "source_text_anchors":0,"review_pending":None,
+            "new_model_requests":0,"scientific_approval":False,
+            "student_publication_authorized":False}
+
+
 def _inspect_one(*,source_folder:Path,checkpoint:Path,root:Path,n:int,
                  reconcile:bool=True)->dict:
     files=_files(root,n)
@@ -233,6 +283,10 @@ def _inspect_one(*,source_folder:Path,checkpoint:Path,root:Path,n:int,
                 "new_model_requests":0,"scientific_approval":False,
                 "student_publication_authorized":False}
     try:
+        claim=_read(files["claim"])
+        if claim.get("status")=="CAPTURED_SOURCE_REJECTED_NO_REPLAY":
+            return _verified_source_rejection(
+                source_folder=source_folder,checkpoint=checkpoint,n=n,files=files)
         return _verified_saved(source_folder=source_folder,checkpoint=checkpoint,
                                n=n,files=files)
     except (ValueError,KeyError,TypeError,OSError,UnicodeError):
@@ -358,9 +412,20 @@ def run(*,source_folder:Path,checkpoint:Path,review_root:Path,
                     source_model_main(args)
                     uncertain=0
                 except Exception as exc:
-                    failures.append({"slide":n,"error_type":type(exc).__name__,
-                                     "error":str(exc)[:240]})
-                    uncertain+=1
+                    diagnosed=_inspect_one(
+                        source_folder=source_folder,checkpoint=checkpoint,
+                        root=root,n=n)
+                    content_rejection=(diagnosed["status"]==
+                                       "SOURCE_QUOTE_REJECTED_NO_REPLAY")
+                    failures.append({
+                        "slide":n,"error_type":type(exc).__name__,
+                        "error":str(exc)[:240],
+                        "failure_classification":(
+                            "SOURCE_QUOTE_REJECTED_NO_REPLAY"
+                            if content_rejection else "UNTRUSTED_OR_UNCERTAIN_SEND"),
+                    })
+                    if not content_rejection:
+                        uncertain+=1
                     # Two distinct uncertain original requests block any
                     # further fresh Sends until source/transport requalification.
         after=[
@@ -371,14 +436,17 @@ def run(*,source_folder:Path,checkpoint:Path,review_root:Path,
               if x["status"]=="SAVED_BROWSER_REVIEW_REVALIDATED_NO_SEND"]
         pending=[x for x in after
                  if x["status"]=="ELIGIBLE_FRESH_SOURCE_REVIEW_NO_SEND_YET"]
+        source_rejected=[x for x in after
+                         if x["status"]=="SOURCE_QUOTE_REJECTED_NO_REPLAY"]
         blocked=[x for x in after
                  if x["status"] not in (
                      "ELIGIBLE_FRESH_SOURCE_REVIEW_NO_SEND_YET",
-                     "SAVED_BROWSER_REVIEW_REVALIDATED_NO_SEND")]
+                     "SAVED_BROWSER_REVIEW_REVALIDATED_NO_SEND",
+                     "SOURCE_QUOTE_REJECTED_NO_REPLAY")]
         return {
             "schema_version":1,
             "status":"G3_SOURCE_PINNED_BROWSER_MAPPING_REVIEW_IN_PROGRESS"
-                     if pending or blocked else
+                     if pending or blocked or source_rejected else
                      "G3_ALL_MODEL_REPLIES_SOURCE_AUDITED_NOT_ACADEMICALLY_ACCEPTED",
             "source_inputs_sha256":identity["source_inputs_sha256"],
             "original_slides":identity["original_slides"],
@@ -389,6 +457,7 @@ def run(*,source_folder:Path,checkpoint:Path,review_root:Path,
                 x["review_pending"] for x in good),
             "remaining_unreviewed_slides":len(pending),
             "quarantined_or_uncertain_slides":len(blocked),
+            "source_rejected_slides":len(source_rejected),
             "max_new_sends_authorized":max_new_sends,
             "new_browser_dispatch_attempts_this_run":sends,
             "dispatch_failures":failures,

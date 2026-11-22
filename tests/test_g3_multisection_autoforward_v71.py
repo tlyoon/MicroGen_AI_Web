@@ -9,7 +9,7 @@ from selenium_pipeline.recovery_registry import lookup_mechanism
 
 
 def campaign(tmp_path,monkeypatch,sections=("8_2","8_3"),total=3):
-    fake={"pages":{s:{"remaining":total,"reviewed":0,"anchors":0,"uncertain":0}
+    fake={"pages":{s:{"remaining":total,"reviewed":0,"anchors":0,"uncertain":0,"rejected":0}
                    for s in sections},"calls":[]}
     def prepare(*,source_folder,checkpoint,review_root):
         assert Path(source_folder).is_dir()
@@ -30,6 +30,11 @@ def campaign(tmp_path,monkeypatch,sections=("8_2","8_3"),total=3):
                 row["remaining"]-=1
                 if fake.get("mark_uncertain"):
                     row["uncertain"]+=1
+                elif fake.get("mark_source_rejected") and len(fake["calls"])<=2:
+                    row["rejected"]+=1
+                    failure=[{"error_type":"RichMappingError","slide":1,
+                              "failure_classification":
+                                  "SOURCE_QUOTE_REJECTED_NO_REPLAY"}]
                 else:
                     row["reviewed"]+=1
                     row["anchors"]+=1
@@ -48,6 +53,7 @@ def campaign(tmp_path,monkeypatch,sections=("8_2","8_3"),total=3):
             "source_review_gaps_within_reviewed_slides":row["reviewed"],
             "remaining_unreviewed_slides":row["remaining"],
             "quarantined_or_uncertain_slides":row["uncertain"],
+            "source_rejected_slides":row["rejected"],
             "dispatch_failures":failure,
         }
     monkeypatch.setattr(c.reviewer,"prepare",prepare)
@@ -210,3 +216,30 @@ def test_no_automatic_claim_of_independent_scientific_audio_video_acceptance(
     assert result["highlighted_video_accepted"] is False
     assert result["student_publication_authorized"] is False
     assert result["paid_gemini_api_requests"]==0
+
+
+def test_two_independently_proven_content_rejections_do_not_stop_other_slides(
+        tmp_path,monkeypatch):
+    fake,manifest,root=campaign(tmp_path,monkeypatch,total=5)
+    fake["mark_source_rejected"]=True
+    outcome=c.run_campaign(manifest=manifest,state_dir=root,max_new_sends=3)
+    assert fake["calls"]==["8_2","8_3","8_2"]
+    assert outcome["new_browser_dispatch_attempts_this_run"]==3
+    assert outcome["source_rejected_original_slides"]==2
+    assert outcome["quarantined_or_uncertain_original_slides"]==0
+    assert outcome["source_audited_original_slides"]==1
+    assert outcome["status"]=="G3_SOURCE_MAPPING_CONTINUATION_CHECKPOINTED"
+    restarted=c.run_campaign(manifest=manifest,state_dir=root,max_new_sends=1)
+    assert restarted["new_browser_dispatch_attempts_this_run"]==1
+    assert restarted["source_rejected_original_slides"]==2
+
+
+def test_complete_model_coverage_with_rejected_source_quote_is_not_acceptance(
+        tmp_path,monkeypatch):
+    fake,manifest,root=campaign(tmp_path,monkeypatch,total=1)
+    fake["mark_source_rejected"]=True
+    result=c.run_campaign(manifest=manifest,state_dir=root,max_new_sends=4)
+    assert result["untouched_original_slides"]==0
+    assert result["source_rejected_original_slides"]==2
+    assert result["status"]!="G3_SOURCE_MAPPING_INPUT_REVIEW_COVERAGE_COMPLETE_REVIEW_ONLY"
+    assert result["student_publication_authorized"] is False
