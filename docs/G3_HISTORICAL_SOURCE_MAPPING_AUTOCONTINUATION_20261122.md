@@ -105,3 +105,17 @@ word-level acoustic alignment and actual time-varying highlighted video
 events require the unchanged independent scientific, acoustic and
 encoded-pixel QA. Neither the original slides' static MP4s nor newly
 captured model text can substitute for those acceptance gates.
+
+
+## Historical regression while testing (fixed)
+
+The Dell-115 full run exposed a test-only interaction between a saved real
+Gemini task-default family and the old tab-ownership fake picker.
+`tests/test_stage5_owned_gemini_tabs.py` was testing tab separation but
+implicitly let production-style dynamic model-selection state influence its
+fake (which represents Flash only and has no model-switch click).
+The test now explicitly isolates its own Flash mode and disables adaptive
+model fallback **only within the test fixture**, restoring all environment
+settings afterward. The actual Gemini dynamic model router and paid/no-paid
+policies are unchanged. Reproduced under ambient Pro and passed 18/18
+related owned-tab / G3 controller tests.
