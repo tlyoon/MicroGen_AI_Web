@@ -6,6 +6,7 @@ The vendored Selenium UI module is loaded explicitly so that its filename
 from __future__ import annotations
 
 import importlib.util
+import os
 import sys
 import unittest
 from pathlib import Path
@@ -107,6 +108,20 @@ class FakeDriver:
 
 class OwnedGeminiTabTests(unittest.TestCase):
     def setUp(self):
+        # This ownership test's fake picker exposes only Flash. The real
+        # adaptive model tests cover Pro/Neon and native picker clicks.
+        # A prior live or test-scoped Pro setting must not turn this old
+        # fake into an unrelated model-switch test or leak to the next test.
+        mode = patch.dict(os.environ, {
+            "MICROGEN_GEMINI_UI_MODE": "flash",
+            "MICROGEN_LLM_MODEL": "gemini-3.8-flash",
+            "MICROGEN_ACTIVE_GENERATION_STAGE": "slides",
+            # The fake is only a tab-ownership fixture, not an actual
+            # authenticated model menu; disable live saved task defaults.
+            "MICROGEN_DISABLE_ADAPTIVE_MODEL_FALLBACK": "1",
+        })
+        mode.start()
+        self.addCleanup(mode.stop)
         self.module = load_client()
         self.client = self.module.GeminiSeleniumClient(self.module.Config(root=Path.cwd()))
         self.client.driver = FakeDriver()
