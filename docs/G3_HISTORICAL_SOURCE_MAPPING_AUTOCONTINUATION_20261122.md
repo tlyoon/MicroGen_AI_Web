@@ -119,3 +119,17 @@ model fallback **only within the test fixture**, restoring all environment
 settings afterward. The actual Gemini dynamic model router and paid/no-paid
 policies are unchanged. Reproduced under ambient Pro and passed 18/18
 related owned-tab / G3 controller tests.
+
+
+## Crash injection after partial adoption of old verified browser evidence
+
+A first implementation assumed importing an earlier model capture would
+complete in one run. Crash after copying one or two of four source-audited
+files could leave incomplete evidence and prevent normal continuation.
+The verified remedy now resumes each individual import only if its
+previously copied destination has the EXACT original SHA-256 bytes.
+Absent files are copied write-once; changed/linked files reject the import.
+The same original response and audited citation evidence are then
+revalidated; the original model request is NEVER resent. The first
+20 focused source-queue, fake owner and crash-injection tests passed on
+Dell-115, including a simulated mid-import crash and malicious replacement.

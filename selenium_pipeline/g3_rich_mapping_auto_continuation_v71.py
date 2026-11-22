@@ -253,8 +253,12 @@ def adopt_prior_owned_review(*,source_folder:Path,checkpoint:Path,
              _read(root/"g3_auto_mapping_identity.json")["original_slides"],
              "Original slide out of range")
         new=_files(root,slide)
-        need(all(not p.exists() and not p.is_symlink() for p in new.values()),
-             "Already adopted or claimed this original source request")
+        # Reimport after a crash may find 1..4 files already copied. Admit
+        # only exact SHA-identical original bytes; never delete or overwrite
+        # an adopted/claimed artifact. Once all are present, return the same
+        # reverified source audit without a browser Send.
+        need(all(not p.is_symlink() for p in new.values()),
+             "Linked or unsafe adopted source response evidence")
         need(set(previous)==set(new),
              "Adopt exactly four original owned browser evidence files")
         expected=request_for_slide(
@@ -277,7 +281,13 @@ def adopt_prior_owned_review(*,source_folder:Path,checkpoint:Path,
              and _sha(old["audit"])==claim["technical_audit_sha256"],
              "Historical model/source SHA verification failed: no import")
         for kind,original in old.items():
-            with original.open("rb") as src, new[kind].open("xb") as dest:
+            destination=new[kind]
+            if destination.exists():
+                need(destination.is_file() and not destination.is_symlink()
+                     and _sha(destination)==_sha(original),
+                     "Existing adoption conflicts with original browser evidence")
+                continue
+            with original.open("rb") as src, destination.open("xb") as dest:
                 shutil.copyfileobj(src,dest)
                 dest.flush()
                 os.fsync(dest.fileno())

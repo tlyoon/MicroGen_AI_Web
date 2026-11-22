@@ -158,9 +158,10 @@ def test_adopt_existing_owned_model_reply_is_idempotent(tmp_path,monkeypatch):
         slide=3,previous=old)
     assert adopted["slide"]==3
     assert adopted["source_text_anchors"]==2
-    with pytest.raises(g3.RichMappingError,match="Already adopted"):
-        g3.adopt_prior_owned_review(source_folder=source,checkpoint=checkpoint,
-                                    review_root=root,slide=3,previous=old)
+    resumed=g3.adopt_prior_owned_review(
+        source_folder=source,checkpoint=checkpoint,review_root=root,
+        slide=3,previous=old)
+    assert resumed==adopted  # same original SHA bytes; zero new model Sends
 
 
 def test_worker_rejects_excess_requests_and_invalid_source(tmp_path,monkeypatch):
@@ -297,3 +298,54 @@ def test_prior_untrusted_captured_reply_also_counts_against_new_send_budget(
                    review_root=root,max_new_sends=3)
     sends.assert_not_called()
     assert out["new_browser_dispatch_attempts_this_run"]==0
+
+
+def test_crash_during_prior_source_reply_adoption_resumes_exact_original_bytes(
+        tmp_path,monkeypatch):
+    source,checkpoint,root=fixture(tmp_path,monkeypatch)
+    g3.prepare(source_folder=source,checkpoint=checkpoint,review_root=root)
+    historical=tmp_path/"old_owned_browser_capture"
+    historical.mkdir()
+    original=save_response(root,2)
+    old={}
+    for kind,file in original.items():
+        folder=historical/kind
+        folder.mkdir()
+        target=folder/file.name
+        target.write_bytes(file.read_bytes())
+        old[kind]=target
+        file.unlink()
+    # Fault injection: worker terminated after copying two original files,
+    # before the source audit or claim copied. Must resume the SAME bytes.
+    now=g3._files(root,2)
+    for kind in ("response","capture"):
+        now[kind].write_bytes(old[kind].read_bytes())
+    adopted=g3.adopt_prior_owned_review(
+        source_folder=source,checkpoint=checkpoint,review_root=root,
+        slide=2,previous=old)
+    assert adopted["status"]=="SAVED_BROWSER_REVIEW_REVALIDATED_NO_SEND"
+    assert all(g3._sha(now[k])==g3._sha(old[k]) for k in old)
+    assert g3.run(source_folder=source,checkpoint=checkpoint,
+                  review_root=root)["original_reviewed_slides_reused"]==1
+
+
+def test_prior_reply_adoption_rejects_conflicting_existing_bytes(
+        tmp_path,monkeypatch):
+    source,checkpoint,root=fixture(tmp_path,monkeypatch)
+    g3.prepare(source_folder=source,checkpoint=checkpoint,review_root=root)
+    historical=tmp_path/"old"
+    historical.mkdir()
+    originals=save_response(root,1)
+    old={}
+    for kind,file in originals.items():
+        folder=historical/kind
+        folder.mkdir()
+        dest=folder/file.name
+        dest.write_bytes(file.read_bytes())
+        old[kind]=dest
+    originals["capture"].write_text("forged prior returned bytes",encoding="utf8")
+    with pytest.raises(g3.RichMappingError,
+                       match="Existing adoption conflicts"):
+        g3.adopt_prior_owned_review(
+            source_folder=source,checkpoint=checkpoint,review_root=root,
+            slide=1,previous=old)
