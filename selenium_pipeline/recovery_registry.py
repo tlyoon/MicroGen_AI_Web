@@ -47,6 +47,7 @@ _HANDLERS = {
     "g3_multisection_autoforward": "NORMAL_SOURCE_PINNED_MULTISECTION_BROWSER_RECOVERY_CAMPAIGN",
     "caption_identity_parity": "NORMAL_REAL_SOURCE_FIGURE_CAPTION_CROSS_PARSER_CHECK",
     "head_patch_format": "NORMAL_WINDOWS_CUMULATIVE_PATCH_FORMAT_PREFLIGHT",
+    "narrated_mp4_stage_only": "NORMAL_EXPLICIT_NARRATED_MP4_SCOPE",
 }
 _REQUIRED = {
     "id", "match_type", "signature", "mechanism", "classification",

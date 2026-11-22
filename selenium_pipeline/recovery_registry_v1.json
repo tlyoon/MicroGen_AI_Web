@@ -1024,6 +1024,20 @@
       "environment": "Dell-115 original Serway 8.2 and 8.3 source-grounded Gemini Selenium review; other section continues after completion",
       "retry_policy": "Finite <=32 distinct original-slide browser dispatch attempts per invocation, globally stop after two uncertain original claims across sections; resume saved replies only",
       "enabled": true
+    },
+    {
+      "id": "CH11_EXPLICIT_NARRATED_VIDEO_ONLY_RECOVERY",
+      "match_type": "narrated_mp4_stage_only",
+      "signature": "EXPLICIT_USER_SCOPED_NARRATED_MP4_WITHOUT_HIGHLIGHT_QA",
+      "mechanism": "SOURCE_QA_SYNC_HASH_VERIFIED_VIDEO_PROMOTION_NO_G3_RELEASE",
+      "classification": "ACCEPTED_SLIDE_NARRATION_WAV_VIDEO_STUCK_IN_REVIEW_PREVIEW_FOLDER",
+      "handler": "NORMAL_EXPLICIT_NARRATED_MP4_SCOPE",
+      "preconditions": "user explicitly requests slides/narration/TTS/MP4 only and excludes highlight QA; original source, slides, script, independent audio QA, WAV and preview hashes identical",
+      "verification_test": "tests/test_narrated_video_chain.py",
+      "last_verified_date": "2026-11-22",
+      "environment": "Dell-115 actual Serway Chapter 11; 11 canonical MP4s, three repaired subsections, five verified preview videos",
+      "retry_policy": "reuse cached validated preview bytes without re-encoding, TTS or model API; refuse conflicting MP4 and changed source; never mark full G3 or highlight verified",
+      "enabled": true
     }
   ]
 }
