@@ -439,6 +439,25 @@ def main(argv=None):
         attempt=a.out.with_suffix(".submission_held.json")
         require(not attempt.exists(), "Previous Gemini submission may be in flight; "
                 "reconcile its browser-owned response before another attempt")
+        from .recovery_registry import lookup_mechanism
+        require(lookup_mechanism(
+            "source_mapping_repair",
+            "RICH_MAPPING_SOURCE_REJECTION_CAPTURE_NO_REPLAY") ==
+            "CAPTURE_ORIGINAL_RESPONSE_BEFORE_PHYSICAL_QUOTE_AUDIT",
+            "Missing registered source-rejection capture route; NO SEND")
+        # The direct rich-mapping CLI historically skipped the chapter runner
+        # model-family preflight. On new Gemini Apps menus this failed inside
+        # open_clean_gemini_chat *after* creating a false MAY_HAVE_SENT claim.
+        # Qualify official-catalog + authenticated owned picker for precisely
+        # rich_mapping BEFORE a send ledger, attachment, prompt or paid API.
+        import os
+        from .gemini_model import ensure_mode
+        os.environ["MICROGEN_ACTIVE_GENERATION_STAGE"] = "rich_mapping"
+        selected = ensure_mode(
+            port=a.browser_port, mode="flash", timeout=30,
+            stage="rich_mapping")
+        print("[rich_mapping] verified source-bound no-Send model: "
+              + selected, flush=True)
         with attempt.open("x",encoding="utf8") as stream:
             json.dump({"status":"MAY_HAVE_SENT_AWAIT_RECONCILIATION",
                 "request_sha256":request["request_sha256"],
@@ -448,22 +467,51 @@ def main(argv=None):
         raw=_browser_request(prompt_for_request(request),[],port=a.browser_port,
             wait_cap_s=a.wait_s,min_chars=120,
             accept_fn=complete_json_response)
+        # Capture verbatim original owned response BEFORE parsing, mapping
+        # or any independent source gate. Rejected model guesses remain
+        # inspectable without replaying an already registered Send.
+        raw_capture=a.out.with_suffix(".gemini_capture.txt")
+        require(not raw_capture.exists() and len(raw)<=2_000_000,
+                "Cannot preserve untrusted original Gemini response")
+        with raw_capture.open("x",encoding="utf8") as stream:
+            stream.write(raw)
         result=parse_response(raw)
-    reviewed=assess_response(source_folder=a.source_folder,
-         checkpoint=a.checkpoint,slide_number=a.slide,proposed=result)
-    # Revalidate original source/author/script and prior immutable gap report
-    # after any untrusted model/browser interaction, before persisting.
-    load_accepted_checkpoint(folder=a.source_folder,checkpoint=a.checkpoint)
     if a.gemini_web:
         raw_out = (a.raw_response_out or
                    a.out.parent / f"slide_{a.slide:03d}.json").absolute()
         require(raw_out.parent.is_dir() and not raw_out.exists()
                 and raw_out != a.out
                 and not raw_out.is_relative_to(a.source_folder.absolute()),
-                "Actual Gemini raw JSON must be saved separately and immutably")
+                "Actual Gemini JSON capture must be saved immutably")
         with raw_out.open("x",encoding="utf8") as stream:
             json.dump(result,stream,indent=2,ensure_ascii=False)
             stream.write("\n")
+    try:
+        reviewed=assess_response(source_folder=a.source_folder,
+             checkpoint=a.checkpoint,slide_number=a.slide,proposed=result)
+        # Revalidate immutable source/author/script before technical audit.
+        load_accepted_checkpoint(folder=a.source_folder,checkpoint=a.checkpoint)
+    except Exception as exc:
+        if a.gemini_web:
+            # The response was captured but the source reviewer rejected it.
+            # Never re-Send this original prompt to get an easier answer.
+            rejected=attempt.with_suffix(".source_rejected.tmp")
+            with rejected.open("x",encoding="utf8") as stream:
+                json.dump({
+                    "status":"CAPTURED_SOURCE_REJECTED_NO_REPLAY",
+                    "request_sha256":request["request_sha256"],
+                    "source_inputs_sha256":request["source_inputs_sha256"],
+                    "verbatim_capture_sha256":sha_bytes(raw_capture.read_bytes()),
+                    "parsed_model_response_sha256":sha_bytes(raw_out.read_bytes()),
+                    "source_rejection_type":type(exc).__name__,
+                    "source_rejection_reason":str(exc)[:250],
+                    "model_response_accepted":False,
+                    "academic_approval":False,
+                    "paid_tts_authorized":False,
+                    "student_publication_authorized":False,
+                },stream,indent=2)
+            os.replace(rejected,attempt)
+        raise
     with a.out.open("x",encoding="utf8") as stream:
         json.dump(reviewed,stream,indent=2,ensure_ascii=False)
         stream.write("\n")

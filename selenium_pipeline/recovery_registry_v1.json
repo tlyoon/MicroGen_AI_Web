@@ -954,6 +954,48 @@
       "environment": "Dell-115 original Serway chapter 11.1 and 11.3 real-source CI failure encountered during G3 development",
       "retry_policy": "no Gemini or source file modification; reject unrelated source words even when caption bounding boxes are identical; independently regression-test original physical Serway source",
       "enabled": true
+    },
+    {
+      "id": "CH11_RICH_MAPPING_PRESEND_ROUTING",
+      "match_type": "presend_capability_repair",
+      "signature": "RICH_MAPPING_SOURCE_BOUND_UI_PREFLIGHT_BEFORE_SEND",
+      "mechanism": "TASK_SCOPED_REGISTERED_OWNED_UI_MODEL_FALLBACK_NO_SEND",
+      "classification": "DIRECT_RICH_MAPPING_CLI_SKIPPED_MODEL_ROUTE_AND_CREATED_FALSE_UNCERTAIN_SUBMISSION_CLAIM",
+      "handler": "NORMAL_EXISTING_OWNED_GEMINI_ACCOUNT_CAPABILITY_PREFLIGHT",
+      "preconditions": "Explicit source-sha-verified rich_mapping job; exact official Gemini Apps catalog and owned picker/Thinking evidence; no model Send before qualification",
+      "verification_test": "tests/test_ch11_rich_mapping_presend.py",
+      "last_verified_date": "2026-11-22",
+      "environment": "Dell-115 Gemini Selenium authenticated rich_mapping review only; source-bound Serway chapter 11",
+      "retry_policy": "Preflight only; if model selection fails before Send leave no new uncertain claim; if send registered never replay unknown outcome",
+      "enabled": true
+    },
+    {
+      "id": "TTS_SOURCE_EQ_LABEL_PHONETIC_VARIANT_V3",
+      "match_type": "tts_runtime_repair",
+      "signature": "SOURCE_BOUND_EQ_LABEL_DIGIT_BY_DIGIT_QA_VARIANT",
+      "mechanism": "SOURCE_SHA_EQ_LABEL_VERIFIED_SAME_DIGITS_KEEP_WAV_NO_REBILL",
+      "classification": "ORIGINAL_SOURCE_EQ_LABEL_DIGIT_BY_DIGIT_SPEECH_REPORTED_AS_MAJOR_NUMBER",
+      "handler": "NORMAL_ISOLATED_TTS_WORKER_SDK_PREFLIGHT",
+      "preconditions": "Original source confirms printed equation identifier; all remaining words exact; no acoustic defects; original listener issue preserved",
+      "verification_test": "tests/test_tts_equation_label_recovery_v3.py",
+      "last_verified_date": "2026-11-22",
+      "environment": "Dell-115 Chapter 11.5 source.pdf slide10 audio and cached independent Gemini listening review",
+      "retry_policy": "Reinterpret only exact equivalent equation identifier; never regenerate WAV, alter source, resend model, or accept semantic number changes",
+      "enabled": true
+    },
+    {
+      "id": "RICH_SOURCE_REJECTED_MODEL_CAPTURE_NO_REPLAY",
+      "match_type": "source_mapping_repair",
+      "signature": "RICH_MAPPING_SOURCE_REJECTION_CAPTURE_NO_REPLAY",
+      "mechanism": "CAPTURE_ORIGINAL_RESPONSE_BEFORE_PHYSICAL_QUOTE_AUDIT",
+      "classification": "GEMINI_REPLY_CAPTURED_BUT_PHYSICAL_PUBLISHER_QUOTE_REJECTED_AND_REPLY_LOST",
+      "handler": "NORMAL_VERIFIED_ELEMENT_RANKER",
+      "preconditions": "Source-SHA pinned model task, one registered Selenium Send, immutable original response; independent source quote audit is authoritative",
+      "verification_test": "tests/test_ch11_rich_mapping_presend.py",
+      "last_verified_date": "2026-11-22",
+      "environment": "Dell-115 Serway 11.5 slide2 model returned a quote that independent physical source verification rejected",
+      "retry_policy": "Save verbatim and parsed model response before source audit; permanently quarantine rejected result; never retry uncertain original send",
+      "enabled": true
     }
   ]
 }

@@ -777,12 +777,15 @@ def ensure_mode(port: int = 9222, mode: str | None = None,
         # Task-scoped fallback reuses the official-model-catalog and live
         # owned-tab selector already registered in the normal repair engine.
         # No heuristic rename, paid API fallback or new model Send occurs.
-        task_scoped = stage in {"figures", "slides", "narration"}
+        task_scoped = stage in {"figures", "slides", "narration", "rich_mapping"}
         if task_scoped:
             from .recovery_registry import lookup_mechanism
+            signature = (
+                "RICH_MAPPING_SOURCE_BOUND_UI_PREFLIGHT_BEFORE_SEND"
+                if stage == "rich_mapping"
+                else "V3_CHAPTER_RUNNER_FLASH_PREFLIGHT_BLOCKS_VERIFIED_DYNAMIC_ROUTE")
             if lookup_mechanism(
-                "presend_capability_repair",
-                "V3_CHAPTER_RUNNER_FLASH_PREFLIGHT_BLOCKS_VERIFIED_DYNAMIC_ROUTE"
+                "presend_capability_repair", signature
             ) != "TASK_SCOPED_REGISTERED_OWNED_UI_MODEL_FALLBACK_NO_SEND":
                 raise GeminiModelError("V3_TASK_ROUTER_NOT_REGISTERED_NO_SEND")
             return select_owned_gemini_with_recovery(

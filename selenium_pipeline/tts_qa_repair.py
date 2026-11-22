@@ -31,7 +31,12 @@ def repair(folder: Path, *, model: str, threshold: float, provider: str,
     if max_repairs < 0:
         raise ValueError("max_repairs must be nonnegative")
     narrations = dict(blocks((folder / "script.txt").read_text(encoding="utf-8")))
-    report = build_report(folder, model=model, threshold=threshold)
+    # Preserve raw native-audio listener cache. A narrowly registered and
+    # publisher-source-confirmed equation *identifier* pronunciation can be
+    # accepted without changing WAVs or treating numeric values as fungible.
+    from .tts_equation_label_recovery_v3 import apply as apply_equation_label_recovery
+    report = apply_equation_label_recovery(
+        folder, build_report(folder, model=model, threshold=threshold))
     write_report(folder, report)
     for round_number in range(1, max_repairs + 1):
         failed = failing_slides(report)
@@ -69,7 +74,8 @@ def repair(folder: Path, *, model: str, threshold: float, provider: str,
                           flush=True)
         # QA cache includes audio bytes: passing slides remain cached,
         # replaced slides must be independently listened to again.
-        report = build_report(folder, model=model, threshold=threshold)
+        report = apply_equation_label_recovery(
+            folder, build_report(folder, model=model, threshold=threshold))
         write_report(folder, report)
         if failing_slides(report) and round_number < max_repairs:
             time.sleep(max(0, float(os.environ.get("MICROGEN_TTS_QA_REPAIR_DELAY_SECONDS", "15"))))
