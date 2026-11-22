@@ -1010,6 +1010,20 @@
       "environment": "Dell-115 original Serway 8.2 and 8.3 mapping worklists with owned Gemini Selenium browser; no Developer API",
       "retry_policy": "revalidate exact old model captures; never re-Send claimed or source-rejected slide; maximum three new browser attempts per run; stop after two uncertain outcomes",
       "enabled": true
+    },
+    {
+      "id": "G3_CROSS_SECTION_BROWSER_REVIEW_AUTOFORWARD_V71",
+      "match_type": "g3_multisection_autoforward",
+      "signature": "G3_ONE_SECTION_REVIEW_ENDS_WITH_OTHER_ELIGIBLE_SOURCE_WORK",
+      "mechanism": "FINITE_GLOBAL_SOURCE_PINNED_BROWSER_DISPATCH_REUSE_AND_RESUME",
+      "classification": "V71_PER_SECTION_SOURCE_REVIEW_COMPLETES_ONE_SEND_BUT_DOES_NOT_AUTO_ADVANCE_INDEPENDENT_SECTIONS",
+      "handler": "NORMAL_SOURCE_PINNED_MULTISECTION_BROWSER_RECOVERY_CAMPAIGN",
+      "preconditions": "Original source/slides/script/map SHA pinned on every section; one global owner; limited browser requests; no paid API or release authority",
+      "verification_test": "tests/test_g3_multisection_autoforward_v71.py",
+      "last_verified_date": "2026-11-22",
+      "environment": "Dell-115 original Serway 8.2 and 8.3 source-grounded Gemini Selenium review; other section continues after completion",
+      "retry_policy": "Finite <=32 distinct original-slide browser dispatch attempts per invocation, globally stop after two uncertain original claims across sections; resume saved replies only",
+      "enabled": true
     }
   ]
 }
