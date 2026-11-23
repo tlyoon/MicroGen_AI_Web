@@ -212,6 +212,32 @@ def step(*, folder: Path, queue_root: Path, work_root: Path,
                 "Independent academic review reconciliation incomplete/corrupt")
         agreed = len(state["accepted_ai_evidence"])
         pending = state["pending_or_disputed"]
+        legacy_agreed, legacy_pending = agreed, pending
+        distinct_reconciliation = None
+        if consensus_reader is None:
+            # Normal production run: revalidate each genuinely distinct
+            # source-focused two-pass reviewer from original raw model text.
+            # Never fabricate or change the historical whole-slide claims.
+            from .g2_focused_source_consensus_bridge_v1 import reconcile
+            distinct_reconciliation = reconcile(
+                folder=folder,queue_root=queue_root,
+                original_consensus=state)
+            require(distinct_reconciliation.get("status") ==
+                    "G2_ORIGINAL_AND_FOCUSED_SOURCE_AI_EVIDENCE_RECONCILED_NO_RELEASE"
+                    and distinct_reconciliation.get("original_total_utterances") ==
+                        plan["expected_utterances"]
+                    and distinct_reconciliation.get(
+                        "original_two_pass_source_AI_agreements")==legacy_agreed
+                    and distinct_reconciliation.get(
+                        "combined_source_AI_agreements",0)>=legacy_agreed
+                    and distinct_reconciliation.get("new_provider_requests")==0
+                    and distinct_reconciliation.get("original_G2_claims_modified") is False
+                    and distinct_reconciliation.get("student_publication_authorized") is False,
+                    "Focused source evidence must not bypass original source QA")
+            agreed = distinct_reconciliation["combined_source_AI_agreements"]
+            pending = distinct_reconciliation["pending_or_disputed_source_AI"]
+            require(agreed+pending==plan["expected_utterances"],
+                    "Original plus focused G2 source review coverage changed")
         from .ai_academic_review_queue import select_next_safe_review
         next_safe = select_next_safe_review(
             queue_root=queue_root,folder=folder,health_family=health_family)
@@ -229,6 +255,10 @@ def step(*, folder: Path, queue_root: Path, work_root: Path,
                 source_sha=hashes["source.pdf"],selection=next_safe)
         common = {
             "historical_no_safe_recovery": no_safe_disposition,
+            "distinct_focused_source_review_reconciliation": distinct_reconciliation,
+            "original_legacy_two_pass_ai_source_agreements": legacy_agreed,
+            "additional_verified_distinct_focused_agreements": (
+                agreed-legacy_agreed),
             "two_pass_ai_source_agreed_segments": agreed,
             "pending_or_disputed_segments": pending,
             "expected_original_utterances": state["original_utterances"],
@@ -245,6 +275,14 @@ def step(*, folder: Path, queue_root: Path, work_root: Path,
                  "G2_ACADEMIC_QA_INCOMPLETE_REVIEW_OR_SOURCE_REPAIR"),
                 hashes, **common)
         require(agreed > 0, "Empty consensus is not lecture acceptance")
+        if legacy_pending:
+            # The legacy audio handoff reads ONLY original full-slide
+            # receipts. Even 85/85 equivalent focused AI agreements cannot
+            # pass into production TTS until that separate source-to-audio
+            # adapter has been independently requalified.
+            return _report(
+                "G2_FOCUSED_SOURCE_EVIDENCE_READY_TTS_ADAPTER_NOT_CERTIFIED",
+                hashes, **common, source_verified_tts_jobs=0)
         from .ai_academic_review_audio_bridge import prepare_real_source_ai_kore_jobs
         # Source-reviewed TTS handoff is *unpaid* and freshly source-locked.
         handoff = prepare_real_source_ai_kore_jobs(
