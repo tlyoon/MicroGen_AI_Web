@@ -1131,10 +1131,10 @@
       "classification": "ORIGINAL_MULTI_UTTERANCE_G2_SEND_UNCERTAIN_WITH_NO_ATTRIBUTABLE_REPLY",
       "handler": "NORMAL_SOURCE_GROUNDED_DISTINCT_REVIEW_ADMISSION",
       "preconditions": "Old claimed full-slide Send unchanged; exactly one original utterance, one physically verified PDF quotation and one slide target; source hashes bound; fresh source-free health before new Send",
-      "verification_test": "tests/test_g2_distinct_focused_source_review_v1.py including actual Dell-115 Serway §1.3 slide 3 and fault-injection; live source reply still requires independent scientific/challenge acceptance",
+      "verification_test": "tests/test_g2_distinct_focused_source_review_v1.py; tests/test_g2_distinct_focused_challenge_v1.py; tests/test_g2_focused_source_consensus_bridge_v1.py; tests/test_academic_neon_fresh_health_v1.py",
       "last_verified_date": "2026-11-23",
       "environment": "Dell-115 historic G2 source folder 1.3, original slide 3 seven utterances, physical publisher page 1 quote, read-only source-bound task",
-      "retry_policy": "The narrowed source-math task is a new scope, not an old Send replay. Separate one-Send claim, no blind retry. One-pass evidence cannot certify the original G2 queue or student release",
+      "retry_policy": "Never replay original full-slide Send. New scoped utterance/quote task requires fresh exact model and thinking proof plus separate one-Send claims. Two source-verified independent passes count AI evidence only; no acoustic, human or student release.",
       "enabled": true
     }
   ]

@@ -54,7 +54,7 @@ def _base(checkpoint_parent:Path,source_sha:str,family:str)->Path:
     parent=Path(checkpoint_parent).absolute()
     _must(parent.is_dir() and not parent.is_symlink()
           and re.fullmatch(r"[0-9a-f]{64}",str(source_sha)) is not None
-          and family in ("flash","pro"),
+          and family in ("flash","pro","neon"),
           "Invalid academic response health scope")
     base=parent/ROOT
     _must(not base.is_symlink(),"Unsafe health root")
@@ -137,8 +137,15 @@ def verify_result(*,result_path:Path,checkpoint_parent:Path,
               and _is_exact(response,nonce)
               and receipt.get("gemini_new_user_turn_verified") is True
               and receipt.get("gemini_send_registration_status") in _REGISTERED
-              and receipt.get("model_sends_possible")==1,
-              "Health proof has no complete owned response and registered Send")
+              and receipt.get("model_sends_possible")==1
+              and (family!="neon" or (
+                  receipt.get("verified_model_family")=="neon"
+                  and receipt.get("verified_thinking_level")=="high"))
+              and ("verified_model_family" not in receipt
+                   or receipt.get("verified_model_family")==family)
+              and ("verified_thinking_level" not in receipt
+                   or receipt.get("verified_thinking_level")==claim["thinking_level"]),
+              "Health proof has no complete exact-family owned response")
     else:
         _must(receipt.get("status")=="NO_VERIFIED_SOURCE_FREE_RESPONSE"
               and receipt.get("response_text") is None
@@ -176,7 +183,7 @@ def latest_success(*,checkpoint_parent:Path,source_sha:str,
 
 def probe_once(*,checkpoint_parent:Path,source_sha:str,family:str,
                chrome_port:int=9222,now:float|None=None,
-               browser_request=None)->dict:
+               browser_request=None,queue_root:Path|None=None)->dict:
     """At most one unique source-free Send in this UTC day, model and source.
 
     Run ONLY after a verified owned Pro/Medium or Flash/Medium preflight.
@@ -186,11 +193,31 @@ def probe_once(*,checkpoint_parent:Path,source_sha:str,family:str,
     instant=float(time.time() if now is None else now)
     _must(type(chrome_port) is int and 1<=chrome_port<=65535,
           "Invalid authorized Gemini debug port")
-    _must(os.getenv("MICROGEN_GEMINI_UI_MODE","flash").strip().lower()==family
-          and os.getenv("MICROGEN_GEMINI_THINKING_LEVEL","medium").strip().lower()
-              in ("medium","high"),
-          "Health model/thinking differs from original G2 route")
+    requested_model=("pro" if family=="neon" else family)
     effort=os.getenv("MICROGEN_GEMINI_THINKING_LEVEL","medium").strip().lower()
+    _must(os.getenv("MICROGEN_GEMINI_UI_MODE","flash").strip().lower()
+              ==requested_model
+          and effort in ("medium","high")
+          and (family!="neon" or effort=="high"),
+          "Health model/thinking differs from original G2 route")
+    if family=="neon":
+        # Historical source-free Neon/High two-PDF success is only a
+        # prerequisite to a NEW, unique health task. Its old false
+        # new_source_review_send_allowed flag is never promoted.
+        _must(queue_root is not None,
+              "Neon health requires original source-specific claim history")
+        from .academic_neon_high_two_pdf_requalification import qualifying_proof
+        proof=qualifying_proof(
+            queue_root=Path(queue_root),checkpoint_parent=checkpoint_parent,
+            source_sha=source_sha,prior_slides=[10,11])
+        _must(proof is not None
+              and proof.get("status")==
+                  "NEON_HIGH_TWO_PDF_SOURCE_FREE_RESPONSE_VERIFIED"
+              and proof.get("source_free_neon_pdf_capability_verified") is True
+              and proof.get("verified_model_family")=="neon"
+              and proof.get("verified_thinking_level")=="high"
+              and proof.get("new_source_review_send_allowed") is False,
+              "Previous Neon source-free PDF qualification missing or invalid")
     day=_day(instant)
     prompt,nonce=_expected(source_sha=source_sha,family=family,day=day)
     claim_path,result_path=_paths(checkpoint_parent=checkpoint_parent,
@@ -226,9 +253,20 @@ def probe_once(*,checkpoint_parent:Path,source_sha:str,family:str,
     try:
         if browser_request is None:
             from .series_gemini import _browser_request
-            received=_browser_request(prompt,[],port=chrome_port,
-                       wait_cap_s=90,min_chars=16,
-                       accept_fn=lambda s:_is_exact(s,nonce))
+            if family=="neon":
+                from .academic_queue_fresh_send_health import _full_family_scope
+                with _full_family_scope("pro"):
+                    os.environ["MICROGEN_GEMINI_THINKING_LEVEL"]="high"
+                    received=_browser_request(
+                        prompt,[],port=chrome_port,
+                        wait_cap_s=90,min_chars=16,
+                        accept_fn=lambda s:_is_exact(s,nonce),
+                        expected_runtime_family="neon",
+                        expected_thinking_level="high")
+            else:
+                received=_browser_request(prompt,[],port=chrome_port,
+                           wait_cap_s=90,min_chars=16,
+                           accept_fn=lambda s:_is_exact(s,nonce))
         else:
             received=browser_request(prompt,chrome_port)
         from .series_gemini import OwnedGeminiResponse
@@ -237,8 +275,12 @@ def probe_once(*,checkpoint_parent:Path,source_sha:str,family:str,
                   is True
               and getattr(received,"gemini_send_registration_status",None)
                   in _REGISTERED
+              and getattr(received,"gemini_verified_model_family",None)
+                  ==family
+              and getattr(received,"gemini_verified_thinking_level",None)
+                  ==effort
               and _is_exact(str(received),nonce),
-              "Untrusted browser health result; no requalification")
+              "Untrusted or wrong-family browser health result; no requalification")
         response=str(received)
         registration=received.gemini_send_registration_status
     except Exception as exc:
@@ -255,6 +297,8 @@ def probe_once(*,checkpoint_parent:Path,source_sha:str,family:str,
         "response_text":response,
         "gemini_new_user_turn_verified":True if response is not None else False,
         "gemini_send_registration_status":registration,
+        "verified_model_family":family if response is not None else None,
+        "verified_thinking_level":effort if response is not None else None,
         "model_sends_possible":1,
         "new_provider_requests":1,
         "no_original_source_uploaded":True,
