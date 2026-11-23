@@ -204,6 +204,8 @@ def daemon(*,plan_path: Path,state_dir: Path,repo_root: Path,
         "last_handoff_status":"NOT_CONFIGURED",
         "handoff_worker_starts_total":0,
         "code_authoring_executor":False,
+        "last_journal_recovery_status":"NOT_REQUIRED",
+        "original_journals_archived":0,
     }
     guard=threading.Lock()
 
@@ -231,6 +233,20 @@ def daemon(*,plan_path: Path,state_dir: Path,repo_root: Path,
             while not stop.is_set():
                 if _sha(plan_path)!=plan_sha:
                     raise ValueError("Roadmap mutated while persistent supervisor active")
+                # Before every offline cycle, repair repeated idle events
+                # using an OS-locked SHA-preserved original journal archive.
+                # This does not modify the pinned task executor (its hash
+                # lives in the historical checkpoint), initiate any Send,
+                # or change plan/task acceptance or release authorization.
+                from .development_continuity_journal_recovery_v71 import (
+                    recover_journal)
+                journal=recover_journal(
+                    state_dir=state_dir,plan_path=plan_path)
+                with guard:
+                    state["last_journal_recovery_status"]=journal["status"]
+                    if journal["status"]==(
+                        "ORIGINAL_POLLING_JOURNAL_SHA_ARCHIVED_AND_COMPACTED"):
+                        state["original_journals_archived"]+=1
                 outcome=execute(plan_path=plan_path,state_dir=state_dir,
                                 repo_root=repo_root)
                 # The fixed source plan may be blocked at a release gate.

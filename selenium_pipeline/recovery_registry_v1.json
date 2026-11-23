@@ -1066,6 +1066,20 @@
       "environment": "Dell-115 Serway original 8.2 slide 2 and 8.3 slide 3 source-publisher quote rejection with immutable saved original responses",
       "retry_policy": "Never repeat rejected original model Send or accept its quote; count only unverifiable or uncertain outcomes in the provider circuit breaker, continue separate eligible source-review slides without changing release requirements",
       "enabled": true
+    },
+    {
+      "id": "V71_JOURNAL_EVENT_BLOAT_LOCKS_OUT_OFFLINE_SUPERVISOR_20261123",
+      "match_type": "v71_polling_journal_recovery",
+      "signature": "V71_REPEATED_IDLE_CHECKPOINT_EVENTS_EXCEED_JSON_READ_BOUND",
+      "mechanism": "ARCHIVE_SHA_PINNED_FULL_JOURNAL_DEDUP_IDENTICAL_IDLE_EVENTS",
+      "classification": "SOURCE_PINNED_V71_OFFLINE_DAEMON_STOPS_AFTER_JOURNAL_REACHES_INPUT_BYTE_LIMIT",
+      "handler": "NORMAL_IMMUTABLE_IDLE_JOURNAL_COMPACTION",
+      "preconditions": "Same immutable plan SHA, executor SHA, complete task identities, exact sequential event records; original journal archived under SHA-addressed write-once storage before atomic compaction",
+      "verification_test": "tests/test_development_continuity_journal_recovery_v71.py",
+      "last_verified_date": "2026-11-23",
+      "environment": "Dell-115 actual offline 433-cycle runner with 946 events and 240137-byte state.json exceeded 240000-byte guard",
+      "retry_policy": "One original journal archive per exact SHA, crash-safe atomic replace and idempotent restart; remove only redundant adjacent idle polling events; preserve all task status, results and no-paid-send release gates",
+      "enabled": true
     }
   ]
 }
