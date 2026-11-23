@@ -60,3 +60,21 @@ def test_real_hp_original_pdf_all_six_crops_verified(tmp_path):
     (tmp_path / "Figure 10.22.png").write_bytes(b"tampered")
     with pytest.raises(crop.FigureChainError):
         crop.verify_figure_crops(tmp_path)
+
+
+def test_chapter12_3_geometry_is_original_source_sha_pinned():
+    registry = Path(crop.__file__).with_name("source_crop_overrides_v1.json")
+    data = json.loads(registry.read_text(encoding="utf-8"))
+    source = "6f273e8e1d4803ee4bd270a7128b9e3b5ce9987820d42a03723518fe80c9e0de"
+    expected = {"12.7", "12.8", "12.9", "12.10"}
+    assert set(data["overrides"][source]) == expected
+    page = SimpleNamespace(rect=fitz.Rect(0, 0, 612, 783))
+    rows = {"12.7": [349.034, 570.559, 522.049, 582.749],
+            "12.8": [87.494, 220.873, 470.526, 242.739],
+            "12.9": [404.438, 349.411, 577.830, 381.277],
+            "12.10": [300.375, 408.407, 534.312, 490.273]}
+    for fig_id in expected:
+        row = {"id": fig_id, "caption_bbox": rows[fig_id]}
+        verified = crop._source_sha_bound_crop_override(source, row, page)
+        assert verified is not None and verified[1] == "source_sha_bound_geometry_recovery"
+        assert crop._source_sha_bound_crop_override("f" * 64, row, page) is None
