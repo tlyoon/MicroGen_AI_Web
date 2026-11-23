@@ -45,3 +45,14 @@ def test_actual_hp_rejected_10_1_narration_has_no_blocking_a_after_repair():
                 for risk in RISK.collect_tts_risks(body, slide=slide)
                 if risk["severity"] == "blocking"]
     assert rejected == []
+
+
+def test_source_labeled_part_corner_and_triangle_a_are_nonblocking():
+    for phrase in (
+        "The result in Part A is unchanged.",
+        "The moment arm is measured about corner A of the curb.",
+        "The source geometry uses triangle O A C to find d.",
+    ):
+        results = kinds(phrase)
+        assert ("ambiguous_capital_a", "blocking", "A") not in results
+        assert ("contextual_letter", "warning", "A") in results
