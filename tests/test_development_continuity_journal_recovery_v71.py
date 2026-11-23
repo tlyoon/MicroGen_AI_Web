@@ -46,12 +46,17 @@ def overflow(tmp_path, *, groups=950):
     plan,state=real_plan(tmp_path)
     path=state/"state.json"
     before=_read_json(path)
-    for _ in range(groups):
-        _event(before,"execution_checkpoint",detail={
-            "completed":1,"dispatch_count":0,"remaining":1,
-            "status":"BLOCKED_OR_AWAITING_EVIDENCE"})
-    _atomic_json(path,before)
-    assert path.stat().st_size>jr.INPUT_LIMIT_BYTES
+    # Temp file paths have different lengths on Windows and Linux.
+    # Grow against the actual byte threshold, not an estimated event count.
+    while True:
+        for _ in range(groups):
+            _event(before,"execution_checkpoint",detail={
+                "completed":1,"dispatch_count":0,"remaining":1,
+                "status":"BLOCKED_OR_AWAITING_EVIDENCE"})
+        _atomic_json(path,before)
+        if path.stat().st_size>jr.INPUT_LIMIT_BYTES:
+            break
+        groups=100
     return plan,state,before
 
 
