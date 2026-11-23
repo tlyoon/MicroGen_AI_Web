@@ -43,6 +43,7 @@ _HANDLERS = {
     "browser_coding_response_shape": "NORMAL_GEMINI_SOURCE_ONLY_CODE_CAPTURE_RECOVERY",
     "bounded_coding_dispatch": "NORMAL_SINGLE_OWNER_BROWSER_CODE_DISPATCH",
     "historical_quarantine_integrity": "NORMAL_IMMUTABLE_PROVIDER_CAPTURE_EVIDENCE_AUDIT",
+    "gemini_failure_controller": "NORMAL_SOURCE_BOUND_SELENIUM_FAILURE_CONTINUATION",
     "g3_legacy_visual_recovery": "NORMAL_G3_SOURCE_PINNED_ISOLATED_HIGHLIGHT_REBUILD",
     "g3_semantic_mapping_continuation": "NORMAL_SOURCE_PINNED_G3_BROWSER_REVIEW_AUTOCONTINUATION",
     "g3_multisection_autoforward": "NORMAL_SOURCE_PINNED_MULTISECTION_BROWSER_RECOVERY_CAMPAIGN",
