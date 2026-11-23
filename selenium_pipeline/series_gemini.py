@@ -121,6 +121,7 @@ def _browser_request(instruction: str,attachments: list[Path],
     with LocalInstanceLock(f"gemini_port_{port}",cache/"browser_locks"):
         client=None
         send_boundary_entered=False
+        pre_send_request_sha256=None
         registration={"status":"NOT_SENT","registered":False}
         try:
             def prepare_without_send(owned):
@@ -246,6 +247,16 @@ def _browser_request(instruction: str,attachments: list[Path],
                 client.driver,owned_handle)
             from .gemini_request_cost import browser_begin,browser_finish
             browser_begin(client, prompt_text=instruction)
+            # Pin the exact original request bytes immediately before the
+            # click. A later failure may find changed files; the recovery
+            # controller then HOLDS instead of attributing those bytes to
+            # the already-possibly-submitted request.
+            try:
+                from .gemini_failure_auto_recovery_v1 import request_identity
+                pre_send_request_sha256=request_identity(
+                    instruction,attachments)["request_sha256"]
+            except (OSError,ValueError,UnicodeError):
+                pre_send_request_sha256=None
             send_boundary_entered=True
             clicked=click_one_owned_gemini_send(
                 client.driver,owned_handle)
@@ -509,6 +520,35 @@ def _browser_request(instruction: str,attachments: list[Path],
                         snapshot.get("generating",False))
             except (AttributeError, TypeError):
                 pass
+            # Shared, executable recovery controller: after existing finite
+            # pre-Send repair and same-owned-tab observation, classify and
+            # checkpoint the next SAFE action without replaying any request.
+            # Never replace the original failure with a recording exception.
+            try:
+                from .gemini_failure_auto_recovery_v1 import handle_failed_request
+                quarantine_path = (
+                    Path(receipt["raw_path"])
+                    if "receipt" in locals() and isinstance(receipt, dict)
+                    and isinstance(receipt.get("raw_path"), (Path, str))
+                    else None)
+                recovery = handle_failed_request(
+                    instruction=instruction, attachments=attachments,
+                    phase=phase, possible_send=possible_send,
+                    new_turn_verified=bool(registration["registered"]),
+                    attempts_used=max(0, min(3, used)),
+                    stage=os.getenv("MICROGEN_ACTIVE_GENERATION_STAGE",
+                                    "storyboard").strip().lower(),
+                    port=port, quarantine_path=quarantine_path,
+                    pre_send_request_sha256=pre_send_request_sha256)
+                error.gemini_recovery_action = recovery["action"]
+                error.gemini_recovery_receipt = recovery["receipt"]
+            except Exception:
+                # No retry, alternate provider or approval if the recovery
+                # ledger itself is unwritable. The original exception wins.
+                try:
+                    error.gemini_recovery_receipt_unavailable = True
+                except (AttributeError, TypeError):
+                    pass
             emit_temporary_failure(
                 f"{phase}; pre-Send preparations used={used or 'unknown'}",
                 may_have_submitted=possible_send)

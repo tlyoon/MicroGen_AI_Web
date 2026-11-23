@@ -1108,6 +1108,20 @@
       "environment": "Dell-115 original G2 slides 3/10/11 and G3 Serway 8.2 slide 6, 8.3 slide 4; saved 0-byte Gemini owned reply quarantines",
       "retry_policy": "No new browser Send, provider switch, API call, scientific acceptance or student release. Record SHA-bounded missing reply evidence and continue independent offline work only",
       "enabled": true
+    },
+    {
+      "id": "GEMINI_SHARED_SELENIUM_FAILURE_AUTO_DECISION_20261123",
+      "match_type": "gemini_failure_controller",
+      "signature": "GEMINI_SELENIUM_FAILED_REQUEST_NEEDS_DURABLE_SAFE_CONTINUATION",
+      "mechanism": "CLASSIFY_SOURCE_BOUND_FAILURE_AND_HOLD_UNCERTAIN_SEND_NO_REPLAY",
+      "classification": "SAME_GEMINI_BROWSER_FAILURE_RECURS_WITHOUT_PERSISTED_REUSABLE_NEXT_ACTION",
+      "handler": "NORMAL_SOURCE_BOUND_SELENIUM_FAILURE_CONTINUATION",
+      "preconditions": "Owned Selenium transport only, pre-Send finite recovery and same-tab no-replay response observation exhausted, exact request and ordered PDF attachments hashed, no published or provider replay rights",
+      "verification_test": "tests/test_gemini_failure_auto_recovery_v1.py and tests/test_gemini_send_recovery.py",
+      "last_verified_date": "2026-11-23",
+      "environment": "Dell-115 historical G2 and G3 empty source-review quarantines, existing primary/alternate Gemini browser transport; no new live Sends",
+      "retry_policy": "Classify and persist deterministic source-bound no-replay action. Never auto-resubmit uncertain Send, switch browser/account/model or paid API, change source identity, waive independent source or acoustic QA, or publish to students",
+      "enabled": true
     }
   ]
 }
