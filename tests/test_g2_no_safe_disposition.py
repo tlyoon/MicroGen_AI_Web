@@ -109,3 +109,59 @@ class OriginalG2NoSafeCheckpointTests(unittest.TestCase):
         with self.assertRaises(Exception):self.call()
 
 if __name__=="__main__":unittest.main()
+
+
+def test_pre_send_request_state_without_completed_attempt_is_preserved():
+    from tempfile import TemporaryDirectory
+    with TemporaryDirectory() as temp:
+        root = Path(temp)
+        original, queue, work = [root / n for n in ("original", "queue", "work")]
+        for x in (original, queue, work):
+            x.mkdir()
+        source = original / "source.pdf"
+        slides = original / "slides.pdf"
+        script = original / "script.txt"
+        for path, data in ((source, b"%PDF-1.4 genuine source"),
+                           (slides, b"%PDF-1.4 slides"),
+                           (script, b"source-narrated script")):
+            path.write_bytes(data)
+        digest = lambda path: hashlib.sha256(path.read_bytes()).hexdigest()
+        (queue / "queue.json").write_text(json.dumps({
+            "status": "IMMUTABLE_ORIGINAL_GEMINI_AI_REVIEW_QUEUE",
+            "original_source_folder": str(original),
+            "slide_jobs": [{"slide":4, "original_source_sha256":digest(source)}],
+            "student_publication_authorized": False,
+        }))
+        claim_root = queue / "slide_004_independent_challenge_attempt_01_request"
+        claim_root.mkdir()
+        (claim_root / "dispatch_attempted.claim").write_text("original")
+        state = {
+            "schema_version": 1, "status": "SUBMITTED_OR_UNCERTAIN",
+            "review_mode": "INDEPENDENT_CHALLENGE",
+            "source_sha256": digest(source),
+            "slides_sha256": digest(slides), "script_sha256": digest(script),
+            "can_auto_retry": False, "submission_may_have_occurred": True,
+        }
+        state_file = claim_root / "request_state.json"
+        state_file.write_text(json.dumps(state))
+        selection = {
+            "status": "NO_SAFE_REVIEW_UNIT_REMAINING",
+            "new_model_requests": False, "student_publication_authorized": False,
+            "blocked_other_slides": [{"slide":4, "mode":"INDEPENDENT_CHALLENGE",
+                                      "reason": "AMBIGUOUS_OLD_SEND_NO_RESUBMISSION"}],
+        }
+        call = lambda: preserve_g2_no_safe_disposition(
+            queue_root=queue, folder=original, work_root=work,
+            source_sha=digest(source), selection=selection)
+        result = call()
+        row = json.loads(Path(result["receipt"]).read_text())["blocked"][0]["attempts"][0]
+        assert row["status"] == "SUBMITTED_OR_UNCERTAIN_NO_REPLY"
+        assert row["claim_present"] is True
+        assert row["quarantine_capture"]["retry_authorized"] is False
+        assert result["new_provider_requests"] == 0
+        assert call()["receipt"] == result["receipt"]
+        # Forged request-state source identity must never be accepted.
+        state["slides_sha256"] = "0" * 64
+        state_file.write_text(json.dumps(state))
+        with __import__("pytest").raises(ValueError):
+            call()

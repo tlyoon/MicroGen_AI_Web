@@ -15,6 +15,7 @@ import os
 from pathlib import Path
 from . import g3_rich_mapping_auto_continuation_v71 as reviewer
 from .recovery_registry import lookup_mechanism
+from .historical_quarantine_evidence_v1 import inspect_historical_quarantine
 
 STATUS="G3_SOURCE_PINNED_MULTISECTION_BROWSER_CAMPAIGN_V71"
 KIND="g3_multisection_autoforward"
@@ -53,6 +54,45 @@ def _write_once(path,value):
         out.write("\n")
         out.flush()
         os.fsync(out.fileno())
+
+
+def _persist_historical_quarantine(root:Path,identity:dict,
+                                   prior_sha:str,captures:list)->str|None:
+    """Persist evidence under existing campaign owner; no review promotion.
+
+    Hash-addressed atomic admission supports restart after a staged crash.
+    An unrelated or modified previous receipt must not be overwritten.
+    """
+    if not captures:
+        return None
+    report={
+        "schema_version":1,
+        "status":"HISTORICAL_G3_QUARANTINE_NO_REPLAY_EVIDENCE_V1",
+        "campaign_identity_sha256":_hash(identity),
+        "last_immutable_dispatch_receipt_sha256":prior_sha,
+        "captures":captures,
+        "new_model_requests":0,
+        "retry_authorized":False,
+        "independent_scientific_QA_complete":False,
+        "student_publication_authorized":False,
+    }
+    target=root/("historical_quarantine_"+_hash(report)[:24]+".json")
+    staged=target.with_name(target.name+".stage")
+    require(not target.is_symlink() and not staged.is_symlink(),
+            "Historical recovery receipt may not be symlinked")
+    if target.exists():
+        require(_json(target)==report,"Historical recovery receipt changed")
+        return str(target)
+    if staged.exists():
+        require(_json(staged)==report,"Interrupted historical receipt differs")
+    else:
+        with staged.open("x",encoding="utf8") as handle:
+            json.dump(report,handle,ensure_ascii=False,sort_keys=True,indent=2)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+    os.replace(staged,target)
+    return str(target)
 
 
 def _verified_specs(manifest:Path):
@@ -294,8 +334,20 @@ def run_campaign(*,manifest:Path,state_dir:Path,
             stopped_reason=("BOUNDED_RUN_BUDGET_REACHED"
                 if attempted==max_new_sends else "NO_MORE_ELIGIBLE_WORK")
         counters=_counts(observations)
+        # Historical failures are evidence-only. An empty, hash-valid raw
+        # quarantine establishes NO retrievable reply, never a failed Send.
+        historical_uncertain_captures=[{
+            "section":event["section"], "slide":failure.get("slide"),
+            "capture":inspect_historical_quarantine(failure.get("error")),
+        } for event in events
+          for failure in event.get("dispatch_failures",[])
+          if failure.get("failure_classification")=="UNTRUSTED_OR_UNCERTAIN_SEND"]
+        historical_receipt=_persist_historical_quarantine(
+            root,identity,prior_sha,historical_uncertain_captures)
         return {
             "schema_version":1,
+            "historical_uncertain_captures":historical_uncertain_captures,
+            "historical_quarantine_evidence_receipt":historical_receipt,
             "status":("G3_SOURCE_MAPPING_INPUT_REVIEW_COVERAGE_COMPLETE_REVIEW_ONLY"
                       if counters["untouched_original_slides"]==0 and
                          counters["quarantined_or_uncertain_original_slides"]==0
