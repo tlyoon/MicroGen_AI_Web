@@ -118,7 +118,22 @@ def _guarded_copy(source: Path, dest: Path, expected_sha: str) -> None:
 def _technical_input_proof(folder: Path, preview: Path) -> tuple[dict, dict, list]:
     for name in ("source.pdf", "slides.pdf", "slides.tex", "script.txt"):
         _require((folder / name).is_file(), f"Missing required source input: {folder / name}")
-    synced = verify_slide_sync(folder)
+    try:
+        synced = verify_slide_sync(folder)
+    except ValueError:
+        # The generic published-lecture source validator remains strict.
+        # This explicit VIDEO-ONLY stage has no completion/release receipt,
+        # and may revalidate original bytes against its independent preview
+        # after a PyMuPDF derived page-text ABI change. Never regenerate or
+        # re-Send provider requests to work around a parser version change.
+        from .ch11_stage_only_pdf_text_parity_v1 import (
+            verify_stage_only_parser_drift)
+        proof = verify_stage_only_parser_drift(folder=folder, preview=preview)
+        _require(proof["student_publication_authorized"] is False
+                 and proof["paid_model_sends"]==0
+                 and proof["independent_visual_highlight_accepted"] is False,
+                 "Stage-only parser source evidence attempted release")
+        synced=proof["technical_sync_original"]
     qa = _audio_qa(folder, synced["pages"])
     previous = _json(preview / "preview_manifest.json")
     _require(previous["status"] ==

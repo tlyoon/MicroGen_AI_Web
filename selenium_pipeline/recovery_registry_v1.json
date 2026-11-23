@@ -1080,6 +1080,20 @@
       "environment": "Dell-115 actual offline 433-cycle runner with 946 events and 240137-byte state.json exceeded 240000-byte guard",
       "retry_policy": "One original journal archive per exact SHA, crash-safe atomic replace and idempotent restart; remove only redundant adjacent idle polling events; preserve all task status, results and no-paid-send release gates",
       "enabled": true
+    },
+    {
+      "id": "CH11_UNRELEASED_PREVIEW_PDF_TEXT_PARSER_DRIFT_20261123",
+      "match_type": "ch11_stage_only_pdf_text_parity",
+      "signature": "STAGE_ONLY_NARRATED_MP4_DERIVED_PDF_TEXT_HASH_DRIFT",
+      "mechanism": "VERIFY_EXACT_STAGE_ONLY_SOURCE_WAV_PREVIEW_NO_RELEASE",
+      "classification": "PUBLISHED_RAW_PDF_SCRIPT_AND_WAV_UNCHANGED_BUT_DERIVED_TEXT_DIGESTS_DIFFER_ON_UNRELEASED_VIDEO_ONLY_STAGE",
+      "handler": "NORMAL_STRICT_UNRELEASED_VIDEO_PREVIEW_TEXT_ABI_RECOVERY",
+      "preconditions": "Exact raw original PDF script source WAV and approved sync receipt hashes, valid stage-only and preview manifest, no completed-lecture receipt, explicit no-highlights and no-publication scope",
+      "verification_test": "tests/test_ch11_stage_only_pdf_text_parity_v1.py",
+      "last_verified_date": "2026-11-23",
+      "environment": "Dell-115 actual Serway §§11.1 11.3 11.5 source byte identical with 13/15, 6/15, and 6/10 only derived page-text hashes differing",
+      "retry_policy": "Allow original stage-only technical preview attestation without modifying publisher PDFs or permitting claimed full G3 scientific/highlight acceptance; never relax original completed lecture validator",
+      "enabled": true
     }
   ]
 }
