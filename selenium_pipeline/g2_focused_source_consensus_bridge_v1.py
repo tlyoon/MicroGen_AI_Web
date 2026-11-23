@@ -157,10 +157,18 @@ def _focused_evidence(*,folder:Path,queue_root:Path,scope:Path)->dict:
 
 
 def reconcile(*,folder:Path,queue_root:Path,
-              output_parent:Path|None=None)->dict:
-    """No browser access, no API, no original-source/queue modifications."""
+              output_parent:Path|None=None,
+              original_consensus:dict|None=None)->dict:
+    """No browser access, no API, no original-source/queue modifications.
+
+    The production G2 supervisor may pass its already independently checked
+    original consensus. Avoid duplicating an expensive 85-utterance PDF
+    revalidation under the same source-locked supervisor owner.
+    """
     folder,queue_root=Path(folder).absolute(),Path(queue_root).absolute()
-    original=reconcile_actual_review_queue(queue_root=queue_root,folder=folder)
+    original=(reconcile_actual_review_queue(
+        queue_root=queue_root,folder=folder)
+        if original_consensus is None else original_consensus)
     require(original["status"]==
                 "INDEPENDENTLY_REVALIDATED_AI_SOURCE_MATH_AGREEMENT_QUEUE"
             and original["AI_consensus_is_formal_math_proof"] is False
