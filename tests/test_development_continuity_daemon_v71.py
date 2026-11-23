@@ -84,7 +84,17 @@ def test_killed_daemon_restart_uses_previous_receipt_and_new_owner(tmp_path):
         assert old["owner_pid"]==first.pid
         assert old["running"]
         from selenium_pipeline.development_continuity_daemon_v71 import attest_live_daemon
-        observed=attest_live_daemon(state_dir=state)
+        # On a newly started Windows process, the heartbeat file may be
+        # committed before Win32_Process CIM enumerates its command line.
+        # Do not loosen production attestation; observe the exact same
+        # process for a bounded time until the OS verifies the owner.
+        observed={"status":"OFFLINE_OR_UNVERIFIED","running_verified":False}
+        for _ in range(30):
+            observed=attest_live_daemon(state_dir=state)
+            if observed["running_verified"]:
+                break
+            assert first.poll() is None,"Original daemon exited before ownership attestation"
+            time.sleep(.2)
         assert observed["running_verified"],observed
         assert observed["owner_pid"]==first.pid
         assert observed["code_authoring_executor"] is False
