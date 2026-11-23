@@ -371,12 +371,41 @@ def main(argv=None) -> int:
     parser.add_argument("--health-family",choices=("flash","pro"),default="flash")
     parser.add_argument("--execute",action="store_true")
     parser.add_argument("--no-auto-media",action="store_true")
+    # Explicit finite G2-focused continuation under the same source and
+    # supervisor lock; no implicit paid TTS or G3 release activation.
+    parser.add_argument("--auto-focused-next",action="store_true")
+    parser.add_argument("--campaign-id",default="")
+    parser.add_argument("--focused-possible-sends",type=int,default=0)
+    parser.add_argument("--focused-auto-health",action="store_true")
     args=parser.parse_args(argv)
     try:
+        if args.auto_focused_next:
+            require(args.max_units==0 and args.no_auto_media
+                    and bool(args.campaign_id),
+                    "Focused recovery uses isolated no-media, no-legacy-Send mode")
         result=step(folder=args.folder,queue_root=args.queue_root,
                     work_root=args.work_root,execute=args.execute,
                     health_family=args.health_family,
                     auto_media=not args.no_auto_media,max_units=args.max_units)
+        if args.auto_focused_next:
+            from .autonomous_recovery_continuation_v1 import run_campaign
+            focused=run_campaign(
+                folder=args.folder,queue_root=args.queue_root,
+                work_root=args.work_root,campaign_id=args.campaign_id,
+                max_possible_sends=args.focused_possible_sends,
+                execute=args.execute,auto_health=args.focused_auto_health)
+            require(focused["student_publication_authorized"] is False
+                    and focused["new_paid_gemini_api_calls"]==0
+                    and focused["original_historical_requests_replayed"] is False,
+                    "Focused continuation cannot bypass source/egress policies")
+            result={
+                **result,
+                "focused_auto_continuation":focused,
+                "two_pass_ai_source_agreed_segments":
+                    focused["reconciled_source_AI_agreements"],
+                "pending_or_disputed_segments":
+                    focused["pending_source_AI_review"],
+            }
     except (CampaignRecoveryBlocked,RuntimeError,ValueError,OSError,KeyError) as exc:
         result={"status":"G2_AUTONOMOUS_SUPERVISOR_SOURCE_GATE_BLOCKED",
                 "reason_type":type(exc).__name__,

@@ -44,6 +44,7 @@ _HANDLERS = {
     "bounded_coding_dispatch": "NORMAL_SINGLE_OWNER_BROWSER_CODE_DISPATCH",
     "historical_quarantine_integrity": "NORMAL_IMMUTABLE_PROVIDER_CAPTURE_EVIDENCE_AUDIT",
     "g2_distinct_focused_source_review": "NORMAL_SOURCE_GROUNDED_DISTINCT_REVIEW_ADMISSION",
+    "autonomous_recovery_continuation": "NORMAL_BOUNDED_SOURCE_VERIFIED_RECOVERY_FORWARD_CONTROLLER",
     "gemini_failure_controller": "NORMAL_SOURCE_BOUND_SELENIUM_FAILURE_CONTINUATION",
     "g3_legacy_visual_recovery": "NORMAL_G3_SOURCE_PINNED_ISOLATED_HIGHLIGHT_REBUILD",
     "g3_semantic_mapping_continuation": "NORMAL_SOURCE_PINNED_G3_BROWSER_REVIEW_AUTOCONTINUATION",

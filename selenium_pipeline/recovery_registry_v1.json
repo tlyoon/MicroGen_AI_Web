@@ -1136,6 +1136,20 @@
       "environment": "Dell-115 historic G2 source folder 1.3, original slide 3 seven utterances, physical publisher page 1 quote, read-only source-bound task",
       "retry_policy": "Never replay original full-slide Send. New scoped utterance/quote task requires fresh exact model and thinking proof plus separate one-Send claims. Two source-verified independent passes count AI evidence only; no acoustic, human or student release.",
       "enabled": true
+    },
+    {
+      "id": "G2_SOURCE_VERIFIED_FINITE_AUTONOMOUS_RECOVERY_FORWARD_20261123",
+      "match_type": "autonomous_recovery_continuation",
+      "signature": "G2_VERIFIED_FOCUSED_REVIEW_SHOULD_AUTOMATICALLY_ADVANCE",
+      "mechanism": "RESERVE_FINITE_SOURCE_BOUND_WORK_RECOVER_CHECKPOINT_AND_FORWARD",
+      "classification": "VERIFIED_G2_FOCUSED_REVIEW_STOPS_BEFORE_NEXT_ELIGIBLE_SOURCE_UNIT",
+      "handler": "NORMAL_BOUNDED_SOURCE_VERIFIED_RECOVERY_FORWARD_CONTROLLER",
+      "preconditions": "Original source/queue hashes pinned, registered one-claim source-review planner, exact Neon/High health, shared G2 owner lock, finite campaign send budget",
+      "verification_test": "tests/test_autonomous_recovery_continuation_v1.py and real Dell-115 G2 zero-Send plus bounded live campaign, full offline CI",
+      "last_verified_date": "2026-11-23",
+      "environment": "Dell-115 MicroGen_AI_Web Serway 1.3 G2 existing saved source claims and source-free health; not Bosla",
+      "retry_policy": "Reserve durable budget before any Send; recover saved replies; never replay uncertain original or focused model claim, waive QA, use paid API fallback or publish",
+      "enabled": true
     }
   ]
 }
