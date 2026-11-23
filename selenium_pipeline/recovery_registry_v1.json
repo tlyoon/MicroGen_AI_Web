@@ -1164,6 +1164,62 @@
       "environment": "Dell-115 original Serway 8.2 and 8.3 source G3 manifest, two uncertain browser requests and four saved source quote rejections",
       "retry_policy": "Only immutable original response and exact publisher text; no model send, no TTS, no semantic source approval, no fabricated captions, no original edits",
       "enabled": true
+    },
+    {
+      "id": "G3_DISTINCT_SEMANTIC_SOURCE_QA_TASK_ADMISSION_20261123",
+      "match_type": "g3_semantic_source_repair",
+      "signature": "G3_REJECTED_QUOTE_WORKLIST_NEEDS_INDEPENDENT_SOURCE_SEMANTIC_QA",
+      "mechanism": "VERIFY_ORIGINAL_CLAIM_AND_STAGE_DISTINCT_SPOKEN_SOURCE_QA_TASK",
+      "classification": "SOURCE_QUOTE_PRESENT_BUT_NOT_PROVEN_TO_SUPPORT_NARRATION",
+      "handler": "NORMAL_G3_DISTINCT_UTTERANCE_SOURCE_SEMANTIC_QA_ADMISSION",
+      "preconditions": "Original source/slides/script and old rejected capture pinned; physical publisher quote and actual SPOKEN-term overlap require original source evidence",
+      "verification_test": "tests/test_g3_semantic_source_repair_v1.py, Dell real 8.2 and 8.3, full regression",
+      "last_verified_date": "2026-11-23",
+      "environment": "Dell-115 original Serway 8.2/8.3 source-grounded G3 rejected mapping worklists V2",
+      "retry_policy": "Only stage genuinely new one-utterance independent QA task. No original claim replay, no implicit browser Send, no semantic/audio/video/student approval",
+      "enabled": true
+    },
+    {
+      "id": "G3_SEMANTIC_NEON_HIGH_SOURCE_FREE_HEALTH_V1_20261123",
+      "match_type": "g3_semantic_neon_health",
+      "signature": "G3_DISTINCT_SOURCE_SCIENCE_NEEDS_FRESH_VERIFIED_BROWSER",
+      "mechanism": "ONE_SOURCE_FREE_NEON_HIGH_CLAIM_AND_IMMUTABLE_OWNED_RESULT",
+      "classification": "G3_BROWSER_NEON_HIGH_CAPABILITY_NEEDS_NEW_SOURCE_FREE_PROOF",
+      "handler": "NORMAL_G3_SOURCE_FREE_OWNED_NEON_HIGH_HEALTH",
+      "preconditions": "Exact original G3 source SHA, fresh source-free test, stable once-per-source-and-day claim; no original PDF attached; true owned Neon High model response",
+      "verification_test": "tests/test_g3_semantic_neon_health_v1.py + G3 source semantic worklist independent tests",
+      "last_verified_date": "2026-11-23",
+      "environment": "Dell-115 authenticated Selenium port 9222 Neon High; all original PDF assets kept detached from synthetic health",
+      "retry_policy": "No replay of claimed or uncertain provider health Send; no paid API or original academic-claim reset; health is not source-science acceptance",
+      "enabled": true
+    },
+    {
+      "id": "G3_DISTINCT_ONE_UTTERANCE_TWO_PASS_SCIENCE_REVIEW_20261123",
+      "match_type": "g3_distinct_semantic_science",
+      "signature": "G3_DISTINCT_ORIGINAL_UTTERANCE_NEEDS_TWO_INDEPENDENT_SOURCE_REVIEWS",
+      "mechanism": "ONCE_ONLY_NEON_SCIENCE_PASSES_WITH_BOUND_SOURCE_CLAIMS_AND_NO_RELEASE",
+      "classification": "G3_SEMANTIC_REPAIR_CANDIDATE_NEEDS_GENUINE_SOURCE_SCIENCE_CHALLENGE",
+      "handler": "NORMAL_G3_TWO_PASS_SOURCE_GROUNDED_SEMANTIC_REVIEW",
+      "preconditions": "Source-pinned original G3 rejection, one-utterance new review, exact source quote physical proof, fresh owned source-free Neon/High health, durable finite Send budget",
+      "verification_test": "tests/test_g3_distinct_semantic_science_v1.py and Dell real source/Neon review, all offline regression",
+      "last_verified_date": "2026-11-23",
+      "environment": "Dell-115 original Serway 8.2 and 8.3 source ground, two independent one-claim Neon/High model passes; no API",
+      "retry_policy": "Keep original historical rejected/uncertain Sends immutable, one fresh task per narration identity, two finite saved model passes, never promote original G3 or acoustic/video/student release",
+      "enabled": true
+    },
+    {
+      "id": "G3_DOUBLE_UNRESOLVED_SCIENCE_CONTEXT_SOURCE_REPAIR_20261123",
+      "match_type": "g3_semantic_context_recovery",
+      "signature": "G3_TWO_SOURCE_REVIEWERS_FOUND_AN_EXACT_BUT_IRRELEVANT_QUOTE",
+      "mechanism": "RECLASSIFY_TWO_UNRESOLVED_VERDICTS_AND_RETRIEVE_DISTINCT_PDF_CONTEXT",
+      "classification": "G3_INDEPENDENT_REVIEWERS_IDENTIFIED_IRRELEVANT_PHYSICAL_SOURCE_CITATION",
+      "handler": "NORMAL_G3_SCIENTIFIC_REVIEW_CONTEXT_RETRIEVAL",
+      "preconditions": "Two original exact model responses saved, Neon High provenance retained, same unresolved science claim, original source and old review hashes unchanged",
+      "verification_test": "tests/test_g3_semantic_context_recovery_v2.py, Dell live Serway Example 8.3 source context and prior regression",
+      "last_verified_date": "2026-11-23",
+      "environment": "Dell-115 G3 §8.2 original publisher Example 8.3, original source/reviewer PDF source and existing two independent unresolved replies",
+      "retry_policy": "Extract only contiguous source PDF original lines, never replay historical or distinct original Send, no scientific/audio/video/student promotion",
+      "enabled": true
     }
   ]
 }
