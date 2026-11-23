@@ -49,6 +49,7 @@ _HANDLERS = {
     "g3_legacy_visual_recovery": "NORMAL_G3_SOURCE_PINNED_ISOLATED_HIGHLIGHT_REBUILD",
     "g3_semantic_mapping_continuation": "NORMAL_SOURCE_PINNED_G3_BROWSER_REVIEW_AUTOCONTINUATION",
     "g3_multisection_autoforward": "NORMAL_SOURCE_PINNED_MULTISECTION_BROWSER_RECOVERY_CAMPAIGN",
+    "g3_rejected_source_quote_offline_repair": "NORMAL_G3_REJECTED_PUBLISHER_QUOTE_OFFLINE_WORKLIST",
     "g3_rejected_content_continuation": "NORMAL_SOURCE_REJECTION_WITHOUT_PROVIDER_UNCERTAINTY",
     "v71_polling_journal_recovery": "NORMAL_IMMUTABLE_IDLE_JOURNAL_COMPACTION",
     "caption_identity_parity": "NORMAL_REAL_SOURCE_FIGURE_CAPTION_CROSS_PARSER_CHECK",

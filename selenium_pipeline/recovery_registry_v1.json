@@ -1150,6 +1150,20 @@
       "environment": "Dell-115 MicroGen_AI_Web Serway 1.3 G2 existing saved source claims and source-free health; not Bosla",
       "retry_policy": "Reserve durable budget before any Send; recover saved replies; never replay uncertain original or focused model claim, waive QA, use paid API fallback or publish",
       "enabled": true
+    },
+    {
+      "id": "G3_REJECTED_SOURCE_QUOTE_OFFLINE_FORWARD_20261123",
+      "match_type": "g3_rejected_source_quote_offline_repair",
+      "signature": "G3_CAPTURED_SOURCE_QUOTE_REJECTION_WITH_BROWSER_CIRCUIT_OPEN",
+      "mechanism": "REVERIFY_REJECTED_MODEL_AND_MATERIALIZE_EXACT_PUBLISHER_SNIPPETS",
+      "classification": "CAPTURED_PUBLISHER_QUOTE_REJECTION_KEPT_WITH_TWO_UNCERTAIN_SENDS",
+      "handler": "NORMAL_G3_REJECTED_PUBLISHER_QUOTE_OFFLINE_WORKLIST",
+      "preconditions": "Original source/slides/script SHA pinned, rejected capture and quote-rejection reason reverified; no Gemini retry; isolated original-publisher snippet worklist",
+      "verification_test": "tests/test_g3_source_rejected_offline_repair_v1.py, real Dell G3 8.2/8.3 and full historical regressions",
+      "last_verified_date": "2026-11-23",
+      "environment": "Dell-115 original Serway 8.2 and 8.3 source G3 manifest, two uncertain browser requests and four saved source quote rejections",
+      "retry_policy": "Only immutable original response and exact publisher text; no model send, no TTS, no semantic source approval, no fabricated captions, no original edits",
+      "enabled": true
     }
   ]
 }

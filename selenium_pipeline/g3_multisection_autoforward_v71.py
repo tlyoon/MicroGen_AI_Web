@@ -239,7 +239,10 @@ def _counts(observed):
 
 
 def run_campaign(*,manifest:Path,state_dir:Path,
-                 max_new_sends:int=0,wait_s:int=120):
+                 max_new_sends:int=0,wait_s:int=120,
+                 auto_offline_repair:bool=False):
+    require(type(auto_offline_repair) is bool,
+            "Original-source offline repair must be explicitly selected")
     require(type(max_new_sends) is int
             and 0<=max_new_sends<=MAX_REQUESTS_PER_RUN
             and type(wait_s) is int and 20<=wait_s<=180,
@@ -344,10 +347,24 @@ def run_campaign(*,manifest:Path,state_dir:Path,
           if failure.get("failure_classification")=="UNTRUSTED_OR_UNCERTAIN_SEND"]
         historical_receipt=_persist_historical_quarantine(
             root,identity,prior_sha,historical_uncertain_captures)
+        offline_worklists=None
+        if auto_offline_repair:
+            # A provider circuit breaker does NOT prohibit source-local
+            # correction evidence. Reverify rejected original response
+            # bytes and extract actual PDF text without any new Gemini Send.
+            from .g3_source_rejected_offline_repair_v1 import materialize
+            offline_worklists=materialize(
+                specs=specs,output_root=root/"offline_source_quote_worklists_v2")
+            require(offline_worklists["new_browser_sends"]==0
+                    and offline_worklists["new_paid_gemini_API_requests"]==0
+                    and offline_worklists["new_original_source_review_acceptances"]==0
+                    and offline_worklists["student_publication_authorized"] is False,
+                    "G3 source-only offline work cannot bypass scientific QA")
         return {
             "schema_version":1,
             "historical_uncertain_captures":historical_uncertain_captures,
             "historical_quarantine_evidence_receipt":historical_receipt,
+            "source_rejected_offline_recovery":offline_worklists,
             "status":("G3_SOURCE_MAPPING_INPUT_REVIEW_COVERAGE_COMPLETE_REVIEW_ONLY"
                       if counters["untouched_original_slides"]==0 and
                          counters["quarantined_or_uncertain_original_slides"]==0
@@ -380,9 +397,11 @@ def main(argv=None):
     parser.add_argument("--state-dir",type=Path,required=True)
     parser.add_argument("--max-new-sends",type=int,default=0)
     parser.add_argument("--wait-s",type=int,default=120)
+    parser.add_argument("--auto-offline-source-repair",action="store_true")
     args=parser.parse_args(argv)
     value=run_campaign(manifest=args.manifest,state_dir=args.state_dir,
-                       max_new_sends=args.max_new_sends,wait_s=args.wait_s)
+                       max_new_sends=args.max_new_sends,wait_s=args.wait_s,
+                       auto_offline_repair=args.auto_offline_source_repair)
     print(json.dumps(value,ensure_ascii=False,indent=2))
     return 0
 
