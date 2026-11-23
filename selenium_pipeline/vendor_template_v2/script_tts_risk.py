@@ -94,7 +94,7 @@ def collect_tts_risks(text: str, *, slide: int | None = None) -> list[dict[str, 
         r"(?:variable|charge|point|object|sphere|axis|component|coordinate|"
         r"denoted|option|choice|letter|capital|radius|distance|area|length|field|"
         r"magnitude|constant|density|volume|surface|line|plate|rod|"
-        r"labeled|labelled|marked)\s+$"
+        r"labeled|labelled|marked|part|corner)\s+$"
     )
 
     for match in STANDALONE_LETTER.finditer(text):
@@ -114,6 +114,7 @@ def collect_tts_risks(text: str, *, slide: int | None = None) -> list[dict[str, 
         explicit_context = bool(
             re.match(r"(?:-|\s+)(?:axis|coordinate|component|direction)\b", tail)
             or explicit_role_re.search(head)
+            or re.search(r"\btriangle\s+[a-z]\s+$", head)
         )
 
         # Mid-sentence capital A is uniquely dangerous because it may be either
