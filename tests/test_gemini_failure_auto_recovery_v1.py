@@ -270,6 +270,7 @@ def test_source_changed_during_possible_send_cannot_be_misattributed(tmp_path):
     record = json.loads(Path(got["receipt"]).read_text())
     assert got["action"] == "HOLD_UNVERIFIED_SOURCE_IDENTITY_NO_REPLAY"
     assert record["source_identity_verified"] is False
+    assert record["request_sha256"] == prior
     assert record["new_provider_requests"] == 0
     assert not record["automatic_same_request_retry_authorized"]
 

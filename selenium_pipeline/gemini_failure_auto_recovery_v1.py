@@ -208,11 +208,20 @@ def handle_failed_request(*, instruction: str, attachments: list[Path],
     # immediately before the original click. Pre-Send failures may safely
     # identify their current source inputs without that extra comparison.
     if possible_send:
+        original_sha = (
+            pre_send_request_sha256
+            if isinstance(pre_send_request_sha256, str)
+            and re.fullmatch(r"[0-9a-f]{64}", pre_send_request_sha256)
+            else None)
         identity["source_identity_verified"] = bool(
             identity["source_identity_verified"]
-            and isinstance(pre_send_request_sha256, str)
-            and len(pre_send_request_sha256) == 64
-            and identity["request_sha256"] == pre_send_request_sha256)
+            and original_sha is not None
+            and identity["request_sha256"] == original_sha)
+        # If files changed after the click, preserve the actual original
+        # pre-Send fingerprint rather than mislabeling the changed input as
+        # the possible provider submission. Still fail closed.
+        if original_sha is not None:
+            identity["request_sha256"] = original_sha
     evidence = (inspect_historical_quarantine(
         "untrusted response quarantined at " + str(quarantine_path))
         if quarantine_path is not None else None)
