@@ -243,3 +243,47 @@ def test_complete_model_coverage_with_rejected_source_quote_is_not_acceptance(
     assert result["source_rejected_original_slides"]==2
     assert result["status"]!="G3_SOURCE_MAPPING_INPUT_REVIEW_COVERAGE_COMPLETE_REVIEW_ONLY"
     assert result["student_publication_authorized"] is False
+
+
+def test_historical_quarantine_receipt_is_restart_safe_and_fail_closed(tmp_path):
+    root = tmp_path / "historical_state"
+    root.mkdir()
+    captured = [{
+        "section": "Serway_8_2", "slide": 6,
+        "capture": {
+            "status": "EMPTY_ORIGINAL_CAPTURE_VERIFIED_NO_REPLAY",
+            "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "raw_bytes": 0,
+            "retry_authorized": False,
+            "academic_accepted": False,
+            "new_model_requests": 0,
+        },
+    }]
+    identity = {"schema_version": 1, "project": "MicroGen_AI_Web"}
+    sha = "b" * 64
+    first = c._persist_historical_quarantine(root, identity, sha, captured)
+    assert first is not None
+    saved = Path(first)
+    assert saved.is_file()
+    receipt = json.loads(saved.read_text(encoding="utf8"))
+    assert receipt["status"] == "HISTORICAL_G3_QUARANTINE_NO_REPLAY_EVIDENCE_V1"
+    assert receipt["new_model_requests"] == 0
+    assert receipt["retry_authorized"] is False
+    assert receipt["student_publication_authorized"] is False
+    assert c._persist_historical_quarantine(root, identity, sha, captured) == first
+
+    # Simulated crash after durable staging but before atomic promotion.
+    staged = saved.with_name(saved.name + ".stage")
+    saved.rename(staged)
+    assert c._persist_historical_quarantine(root, identity, sha, captured) == first
+    assert saved.is_file() and not staged.exists()
+
+    # No silent rewrite when somebody modifies the original evidence.
+    saved.write_text('{"status": "forged acceptance"}', encoding="utf8")
+    with pytest.raises(ValueError, match="receipt"):
+        c._persist_historical_quarantine(root, identity, sha, captured)
+
+
+def test_no_history_produces_no_new_receipt(tmp_path):
+    assert c._persist_historical_quarantine(
+        tmp_path, {"schema_version": 1}, "f" * 64, []) is None

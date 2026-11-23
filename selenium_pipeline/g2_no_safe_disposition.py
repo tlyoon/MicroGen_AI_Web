@@ -14,6 +14,7 @@ import re
 from pathlib import Path
 
 from .figure_source_identity import require, _sha
+from .historical_quarantine_evidence_v1 import inspect_historical_quarantine
 
 RECOVERY_REGISTRY=Path(__file__).with_name("g2_no_safe_recovery_registry_v1.json")
 MECHANISM="ATTEST_EXISTING_UNCERTAIN_CLAIMS_AND_PERSIST_NO_SEND_DISPOSITION"
@@ -97,7 +98,35 @@ def preserve_g2_no_safe_disposition(
         attempts=[]
         for n in range(1,4):
             f=queue_root/f"{stem}_attempt_{n:02d}.json"
+            checkpoint=queue_root/f"{stem}_attempt_{n:02d}_request"
+            claim=checkpoint/"dispatch_attempted.claim"
             if not f.exists():
+                # Historical interrupted sends may have no final attempt
+                # result, but do retain an independently pinned pre-Send
+                # request_state.json. Inventory that claim, never invent an
+                # absent model answer or allow another Send.
+                statefile=checkpoint/"request_state.json"
+                if statefile.exists():
+                    require(statefile.is_file() and not statefile.is_symlink()
+                            and claim.is_file() and not claim.is_symlink(),
+                            "Untrusted original pre-Send request state")
+                    request_state=json.loads(statefile.read_text(encoding="utf8"))
+                    require(request_state.get("schema_version")==1
+                            and request_state.get("status")=="SUBMITTED_OR_UNCERTAIN"
+                            and request_state.get("review_mode")==mode
+                            and request_state.get("source_sha256")==source_sha
+                            and request_state.get("slides_sha256")==_sha(folder/"slides.pdf")
+                            and request_state.get("script_sha256")==_sha(folder/"script.txt")
+                            and request_state.get("can_auto_retry") is False
+                            and request_state.get("submission_may_have_occurred") is True,
+                            "Original historical request state not source-bound")
+                    attempts.append({
+                        "number":n,"status":"SUBMITTED_OR_UNCERTAIN_NO_REPLY",
+                        "provider_submission_state":"UNKNOWN_AFTER_POSSIBLE_SUBMISSION",
+                        "receipt_sha256":_sha(statefile),
+                        "claim_present":True,
+                        "quarantine_capture":inspect_historical_quarantine(None),
+                    })
                 continue
             require(f.is_file() and not f.is_symlink(),
                     "Unsafe prior G2 attempt evidence")
@@ -117,7 +146,9 @@ def preserve_g2_no_safe_disposition(
                              "provider_submission_state":
                                  data.get("provider_submission_state"),
                              "receipt_sha256":_sha(f),
-                             "claim_present":claim.is_file()})
+                             "claim_present":claim.is_file(),
+                             "quarantine_capture":inspect_historical_quarantine(
+                                 data.get("reason"))})
         claim1=queue_root/f"{stem}_attempt_01_request"/"dispatch_attempted.claim"
         if rec["reason"] in {
                 "RECONCILE_OLD_PROVIDER_ATTEMPTS_BEFORE_ANY_SEND",
