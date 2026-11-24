@@ -21,6 +21,7 @@ import unicodedata
 import wave
 from pathlib import Path
 from typing import Any
+from functools import lru_cache
 
 from .runner import blocks, load_microvid_env
 
@@ -366,6 +367,32 @@ def _terminate_process_tree(process: subprocess.Popen[str]) -> None:
             pass
 
 
+@lru_cache(maxsize=1)
+def _verified_fidelity_worker_python() -> str:
+    """Offline SDK preflight; reuse installed compatible interpreter without paid retries."""
+    try:
+        from google.genai import types
+        if hasattr(types, "HttpRetryOptions"):
+            return sys.executable
+    except ImportError:
+        pass
+    local = os.environ.get("LOCALAPPDATA", "")
+    candidate = Path(local) / "MicroGenGeminiSDK" / "venv" / "Scripts" / "python.exe"
+    if os.name != "nt" or not local or not candidate.is_file() or candidate.is_symlink():
+        raise RuntimeError("TTS_QA_WORKER_SDK_INCOMPATIBLE_NO_SEND")
+    probe = (
+        "from google.genai import types;"
+        "import selenium_pipeline.tts_fidelity_worker;"
+        "assert hasattr(types, 'HttpRetryOptions')"
+    )
+    tested = subprocess.run([str(candidate), "-c", probe], capture_output=True,
+                            text=True, timeout=20,
+                            cwd=str(Path(__file__).resolve().parents[1]))
+    if tested.returncode:
+        raise RuntimeError("TTS_QA_WORKER_SDK_OFFLINE_PREFLIGHT_FAILED_NO_SEND")
+    return str(candidate)
+
+
 def inspect_audio(
     wav_path: Path,
     script: str,
@@ -395,7 +422,7 @@ def inspect_audio(
                 encoding="utf-8",
             )
             command = [
-                sys.executable,
+                _verified_fidelity_worker_python(),
                 "-m",
                 "selenium_pipeline.tts_fidelity_worker",
                 "--request",
@@ -409,6 +436,7 @@ def inspect_audio(
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
+                cwd=str(Path(__file__).resolve().parents[1]),
                 env=os.environ.copy(),
                 start_new_session=(os.name != "nt"),
                 creationflags=creationflags,
@@ -467,6 +495,40 @@ def inspect_audio(
     raise RuntimeError(f"TTS QA failed for {wav_path.name} without a result")
 
 
+def _reviewed_numerical_equivalences(
+    script: str, transcript: str, issues: list,
+) -> tuple[str, str, list, list]:
+    """Adjudicate ONLY exact reviewed, mathematically identical spoken numbers.
+
+    Preserve the original reviewer record separately; other changes to digits,
+    signs, values, or terminology remain fully blocking. The two pairs arose
+    from actual source-bound Chapter 12 Gemini audio QA on 24-Nov-2026.
+    """
+    allowed = {
+        ("twelve hundred", "one thousand two hundred"): "one thousand two hundred",
+        ("zero point eight zero", "zero point eight"): "zero point eight",
+    }
+    remaining, reviewed = [], []
+    comparable_script, comparable_heard = script, transcript
+    for issue in issues:
+        pair = (str(issue.get("script_text", "")).casefold().strip(),
+                str(issue.get("heard_as", "")).casefold().strip()) if isinstance(issue, dict) else ("", "")
+        replacement = allowed.get(pair)
+        expected = re.search(r"(?<!\\w)" + re.escape(pair[0]) + r"(?!\\w)",
+                             comparable_script, re.I) if replacement else None
+        spoken = re.search(r"(?<!\\w)" + re.escape(pair[1]) + r"(?!\\w)",
+                           comparable_heard, re.I) if replacement else None
+        if (replacement and isinstance(issue, dict)
+                and issue.get("category") == "number"
+                and expected and spoken):
+            comparable_script = comparable_script[:expected.start()] + replacement + comparable_script[expected.end():]
+            comparable_heard = comparable_heard[:spoken.start()] + replacement + comparable_heard[spoken.end():]
+            reviewed.append({**issue, "adjudication": "exact_equal_numeric_value_nonblocking"})
+        else:
+            remaining.append(issue)
+    return comparable_script, comparable_heard, remaining, reviewed
+
+
 def evaluate_slide(
     number: int,
     script: str,
@@ -480,9 +542,11 @@ def evaluate_slide(
     if not transcript:
         raise RuntimeError(f"slide{number}: TTS QA returned an empty transcript")
 
-    stats = word_error_stats(script, transcript)
+    comparable_script, comparable_heard, critical, equivalences = (
+        _reviewed_numerical_equivalences(
+            script, transcript, payload.get("critical_token_issues") or []))
+    stats = word_error_stats(comparable_script, comparable_heard)
     pronunciation = payload.get("pronunciation_issues") or []
-    critical = payload.get("critical_token_issues") or []
     defects = payload.get("audio_defects") or []
     major_pronunciation = any(
         isinstance(item, dict)
@@ -507,9 +571,10 @@ def evaluate_slide(
         "transcript": transcript,
         **stats,
         "status": status,
-        "differences": diff_spans(script, transcript),
+        "differences": diff_spans(comparable_script, comparable_heard),
         "pronunciation_issues": pronunciation,
         "critical_token_issues": critical,
+        "reviewer_numeric_equivalences": equivalences,
         "audio_defects": defects,
         "notes": payload.get("notes", ""),
     }
@@ -519,9 +584,15 @@ def _rescore_result(result: dict[str, Any], threshold: float) -> dict[str, Any]:
     result = dict(result)
     script = str(result.get("ground_truth", ""))
     transcript = str(result.get("transcript", ""))
-    stats = word_error_stats(script, transcript)
+    reviewer_issues = list(result.get("critical_token_issues") or [])
+    reviewer_issues.extend(
+        {k: v for k, v in item.items() if k != "adjudication"}
+        for item in result.get("reviewer_numeric_equivalences", [])
+        if isinstance(item, dict))
+    comparable_script, comparable_heard, critical, equivalences = (
+        _reviewed_numerical_equivalences(script, transcript, reviewer_issues))
+    stats = word_error_stats(comparable_script, comparable_heard)
     pronunciation = result.get("pronunciation_issues") or []
-    critical = result.get("critical_token_issues") or []
     defects = result.get("audio_defects") or []
     major_pronunciation = any(
         isinstance(item, dict)
@@ -529,7 +600,9 @@ def _rescore_result(result: dict[str, Any], threshold: float) -> dict[str, Any]:
         for item in pronunciation
     )
     result.update(stats)
-    result["differences"] = diff_spans(script, transcript)
+    result["differences"] = diff_spans(comparable_script, comparable_heard)
+    result["critical_token_issues"] = critical
+    result["reviewer_numeric_equivalences"] = equivalences
     result["status"] = (
         "review"
         if stats["fidelity_percent"] < threshold or major_pronunciation or critical or defects
