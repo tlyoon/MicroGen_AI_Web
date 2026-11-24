@@ -33,3 +33,10 @@ This invocation automatically includes previous `--auto-offline-source-repair` a
 The standalone controller can also be invoked through `python -m selenium_pipeline.g3_continuous_advance_v1` with the same manifest/state, finite caps and a fixed campaign ID; `--dry-run` produces no model Send.
 
 The disabled historical Windows Scheduled Tasks are **not** re-enabled by this controller. This command continues only during an authorized invoked run. The user explicitly did not request an always-on background scheduled job; the controller must not claim to continue processing after a chat turn ends or resume unauthorized host processes.
+
+
+## Real browser stall recovery (November 24)
+
+The real first new context source-science Send on Dell-115 registered with Gemini Neon/High and both original PDFs but produced no attributable model text. The legacy source watcher had a nominal 240-second inactivity limit yet a separate vendor **1800-second default absolute cap**, prolonging the failure. The original `initial_request` remains immutable `SUBMITTED_OR_UNCERTAIN` with `can_auto_retry=false`; there is no source-science acceptance and no paid API fallback.
+
+The executable registry handler `g3_owned_browser_wall_recovery` applies a **scoped 180-second absolute vendor cap** and **120-second source-science idle window** only to new G3 one-utterance browser science and synthetic model-health checks. It restores the previous environment even after exception; all other model stages retain their existing settings. A no-text or ambiguous Send is quarantined and its **global** Send reservation is consumed. The forward controller now automatically skips a task already marked `HOLD` and chooses a **different** source-eligible task without waiting for the user to say `proceed`, respecting its remaining finite model and health budgets. Never replay the original uncertain question.

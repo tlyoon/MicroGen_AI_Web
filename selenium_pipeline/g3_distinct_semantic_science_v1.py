@@ -237,11 +237,14 @@ def run_one(*,spec:dict,task_file:Path,
             events=_append(campaign,header,events,"RESERVE",
                            scope=scope,phase=phase,detail=task["original_utterance_id"])
             try:
-                result=run_web_review(
-                    folder=source,job=job,mode=mode,
-                    checkpoint_dir=checkpoint,
-                    required_model_family="neon",
-                    transport=transport)
+                from .g3_bounded_owned_browser_window_v1 import (
+                    bounded_science_response)
+                with bounded_science_response(absolute_max_seconds=180):
+                    result=run_web_review(
+                        folder=source,job=job,mode=mode,
+                        checkpoint_dir=checkpoint,
+                        required_model_family="neon",
+                        wait_cap_s=120,transport=transport)
                 need(result["status"]=="SOURCE_WITNESSED_AI_MATH_REVIEW_ONE_PASS"
                      and result["review_count"]==1
                      and result["academic_mathematics_independently_verified"] is False

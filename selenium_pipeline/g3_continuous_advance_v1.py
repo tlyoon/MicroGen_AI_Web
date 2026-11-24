@@ -160,8 +160,11 @@ def advance(*,manifest:Path,state_root:Path,
             after_unix=_after_incident(spec=spec))
         if execute and receipt is None and probe_count<max_health_probes:
             probe_count+=1
-            receipt=probe_once(
-                root=root,source_sha=src_sha,browser_request=health_probe)
+            from .g3_bounded_owned_browser_window_v1 import (
+                bounded_science_response)
+            with bounded_science_response(absolute_max_seconds=180):
+                receipt=probe_once(
+                    root=root,source_sha=src_sha,browser_request=health_probe)
             if receipt.get("fresh_neon_high_source_free_health") is not True:
                 receipt=None
         if execute and receipt is None:
