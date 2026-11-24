@@ -62,6 +62,7 @@ _HANDLERS = {
     "g3_original_visual_question_audit": "NORMAL_ORIGINAL_RENDERED_REVIEW_QUESTION_SOURCE_EVIDENCE",
     "g3_unreviewed_source_preflight": "NORMAL_G3_PIN_UNTOUCHED_SOURCE_SLIDES_WITHOUT_SEND",
     "g3_finite_campaign_cap_reentry": "NORMAL_G3_REUSE_ORIGINAL_FINITE_CAMPAIGN_WITH_TIGHTER_EFFECTIVE_CAP",
+    "g3_untouched_source_witness": "NORMAL_G3_STAGE_ORIGINAL_PUBLISHER_SOURCE_WITNESS_NO_SEND",
     "g3_rejected_content_continuation": "NORMAL_SOURCE_REJECTION_WITHOUT_PROVIDER_UNCERTAINTY",
     "v71_polling_journal_recovery": "NORMAL_IMMUTABLE_IDLE_JOURNAL_COMPACTION",
     "caption_identity_parity": "NORMAL_REAL_SOURCE_FIGURE_CAPTION_CROSS_PARSER_CHECK",

@@ -410,8 +410,21 @@ def run_campaign(*,manifest:Path,state_dir:Path,
                     and untouched_preflight["original_science_approvals"]==0
                     and untouched_preflight["student_publication_authorized"] is False,
                     "Untouched original source task cannot certify a slide")
+        untouched_source_witnesses=None
+        if auto_semantic_source_repair:
+            from .g3_untouched_source_witness_v1 import (
+                materialize as stage_original_publisher_witnesses)
+            untouched_source_witnesses=stage_original_publisher_witnesses(
+                specs=specs,state_root=root)
+            require(untouched_source_witnesses["new_browser_sends"]==0
+                    and untouched_source_witnesses["paid_gemini_API_calls"]==0
+                    and untouched_source_witnesses["independent_scientific_QA_accepted"]==0
+                    and untouched_source_witnesses["independent_visual_QA_accepted"]==0
+                    and untouched_source_witnesses["student_publication_authorized"] is False,
+                    "Physical publisher quotes cannot grant original G3 approval")
         return {
             "schema_version":1,
+            "untouched_original_source_witnesses":untouched_source_witnesses,
             "historical_uncertain_captures":historical_uncertain_captures,
             "historical_quarantine_evidence_receipt":historical_receipt,
             "source_rejected_offline_recovery":offline_worklists,
