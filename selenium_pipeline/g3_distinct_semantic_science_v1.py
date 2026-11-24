@@ -41,6 +41,10 @@ REPORT="G3_DISTINCT_SEMANTIC_TWO_PASS_SCIENCE_AI_EVIDENCE_NO_ORIGINAL_PROMOTION"
 def _pinned_task(*,spec:dict,worklist_root:Path,task_file:Path)->dict:
     task_file=Path(task_file).absolute()
     row=_read(task_file,limit=100_000)
+    if row.get("status")=="G3_DISTINCT_EXAMPLE_CONTEXT_SCIENCE_REVIEW_READY_NO_SEND":
+        from .g3_context_followup_task_v1 import pinned
+        return pinned(spec=spec,state_root=Path(worklist_root).absolute().parent,
+                      task_file=task_file)
     need(row.get("status")=="G3_DISTINCT_SOURCE_SEMANTIC_QA_READY_NO_SEND"
          and row.get("science_review_job") is not None
          and row.get("new_source_review_send_allowed_without_fresh_neon_health") is False
@@ -184,9 +188,12 @@ def run_one(*,spec:dict,task_file:Path,
         task=_pinned_task(spec=spec,worklist_root=worklist_root,
                           task_file=task_file)
         scope=task["scope_sha256"]
-        job=task["science_review_job"]
+        context=task["status"]=="G3_DISTINCT_EXAMPLE_CONTEXT_SCIENCE_REVIEW_READY_NO_SEND"
+        job=task["review_job"] if context else task["science_review_job"]
         source=Path(spec["source_folder"]).absolute()
-        root=state_root/"g3_distinct_semantic_science_reviews_v1"/scope
+        root=state_root/(
+            "g3_distinct_example_context_reviews_v1" if context else
+            "g3_distinct_semantic_science_reviews_v1")/scope
         need(not root.is_symlink() and not root.is_relative_to(source),
              "Redirected G3 scientific review owner")
         root.mkdir(parents=True,exist_ok=True)
@@ -230,11 +237,14 @@ def run_one(*,spec:dict,task_file:Path,
             events=_append(campaign,header,events,"RESERVE",
                            scope=scope,phase=phase,detail=task["original_utterance_id"])
             try:
-                result=run_web_review(
-                    folder=source,job=job,mode=mode,
-                    checkpoint_dir=checkpoint,
-                    required_model_family="neon",
-                    transport=transport)
+                from .g3_bounded_owned_browser_window_v1 import (
+                    bounded_science_response)
+                with bounded_science_response(absolute_max_seconds=180):
+                    result=run_web_review(
+                        folder=source,job=job,mode=mode,
+                        checkpoint_dir=checkpoint,
+                        required_model_family="neon",
+                        wait_cap_s=120,transport=transport)
                 need(result["status"]=="SOURCE_WITNESSED_AI_MATH_REVIEW_ONE_PASS"
                      and result["review_count"]==1
                      and result["academic_mathematics_independently_verified"] is False
@@ -266,18 +276,30 @@ def run_one(*,spec:dict,task_file:Path,
                 checkpoint_challenge=root/"challenge_request",
                 source_scope=scope)
             from .g3_semantic_source_repair_v1 import _write_once
+            if context:
+                report={
+                    **report,
+                    "status":("G3_DISTINCT_CONTEXT_SOURCE_AI_AGREEMENT_UNAPPROVED"
+                              if report["science_AI_source_agreed"] else
+                              "G3_DISTINCT_CONTEXT_SOURCE_AI_DISPUTED_NO_PROMOTION"),
+                    "parent_original_review_scope_sha256":
+                        task["parent_original_task_scope_sha256"],
+                    "context_science_candidate_is_not_semantic_proof":True,
+                    "original_G3_semantic_mappings_promoted":0,
+                    "student_publication_authorized":False,
+                }
             _write_once(root/"two_pass_science_evidence.json",report)
-            # A model can cite a PHYSICALLY REAL BUT SCIENTIFICALLY
-            # IRRELEVANT sentence. Two independently unresolved reviewers
-            # must launch new offline textbook-context retrieval, NOT a
-            # third/replayed source Send or automatic mapping promotion.
-            from .g3_semantic_context_recovery_v2 import recover
-            semantic_context=recover(
-                folder=source,task=task,review_root=root)
-            need(semantic_context["new_gemini_browser_sends"]==0
-                 and semantic_context["student_publication_authorized"] is False
-                 and semantic_context["original_G3_semantic_mappings_promoted"]==0,
-                 "Offline textbook context cannot bypass G3 scientific QA")
+            if not context:
+                # A physically present publisher quote may still be
+                # unrelated. Two independently unresolved reviewers trigger
+                # new offline context retrieval, never another old Send.
+                from .g3_semantic_context_recovery_v2 import recover
+                semantic_context=recover(
+                    folder=source,task=task,review_root=root)
+                need(semantic_context["new_gemini_browser_sends"]==0
+                     and semantic_context["student_publication_authorized"] is False
+                     and semantic_context["original_G3_semantic_mappings_promoted"]==0,
+                     "Offline textbook context cannot bypass G3 scientific QA")
             status=report["status"]
         return {
             "schema_version":1,"status":status,

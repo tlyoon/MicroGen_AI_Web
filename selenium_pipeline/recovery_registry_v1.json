@@ -1220,6 +1220,34 @@
       "environment": "Dell-115 G3 §8.2 original publisher Example 8.3, original source/reviewer PDF source and existing two independent unresolved replies",
       "retry_policy": "Extract only contiguous source PDF original lines, never replay historical or distinct original Send, no scientific/audio/video/student promotion",
       "enabled": true
+    },
+    {
+      "id": "G3_SOURCE_CONTEXT_SCIENCE_AUTO_FORWARD_20261124",
+      "match_type": "g3_source_context_autoforward",
+      "signature": "TWO_G3_SCIENCE_REVIEWERS_UNRESOLVED_BUT_NEW_PUBLISHER_CONTEXT_FOUND",
+      "mechanism": "BIND_CONTEXT_AND_OLD_DISPUTE_CREATE_DISTINCT_REVIEW_THEN_AUTO_ADVANCE",
+      "classification": "G3_DOUBLE_UNRESOLVED_REVIEW_HAS_NEW_GENUINE_SOURCE_CONTEXT",
+      "handler": "NORMAL_G3_IMMUTABLE_CONTEXT_SCIENCE_AUTO_FORWARD",
+      "preconditions": "Two old source reviewer replies Neon ownership and original publisher slide narration hashes reverified; changed source excerpt physically proven",
+      "verification_test": "tests/test_g3_context_followup_task_v1.py and real Dell source followup plus fault injection",
+      "last_verified_date": "2026-11-24",
+      "environment": "Dell-115 original Serway section 8.2 Example 8.3",
+      "retry_policy": "No old Send replay; finite distinct one-unit context QA, independent challenge; no G3 semantic audio/video/student auto-approval",
+      "enabled": true
+    },
+    {
+      "id": "G3_FINITE_BROWSER_SCIENCE_RESPONSE_WALL_20261124",
+      "match_type": "g3_owned_browser_wall_recovery",
+      "signature": "OWNED_NEON_HIGH_REGISTERED_SEND_STALLED_NO_MODEL_TEXT_FOR_650_SECONDS",
+      "mechanism": "SCOPE_G3_GEMINI_RESPONSE_HARD_MAX_180_AND_QUARANTINE_UNCERTAIN",
+      "classification": "G3_REGISTERED_SEND_GENERATION_STALLED_ZERO_MODEL_TEXT",
+      "handler": "NORMAL_G3_FINITE_SOURCE_BROWSER_RESPONSE_WINDOW",
+      "preconditions": "Exact original one-utterance G3 textbook source, owned Neon High Selenium, durable pre-Send claim and bounded content observer",
+      "verification_test": "tests/test_g3_bounded_owned_browser_window_v1.py and Dell real stalled Gemini owned Send 2026-11-24",
+      "last_verified_date": "2026-11-24",
+      "environment": "Dell-115 Serway 8.2 Example 8.3, real registered Send gave no model text after 650s",
+      "retry_policy": "No old Send replay. Only new G3 science/health gets 180-s absolute vendor capture cap and 120-s idle; independent next task may continue",
+      "enabled": true
     }
   ]
 }
