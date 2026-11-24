@@ -415,11 +415,43 @@ def main(argv=None):
     parser.add_argument("--wait-s",type=int,default=120)
     parser.add_argument("--auto-offline-source-repair",action="store_true")
     parser.add_argument("--auto-semantic-source-repair",action="store_true")
+    parser.add_argument("--auto-forward-science",action="store_true")
+    parser.add_argument("--science-max-sends",type=int,default=4)
+    parser.add_argument("--science-max-tasks",type=int,default=2)
+    parser.add_argument("--science-max-health-probes",type=int,default=2)
+    parser.add_argument("--science-campaign-id",default=None)
     args=parser.parse_args(argv)
+    if args.auto_forward_science:
+        require(args.max_new_sends==0,
+                "New G3 science must not dispatch the unsafe original whole-slide queue")
+        if args.science_campaign_id is None:
+            from datetime import datetime,timezone
+            import hashlib
+            # Identical source+UTC date gives a stable restart budget with
+            # no manual campaign-id input. Next date can advance the NEXT
+            # unreviewed task, but immutable per-task Send claims persist.
+            digest=hashlib.sha256(Path(args.manifest).read_bytes()).hexdigest()[:12]
+            day=datetime.now(timezone.utc).strftime("%Y%m%d")
+            args.science_campaign_id=f"g3_source_auto_{digest}_{day}"
     value=run_campaign(manifest=args.manifest,state_dir=args.state_dir,
                        max_new_sends=args.max_new_sends,wait_s=args.wait_s,
-                       auto_offline_repair=args.auto_offline_source_repair,
-                       auto_semantic_source_repair=args.auto_semantic_source_repair)
+                       auto_offline_repair=(
+                           args.auto_offline_source_repair or args.auto_forward_science),
+                       auto_semantic_source_repair=(
+                           args.auto_semantic_source_repair or args.auto_forward_science))
+    if args.auto_forward_science:
+        from .g3_continuous_advance_v1 import advance
+        progress=advance(
+            manifest=args.manifest,state_root=args.state_dir,
+            campaign_id=args.science_campaign_id,
+            max_science_sends=args.science_max_sends,
+            max_tasks=args.science_max_tasks,
+            max_health_probes=args.science_max_health_probes,
+            execute=True)
+        value={"source_only_recovery":value,
+               "continuing_science_automatically":progress,
+               "original_historical_send_replayed":False,
+               "student_publication_authorized":False}
     print(json.dumps(value,ensure_ascii=False,indent=2))
     return 0
 

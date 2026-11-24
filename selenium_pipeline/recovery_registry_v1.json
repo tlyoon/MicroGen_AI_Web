@@ -1220,6 +1220,20 @@
       "environment": "Dell-115 G3 §8.2 original publisher Example 8.3, original source/reviewer PDF source and existing two independent unresolved replies",
       "retry_policy": "Extract only contiguous source PDF original lines, never replay historical or distinct original Send, no scientific/audio/video/student promotion",
       "enabled": true
+    },
+    {
+      "id": "G3_SOURCE_CONTEXT_SCIENCE_AUTO_FORWARD_20261124",
+      "match_type": "g3_source_context_autoforward",
+      "signature": "TWO_G3_SCIENCE_REVIEWERS_UNRESOLVED_BUT_NEW_PUBLISHER_CONTEXT_FOUND",
+      "mechanism": "BIND_CONTEXT_AND_OLD_DISPUTE_CREATE_DISTINCT_REVIEW_THEN_AUTO_ADVANCE",
+      "classification": "G3_DOUBLE_UNRESOLVED_REVIEW_HAS_NEW_GENUINE_SOURCE_CONTEXT",
+      "handler": "NORMAL_G3_IMMUTABLE_CONTEXT_SCIENCE_AUTO_FORWARD",
+      "preconditions": "Two old source reviewer replies Neon ownership and original publisher slide narration hashes reverified; changed source excerpt physically proven",
+      "verification_test": "tests/test_g3_context_followup_task_v1.py and real Dell source followup plus fault injection",
+      "last_verified_date": "2026-11-24",
+      "environment": "Dell-115 original Serway section 8.2 Example 8.3",
+      "retry_policy": "No old Send replay; finite distinct one-unit context QA, independent challenge; no G3 semantic audio/video/student auto-approval",
+      "enabled": true
     }
   ]
 }
