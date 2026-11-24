@@ -1248,6 +1248,20 @@
       "environment": "Dell-115 Serway 8.2 Example 8.3, real registered Send gave no model text after 650s",
       "retry_policy": "No old Send replay. Only new G3 science/health gets 180-s absolute vendor capture cap and 120-s idle; independent next task may continue",
       "enabled": true
+    },
+    {
+      "id": "G3_UNCERTAIN_SOURCE_SEND_PERSISTS_ACROSS_CAMPAIGN_DAYS_20261124",
+      "match_type": "g3_cross_campaign_held_send",
+      "signature": "G3_UNCERTAIN_ONE_SEND_REAPPEARS_AS_ELIGIBLE_NEXT_CAMPAIGN",
+      "mechanism": "SKIP_HELD_OR_UNVERIFIED_SCOPE_ACROSS_CAMPAIGNS_NO_SEND",
+      "classification": "G3_STALE_UNCERTAIN_ONE_SEND_IN_NEW_SOURCE_BUDGET",
+      "handler": "NORMAL_G3_SCOPE_PERSISTENT_UNCERTAIN_SEND_EXCLUSION",
+      "preconditions": "Actual original source-claim directory in immutable G3 state; source PDF and exact original reviewer transcript must never be replayed under new campaign",
+      "verification_test": "tests/test_g3_cross_campaign_no_replay_v1.py and Dell real original 8.2/8.3 G3 state source-only inventory",
+      "last_verified_date": "2026-11-24",
+      "environment": "Dell-115 original §8.2 source G3 scope a711ab74057f; registered Gemini Send with no verified model reply",
+      "retry_policy": "Skip original per-scope status SUBMITTED_OR_UNCERTAIN, NO_RESPONSE_UNRESOLVED, rejected/legacy, missing claim and invalid prior request state before any new campaign budget is reserved; process independent source units",
+      "enabled": true
     }
   ]
 }
