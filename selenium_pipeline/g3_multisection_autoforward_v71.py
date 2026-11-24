@@ -375,12 +375,25 @@ def run_campaign(*,manifest:Path,state_dir:Path,
                     and semantic_tasks["independent_scientific_QA_accepted"]==0
                     and semantic_tasks["student_publication_authorized"] is False,
                     "Only independent semantic review tasks, never approval")
+        gap_recovery=None
+        if auto_semantic_source_repair:
+            from .g3_prepass_source_gap_repair_v1 import materialize as close_gaps
+            gap_recovery=close_gaps(
+                specs=specs,
+                worklist_root=root/"offline_source_quote_worklists_v2",
+                state_root=root)
+            require(gap_recovery["new_browser_sends"]==0
+                    and gap_recovery["paid_gemini_API_calls"]==0
+                    and gap_recovery["academic_source_acceptances_added"]==0
+                    and gap_recovery["student_publication_authorized"] is False,
+                    "Missing-source repair is never an academic approval")
         return {
             "schema_version":1,
             "historical_uncertain_captures":historical_uncertain_captures,
             "historical_quarantine_evidence_receipt":historical_receipt,
             "source_rejected_offline_recovery":offline_worklists,
             "semantic_source_recovery":semantic_tasks,
+            "prepass_source_gap_recovery":gap_recovery,
             "status":("G3_SOURCE_MAPPING_INPUT_REVIEW_COVERAGE_COMPLETE_REVIEW_ONLY"
                       if counters["untouched_original_slides"]==0 and
                          counters["quarantined_or_uncertain_original_slides"]==0

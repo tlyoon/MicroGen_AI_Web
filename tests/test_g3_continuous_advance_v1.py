@@ -19,9 +19,12 @@ def campaign(tmp_path,monkeypatch):
     }
     monkeypatch.setattr(driver,"_verified_specs",lambda p:({},[spec]))
     monkeypatch.setattr(driver,"_after_incident",lambda **kw:0)
+    from selenium_pipeline import g3_browser_post_send_health_gate_v1 as gate
+    monkeypatch.setattr(gate,"latest_unresolved_incident",lambda **kw:0.0)
     monkeypatch.setattr(driver,"latest_health",lambda **kw:{
         "status":"G3_SOURCE_FREE_NEON_HIGH_HEALTH_VERIFIED",
-        "fresh_neon_high_source_free_health":True})
+        "fresh_neon_high_source_free_health":True,
+        "observed_unix":100.0})
     return state,manifest,spec
 
 
@@ -139,7 +142,8 @@ def test_source_health_probe_separately_capped_and_original_pdf_never_uploaded(
     monkeypatch.setattr(driver,"probe_once",
         lambda **kw:(counted.append(kw) or {
             "status":"G3_SOURCE_FREE_NEON_HIGH_HEALTH_VERIFIED",
-            "fresh_neon_high_source_free_health":True}))
+            "fresh_neon_high_source_free_health":True,
+            "observed_unix":100.0}))
     monkeypatch.setattr(driver,"run_one",lambda **kw:{
         "status":"G3_SCOPED_SOURCE_ONLY_NO_APPROVAL",
         "possible_sends_reserved":2,
@@ -232,3 +236,26 @@ def test_held_unreconciled_source_send_does_not_strand_another_task(
     again=driver.advance(**args)
     assert again["stages_advanced_this_run"]==0
     assert models==["1"*64,"2"*64]
+
+
+def test_stale_health_after_realistic_uncertain_send_never_reserves_new_budget(
+        campaign,monkeypatch):
+    from selenium_pipeline import g3_browser_post_send_health_gate_v1 as gate
+    state,manifest,spec=campaign
+    item_one=item(spec,"7"*64,"NEW_PUBLISHER_PREPASS")
+    monkeypatch.setattr(driver,"_eligible",lambda **kw:[item_one])
+    monkeypatch.setattr(gate,"latest_unresolved_incident",lambda **kw:200.0)
+    monkeypatch.setattr(driver,"latest_health",lambda **kw:{
+        "status":"G3_SOURCE_FREE_NEON_HIGH_HEALTH_VERIFIED",
+        "fresh_neon_high_source_free_health":True,
+        "observed_unix":100.0})
+    monkeypatch.setattr(driver,"run_one",
+        lambda **kw:pytest.fail("Cannot Send under stale post-error model health"))
+    receipt=driver.advance(
+        manifest=manifest,state_root=state,
+        campaign_id="stale_provider_receipt_20261124",
+        max_science_sends=2,max_tasks=1,max_health_probes=0)
+    assert receipt["stages_advanced_this_run"]==0
+    assert receipt["science_browser_sends_reserved"]==0
+    assert receipt["stage_results"][0]["status"]==(
+        "FRESH_OWNED_NEON_HEALTH_REQUIRED_NO_SOURCE_SEND")

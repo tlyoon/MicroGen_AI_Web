@@ -57,6 +57,8 @@ _HANDLERS = {
     "g3_source_context_autoforward": "NORMAL_G3_IMMUTABLE_CONTEXT_SCIENCE_AUTO_FORWARD",
     "g3_owned_browser_wall_recovery": "NORMAL_G3_FINITE_SOURCE_BROWSER_RESPONSE_WINDOW",
     "g3_cross_campaign_held_send": "NORMAL_G3_SCOPE_PERSISTENT_UNCERTAIN_SEND_EXCLUSION",
+    "g3_prepass_source_gap_repair": "NORMAL_G3_ORIGINAL_SOURCE_TRANSITION_VS_SCIENCE_REPAIR",
+    "g3_post_send_health_invalidation": "NORMAL_G3_REQUIRE_POST_INCIDENT_SOURCE_HEALTH",
     "g3_rejected_content_continuation": "NORMAL_SOURCE_REJECTION_WITHOUT_PROVIDER_UNCERTAINTY",
     "v71_polling_journal_recovery": "NORMAL_IMMUTABLE_IDLE_JOURNAL_COMPACTION",
     "caption_identity_parity": "NORMAL_REAL_SOURCE_FIGURE_CAPTION_CROSS_PARSER_CHECK",

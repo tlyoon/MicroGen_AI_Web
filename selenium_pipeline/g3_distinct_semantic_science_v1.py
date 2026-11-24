@@ -41,6 +41,11 @@ REPORT="G3_DISTINCT_SEMANTIC_TWO_PASS_SCIENCE_AI_EVIDENCE_NO_ORIGINAL_PROMOTION"
 def _pinned_task(*,spec:dict,worklist_root:Path,task_file:Path)->dict:
     task_file=Path(task_file).absolute()
     row=_read(task_file,limit=100_000)
+    if row.get("status")==(
+            "G3_REPAIRED_SOURCE_CLAIM_REQUIRES_TWO_PASS_SCIENCE_NO_SEND"):
+        from .g3_prepass_source_gap_repair_v1 import pinned
+        return pinned(spec=spec,state_root=Path(worklist_root).absolute().parent,
+                      task_file=task_file)
     if row.get("status")=="G3_DISTINCT_EXAMPLE_CONTEXT_SCIENCE_REVIEW_READY_NO_SEND":
         from .g3_context_followup_task_v1 import pinned
         return pinned(spec=spec,state_root=Path(worklist_root).absolute().parent,
@@ -189,10 +194,14 @@ def run_one(*,spec:dict,task_file:Path,
                           task_file=task_file)
         scope=task["scope_sha256"]
         context=task["status"]=="G3_DISTINCT_EXAMPLE_CONTEXT_SCIENCE_REVIEW_READY_NO_SEND"
-        job=task["review_job"] if context else task["science_review_job"]
+        prepass=task["status"]=="G3_REPAIRED_SOURCE_CLAIM_REQUIRES_TWO_PASS_SCIENCE_NO_SEND"
+        job=(task["review_job"] if context else
+             task["new_scientific_source_review_job"] if prepass else
+             task["science_review_job"])
         source=Path(spec["source_folder"]).absolute()
         root=state_root/(
             "g3_distinct_example_context_reviews_v1" if context else
+            "g3_prepass_source_science_reviews_v1" if prepass else
             "g3_distinct_semantic_science_reviews_v1")/scope
         need(not root.is_symlink() and not root.is_relative_to(source),
              "Redirected G3 scientific review owner")
@@ -289,7 +298,7 @@ def run_one(*,spec:dict,task_file:Path,
                     "student_publication_authorized":False,
                 }
             _write_once(root/"two_pass_science_evidence.json",report)
-            if not context:
+            if not context and not prepass:
                 # A physically present publisher quote may still be
                 # unrelated. Two independently unresolved reviewers trigger
                 # new offline context retrieval, never another old Send.
