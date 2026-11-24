@@ -1430,6 +1430,20 @@
       "environment": "Dell-115 production MicroGen_AI_Web original G2 and G3 source-bound review state, preserved old uncertain model Sends",
       "retry_policy": "Run bounded independent source-only G2/G3 actions; isolate blockers; pin acceptance gates and original journal SHA; never replay uncertain Sends, use paid science API, auto-grant approval or publish",
       "enabled": true
+    },
+    {
+      "id": "G2_RANKED_V3_FINITE_SELENIUM_SCIENCE_HANDOFF_20261124",
+      "match_type": "g2_ranked_v3_owned_science_handoff",
+      "signature": "G2_RANKED_V3_REVIEW_INPUT_NEEDS_DISTINCT_NEON_MODEL_CLAIM",
+      "mechanism": "BIND_ORIGINAL_RANKED_INPUT_TO_OWNED_FINITE_SELENIUM_SCIENCE_REVIEW",
+      "classification": "G2_ORIGINAL_V3_PHYSICAL_REVIEW_INPUT_WITHOUT_OWNED_TWO_PASS_SELENIUM_DISPATCH",
+      "handler": "NORMAL_G2_V3_FINITE_OWNED_SELENIUM_SCIENCE_REVIEW_HANDOFF",
+      "preconditions": "Exact saved V3 source and prompt hashes, original publisher source and old uncertain claim, EXISTING original finite G2 science campaign, fresh owned Neon/High health",
+      "verification_test": "tests/test_g2_ranked_v3_owned_selenium_handoff_v1.py original source fixture, finite budget, fresh-health gate, uncertain one-Send no replay and old campaign identity; Dell all nine originals",
+      "last_verified_date": "2026-11-24",
+      "environment": "Dell-115 MicroGen_AI_Web saved original G2 Serway 1.3 nine ranked V3 review input scopes",
+      "retry_policy": "Never invent campaign, replay old V1 or V3 possible Sends, call paid Gemini science API or count a single model reply as two-pass agreement; hold one stage and continue others",
+      "enabled": true
     }
   ]
 }
