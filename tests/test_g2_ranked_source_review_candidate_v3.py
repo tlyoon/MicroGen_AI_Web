@@ -4,11 +4,12 @@ import copy,hashlib,json
 from pathlib import Path
 import pytest
 
-from selenium_pipeline import g2_ranked_source_review_candidate_v2 as v2
+from selenium_pipeline import g2_ranked_source_review_candidate_v3 as v2
 from selenium_pipeline import g2_focused_source_target_preflight_v1 as pre
 from selenium_pipeline import g2_distinct_focused_source_review_v1 as focused
 from selenium_pipeline import autonomous_recovery_continuation_v1 as ctl
 from selenium_pipeline.recovery_registry import lookup_mechanism
+from selenium_pipeline.ai_academic_web_review import review_instructions
 from tests.test_g2_distinct_focused_source_review_v1 import real_source_fixture
 from tests.test_autonomous_recovery_continuation_v1 import campaign_fixture
 
@@ -52,8 +53,18 @@ def test_mismatch_generates_distinct_physical_source_review_job_without_sends(
     assert payload["scope_sha256"]!=original["scope_sha256"]
     assert payload["original_focused_wrong_target_scope_sha256"]==(
         original["scope_sha256"])
+    assert payload["schema_version"]==3
     assert payload["new_initial_prompt_sha256"]!=payload[
         "new_challenge_prompt_sha256"]
+    # The prompts must rehash from the EXACT persisted JSON job. The prior
+    # V2 packet silently changed its prompt when sorted JSON was reloaded.
+    reloaded_job=payload["source_science_review_job"]
+    assert hashlib.sha256(review_instructions(
+        reloaded_job,mode="INITIAL_REVIEW").encode()).hexdigest()==(
+            payload["new_initial_prompt_sha256"])
+    assert hashlib.sha256(review_instructions(
+        reloaded_job,mode="INDEPENDENT_CHALLENGE").encode()).hexdigest()==(
+            payload["new_challenge_prompt_sha256"])
     assert payload["original_legacy_rendered_target_id"]=="s003.text.000"
     assert payload["corrected_ranked_physical_target_id"]=="s003.text.001"
     job_v2=payload["source_science_review_job"]
@@ -61,7 +72,7 @@ def test_mismatch_generates_distinct_physical_source_review_job_without_sends(
     assert job_v2["slides"][0]["visual_targets"][0]["visible_text"]==(
         real_source_fixture[3])
     assert "focused_source_review_v1" not in job_v2
-    assert job_v2["focused_source_review_v2"]["independent_scientific_two_pass_QA_required"] is True
+    assert job_v2["focused_source_review_v3"]["independent_scientific_two_pass_QA_required"] is True
     assert payload["source_only_ranking_is_scientific_proof"] is False
     assert payload["independent_academic_QA_complete"] is False
     assert not (queue.parent/focused.REVIEW_ROOT_NAME).exists()

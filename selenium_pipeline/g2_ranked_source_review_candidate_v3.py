@@ -4,7 +4,7 @@ The legacy focused selector chooses the first eligible rendered element by
 PDF traversal order, which can be a chapter heading instead of the physical
 quantity being narrated. Preserve all previously reviewed V1 responses and
 the original uncertain whole-slide requests. Pin the top physically verified
-ranked rendered target in a NEW, SHA-distinct V2 candidate. Independent
+ranked rendered target in a NEW, SHA-distinct V3 candidate, preserving old V2 packets. Independent
 scientific review, fresh provider health, a new legal finite budget and an
 owned Selenium-only transport remain required in a separate later stage.
 """
@@ -25,8 +25,8 @@ from .recovery_registry import lookup_mechanism
 KIND="g2_ranked_source_review_candidate"
 SIGNATURE="G2_LEGACY_TITLE_TARGET_MISMATCH_NEEDS_NEW_PHYSICAL_TARGET_REVIEW_INPUT"
 MECHANISM="PIN_SEPARATE_RANKED_SOURCE_REVIEW_JOB_WITHOUT_REPLAY_OR_APPROVAL"
-ROOT="G2_RANKED_SOURCE_REVIEW_CANDIDATES_V2"
-STATUS="G2_RANKED_SOURCE_SCIENCE_INPUT_STAGED_UNAPPROVED_NO_SEND"
+ROOT="G2_RANKED_SOURCE_REVIEW_CANDIDATES_V3"
+STATUS="G2_RANKED_SOURCE_SCIENCE_INPUT_V3_STAGED_UNAPPROVED_NO_SEND"
 MAX_JOB=50000
 
 
@@ -102,7 +102,7 @@ def stage(*,folder:Path,queue_root:Path,
     job["slides"][0]["visual_targets"]=[copy.deepcopy(originals[0])]
     job.pop("focused_source_review_v1",None)
     source_scope=_digest({
-        "schema_version":2,"kind":"G2_DISTINCT_RANKED_SOURCE_SCIENCE_V2",
+        "schema_version":3,"kind":"G2_DISTINCT_RANKED_SOURCE_SCIENCE_V3",
         "source":shas,"legacy_focused_scope":item["scope_sha256"],
         "original_claim_sha256":item["original_claim_sha256"],
         "preflight_scope":prior["scope_sha256"],
@@ -110,8 +110,8 @@ def stage(*,folder:Path,queue_root:Path,
         "corrected_original_target_id":target_id,
         "original_target_text_sha256":need_rows[0]["original_rendered_sha256"],
         "original_quote_sha256":prior["physically_witnessed_quote_sha256"]})
-    job["focused_source_review_v2"]={
-        "status":"NEW_RANKED_PHYSICAL_TARGET_SOURCE_REVIEW_INPUT_NO_SEND",
+    job["focused_source_review_v3"]={
+        "status":"NEW_RANKED_PHYSICAL_TARGET_SOURCE_REVIEW_INPUT_V3_NO_SEND",
         "scope_sha256":source_scope,
         "legacy_focused_scope_sha256":item["scope_sha256"],
         "original_prior_wrong_target_id":prior[
@@ -121,6 +121,12 @@ def stage(*,folder:Path,queue_root:Path,
         "source_passage_is_academic_proof":False,
         "independent_scientific_two_pass_QA_required":True,
         "student_publication_authorized":False}
+    # The shared prompt generator preserves dictionary insertion order.
+    # Normalize to the EXACT persisted sorted-key JSON ordering BEFORE
+    # hashing; otherwise reloading the immutable packet changes its prompt.
+    # Never alter the global old-review prompt canonicalization: old model
+    # claims and their SHA fingerprints must remain byte-for-byte valid.
+    job=json.loads(_canonical(job).decode("utf8"))
     first=review_instructions(job,mode="INITIAL_REVIEW")
     second=review_instructions(job,mode="INDEPENDENT_CHALLENGE")
     require(first!=second
@@ -130,7 +136,7 @@ def stage(*,folder:Path,queue_root:Path,
             and len(_canonical(job))<=MAX_JOB,
             "New G2 ranked review must have distinct bounded unapproved prompts")
     packet={
-        "schema_version":2,"status":STATUS,
+        "schema_version":3,"status":STATUS,
         "scope_sha256":source_scope,
         "original_preflight_scope_sha256":prior["scope_sha256"],
         "original_preflight_file_sha256":_sha(source_preflight_file),

@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from selenium_pipeline import g2_focused_source_target_preflight_v1 as pre
-from selenium_pipeline import g2_ranked_source_review_candidate_v2 as v2
+from selenium_pipeline import g2_ranked_source_review_candidate_v3 as v2
 from selenium_pipeline import g2_distinct_focused_source_review_v1 as focused
 from selenium_pipeline import autonomous_recovery_continuation_v1 as ctl
 from selenium_pipeline.recovery_registry import lookup_mechanism

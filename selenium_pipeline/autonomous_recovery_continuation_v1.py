@@ -447,9 +447,9 @@ def run_campaign(*, folder: Path, queue_root: Path, work_root: Path,
             if (source_preflight is not None and
                     source_preflight["status"]==
                     "G2_FOCUSED_RENDERED_TARGET_RANK_MISMATCH_NO_SEND"):
-                from .g2_ranked_source_review_candidate_v2 import (
-                    stage as stage_ranked_v2)
-                candidate_v2=stage_ranked_v2(
+                from .g2_ranked_source_review_candidate_v3 import (
+                    stage as stage_ranked_v3)
+                candidate_v2=stage_ranked_v3(
                     folder=folder,queue_root=queue_root,item=item,
                     source_preflight=source_preflight)
                 require(candidate_v2["new_browser_sends"]==0
