@@ -68,6 +68,7 @@ _HANDLERS = {
     "g3_untouched_source_witness": "NORMAL_G3_STAGE_ORIGINAL_PUBLISHER_SOURCE_WITNESS_NO_SEND",
     "g3_source_media_technical_preflight": "NORMAL_G3_SOURCE_BOUND_MEDIA_TECHNICAL_CHECK_NO_ACCEPTANCE",
     "g3_original_video_page_parity": "NORMAL_G3_WITNESS_ORIGINAL_SLIDE_PAGES_IN_ENCODED_VIDEO_NO_ACCEPTANCE",
+    "completion_driven_acceptance_scheduler": "NORMAL_G2_G3_COMPLETION_GATES_SOURCE_ONLY_AUTOFORWARD",
     "g3_rejected_content_continuation": "NORMAL_SOURCE_REJECTION_WITHOUT_PROVIDER_UNCERTAINTY",
     "v71_polling_journal_recovery": "NORMAL_IMMUTABLE_IDLE_JOURNAL_COMPACTION",
     "caption_identity_parity": "NORMAL_REAL_SOURCE_FIGURE_CAPTION_CROSS_PARSER_CHECK",
