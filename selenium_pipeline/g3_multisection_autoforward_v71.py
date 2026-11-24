@@ -471,7 +471,12 @@ def main(argv=None):
     parser.add_argument("--science-max-tasks",type=int,default=2)
     parser.add_argument("--science-max-health-probes",type=int,default=2)
     parser.add_argument("--science-campaign-id",default=None)
+    parser.add_argument("--auto-offline-media-qa",action="store_true")
+    parser.add_argument("--media-root",type=Path)
     args=parser.parse_args(argv)
+    if args.auto_offline_media_qa:
+        require(args.media_root is not None and args.max_new_sends==0,
+                "G3 technical media preflight requires an original media root and zero original Sends")
     if args.auto_forward_science:
         require(args.max_new_sends==0,
                 "New G3 science must not dispatch the unsafe original whole-slide queue")
@@ -503,6 +508,20 @@ def main(argv=None):
                "continuing_science_automatically":progress,
                "original_historical_send_replayed":False,
                "student_publication_authorized":False}
+    if args.auto_offline_media_qa:
+        from .g3_source_media_technical_preflight_v1 import materialize
+        technical=materialize(manifest=args.manifest,
+            media_root=args.media_root,state_root=args.state_dir)
+        require(technical["new_browser_sends"]==0
+                and technical["new_paid_gemini_API_calls"]==0
+                and technical["independent_scientific_QA_complete"] is False
+                and technical["independent_acoustic_QA_complete"] is False
+                and technical["independent_video_QA_complete"] is False
+                and technical["student_publication_authorized"] is False,
+                "Source-bound media technical evidence cannot certify G3")
+        value={"source_science_progress":value,
+            "source_bound_technical_media_QA":technical,
+            "student_publication_authorized":False}
     print(json.dumps(value,ensure_ascii=False,indent=2))
     return 0
 

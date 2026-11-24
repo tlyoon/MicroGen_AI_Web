@@ -1388,6 +1388,20 @@
       "environment": "Dell-115 original Serway 1.3 G2 source-target mismatches, zero-Send independent evidence",
       "retry_policy": "Stage new source-scoped V3 review input and stable prompt SHA after JSON reload; preserve old V1/V2 bytes; require new health/transport/budget before Send, no API fallback or approval",
       "enabled": true
+    },
+    {
+      "id": "G3_SOURCE_MEDIA_TECHNICAL_QA_20261124",
+      "match_type": "g3_source_media_technical_preflight",
+      "signature": "G3_MATCHED_ORIGINAL_TEXTBOOK_MEDIA_NOT_INDEPENDENTLY_TECHNICALLY_VERIFIED",
+      "mechanism": "CHECK_SOURCE_PINNED_WAV_AND_INDEPENDENT_VIDEO_AUDIO_DECODE_NO_RELEASE",
+      "classification": "ORIGINAL_SOURCE_PINNED_G3_MEDIA_AWAITING_OFFLINE_SIGNAL_AND_VIDEO_DECODE",
+      "handler": "NORMAL_G3_SOURCE_BOUND_MEDIA_TECHNICAL_CHECK_NO_ACCEPTANCE",
+      "preconditions": "Original G3 Serway 8.2/8.3 source manifest, matching media source/slides/script exact SHA, real WAV/MP4 inventory and independent FFmpeg stream decode with bounded duration",
+      "verification_test": "tests/test_g3_source_media_technical_preflight_v1.py and real Dell Serway 8.2/8.3 WAV/MP4 decoding; no scientific/acoustic/video acceptance",
+      "last_verified_date": "2026-11-24",
+      "environment": "Dell-115 pinned G3 textbook source and actual 8.2/8.3 lecture MP4 and WAV source folders",
+      "retry_policy": "Decode video and audio streams separately to avoid sparse-video mux buffer errors; prove media source SHA and timelines, pin immutable receipt, never grant academic QA or release",
+      "enabled": true
     }
   ]
 }
