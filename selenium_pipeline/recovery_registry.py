@@ -56,6 +56,7 @@ _HANDLERS = {
     "g3_semantic_context_recovery": "NORMAL_G3_SCIENTIFIC_REVIEW_CONTEXT_RETRIEVAL",
     "g3_source_context_autoforward": "NORMAL_G3_IMMUTABLE_CONTEXT_SCIENCE_AUTO_FORWARD",
     "g3_owned_browser_wall_recovery": "NORMAL_G3_FINITE_SOURCE_BROWSER_RESPONSE_WINDOW",
+    "g3_cross_campaign_held_send": "NORMAL_G3_SCOPE_PERSISTENT_UNCERTAIN_SEND_EXCLUSION",
     "g3_rejected_content_continuation": "NORMAL_SOURCE_REJECTION_WITHOUT_PROVIDER_UNCERTAINTY",
     "v71_polling_journal_recovery": "NORMAL_IMMUTABLE_IDLE_JOURNAL_COMPACTION",
     "caption_identity_parity": "NORMAL_REAL_SOURCE_FIGURE_CAPTION_CROSS_PARSER_CHECK",

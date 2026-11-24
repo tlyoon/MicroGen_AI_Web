@@ -31,6 +31,56 @@ KIND="g3_source_context_autoforward"
 SIGNATURE="TWO_G3_SCIENCE_REVIEWERS_UNRESOLVED_BUT_NEW_PUBLISHER_CONTEXT_FOUND"
 MECHANISM="BIND_CONTEXT_AND_OLD_DISPUTE_CREATE_DISTINCT_REVIEW_THEN_AUTO_ADVANCE"
 ORIGINAL="G3_DISTINCT_SOURCE_SEMANTIC_QA_READY_NO_SEND"
+UNSAFE_REPLAY_STATES={
+    "SUBMITTED_OR_UNCERTAIN","NO_RESPONSE_UNRESOLVED",
+    "REJECTED_RESPONSE_UNTRUSTED","LEGACY_SENT_NO_RESPONSE",
+}
+
+
+def _prior_uncertain_send(*,review_root:Path,scope:str)->bool:
+    """Skip an already possibly-sent source claim across *all* campaigns.
+
+    Per-source academic checkpoints outlive daily global Send budgets.
+    A fresh date must never turn an uncertain old request into a new
+    eligible task, wasting budget or replaying that request.
+    """
+    from .academic_review_checkpoint import _load
+    need(lookup_mechanism(
+        "g3_cross_campaign_held_send",
+        "G3_UNCERTAIN_ONE_SEND_REAPPEARS_AS_ELIGIBLE_NEXT_CAMPAIGN"
+    )=="SKIP_HELD_OR_UNVERIFIED_SCOPE_ACROSS_CAMPAIGNS_NO_SEND",
+         "Source-claim cross-campaign exclusion missing from repair registry")
+    home=Path(review_root).absolute()/scope
+    if not home.exists():
+        return False
+    need(home.is_dir() and not home.is_symlink(),
+         "Unsafe prior G3 science checkpoint")
+    for name in ("initial_request","challenge_request"):
+        claim=home/name
+        if not claim.exists():
+            continue
+        need(claim.is_dir() and not claim.is_symlink(),
+             "Invalid previous owned academic request directory")
+        state=claim/"request_state.json"
+        if not state.is_file() or state.is_symlink():
+            # Incomplete or corrupted checkpoint: do not trust a
+            # newly generated campaign to replay the possibly-sent claim.
+            return True
+        row=_load(claim)
+        status=row["status"]
+        if (status=="PREPARED_NOT_SENT"
+                and (claim/"dispatch_attempted.claim").exists()):
+            return True
+        if status in UNSAFE_REPLAY_STATES:
+            if status in {"SUBMITTED_OR_UNCERTAIN",
+                          "NO_RESPONSE_UNRESOLVED"}:
+                observed=claim/"model_response_identity.json"
+                if observed.is_file() and not observed.is_symlink():
+                    # Old response may be independently recoverable by
+                    # run_one's exact-fingerprint, source-bound _saved().
+                    continue
+            return True
+    return False
 
 
 def _eligible(*,specs:list,state_root:Path,
@@ -77,7 +127,10 @@ def _eligible(*,specs:list,state_root:Path,
                     followup,ft=stage_context(
                         spec=spec,state_root=state_root,original_task=file)
                     done=state_root/REVIEW_ROOT/ft["scope_sha256"]/"two_pass_science_evidence.json"
-                    if not done.exists():
+                    if (not done.exists()
+                            and not _prior_uncertain_send(
+                                review_root=state_root/REVIEW_ROOT,
+                                scope=ft["scope_sha256"])):
                         items.append({"section":spec["section"],
                             "utterance_id":ft["original_utterance_id"],
                             "original_slide":task["original_rejected_slide"],
@@ -85,11 +138,14 @@ def _eligible(*,specs:list,state_root:Path,
                             "scope":ft["scope_sha256"],
                             "spec":spec,"file":followup})
                 continue
-            items.append({"section":spec["section"],
-                          "utterance_id":task["original_utterance_id"],
-                          "original_slide":task["original_rejected_slide"],
-                          "kind":"ORIGINAL_DISTINCT",
-                          "scope":scope,"spec":spec,"file":file})
+            if not _prior_uncertain_send(
+                    review_root=state_root/"g3_distinct_semantic_science_reviews_v1",
+                    scope=scope):
+                items.append({"section":spec["section"],
+                              "utterance_id":task["original_utterance_id"],
+                              "original_slide":task["original_rejected_slide"],
+                              "kind":"ORIGINAL_DISTINCT",
+                              "scope":scope,"spec":spec,"file":file})
     # Scientifically new context is a direct next stage; do not strand
     # it behind yet-unstarted original narrations with irrelevant citations.
     return sorted(items,key=lambda x:(
