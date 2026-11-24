@@ -146,10 +146,46 @@ def _eligible(*,specs:list,state_root:Path,
                               "original_slide":task["original_rejected_slide"],
                               "kind":"ORIGINAL_DISTINCT",
                               "scope":scope,"spec":spec,"file":file})
-    # Scientifically new context is a direct next stage; do not strand
-    # it behind yet-unstarted original narrations with irrelevant citations.
+    # Include entirely new publisher-context evidence discovered BEFORE
+    # any review Send. Navigation-only utterances must NOT enter the
+    # science-Send queue; their visual QA remains a separate obligation.
+    from .g3_prepass_source_gap_repair_v1 import (
+        ROOT as GAP_ROOT, SCI_ROOT as GAP_SCI_ROOT, STATUS_SCI)
+    for spec in specs:
+        if section is not None and spec["section"]!=section:
+            continue
+        folder=state_root/GAP_ROOT/spec["section"]
+        if not folder.exists():
+            continue
+        need(folder.is_dir() and not folder.is_symlink(),
+             "Unsafe recovered source-gap task inventory")
+        files=sorted(folder.glob("*.json"))
+        need(len(files)<=128,"Unbounded new G3 publisher tasks")
+        for file in files:
+            row=_read(file)
+            if row.get("status")!=STATUS_SCI:
+                continue
+            if (utterance_id is not None and
+                    row["original_utterance_id"]!=utterance_id):
+                continue
+            scope=row["scope_sha256"]
+            report=state_root/GAP_SCI_ROOT/scope/"two_pass_science_evidence.json"
+            if report.exists():
+                need(report.is_file() and not report.is_symlink(),
+                     "Invalid saved G3 source-gap science result")
+                continue
+            if _prior_uncertain_send(
+                    review_root=state_root/GAP_SCI_ROOT,scope=scope):
+                continue
+            items.append({"section":spec["section"],
+                          "utterance_id":row["original_utterance_id"],
+                          "original_slide":row["original_slide"],
+                          "kind":"NEW_PUBLISHER_PREPASS",
+                          "scope":scope,"spec":spec,"file":file})
+    # Publisher-gap source context is an eligible NEW task; prioritize
+    # it along with new context over repeated old source attempts.
     return sorted(items,key=lambda x:(
-        0 if x["kind"]=="NEW_CONTEXT" else 1,
+        {"NEW_PUBLISHER_PREPASS":0,"NEW_CONTEXT":1}.get(x["kind"],2),
         x["section"],x["original_slide"],x["utterance_id"]))
 
 
