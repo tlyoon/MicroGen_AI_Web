@@ -322,6 +322,7 @@ def run_campaign(*, folder: Path, queue_root: Path, work_root: Path,
                  execute: bool = False,
                  auto_health: bool = False,
                  max_actions: int = 12,
+                 stage_source_only: bool = False,
                  initial_runner=None, challenge_runner=None,
                  health_probe=None,
                  source_consensus=None, consensus_bridge=None) -> dict:
@@ -334,6 +335,7 @@ def run_campaign(*, folder: Path, queue_root: Path, work_root: Path,
     require(lookup_mechanism(KIND,SIGNATURE)==MECHANISM,
             "Autonomous recovery handler not in executable registry")
     require(type(execute) is bool and type(auto_health) is bool
+            and type(stage_source_only) is bool
             and type(max_actions) is int and 1<=max_actions<=24,
             "Unsafe autonomous continuation contract")
     folder,queue_root,work_root = map(_safe_path, (
@@ -398,8 +400,13 @@ def run_campaign(*, folder: Path, queue_root: Path, work_root: Path,
             if phase=="HOLD_UNCERTAIN":
                 status="HOLD_UNCERTAIN_NEW_REVIEW_NO_REPLAY"
                 blocked.add(uid)
-                # Do not continue dispatching new provider requests after a
-                # newly uncertain source review, even if other tasks exist.
+                work_done.append({"unit":uid,"phase":phase,
+                                  "new_provider_requests":0})
+                if stage_source_only and not execute:
+                    # Source-only planning may inspect a DIFFERENT task;
+                    # the historic held task is still never dispatched.
+                    continue
+                # Model egress remains stopped by an uncertain new Send.
                 break
             if phase=="RECONCILE":
                 try:
@@ -419,10 +426,41 @@ def run_campaign(*, folder: Path, queue_root: Path, work_root: Path,
                     break
                 blocked.add(uid)
                 continue
+            # New source-focused tasks must not target a slide heading
+            # simply because it appears first in original PDF element order.
+            # Physically witness and quarantine mismatched targets BEFORE
+            # any health probe or possible Gemini model Send.
+            selected_target=item["job"]["slides"][0]["visual_targets"][0]["id"]
+            ranked=item["job"]["slides"][0]["utterances"][0][
+                "ranked_candidates"]
+            require(bool(ranked),"Focused original narration has no ranked target")
+            source_preflight=None
+            if ((not execute and stage_source_only)
+                    or (execute and selected_target!=ranked[0])):
+                from .g2_focused_source_target_preflight_v1 import stage
+                source_preflight=stage(
+                    folder=folder,queue_root=queue_root,item=item)
+                require(source_preflight["new_browser_sends"]==0
+                        and source_preflight["new_paid_gemini_API_calls"]==0
+                        and source_preflight["student_publication_authorized"] is False,
+                        "Source-target preflight must not bypass G2 QA")
+            if (source_preflight is not None and
+                    source_preflight["status"]==
+                    "G2_FOCUSED_RENDERED_TARGET_RANK_MISMATCH_NO_SEND"):
+                status="G2_FOCUSED_TARGET_ALIGNMENT_REQUIRES_REVIEW_NO_SEND"
+                work_done.append({"unit":uid,"phase":phase,
+                    "source_target_audit":source_preflight,
+                    "new_provider_requests":0})
+                blocked.add(uid)
+                continue
             if not execute:
                 status="NEXT_ELIGIBLE_SOURCE_REVIEW_AWAITS_EXECUTION"
                 work_done.append({"unit":uid,"phase":phase,
-                                  "new_provider_requests":0})
+                                  "new_provider_requests":0,
+                                  "source_target_audit":source_preflight})
+                if stage_source_only:
+                    blocked.add(uid)
+                    continue
                 break
             if _possible_sends(events) >= max_possible_sends:
                 status="FINITE_CAMPAIGN_SEND_BUDGET_EXHAUSTED"
@@ -582,13 +620,15 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--max-actions",type=int,default=12)
     p.add_argument("--execute",action="store_true")
     p.add_argument("--auto-health",action="store_true")
+    p.add_argument("--stage-source-only",action="store_true")
     args=p.parse_args(argv)
     result=run_campaign(
         folder=args.folder,queue_root=args.queue_root,work_root=args.work_root,
         campaign_id=args.campaign_id,
         max_possible_sends=args.max_possible_sends,
         max_actions=args.max_actions,execute=args.execute,
-        auto_health=args.auto_health)
+        auto_health=args.auto_health,
+        stage_source_only=args.stage_source_only)
     print(json.dumps(result,sort_keys=True,indent=2))
     return 0
 

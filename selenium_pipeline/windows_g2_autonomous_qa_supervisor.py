@@ -393,7 +393,8 @@ def main(argv=None) -> int:
                 folder=args.folder,queue_root=args.queue_root,
                 work_root=args.work_root,campaign_id=args.campaign_id,
                 max_possible_sends=args.focused_possible_sends,
-                execute=args.execute,auto_health=args.focused_auto_health)
+                execute=args.execute,auto_health=args.focused_auto_health,
+                stage_source_only=True)
             require(focused["student_publication_authorized"] is False
                     and focused["new_paid_gemini_api_calls"]==0
                     and focused["original_historical_requests_replayed"] is False,
