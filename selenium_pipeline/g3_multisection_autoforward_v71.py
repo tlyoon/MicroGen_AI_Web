@@ -472,11 +472,15 @@ def main(argv=None):
     parser.add_argument("--science-max-health-probes",type=int,default=2)
     parser.add_argument("--science-campaign-id",default=None)
     parser.add_argument("--auto-offline-media-qa",action="store_true")
+    parser.add_argument("--auto-offline-visual-page-parity",action="store_true")
     parser.add_argument("--media-root",type=Path)
     args=parser.parse_args(argv)
     if args.auto_offline_media_qa:
         require(args.media_root is not None and args.max_new_sends==0,
                 "G3 technical media preflight requires an original media root and zero original Sends")
+    if args.auto_offline_visual_page_parity:
+        require(args.auto_offline_media_qa and args.max_new_sends==0,
+                "Source video-page parity requires prior no-Send technical media QA")
     if args.auto_forward_science:
         require(args.max_new_sends==0,
                 "New G3 science must not dispatch the unsafe original whole-slide queue")
@@ -522,6 +526,19 @@ def main(argv=None):
         value={"source_science_progress":value,
             "source_bound_technical_media_QA":technical,
             "student_publication_authorized":False}
+    if args.auto_offline_visual_page_parity:
+        from .g3_original_video_page_parity_v1 import materialize as video_pages
+        original_pages=video_pages(manifest=args.manifest,
+            media_root=args.media_root,state_root=args.state_dir)
+        require(original_pages["new_browser_sends"]==0
+                and original_pages["new_paid_gemini_API_calls"]==0
+                and original_pages["source_scientific_QA_complete"] is False
+                and original_pages["independent_acoustic_QA_complete"] is False
+                and original_pages["independent_video_highlight_QA_complete"] is False
+                and original_pages["student_publication_authorized"] is False,
+                "Encoded page similarity cannot grant independent science or visual highlight QA")
+        value={**value,"original_encoded_video_source_page_QA":original_pages,
+               "student_publication_authorized":False}
     print(json.dumps(value,ensure_ascii=False,indent=2))
     return 0
 
