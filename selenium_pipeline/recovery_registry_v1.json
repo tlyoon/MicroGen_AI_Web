@@ -1318,6 +1318,20 @@
       "environment": "Dell-115 original G3 Serway 8.2 and 8.3 source/slides/script; global two historically uncertain Sends",
       "retry_policy": "After two uncertain original browser Sends, persist source-pinned untouched slide tasks without a new Send; never replay reviewed or uncertain claims, reset budget, approve science or publish",
       "enabled": true
+    },
+    {
+      "id": "G3_FINITE_CAMPAIGN_CAP_REENTRY_20261124",
+      "match_type": "g3_finite_campaign_cap_reentry",
+      "signature": "G3_IMMUTABLE_CAMPAIGN_RESTARTED_WITH_STRICTER_SEND_BUDGET",
+      "mechanism": "PRESERVE_ORIGINAL_CAMPAIGN_HEADER_APPLY_STRICTER_RUN_CAP_NO_REPLAY",
+      "classification": "G3_EXISTING_SHA_CHAINED_CAMPAIGN_WITH_LATER_CONSERVATIVE_SEND_LIMIT",
+      "handler": "NORMAL_G3_REUSE_ORIGINAL_FINITE_CAMPAIGN_WITH_TIGHTER_EFFECTIVE_CAP",
+      "preconditions": "Original source PDF hash and campaign manifest unchanged, immutable campaign header and event chain valid, requested cap even, finite, and no larger than original stored cap",
+      "verification_test": "tests/test_g3_continuous_advance_v1.py budget reentry and exact Dell-115 original Serway 8.2/8.3 source campaign",
+      "last_verified_date": "2026-11-24",
+      "environment": "Dell-115 G3 old original campaign max four reserved model sends, safe restart requests max two",
+      "retry_policy": "Never rewrite campaign.json or SHA event chain, extend its original limit, create a new day/campaign to evade holds, replay uncertain model requests, use paid API, approve scientific QA or publish; smaller current run cap may only suppress future dispatch",
+      "enabled": true
     }
   ]
 }
