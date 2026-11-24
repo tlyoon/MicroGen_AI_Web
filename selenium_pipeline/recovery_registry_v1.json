@@ -1402,6 +1402,20 @@
       "environment": "Dell-115 pinned G3 textbook source and actual 8.2/8.3 lecture MP4 and WAV source folders",
       "retry_policy": "Decode video and audio streams separately to avoid sparse-video mux buffer errors; prove media source SHA and timelines, pin immutable receipt, never grant academic QA or release",
       "enabled": true
+    },
+    {
+      "id": "G3_SOURCE_ORIGINAL_VIDEO_PAGE_PARITY_20261124",
+      "match_type": "g3_original_video_page_parity",
+      "signature": "G3_FULL_VIDEO_DECODED_BUT_ORIGINAL_SLIDE_PAGES_NOT_PIXEL_WITNESSED",
+      "mechanism": "SAMPLE_ACTUAL_ENCODED_FRAMES_AT_ORIGINAL_WAV_MIDPOINTS_NO_RELEASE",
+      "classification": "ORIGINAL_G3_ENCODED_VIDEO_STATIC_SLIDE_PAGE_ORDER_NOT_YET_SOURCE_PROVEN",
+      "handler": "NORMAL_G3_WITNESS_ORIGINAL_SLIDE_PAGES_IN_ENCODED_VIDEO_NO_ACCEPTANCE",
+      "preconditions": "Original Serway 8.2/8.3 source SHA, exact slide WAVs and full decoded H264/AAC technical receipt, original authored PDF frame count and historical encoded frame pixel verifier",
+      "verification_test": "tests/test_g3_original_video_page_parity_v1.py and Dell original 32 source PDF slide pages against encoded MP4 frames at genuine WAV midpoints",
+      "last_verified_date": "2026-11-24",
+      "environment": "Dell-115 original Serway 8.2/8.3 4:3 source slides pillarboxed to 16:9 video",
+      "retry_policy": "Reuse historical centred PDF pillarbox pixel comparator, not distorted stretching; sample each slide independently, reject mismatched frame, pin immutable receipt, no source science, acoustic or highlight approval and no model Sends",
+      "enabled": true
     }
   ]
 }
