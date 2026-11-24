@@ -1304,6 +1304,20 @@
       "environment": "Dell-115 source-verified original Serway 8.2 source/slides PDF and original rejected G3 reviewer record",
       "retry_policy": "Source-only physical publisher excerpts are never mathematical proof; original rendered question needs independent scientific and visual QA; no Gemini Send, TTS, video, approval, or publication",
       "enabled": true
+    },
+    {
+      "id": "G3_SOURCE_BOUND_UNTOUCHED_ORIGINAL_SLIDE_PREFLIGHT_20261124",
+      "match_type": "g3_unreviewed_source_preflight",
+      "signature": "G3_UNTOUCHED_SLIDES_STALLED_BEHIND_TWO_HISTORICAL_UNKNOWN_SENDS",
+      "mechanism": "PIN_ORIGINAL_UNTOUCHED_SOURCE_TASKS_WITH_ZERO_MODEL_SENDS",
+      "classification": "G3_UNTOUCHED_SOURCE_REVIEW_WAITING_ON_INDEPENDENT_NEON_HEALTH",
+      "handler": "NORMAL_G3_PIN_UNTOUCHED_SOURCE_SLIDES_WITHOUT_SEND",
+      "preconditions": "Immutable original source PDF, rendered slide PDF, verbatim narration script and accepted original per-slide mapping checkpoint; no model-send claim or captured response for an eligible original slide",
+      "verification_test": "tests/test_g3_unreviewed_source_preflight_v1.py and real Dell-115 Serway 8.2/8.3 six untouched slides",
+      "last_verified_date": "2026-11-24",
+      "environment": "Dell-115 original G3 Serway 8.2 and 8.3 source/slides/script; global two historically uncertain Sends",
+      "retry_policy": "After two uncertain original browser Sends, persist source-pinned untouched slide tasks without a new Send; never replay reviewed or uncertain claims, reset budget, approve science or publish",
+      "enabled": true
     }
   ]
 }

@@ -399,6 +399,17 @@ def run_campaign(*,manifest:Path,state_dir:Path,
                     and visual_question_worklists["independent_visual_QA_approved"]==0
                     and visual_question_worklists["student_publication_authorized"] is False,
                     "Original rendered visual source excerpts are never science approval")
+        untouched_preflight=None
+        if auto_semantic_source_repair:
+            from .g3_unreviewed_source_preflight_v1 import (
+                materialize as preflight_original_untouched)
+            untouched_preflight=preflight_original_untouched(
+                specs=specs,state_root=root)
+            require(untouched_preflight["new_browser_sends"]==0
+                    and untouched_preflight["paid_gemini_API_calls"]==0
+                    and untouched_preflight["original_science_approvals"]==0
+                    and untouched_preflight["student_publication_authorized"] is False,
+                    "Untouched original source task cannot certify a slide")
         return {
             "schema_version":1,
             "historical_uncertain_captures":historical_uncertain_captures,
@@ -407,6 +418,7 @@ def run_campaign(*,manifest:Path,state_dir:Path,
             "semantic_source_recovery":semantic_tasks,
             "prepass_source_gap_recovery":gap_recovery,
             "rendered_visual_question_source_recovery":visual_question_worklists,
+            "untouched_source_preflight":untouched_preflight,
             "status":("G3_SOURCE_MAPPING_INPUT_REVIEW_COVERAGE_COMPLETE_REVIEW_ONLY"
                       if counters["untouched_original_slides"]==0 and
                          counters["quarantined_or_uncertain_original_slides"]==0
