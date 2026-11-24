@@ -447,9 +447,20 @@ def run_campaign(*, folder: Path, queue_root: Path, work_root: Path,
             if (source_preflight is not None and
                     source_preflight["status"]==
                     "G2_FOCUSED_RENDERED_TARGET_RANK_MISMATCH_NO_SEND"):
-                status="G2_FOCUSED_TARGET_ALIGNMENT_REQUIRES_REVIEW_NO_SEND"
+                from .g2_ranked_source_review_candidate_v3 import (
+                    stage as stage_ranked_v3)
+                candidate_v2=stage_ranked_v3(
+                    folder=folder,queue_root=queue_root,item=item,
+                    source_preflight=source_preflight)
+                require(candidate_v2["new_browser_sends"]==0
+                        and candidate_v2["paid_gemini_API_calls"]==0
+                        and candidate_v2["new_review_send_authorized"] is False
+                        and candidate_v2["student_publication_authorized"] is False,
+                        "New ranked review input must not bypass academic QA")
+                status="G2_RANKED_SOURCE_CANDIDATE_STAGED_NO_SEND"
                 work_done.append({"unit":uid,"phase":phase,
                     "source_target_audit":source_preflight,
+                    "ranked_source_review_candidate":candidate_v2,
                     "new_provider_requests":0})
                 blocked.add(uid)
                 continue

@@ -1374,6 +1374,20 @@
       "environment": "Dell-115 original G2 Serway 1.3 queue and bounded zero-Send preflight",
       "retry_policy": "Pin physically verified narration, publisher quote and candidate slide targets; block new mismatched source review Sends, never modify already saved model replies, no paid API or academic approval",
       "enabled": true
+    },
+    {
+      "id": "G2_DISTINCT_RANKED_SOURCE_REVIEW_INPUT_V3_20261124",
+      "match_type": "g2_ranked_source_review_candidate",
+      "signature": "G2_LEGACY_TITLE_TARGET_MISMATCH_NEEDS_NEW_PHYSICAL_TARGET_REVIEW_INPUT",
+      "mechanism": "PIN_SEPARATE_RANKED_SOURCE_REVIEW_JOB_WITHOUT_REPLAY_OR_APPROVAL",
+      "classification": "SOURCE_PINNED_G2_RANKED_TARGET_REQUIRES_DISTINCT_QA_NOT_LEGACY_RETRY",
+      "handler": "NORMAL_G2_PIN_DISTINCT_RANKED_SOURCE_REVIEW_INPUT_NO_SEND",
+      "preconditions": "Immutable original G2 queue and uncertain Send, V1 physically witnessed target-rank mismatch and new exact original ranked slide target, source PDF/page/quote and narrator checks",
+      "verification_test": "tests/test_g2_ranked_source_review_candidate_v3.py exact serialized-prompt SHA replay, PDF drift, source-target and restart fault injection",
+      "last_verified_date": "2026-11-24",
+      "environment": "Dell-115 original Serway 1.3 G2 source-target mismatches, zero-Send independent evidence",
+      "retry_policy": "Stage new source-scoped V3 review input and stable prompt SHA after JSON reload; preserve old V1/V2 bytes; require new health/transport/budget before Send, no API fallback or approval",
+      "enabled": true
     }
   ]
 }
