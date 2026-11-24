@@ -1290,6 +1290,20 @@
       "environment": "Dell-115 G3 8.3 post-Send Gemini UI error, old source-free Neon High health predates uncertain Send",
       "retry_policy": "Do not replay original science Send or source-free health claim; if health receipt predates new uncertain Send, require new independently verified diagnostic on a later eligible source/day and continue only other safe offline tasks",
       "enabled": true
+    },
+    {
+      "id": "G3_RENDERED_REVIEW_QUESTIONS_TEXTBOOK_SOURCE_WITNESS_20261124",
+      "match_type": "g3_original_visual_question_audit",
+      "signature": "G3_NARRATION_TRANSITION_HIDE_RENDERED_SCIENTIFIC_REVIEW_QUESTIONS",
+      "mechanism": "EXTRACT_RENDERED_QUESTIONS_WITNESS_PUBLISHER_CONTEXT_AND_REQUIRE_SCIENCE_QA",
+      "classification": "G3_NAVIGATIONAL_UTTERANCE_WITH_HIDDEN_UNREVIEWED_VISUAL_PHYSICS_QUESTIONS",
+      "handler": "NORMAL_ORIGINAL_RENDERED_REVIEW_QUESTION_SOURCE_EVIDENCE",
+      "preconditions": "Exact original source.pdf, slides.pdf and script.txt hashes, original rejected Gemini claim/capture, one of the strict navigation-only transitions, original rendered numbered question identities and original publisher physical source witness",
+      "verification_test": "tests/test_g3_original_visual_question_source_audit_v1.py, Dell Serway 8.2 slide15 original two questions",
+      "last_verified_date": "2026-11-24",
+      "environment": "Dell-115 source-verified original Serway 8.2 source/slides PDF and original rejected G3 reviewer record",
+      "retry_policy": "Source-only physical publisher excerpts are never mathematical proof; original rendered question needs independent scientific and visual QA; no Gemini Send, TTS, video, approval, or publication",
+      "enabled": true
     }
   ]
 }
