@@ -1341,10 +1341,10 @@
       "classification": "UNTOUCHED_ORIGINAL_G3_SOURCE_PINNED_BUT_SCIENTIFIC_SOURCE_WITNESS_NOT_STAGED",
       "handler": "NORMAL_G3_STAGE_ORIGINAL_PUBLISHER_SOURCE_WITNESS_NO_SEND",
       "preconditions": "Original source/slides/script PDF hashes, original mapping SHA and immutable untouched slide preflight; no old or uncertain model claim; exact narration and visible target fingerprints verified",
-      "verification_test": "tests/test_g3_untouched_source_witness_v1.py and Dell original Serway 8.2/8.3 six untouched source packets",
+      "verification_test": "tests/test_g3_untouched_source_witness_v2.py and Dell original Serway 8.2/8.3 six untouched source plus unspoken visual questions",
       "last_verified_date": "2026-11-24",
       "environment": "Dell-115 source-only original G3 Serway sections 8.2 and 8.3, finite historical campaign exhausted",
-      "retry_policy": "Physically prove original publisher excerpts per narration/visual target without OCR or semantic promotion; preserve previous immutable packets; fail closed on source drift or previous claim, zero model/API Sends, no audiovisual QA or publication",
+      "retry_policy": "Witness original narration and unspoken rendered questions separately; preserve old V1 packets; reject source drift and prior Sends; no API/model requests, automatic QA approval or publication",
       "enabled": true
     }
   ]

@@ -13,6 +13,7 @@ from pathlib import Path
 import pymupdf
 
 from .g3_unreviewed_source_preflight_v1 import ROOT as PRE_ROOT, pinned
+from .g3_original_visual_question_source_audit_v1 import _questions
 from .g3_semantic_source_repair_v1 import _read, _sha, _canon, _write_once, need
 from .g3_source_rejected_offline_repair_v1 import _terms
 from .pdf_text_source_span_witness import prove_source_quote_occurrence
@@ -22,8 +23,8 @@ from .recovery_registry import lookup_mechanism
 KIND="g3_untouched_source_witness"
 SIGNATURE="G3_PREPARED_UNREVIEWED_ORIGINAL_SLIDES_LACK_PAGE_WITNESSED_SCIENCE_WORKLIST"
 MECHANISM="PIN_ALL_ORIGINAL_TEXT_AND_PHYSICAL_PDF_QUOTES_WITHOUT_MODEL_SEND"
-ROOT="g3_untouched_source_witness_v1"
-STATUS="G3_UNTOUCHED_ORIGINAL_SLIDE_PUBLISHER_WITNESSES_UNAPPROVED"
+ROOT="g3_untouched_source_witness_v2"
+STATUS="G3_UNTOUCHED_ORIGINAL_SLIDE_PUBLISHER_VISUAL_WITNESSES_UNAPPROVED"
 MAX_SLIDES=6
 MAX_PAGES=24
 MAX_PAGE_CHARS=25000
@@ -178,7 +179,32 @@ def _packet(*,spec:dict,state_root:Path,preflight_file:Path,
         "original_rendered_text_sha256":_sha_text(t["visible_text"]),
         "independent_rendered_visual_QA_required":True,
     } for t in targets]
+    # A navigation-only narrator can introduce substantive numbered
+    # questions that are visibly present but never spoken. Their source
+    # science QA must remain explicit and independent of narration.
+    visual_questions=[]
+    for target in targets:
+        if (target["kind"]!="text_group" or not
+                target["visible_text"].lstrip().startswith("1 ")):
+            continue
+        for question_number,text in enumerate(
+                _questions(target["visible_text"]),1):
+            candidates=_witness(
+                folder=folder,source_sha=shas["source.pdf"],
+                pages=pages,spoken=text,visible_terms=_terms(text))
+            visual_questions.append({
+                "original_group_target_id":target["target_id"],
+                "original_question_number":question_number,
+                "exact_rendered_physics_question":text,
+                "rendered_question_sha256":_sha_text(text),
+                "physical_publisher_quote_candidates":candidates,
+                "source_excerpt_alone_proves_answer":False,
+                "independent_scientific_and_visual_QA_required":True,
+            })
+    need(len(visual_questions)<=8,
+         "Unbounded original slide rendered scientific questions")
     scope=_sha_text(_canon({
+        "evidence_schema_version":2,
         "preflight_scope":prepared["scope_sha256"],
         "preflight_file_sha256":_sha(preflight_file),
         "original_utterance_ids":[r["original_utterance_id"]
@@ -186,7 +212,7 @@ def _packet(*,spec:dict,state_root:Path,preflight_file:Path,
         "original_target_ids":[r["original_target_id"]
                                for r in original_targets]}).decode("utf8"))
     return {
-        "schema_version":1,"status":STATUS,"scope_sha256":scope,
+        "schema_version":2,"status":STATUS,"scope_sha256":scope,
         "section":spec["section"],
         "original_slide":prepared["original_slide"],
         "original_preflight_scope_sha256":prepared["scope_sha256"],
@@ -195,9 +221,11 @@ def _packet(*,spec:dict,state_root:Path,preflight_file:Path,
         "original_mapping_request_sha256":request["request_sha256"],
         "original_narrations":narrations,
         "original_rendered_visual_targets":original_targets,
+        "original_rendered_scientific_questions":visual_questions,
+        "rendered_scientific_question_count":len(visual_questions),
         "total_physically_witnessed_quote_candidates":sum(
             len(x["physical_publisher_quote_candidates"])
-            for x in narrations),
+            for x in [*narrations,*visual_questions]),
         "source_text_extracted_without_ocr":True,
         "source_quote_is_semantic_approval":False,
         "independent_scientific_QA_complete":False,
@@ -249,13 +277,16 @@ def materialize(*,specs:list,state_root:Path)->dict:
     need(len(items)<=MAX_SLIDES,
          "Unexpected original untouched slide evidence inventory")
     return {
-        "schema_version":1,
-        "status":"G3_UNTOUCHED_PUBLISHER_WITNESS_TASKS_STAGED_UNAPPROVED",
+        "schema_version":2,
+        "status":"G3_UNTOUCHED_PUBLISHER_VISUAL_WITNESSES_STAGED_UNAPPROVED",
         "prepared_original_slides":len(items),
         "original_narrations":sum(len(x["original_narrations"])
                                   for x in items),
         "original_rendered_targets":sum(len(x["original_rendered_visual_targets"])
                                        for x in items),
+        "unspoken_rendered_scientific_questions":sum(
+            len(x["original_rendered_scientific_questions"])
+            for x in items),
         "physically_witnessed_quote_candidates":sum(
             x["total_physically_witnessed_quote_candidates"]
             for x in items),

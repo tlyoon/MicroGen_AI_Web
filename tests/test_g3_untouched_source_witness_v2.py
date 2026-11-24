@@ -8,7 +8,7 @@ from pathlib import Path
 import pymupdf
 import pytest
 
-from selenium_pipeline import g3_untouched_source_witness_v1 as witness
+from selenium_pipeline import g3_untouched_source_witness_v2 as witness
 from selenium_pipeline.g3_unreviewed_source_preflight_v1 import ROOT as PRE_ROOT
 from selenium_pipeline.g3_semantic_source_repair_v1 import _canon
 from selenium_pipeline.recovery_registry import lookup_mechanism
@@ -173,3 +173,45 @@ def test_unrelated_source_keeps_science_unapproved_without_quote(original,monkey
     assert result["physically_witnessed_quote_candidates"]==0
     assert result["original_slides_without_any_textbook_quote"]==1
     assert result["independent_scientific_QA_accepted"]==0
+
+
+def test_unspoken_rendered_physics_questions_get_separate_source_tasks(
+        original,monkeypatch):
+    spec,state,prepared,request,folder=original
+    spoken="To test your understanding, consider these two review questions."
+    first="Why does the maximum tension force act at the bottom of the swing?"
+    second="How can energy conservation determine speed at the bottom of the swing?"
+    rendered="1 "+first+" 2 "+second
+    request["original_utterances"][0]["verbatim_text"]=spoken
+    request["visible_targets"]=[{
+        "target_id":"s001.group.002-003",
+        "kind":"text_group","visible_text":rendered}]
+    prepared["original_utterances"][0]["original_spoken_text_sha256"]=(
+        hashlib.sha256(spoken.encode()).hexdigest())
+    prepared["original_visible_targets"]=[{
+        "original_target_id":"s001.group.002-003",
+        "original_target_kind":"text_group",
+        "original_visible_text_sha256":
+            hashlib.sha256(rendered.encode()).hexdigest()}]
+    monkeypatch.setattr(witness,"request_for_slide",
+                        lambda **kw:copy.deepcopy(request))
+    result=witness.materialize(specs=[spec],state_root=state)
+    assert result["original_narrations"]==1
+    assert result["unspoken_rendered_scientific_questions"]==2
+    assert result["physically_witnessed_quote_candidates"]>=1
+    file=next((state/witness.ROOT/spec["section"]).glob("*.json"))
+    from selenium_pipeline.g3_semantic_source_repair_v1 import _read
+    packet=_read(file)
+    assert packet["original_narrations"][0][
+        "physical_publisher_quote_candidates"]==[]
+    questions=packet["original_rendered_scientific_questions"]
+    assert len(questions)==2
+    assert [x["exact_rendered_physics_question"] for x in questions]==[
+        first,second]
+    assert all(x["independent_scientific_and_visual_QA_required"] is True
+               and x["source_excerpt_alone_proves_answer"] is False
+               for x in questions)
+    assert packet["independent_scientific_QA_complete"] is False
+    assert packet["independent_visual_QA_complete"] is False
+    assert result["new_browser_sends"]==0
+    assert result["paid_gemini_API_calls"]==0

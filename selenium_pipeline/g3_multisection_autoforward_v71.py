@@ -412,7 +412,7 @@ def run_campaign(*,manifest:Path,state_dir:Path,
                     "Untouched original source task cannot certify a slide")
         untouched_source_witnesses=None
         if auto_semantic_source_repair:
-            from .g3_untouched_source_witness_v1 import (
+            from .g3_untouched_source_witness_v2 import (
                 materialize as stage_original_publisher_witnesses)
             untouched_source_witnesses=stage_original_publisher_witnesses(
                 specs=specs,state_root=root)
