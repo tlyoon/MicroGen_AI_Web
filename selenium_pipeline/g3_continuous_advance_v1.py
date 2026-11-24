@@ -33,6 +33,9 @@ MECHANISM="BIND_CONTEXT_AND_OLD_DISPUTE_CREATE_DISTINCT_REVIEW_THEN_AUTO_ADVANCE
 CAP_KIND="g3_finite_campaign_cap_reentry"
 CAP_SIGNATURE="G3_IMMUTABLE_CAMPAIGN_RESTARTED_WITH_STRICTER_SEND_BUDGET"
 CAP_MECHANISM="PRESERVE_ORIGINAL_CAMPAIGN_HEADER_APPLY_STRICTER_RUN_CAP_NO_REPLAY"
+SKIP_KIND="g3_blocked_source_auto_skip"
+SKIP_SIGNATURE="G3_SOURCE_HEALTH_BLOCKED_ONE_SUBSECTION_PREMATURELY_STOPPED_OTHER_WORK"
+SKIP_MECHANISM="CONTINUE_DISTINCT_SOURCE_AFTER_HEALTH_HOLD_WITHOUT_NEW_SEND"
 ORIGINAL="G3_DISTINCT_SOURCE_SEMANTIC_QA_READY_NO_SEND"
 UNSAFE_REPLAY_STATES={
     "SUBMITTED_OR_UNCERTAIN","NO_RESPONSE_UNRESOLVED",
@@ -245,13 +248,18 @@ def advance(*,manifest:Path,state_root:Path,
     observations=[]
     probe_count=0
     attempts=0
+    health_blocked_sources=set()
     for _ in range(max_tasks):
         # A tighter restart cannot resume any already-reserved work whose
         # original global possible-Send total exceeds the new run cap.
         if _possible_sends(events)>max_science_sends:
             break
-        choices=_eligible(specs=specs,state_root=root,
-                          section=section,utterance_id=utterance_id)
+        choices=[v for v in _eligible(
+            specs=specs,state_root=root,
+            section=section,utterance_id=utterance_id)
+            if (v["section"],v["spec"]["identity"][
+                "source_inputs_sha256"]["source.pdf"])
+            not in health_blocked_sources]
         # Recover a previously reserved task before considering fresh work.
         # A quarantined/uncertain Send is a boundary for THAT task, not
         # a reason to strand other source-independent eligible tasks.
@@ -296,11 +304,17 @@ def advance(*,manifest:Path,state_root:Path,
                     receipt=receipt,incident_unix=last_incident):
                 receipt=None
         if execute and receipt is None:
+            need(lookup_mechanism(SKIP_KIND,SKIP_SIGNATURE)==SKIP_MECHANISM,
+                 "Missing same-run blocked-source continuation handler")
+            health_blocked_sources.add((item["section"],src_sha))
             observations.append({"scope":item["scope"],
                 "section":item["section"],"kind":item["kind"],
                 "status":"FRESH_OWNED_NEON_HEALTH_REQUIRED_NO_SOURCE_SEND",
                 "source_sends_reserved":0})
-            break
+            # Hold only this original source. Do not consume model budget,
+            # repeat its old/uncertain Send, or probe it again this run.
+            # Other independently sourced sections may still be healthy.
+            continue
         if not same and execute:
             events=_append(log,header,events,"RESERVE",
                 scope=item["scope"],phase="INITIAL",
@@ -340,11 +354,16 @@ def advance(*,manifest:Path,state_root:Path,
         # so a newly eligible context task is forwarded WITHOUT asking user.
     candidates=_eligible(specs=specs,state_root=root,
                         section=section,utterance_id=utterance_id)
+    remaining_unblocked=[v for v in candidates if (
+        v["section"],v["spec"]["identity"]["source_inputs_sha256"][
+            "source.pdf"]) not in health_blocked_sources]
     return {
         "schema_version":1,
         "status":(
             "FINITE_G3_SOURCE_CAMPAIGN_BUDGET_EXHAUSTED"
             if _possible_sends(events)>=max_science_sends else
+            "G3_SOURCE_AUTOFORWARD_AWAITING_FRESH_HEALTH_NO_SEND"
+            if candidates and not remaining_unblocked and health_blocked_sources else
             "G3_SOURCE_AUTOFORWARD_MORE_ELIGIBLE"
             if candidates else "G3_SOURCE_AUTOFORWARD_NO_ELIGIBLE_TASKS"),
         "campaign_id":campaign_id,
@@ -356,6 +375,11 @@ def advance(*,manifest:Path,state_root:Path,
         "stages_advanced_this_run":attempts,
         "stage_results":observations,
         "remaining_eligible_tasks":len(candidates),
+        "remaining_other_source_eligible_tasks":len(remaining_unblocked),
+        "health_blocked_sources":[{"section":section_name,
+            "source_sha256":source_sha} for section_name,source_sha in
+            sorted(health_blocked_sources)],
+        "health_blocked_source_count":len(health_blocked_sources),
         "automatic_forward_after_verified_science_stage":True,
         "original_historical_model_claims_replayed":False,
         "source_scientific_approval_automatically_granted":False,

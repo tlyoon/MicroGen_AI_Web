@@ -348,3 +348,93 @@ def test_stale_health_after_realistic_uncertain_send_never_reserves_new_budget(
     assert receipt["science_browser_sends_reserved"]==0
     assert receipt["stage_results"][0]["status"]==(
         "FRESH_OWNED_NEON_HEALTH_REQUIRED_NO_SOURCE_SEND")
+
+
+def test_missing_health_in_one_section_does_not_block_another(
+        campaign,monkeypatch):
+    """Skip stale source 8.2, advance verified independent 8.3 only."""
+    from selenium_pipeline.recovery_registry import lookup_mechanism
+    assert lookup_mechanism(
+        driver.SKIP_KIND,driver.SKIP_SIGNATURE)==driver.SKIP_MECHANISM
+    state,manifest,spec=campaign
+    other={**spec,"section":"Serway_8_3",
+           "identity":{"source_inputs_sha256":{"source.pdf":"b"*64}}}
+    monkeypatch.setattr(driver,"_verified_specs",
+                        lambda p:({},[spec,other]))
+    first=item(spec,"c"*64,"NEW_CONTEXT")
+    first_repeat=item(spec,"d"*64,"ORIGINAL_DISTINCT")
+    second={**item(other,"e"*64,"NEW_CONTEXT"),
+            "section":"Serway_8_3"}
+    monkeypatch.setattr(driver,"_eligible",
+                        lambda **kw:[first,first_repeat,second])
+    verified={"status":"G3_SOURCE_FREE_NEON_HIGH_HEALTH_VERIFIED",
+              "fresh_neon_high_source_free_health":True,
+              "observed_unix":100.0}
+    monkeypatch.setattr(driver,"latest_health",lambda **kw:
+                        None if kw["source_sha"]=="a"*64 else verified)
+    ran=[]
+    def run(**kw):
+        ran.append(kw["task_file"].stem)
+        return {"status":"SCIENCE_SOURCE_REVIEW_STAGED_UNAPPROVED",
+                "possible_sends_reserved":2,
+                "two_pass_science_evidence":{"science_AI_source_agreed":False},
+                "semantic_context_recovery":None}
+    monkeypatch.setattr(driver,"run_one",run)
+    receipt=driver.advance(
+        manifest=manifest,state_root=state,
+        campaign_id="safe_other_source_forward_20261124",
+        max_science_sends=2,max_tasks=3,max_health_probes=0)
+    assert ran==["e"*64]
+    assert receipt["science_browser_sends_reserved"]==2
+    assert receipt["stages_advanced_this_run"]==1
+    assert [x["section"] for x in receipt["stage_results"]]==[
+        "Serway_8_2","Serway_8_3"]
+    assert receipt["health_blocked_sources"]==[
+        {"section":"Serway_8_2","source_sha256":"a"*64}]
+    assert receipt["health_blocked_source_count"]==1
+    assert receipt["health_probes_attempted_this_run"]==0
+    assert receipt["paid_gemini_API_requests"]==0
+    assert receipt["source_scientific_approval_automatically_granted"] is False
+    assert receipt["student_publication_authorized"] is False
+
+
+def test_all_missing_health_finishes_finitely_without_repeat_or_send(
+        campaign,monkeypatch):
+    state,manifest,spec=campaign
+    other={**spec,"section":"Serway_8_3",
+           "identity":{"source_inputs_sha256":{"source.pdf":"b"*64}}}
+    monkeypatch.setattr(driver,"_verified_specs",
+                        lambda p:({},[spec,other]))
+    first=item(spec,"f"*64,"NEW_CONTEXT")
+    first_repeat=item(spec,"d"*64,"ORIGINAL_DISTINCT")
+    second={**item(other,"e"*64,"NEW_CONTEXT"),
+            "section":"Serway_8_3"}
+    monkeypatch.setattr(driver,"_eligible",lambda **kw:[
+        first,first_repeat,second])
+    checks=[]
+    monkeypatch.setattr(driver,"latest_health",lambda **kw:
+                        (checks.append(kw["source_sha"]) or None))
+    monkeypatch.setattr(driver,"run_one",lambda **kw:
+                        pytest.fail("No Send without owned post-incident health"))
+    got=driver.advance(
+        manifest=manifest,state_root=state,
+        campaign_id="both_health_blocked_20261124",
+        max_science_sends=2,max_tasks=4,max_health_probes=0)
+    assert checks==["a"*64,"b"*64]
+    assert got["health_blocked_source_count"]==2
+    assert got["stages_advanced_this_run"]==0
+    assert got["science_browser_sends_reserved"]==0
+    assert got["status"]=="G3_SOURCE_AUTOFORWARD_AWAITING_FRESH_HEALTH_NO_SEND"
+    assert len(got["stage_results"])==2
+    assert got["remaining_other_source_eligible_tasks"]==0
+    assert got["paid_gemini_API_requests"]==0
+    assert got["original_historical_model_claims_replayed"] is False
+    assert got["student_publication_authorized"] is False
+    # Same campaign restart does not fabricate a new eligibility or approval.
+    again=driver.advance(
+        manifest=manifest,state_root=state,
+        campaign_id="both_health_blocked_20261124",
+        max_science_sends=2,max_tasks=4,max_health_probes=0)
+    assert again["science_browser_sends_reserved"]==0
+    assert again["health_blocked_source_count"]==2
+    assert again["stages_advanced_this_run"]==0

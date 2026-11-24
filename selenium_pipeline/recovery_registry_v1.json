@@ -1346,6 +1346,20 @@
       "environment": "Dell-115 source-only original G3 Serway sections 8.2 and 8.3, finite historical campaign exhausted",
       "retry_policy": "Witness original narration and unspoken rendered questions separately; preserve old V1 packets; reject source drift and prior Sends; no API/model requests, automatic QA approval or publication",
       "enabled": true
+    },
+    {
+      "id": "G3_HEALTH_HOLD_CONTINUE_OTHER_SOURCES_20261124",
+      "match_type": "g3_blocked_source_auto_skip",
+      "signature": "G3_SOURCE_HEALTH_BLOCKED_ONE_SUBSECTION_PREMATURELY_STOPPED_OTHER_WORK",
+      "mechanism": "CONTINUE_DISTINCT_SOURCE_AFTER_HEALTH_HOLD_WITHOUT_NEW_SEND",
+      "classification": "SOURCE_SPECIFIC_NEON_HEALTH_MISSING_OTHER_INDEPENDENT_WORK_COULD_ADVANCE",
+      "handler": "NORMAL_G3_KEEP_PROCESSING_OTHER_SOURCES_AFTER_HEALTH_HOLD",
+      "preconditions": "Immutable source and per-task Send claims verified; finite campaign not exhausted; one source has no fresh post-incident owned Neon health",
+      "verification_test": "tests/test_g3_continuous_advance_v1.py test blocked-source fallthrough and two-source hold fault injection; real original Serway 8.2/8.3 checkpoint",
+      "last_verified_date": "2026-11-24",
+      "environment": "Dell-115 original Serway 8.2/8.3, stale post-incident source-specific Neon/High receipts",
+      "retry_policy": "Skip only missing-health source inside bounded run, never repeat its probe or old Send; examine other independently eligible sources with original caps; zero scientific approval or publication",
+      "enabled": true
     }
   ]
 }
