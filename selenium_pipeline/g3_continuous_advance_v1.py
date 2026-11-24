@@ -136,10 +136,15 @@ def advance(*,manifest:Path,state_root:Path,
         choices=_eligible(specs=specs,state_root=root,
                           section=section,utterance_id=utterance_id)
         # Recover a previously reserved task before considering fresh work.
+        # A quarantined/uncertain Send is a boundary for THAT task, not
+        # a reason to strand other source-independent eligible tasks.
+        # Before considering fresh work, resume only a crashed reservation
+        # that has neither a completed RESULT nor a recorded HOLD.
+        finished_or_held={
+            e["scope"] for e in events if e["type"] in ("RESULT","HOLD")}
         pending=[v for v in choices
                  if _reservation(events,v["scope"],"INITIAL")
-                 and not any(e["type"]=="RESULT" and
-                     e["scope"]==v["scope"] for e in events)]
+                 and v["scope"] not in finished_or_held]
         item=(pending or [v for v in choices
             if not _reservation(events,v["scope"],"INITIAL")])
         if not item:
@@ -196,8 +201,10 @@ def advance(*,manifest:Path,state_root:Path,
                            is not None else "HOLD",
                            scope=item["scope"],phase="RECONCILE",
                            detail=result["status"][:120])
-        if not execute or result["two_pass_science_evidence"] is None:
+        if not execute:
             break
+        # Even when the previous task was quarantined, the next iteration
+        # selects a DIFFERENT eligible scope. Never replay its uncertain Send.
         # The next iteration recomputes candidates from the saved state,
         # so a newly eligible context task is forwarded WITHOUT asking user.
     candidates=_eligible(specs=specs,state_root=root,

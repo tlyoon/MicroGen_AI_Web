@@ -195,3 +195,40 @@ def test_normal_multisection_entrypoint_automatically_advances_without_campaign_
             "--state-dir",str(state),
             "--max-new-sends","1","--auto-forward-science"])
     assert len(source)==1
+
+
+def test_held_unreconciled_source_send_does_not_strand_another_task(
+        campaign,monkeypatch):
+    state,manifest,spec=campaign
+    first=item(spec,"1"*64,"NEW_CONTEXT")
+    second=item(spec,"2"*64,"ORIGINAL_DISTINCT")
+    models=[]
+    monkeypatch.setattr(driver,"_eligible",lambda **kw:[first,second])
+    def review(**kw):
+        scope=kw["task_file"].stem
+        models.append(scope)
+        return {
+            "status":(
+                "G3_DISTINCT_SCIENCE_UNCERTAIN_NO_REPLAY"
+                if scope==first["scope"] else
+                "G3_DISTINCT_SCIENCE_ONE_PASS_UNAPPROVED"),
+            "possible_sends_reserved":2,
+            "two_pass_science_evidence":(
+                None if scope==first["scope"] else
+                {"science_AI_source_agreed":False}),
+            "semantic_context_recovery":None,
+        }
+    monkeypatch.setattr(driver,"run_one",review)
+    args=dict(manifest=manifest,state_root=state,
+        campaign_id="quarantine_then_advance_20261124",
+        max_science_sends=4,max_tasks=2,max_health_probes=0)
+    outcome=driver.advance(**args)
+    assert models==["1"*64,"2"*64]
+    assert outcome["stages_advanced_this_run"]==2
+    assert outcome["science_browser_sends_reserved"]==4
+    assert outcome["stage_results"][0]["status"]==(
+        "G3_DISTINCT_SCIENCE_UNCERTAIN_NO_REPLAY")
+    assert outcome["original_historical_model_claims_replayed"] is False
+    again=driver.advance(**args)
+    assert again["stages_advanced_this_run"]==0
+    assert models==["1"*64,"2"*64]
