@@ -238,3 +238,21 @@ def test_no_other_actions_if_g3_science_pending_health_is_blocked(roots):
     assert a["G2_source_AI_agreed"]==29
     assert a["G3_original_video_pages_technical"]==32
     assert a["G3_science_tasks_eligible"] is None
+
+
+def test_real_source_ai_progress_can_complete_85_without_faking_acoustics(roots):
+    def accepted_source(**kw):
+        result=good_g2(**kw)
+        result["total_two_pass_AI_agreements"]=85
+        result["pending_or_disputed"]=0
+        return result
+    result=run(roots,g2_runner=accepted_source)
+    packet=json.loads(Path(result["receipt"]).read_text("utf8"))
+    matrix={r["gate_id"]:r for r in packet["acceptance_gates"]}
+    assert matrix["G2_INDEPENDENT_SOURCE_AI"]["accepted"] is True
+    assert matrix["G2_INDEPENDENT_SOURCE_AI"]["status"]==(
+        "TWO_PASS_SOURCE_AI_EVIDENCE_COMPLETE")
+    assert matrix["G2_INDEPENDENT_ACOUSTIC_QA"]["accepted"] is False
+    assert result["academically_accepted_gates"]==1
+    assert result["all_G2_G3_requirements_accepted"] is False
+    assert result["student_publication_authorized"] is False

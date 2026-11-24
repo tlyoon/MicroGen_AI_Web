@@ -155,14 +155,17 @@ def _gate_matrix(results:dict)->list[dict]:
     media=results.get("G3_MEDIA")
     agreed=g2.get("total_two_pass_AI_agreements",0) if g2 else 0
     total=g2.get("original_total") if g2 else None
+    source_ai_done=bool(g2 is not None and type(total) is int
+                        and total>0 and agreed==total)
     cap=(g3 or {}).get("original_immutable_campaign_send_cap")
     spent=(g3 or {}).get("original_possible_model_sends_reserved")
     exhausted=(type(cap) is int and type(spent) is int and spent>=cap)
     rows=[
         {"gate_id":"G2_INDEPENDENT_SOURCE_AI",
          "accepted_units":agreed if g2 else None,
-         "required_units":total,"accepted":False,
-         "status":"PENDING_INDEPENDENT_MODEL_REVIEW"
+         "required_units":total,"accepted":source_ai_done,
+         "status":"TWO_PASS_SOURCE_AI_EVIDENCE_COMPLETE"
+             if source_ai_done else "PENDING_INDEPENDENT_MODEL_REVIEW"
              if g2 else "BLOCKED_G2_EVIDENCE_READ",
          "next_action":"Recover genuine owned Selenium Neon/High health and "+
              "review ONLY distinct source-locked eligible scopes within an "+
@@ -307,7 +310,10 @@ def run(*,g2_source:Path,g2_queue:Path,g2_campaign:str,
         "actions":results,
         "acceptance_gates":matrix,
         "required_acceptance_gates":len(matrix),
-        "academically_accepted_gates":0,
+        "academically_accepted_gates":sum(
+            bool(row["accepted"]) and
+            row["gate_id"]!="G3_ORIGINAL_VIDEO_PAGE_TECHNICAL"
+            for row in matrix),
         "technical_only_gates_passed":sum(
             row["gate_id"]=="G3_ORIGINAL_VIDEO_PAGE_TECHNICAL"
             and row["accepted"] for row in matrix),
@@ -351,7 +357,8 @@ def run(*,g2_source:Path,g2_queue:Path,g2_campaign:str,
                 "source_video_pages_pixel_witnessed"),
             "independent_workstreams_held":errors,
             "source_only_workstreams_completed":sorted(results),
-            "academically_accepted_gates":0,
+            "academically_accepted_gates":summary[
+                "academically_accepted_gates"],
             "new_browser_sends":0,"paid_gemini_API_calls":0,
             "all_G2_G3_requirements_accepted":False,
             "student_publication_authorized":False}
