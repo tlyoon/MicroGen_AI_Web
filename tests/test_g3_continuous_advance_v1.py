@@ -100,6 +100,95 @@ def test_crash_between_global_reservation_and_model_dispatch_is_restart_safe(
         driver.advance(**{**args,"max_science_sends":4})
 
 
+
+def test_conservative_existing_campaign_budget_reentry_preserves_journal(
+        campaign,monkeypatch):
+    from selenium_pipeline.recovery_registry import lookup_mechanism
+    assert lookup_mechanism(
+        driver.CAP_KIND,driver.CAP_SIGNATURE)==driver.CAP_MECHANISM
+    state,manifest,spec=campaign
+    first=item(spec,"a"*64,"NEW_CONTEXT")
+    second=item(spec,"b"*64,"ORIGINAL_DISTINCT")
+    sent=[]
+    monkeypatch.setattr(driver,"_eligible",
+        lambda **kw:[x for x in (first,second)
+                     if x["scope"] not in sent])
+    def run(**kw):
+        sent.append(kw["task_file"].stem)
+        return {"status":"SOURCE_SCIENCE_NOT_AUTOMATICALLY_APPROVED",
+                "possible_sends_reserved":2,
+                "two_pass_science_evidence":{"science_AI_source_agreed":False},
+                "semantic_context_recovery":None}
+    monkeypatch.setattr(driver,"run_one",run)
+    args=dict(manifest=manifest,state_root=state,
+              campaign_id="conservative_restart_20261124",
+              max_science_sends=4,max_tasks=1,max_health_probes=0)
+    first_run=driver.advance(**args)
+    assert first_run["science_browser_sends_reserved"]==2
+    home=state/"g3_continuous_advance_v1"/args["campaign_id"]
+    before_header=(home/"campaign.json").read_bytes()
+    before_events=sorted(
+        (f.name,f.read_bytes()) for f in home.glob("event_*.json"))
+    resumed=driver.advance(**{**args,"max_science_sends":2,
+                              "max_tasks":2})
+    assert sent==["a"*64]
+    assert resumed["original_immutable_campaign_send_cap"]==4
+    assert resumed["max_science_browser_sends"]==2
+    assert resumed["science_browser_sends_reserved"]==2
+    assert resumed["stages_advanced_this_run"]==0
+    assert resumed["status"]=="FINITE_G3_SOURCE_CAMPAIGN_BUDGET_EXHAUSTED"
+    assert (home/"campaign.json").read_bytes()==before_header
+    assert sorted((f.name,f.read_bytes()) for f in home.glob("event_*.json"))==before_events
+    assert resumed["original_historical_model_claims_replayed"] is False
+    assert resumed["student_publication_authorized"] is False
+
+
+def test_tighter_budget_never_resumes_more_previously_reserved_sends(
+        campaign,monkeypatch):
+    state,manifest,spec=campaign
+    todo=[item(spec,"c"*64,"NEW_CONTEXT"),
+          item(spec,"d"*64,"ORIGINAL_DISTINCT")]
+    completed=[]
+    monkeypatch.setattr(driver,"_eligible",
+        lambda **kw:[x for x in todo if x["scope"] not in completed])
+    def run(**kw):
+        completed.append(kw["task_file"].stem)
+        return {"status":"NOT_APPROVED","possible_sends_reserved":2,
+                "two_pass_science_evidence":{"science_AI_source_agreed":False},
+                "semantic_context_recovery":None}
+    monkeypatch.setattr(driver,"run_one",run)
+    args=dict(manifest=manifest,state_root=state,
+              campaign_id="above_restricted_cap_20261124",
+              max_science_sends=4,max_tasks=2,max_health_probes=0)
+    initial=driver.advance(**args)
+    assert initial["science_browser_sends_reserved"]==4
+    before=(state/"g3_continuous_advance_v1"/args["campaign_id"]/
+            "campaign.json").read_bytes()
+    monkeypatch.setattr(driver,"run_one",lambda **kw:
+        pytest.fail("Cannot replay already-budgeted model work"))
+    resumed=driver.advance(**{**args,"max_science_sends":2})
+    assert resumed["science_browser_sends_reserved"]==4
+    assert resumed["original_immutable_campaign_send_cap"]==4
+    assert resumed["stages_advanced_this_run"]==0
+    assert resumed["status"]=="FINITE_G3_SOURCE_CAMPAIGN_BUDGET_EXHAUSTED"
+    assert len(completed)==2
+    assert (state/"g3_continuous_advance_v1"/args["campaign_id"]/
+            "campaign.json").read_bytes()==before
+
+
+def test_tighter_cap_does_not_mask_original_source_manifest_drift(
+        campaign,monkeypatch):
+    state,manifest,spec=campaign
+    monkeypatch.setattr(driver,"_eligible",lambda **kw:[])
+    args=dict(manifest=manifest,state_root=state,
+              campaign_id="source_sha_locked_reentry_20261124",
+              max_science_sends=4,max_tasks=1,max_health_probes=0)
+    driver.advance(**args)
+    manifest.write_text('{"source_first":false}')
+    with pytest.raises(ValueError,match="Existing immutable recovery event changed"):
+        driver.advance(**{**args,"max_science_sends":2})
+
+
 def test_source_health_gate_prevents_unauthorized_or_unproven_send(
         campaign,monkeypatch):
     state,manifest,spec=campaign

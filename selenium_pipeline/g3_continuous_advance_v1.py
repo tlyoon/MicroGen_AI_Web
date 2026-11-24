@@ -30,6 +30,9 @@ from .recovery_registry import lookup_mechanism
 KIND="g3_source_context_autoforward"
 SIGNATURE="TWO_G3_SCIENCE_REVIEWERS_UNRESOLVED_BUT_NEW_PUBLISHER_CONTEXT_FOUND"
 MECHANISM="BIND_CONTEXT_AND_OLD_DISPUTE_CREATE_DISTINCT_REVIEW_THEN_AUTO_ADVANCE"
+CAP_KIND="g3_finite_campaign_cap_reentry"
+CAP_SIGNATURE="G3_IMMUTABLE_CAMPAIGN_RESTARTED_WITH_STRICTER_SEND_BUDGET"
+CAP_MECHANISM="PRESERVE_ORIGINAL_CAMPAIGN_HEADER_APPLY_STRICTER_RUN_CAP_NO_REPLAY"
 ORIGINAL="G3_DISTINCT_SOURCE_SEMANTIC_QA_READY_NO_SEND"
 UNSAFE_REPLAY_STATES={
     "SUBMITTED_OR_UNCERTAIN","NO_RESPONSE_UNRESOLVED",
@@ -217,14 +220,36 @@ def advance(*,manifest:Path,state_root:Path,
     home=root/"g3_continuous_advance_v1"
     need(not home.is_symlink(),"Redirected G3 automatic progress journal")
     home.mkdir(exist_ok=True)
+    # The original SHA-chained campaign records its finite Send limit.
+    # A later caller may tighten that limit, never expand or reset it.
+    locked_cap=max_science_sends
+    saved_header=home/campaign_id/"campaign.json"
+    if saved_header.exists():
+        need(saved_header.is_file() and not saved_header.is_symlink(),
+             "Unsafe original G3 campaign budget checkpoint")
+        saved=_read(saved_header)
+        prior_cap=saved.get("max_possible_model_sends")
+        need(type(prior_cap) is int and 0<=prior_cap<=8
+             and prior_cap%2==0,
+             "Malformed original G3 finite Send budget")
+        need(max_science_sends<=prior_cap,
+             "Existing G3 finite model-Send budget may not increase")
+        if max_science_sends<prior_cap:
+            need(lookup_mechanism(CAP_KIND,CAP_SIGNATURE)==CAP_MECHANISM,
+                 "Missing G3 conservative-cap restart recovery handler")
+        locked_cap=prior_cap
     log,header,events=_campaign(
         root=home,campaign_id=campaign_id,
         source_sha=source_set,queue_sha=pinned_manifest,
-        max_sends=max_science_sends)
+        max_sends=locked_cap)
     observations=[]
     probe_count=0
     attempts=0
     for _ in range(max_tasks):
+        # A tighter restart cannot resume any already-reserved work whose
+        # original global possible-Send total exceeds the new run cap.
+        if _possible_sends(events)>max_science_sends:
+            break
         choices=_eligible(specs=specs,state_root=root,
                           section=section,utterance_id=utterance_id)
         # Recover a previously reserved task before considering fresh work.
@@ -324,6 +349,7 @@ def advance(*,manifest:Path,state_root:Path,
             if candidates else "G3_SOURCE_AUTOFORWARD_NO_ELIGIBLE_TASKS"),
         "campaign_id":campaign_id,
         "max_science_browser_sends":max_science_sends,
+        "original_immutable_campaign_send_cap":header["max_possible_model_sends"],
         "science_browser_sends_reserved":_possible_sends(events),
         "max_health_probes":max_health_probes,
         "health_probes_attempted_this_run":probe_count,
