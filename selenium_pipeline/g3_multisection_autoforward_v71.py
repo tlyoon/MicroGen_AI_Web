@@ -387,6 +387,18 @@ def run_campaign(*,manifest:Path,state_dir:Path,
                     and gap_recovery["academic_source_acceptances_added"]==0
                     and gap_recovery["student_publication_authorized"] is False,
                     "Missing-source repair is never an academic approval")
+        visual_question_worklists=None
+        if auto_semantic_source_repair:
+            from .g3_original_visual_question_source_audit_v1 import (
+                materialize as stage_visual_questions)
+            visual_question_worklists=stage_visual_questions(
+                specs=specs,state_root=root)
+            require(visual_question_worklists["new_provider_sends"]==0
+                    and visual_question_worklists["paid_gemini_API_calls"]==0
+                    and visual_question_worklists["independent_scientific_QA_approved"]==0
+                    and visual_question_worklists["independent_visual_QA_approved"]==0
+                    and visual_question_worklists["student_publication_authorized"] is False,
+                    "Original rendered visual source excerpts are never science approval")
         return {
             "schema_version":1,
             "historical_uncertain_captures":historical_uncertain_captures,
@@ -394,6 +406,7 @@ def run_campaign(*,manifest:Path,state_dir:Path,
             "source_rejected_offline_recovery":offline_worklists,
             "semantic_source_recovery":semantic_tasks,
             "prepass_source_gap_recovery":gap_recovery,
+            "rendered_visual_question_source_recovery":visual_question_worklists,
             "status":("G3_SOURCE_MAPPING_INPUT_REVIEW_COVERAGE_COMPLETE_REVIEW_ONLY"
                       if counters["untouched_original_slides"]==0 and
                          counters["quarantined_or_uncertain_original_slides"]==0
