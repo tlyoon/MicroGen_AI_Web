@@ -174,6 +174,9 @@ class TTSFidelityTests(unittest.TestCase):
                 "selenium_pipeline.tts_fidelity._qa_hard_timeout_seconds",
                 return_value=1,
             ), patch(
+                "selenium_pipeline.tts_fidelity._verified_fidelity_worker_python",
+                return_value="python",
+            ), patch(
                 "selenium_pipeline.tts_fidelity.subprocess.Popen",
                 side_effect=workers,
             ) as popen, patch(
