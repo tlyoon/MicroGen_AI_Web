@@ -247,9 +247,19 @@ def advance(*,manifest:Path,state_root:Path,
             break
         spec=item["spec"]
         src_sha=spec["identity"]["source_inputs_sha256"]["source.pdf"]
+        from .g3_browser_post_send_health_gate_v1 import (
+            latest_unresolved_incident,receipt_is_fresher)
+        last_incident=max(
+            _after_incident(spec=spec),
+            latest_unresolved_incident(
+                state_root=root,section=spec["section"],
+                source_sha256=src_sha))
         receipt=latest_health(
             root=root,source_sha=src_sha,
-            after_unix=_after_incident(spec=spec))
+            after_unix=last_incident)
+        if not receipt_is_fresher(
+                receipt=receipt,incident_unix=last_incident):
+            receipt=None
         if execute and receipt is None and probe_count<max_health_probes:
             probe_count+=1
             from .g3_bounded_owned_browser_window_v1 import (
@@ -257,7 +267,8 @@ def advance(*,manifest:Path,state_root:Path,
             with bounded_science_response(absolute_max_seconds=180):
                 receipt=probe_once(
                     root=root,source_sha=src_sha,browser_request=health_probe)
-            if receipt.get("fresh_neon_high_source_free_health") is not True:
+            if not receipt_is_fresher(
+                    receipt=receipt,incident_unix=last_incident):
                 receipt=None
         if execute and receipt is None:
             observations.append({"scope":item["scope"],

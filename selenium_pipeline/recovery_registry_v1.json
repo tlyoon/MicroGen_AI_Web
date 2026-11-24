@@ -1276,6 +1276,20 @@
       "environment": "Dell-115 original G3 Serway 8.2, 8.3 publisher PDFs",
       "retry_policy": "Treat strictly bounded narration navigation as not an equation and still hold entire original visual QA; substantive friction derivation must get a new physically source-quoted two-pass science task, never old response replay",
       "enabled": true
+    },
+    {
+      "id": "G3_SOURCE_SCIENCE_POST_SEND_HEALTH_INVALIDATION_20261124",
+      "match_type": "g3_post_send_health_invalidation",
+      "signature": "G3_REGISTERED_SOURCE_SCIENCE_SEND_FAILED_AFTER_PREVIOUS_NEON_HEALTH",
+      "mechanism": "INVALIDATE_STALE_SOURCE_HEALTH_AND_REQUIRE_NEW_OWNED_HEALTH_PROOF",
+      "classification": "G3_NEW_REGISTERED_SEND_FAILED_AFTER_OLDER_SOURCE_FREE_NEON_HEALTH",
+      "handler": "NORMAL_G3_REQUIRE_POST_INCIDENT_SOURCE_HEALTH",
+      "preconditions": "Original immutable source SHA and subsection, per-scope G3 academic Send claim in the three separate reviewer roots, and original source-free health Unix timestamp",
+      "verification_test": "tests/test_g3_browser_post_send_health_gate_v1.py plus source-first Dell live failed Gemini UI after verified new turn",
+      "last_verified_date": "2026-11-24",
+      "environment": "Dell-115 G3 8.3 post-Send Gemini UI error, old source-free Neon High health predates uncertain Send",
+      "retry_policy": "Do not replay original science Send or source-free health claim; if health receipt predates new uncertain Send, require new independently verified diagnostic on a later eligible source/day and continue only other safe offline tasks",
+      "enabled": true
     }
   ]
 }
