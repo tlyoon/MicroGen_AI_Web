@@ -1500,6 +1500,20 @@
       "environment": "Dell-115 original G3 Serway 8.3 finite original source-science campaigns and their real SHA-chained Send journals",
       "retry_policy": "Reserve INITIAL immediately before its possible Send; reserve CHALLENGE only after source-validated INITIAL response. Preserve old claims, never replay uncertain Sends, extend budgets or grant academic/video approval",
       "enabled": true
+    },
+    {
+      "id": "G2_EXPLICIT_SCOPE_TWO_PASS_20261125",
+      "match_type": "g2_explicit_scoped_science_capacity",
+      "signature": "G2_NEW_DISTINCT_SCIENCE_SCOPE_USER_AUTHORIZED_AFTER_FINITE_CAP",
+      "mechanism": "PIN_FRESH_ONE_SCOPE_TWO_PASS_BUDGET_WITHOUT_OLD_SEND_REPLAY",
+      "classification": "PREVIOUS_SCIENCE_CAMPAIGN_EXHAUSTED_BUT_USER_APPROVED_NEW_DISTINCT_SCOPE",
+      "handler": "NORMAL_SCOPED_USER_APPROVED_G2_FINITE_SELENIUM_TWO_PASS",
+      "preconditions": "New user authorization; exact original source, ranked scope, fresh owned Neon High health, prior 2/2 RESULT-only immutable campaign, new cap 2",
+      "verification_test": "tests/test_g2_v3_explicit_scoped_capacity_v1.py original SHA, no consent, uncertain parent, drift, grant binding",
+      "last_verified_date": "2026-11-25",
+      "environment": "Dell-115 Selenium Neon/High exact source academic review, no paid API",
+      "retry_policy": "One UTC-day, one scope, two possible Sends; no historic claim replay, no budget reset, no publication or implied acceptance",
+      "enabled": true
     }
   ]
 }
