@@ -210,6 +210,26 @@ def _g3_media_zero_send(*,manifest:Path,state:Path,media:Path)->dict:
                 path=stage_recovery(report=diagnosis,staging_root=staging)
                 row["isolation_rebuild_worklist"]=str(path)
                 row["isolation_rebuild_worklist_sha256"]=_sha(path)
+                # Continue automatically to the NEXT eligible source-only
+                # repair: publisher/narration PDF element draft plus mandatory
+                # ambiguity review, never new TTS or encoded media. A partial
+                # failure in one subsection does not strand the other one.
+                try:
+                    from .g3_source_element_review_draft_v1 import (
+                        materialize as source_elements)
+                    row["element_mapping_source_review"]=source_elements(
+                        source_folder=media/SECTION[section],
+                        state_root=state,section=section,
+                        original_source_hashes=spec["identity"][
+                            "source_inputs_sha256"])
+                except Exception as error:
+                    row["element_mapping_source_review"]={
+                        "status":"G3_SOURCE_ELEMENT_MAPPING_DRAFT_HELD",
+                        "error_class":type(error).__name__,
+                        "error_detail":str(error)[:200],
+                        "per_element_TTS_ready":False,
+                        "independent_within_slide_highlight_QA_complete":False,
+                        "student_publication_authorized":False}
             else:
                 require(diagnosis["status"]==
                         "G3_MOTION_OBSERVED_HIGHLIGHT_STILL_UNATTESTED",
@@ -232,6 +252,10 @@ def _g3_media_zero_send(*,manifest:Path,state:Path,media:Path)->dict:
         "source_bound_actual_highlight_recovery":sections,
         "original_static_video_rebuilds_staged":sum(
             row["status"]=="G3_LEGACY_STATIC_VIDEO_REBUILD_REQUIRED"
+            for row in sections),
+        "source_only_element_mapping_drafts_staged":sum(
+            row.get("element_mapping_source_review",{}).get("status")==
+                "G3_ORIGINAL_SOURCE_ELEMENT_MAPPING_REVIEW_STAGED_NO_TTS"
             for row in sections),
         "independent_video_highlight_QA_complete":False,
         "source_video_pages_pixel_witnessed":
@@ -299,6 +323,8 @@ def _gate_matrix(results:dict)->list[dict]:
                    if static_rebuild_count else
                    "PENDING_ACTUAL_HIGHLIGHT_AND_SPEECH_TIMING"),
          "source_pinned_rebuild_worklists":static_rebuild_count,
+         "source_only_element_review_worklists":(media or {}).get(
+             "source_only_element_mapping_drafts_staged",0),
          "next_action":(
              "Rebuild source-verified element-synchronized MP4 in isolated "+
              "staging, requiring genuine per-element source anchors and "+
