@@ -1,5 +1,8 @@
 # MicroGen_AI_Web: Dell-115 Selenium production adapter
 
+> **Supported platform:** Windows only (Dell-115 and other authorized Windows PCs). Only Windows-hosted local/CI regressions are required. See [the development regression contract](../docs/MicroGen_Windows_Only_Development_Regression_Contract_20261125.md). Do not run or wait for Linux/Ubuntu regression suites.
+
+
 **Status:** Integration candidate; local offline tests and dry-run are possible. A live end-to-end lecture has **not** been certified yet. The original `main` and the source `template_v2` remain untouched.
 
 ## Authority and scope
