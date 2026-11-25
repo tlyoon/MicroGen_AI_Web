@@ -73,14 +73,46 @@ def _g2_zero_send(*,source:Path,queue:Path,campaign:str)->dict:
             and result["student_publication_authorized"] is False
             and result["reconciled_source_AI_agreements"]<=85,
             "G2 source-only review may not claim a new model Send or release")
+    # The source-only G2 controller has ALREADY revalidated the original
+    # V1 saved independent model evidence under its exclusive owner lock.
+    # A new ranked V3 scope counts only if BOTH independently attributable
+    # model replies pass the same original source/math validators. Reuse the
+    # verified V1 baseline rather than doing a duplicate 85-page review.
+    source_agreed=result["reconciled_source_AI_agreements"]
+    source_pending=result["pending_source_AI_review"]
+    v3_new=0
+    v3_receipt=None
+    v1_receipt=result.get("V1_actual_two_pass_source_AI_receipt")
+    if v1_receipt is not None:
+        from .g2_ranked_v3_two_pass_consensus_bridge_v1 import (
+            reconcile as reconcile_v3)
+        v1_proven={
+            "receipt":v1_receipt,
+            "combined_source_AI_agreements":source_agreed,
+            "new_focused_utterance_ids":result[
+                "V1_actual_source_AI_utterance_ids"]}
+        v3=reconcile_v3(
+            folder=source,queue_root=queue,base_v1_receipt=Path(v1_receipt),
+            v1_validator=lambda **_kw:v1_proven)
+        require(v3["original_V1_two_pass_source_AI_agreements"]==source_agreed
+                and v3["new_provider_requests"]==0
+                and v3["paid_gemini_API_calls"]==0
+                and v3["student_publication_authorized"] is False
+                and v3["combined_source_AI_agreements"]>=source_agreed,
+                "V3 model-source evidence must not alter old G2 acceptance")
+        source_agreed=v3["combined_source_AI_agreements"]
+        source_pending=v3["pending_or_disputed_source_AI"]
+        v3_new=v3["new_V3_independent_source_AI_agreements"]
+        v3_receipt=v3["receipt"]
     stages=result["stages"]
     return {
         "status":"G2_REAL_SOURCE_AGREEMENT_RECONCILED_NO_SEND",
-        "original_total":(result["reconciled_source_AI_agreements"]+
-                          result["pending_source_AI_review"]),
+        "original_total":(source_agreed+source_pending),
         "original_two_pass_AI_agreements":result["original_source_AI_agreements"],
-        "total_two_pass_AI_agreements":result["reconciled_source_AI_agreements"],
-        "pending_or_disputed":result["pending_source_AI_review"],
+        "total_two_pass_AI_agreements":source_agreed,
+        "pending_or_disputed":source_pending,
+        "new_V3_actual_independent_two_pass_agreements":v3_new,
+        "V3_independent_two_pass_receipt":v3_receipt,
         "source_only_focused_tasks_rechecked":len(stages),
         "separate_ranked_v3_review_inputs_rechecked":sum(
             x.get("ranked_source_review_candidate",{}).get("new_browser_sends")==0

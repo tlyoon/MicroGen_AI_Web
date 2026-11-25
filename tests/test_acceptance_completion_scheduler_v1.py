@@ -256,3 +256,89 @@ def test_real_source_ai_progress_can_complete_85_without_faking_acoustics(roots)
     assert result["academically_accepted_gates"]==1
     assert result["all_G2_G3_requirements_accepted"] is False
     assert result["student_publication_authorized"] is False
+
+
+def test_normal_g2_controller_autoadmits_only_new_independent_ranked_v3(
+        roots,monkeypatch):
+    from selenium_pipeline import autonomous_recovery_continuation_v1 as g2ctl
+    from selenium_pipeline import g2_ranked_v3_two_pass_consensus_bridge_v1 as v3
+    from selenium_pipeline.acceptance_completion_scheduler_v1 import _g2_zero_send
+    calls=[]
+    def source_controller(**kw):
+        calls.append("SOURCE")
+        assert kw["max_possible_sends"]==0
+        assert kw["execute"] is False
+        return {
+            "max_possible_provider_sends":0,
+            "possible_provider_sends_reserved":0,
+            "new_paid_gemini_api_calls":0,
+            "original_historical_requests_replayed":False,
+            "student_publication_authorized":False,
+            "reconciled_source_AI_agreements":29,
+            "original_source_AI_agreements":27,
+            "pending_source_AI_review":56,
+            "V1_actual_two_pass_source_AI_receipt":str(
+                roots["g2_queue"]/"saved_v1.json"),
+            "V1_actual_source_AI_utterance_ids":[
+                "s003.utterance.001","s003.utterance.002"],
+            "stages":[],"source_sha256":"a"*64,
+            "campaign_checkpoint":"old_existing_source_only_campaign",
+        }
+    def genuine_v3(**kw):
+        calls.append("V3")
+        assert kw["v1_validator"]()["combined_source_AI_agreements"]==29
+        assert kw["v1_validator"]()["new_focused_utterance_ids"]==[
+            "s003.utterance.001","s003.utterance.002"]
+        return {
+            "original_V1_two_pass_source_AI_agreements":29,
+            "new_provider_requests":0,"paid_gemini_API_calls":0,
+            "student_publication_authorized":False,
+            "combined_source_AI_agreements":30,
+            "pending_or_disputed_source_AI":55,
+            "new_V3_independent_source_AI_agreements":1,
+            "receipt":"immutable_two_pass_science_receipt.json",
+        }
+    monkeypatch.setattr(g2ctl,"run_campaign",source_controller)
+    monkeypatch.setattr(v3,"reconcile",genuine_v3)
+    got=_g2_zero_send(source=roots["g2_source"],queue=roots["g2_queue"],
+                      campaign="original_g2_campaign")
+    assert calls==["SOURCE","V3"]
+    assert got["original_total"]==85
+    assert got["total_two_pass_AI_agreements"]==30
+    assert got["new_V3_actual_independent_two_pass_agreements"]==1
+    assert got["pending_or_disputed"]==55
+    assert got["independent_academic_QA_complete"] is False
+    assert got["student_publication_authorized"] is False
+    assert got["new_browser_sends"]==0
+
+
+def test_normal_g2_scheduler_rejects_forged_v3_approval_without_g3_stalling(
+        roots,monkeypatch):
+    from selenium_pipeline import autonomous_recovery_continuation_v1 as g2ctl
+    from selenium_pipeline import g2_ranked_v3_two_pass_consensus_bridge_v1 as v3
+    from tests.test_acceptance_completion_scheduler_v1 import good_g3,good_media
+    def old(**kw):
+        return {
+            "max_possible_provider_sends":0,
+            "possible_provider_sends_reserved":0,
+            "new_paid_gemini_api_calls":0,
+            "original_historical_requests_replayed":False,
+            "student_publication_authorized":False,
+            "reconciled_source_AI_agreements":29,
+            "pending_source_AI_review":56,
+            "V1_actual_two_pass_source_AI_receipt":"old_v1.json",
+            "V1_actual_source_AI_utterance_ids":[],
+        }
+    monkeypatch.setattr(g2ctl,"run_campaign",old)
+    monkeypatch.setattr(v3,"reconcile",lambda **kw:{
+        "original_V1_two_pass_source_AI_agreements":29,
+        "combined_source_AI_agreements":85,
+        "new_provider_requests":1,
+        "paid_gemini_API_calls":0,
+        "student_publication_authorized":True})
+    got=run(roots,g2_runner=None,g3_science_runner=good_g3,
+            g3_media_runner=good_media)
+    assert "G2_SOURCE" in got["independent_workstreams_held"]
+    assert got["G3_original_video_pages_technical"]==32
+    assert got["G3_historical_sends_reserved"]==4
+    assert got["G2_source_AI_agreed"] is None

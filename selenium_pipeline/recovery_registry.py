@@ -70,6 +70,7 @@ _HANDLERS = {
     "g3_original_video_page_parity": "NORMAL_G3_WITNESS_ORIGINAL_SLIDE_PAGES_IN_ENCODED_VIDEO_NO_ACCEPTANCE",
     "completion_driven_acceptance_scheduler": "NORMAL_G2_G3_COMPLETION_GATES_SOURCE_ONLY_AUTOFORWARD",
     "g2_ranked_v3_owned_science_handoff": "NORMAL_G2_V3_FINITE_OWNED_SELENIUM_SCIENCE_REVIEW_HANDOFF",
+    "g2_ranked_v3_two_pass_consensus": "NORMAL_G2_ADMIT_ACTUAL_V3_TWO_PASS_SOURCE_AI_AGREEMENTS",
     "g3_rejected_content_continuation": "NORMAL_SOURCE_REJECTION_WITHOUT_PROVIDER_UNCERTAINTY",
     "v71_polling_journal_recovery": "NORMAL_IMMUTABLE_IDLE_JOURNAL_COMPACTION",
     "caption_identity_parity": "NORMAL_REAL_SOURCE_FIGURE_CAPTION_CROSS_PARSER_CHECK",
