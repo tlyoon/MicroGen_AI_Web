@@ -298,7 +298,12 @@ def advance(*,manifest:Path,state_root:Path,
         if not receipt_is_fresher(
                 receipt=receipt,incident_unix=last_incident):
             receipt=None
-        if execute and receipt is None and probe_count<max_health_probes:
+        # Existing global INITIAL reservation is an uncertain past operation.
+        # Its saved first/challenge source evidence can be reconciled OFFLINE:
+        # do not require browser health or spend a fresh diagnostic Send just
+        # to inspect original model-response bytes. New Sends still require
+        # verified post-incident Neon/High health before any reservation.
+        if execute and not same and receipt is None and probe_count<max_health_probes:
             probe_count+=1
             from .g3_bounded_owned_browser_window_v1 import (
                 bounded_science_response)
@@ -308,7 +313,7 @@ def advance(*,manifest:Path,state_root:Path,
             if not receipt_is_fresher(
                     receipt=receipt,incident_unix=last_incident):
                 receipt=None
-        if execute and receipt is None:
+        if execute and not same and receipt is None:
             need(lookup_mechanism(SKIP_KIND,SKIP_SIGNATURE)==SKIP_MECHANISM,
                  "Missing same-run blocked-source continuation handler")
             health_blocked_sources.add((item["section"],src_sha))
