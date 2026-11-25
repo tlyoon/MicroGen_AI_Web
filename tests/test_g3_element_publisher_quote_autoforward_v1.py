@@ -243,3 +243,43 @@ def test_one_quote_context_provider_failure_does_not_strand_other_subsection(
         "G3_SOURCE_PHYSICAL_CONTEXT_INCREMENTALLY_STAGED_NO_APPROVAL")
     assert got["new_physically_source_witnessed_mapping_tasks_staged"]==1
     assert got["student_publication_authorized"] is False
+
+
+def test_scheduler_auto_advances_multiple_bounded_source_quote_batches(tmp_path,monkeypatch):
+    from selenium_pipeline import g3_source_quote_bounded_continuation_v1 as bulk
+    state,media,manifest,calls=install(tmp_path,monkeypatch)
+    observed=[]
+    monkeypatch.setattr(drafts,"materialize",lambda **kw:{
+        "status":"G3_ORIGINAL_SOURCE_ELEMENT_MAPPING_REVIEW_STAGED_NO_TTS",
+        "draft_receipt":str(state/"original_mock.json")})
+    def first(**kw):
+        observed.append(("initial",kw["section"]))
+        return {
+            "status":"G3_SOURCE_PHYSICAL_CONTEXT_INCREMENTALLY_STAGED_NO_APPROVAL",
+            "new_source_quote_tasks_staged":2,
+            "new_physically_witnessed_publisher_quotes":3,
+            "remaining_unprocessed_ambiguous_tasks":6,
+            "source_scientific_QA_complete":False,
+            "new_browser_sends":0,"new_paid_gemini_API_calls":0,
+            "student_publication_authorized":False}
+    def continued(**kw):
+        observed.append(("batch",kw["section"]))
+        assert kw["expected_remaining"]==6
+        return {
+            "status":"G3_BOUNDED_SOURCE_PHYSICAL_QUOTE_CONTINUATION_NO_APPROVAL",
+            "new_source_quote_tasks_staged":4,
+            "new_physically_witnessed_publisher_quotes":6,
+            "remaining_unprocessed_ambiguous_tasks":2,
+            "new_browser_sends":0,"new_paid_gemini_API_calls":0,
+            "source_scientific_QA_complete":False,
+            "student_publication_authorized":False}
+    monkeypatch.setattr(stage,"advance",first)
+    monkeypatch.setattr(bulk,"continue_quotes",continued)
+    result=controller._g3_media_zero_send(manifest=manifest,state=state,media=media)
+    assert result["new_physically_source_witnessed_mapping_tasks_staged"]==12
+    assert result["source_only_physical_quote_candidates_staged"]==18
+    assert observed==[
+        ("initial","Serway_8_2"),("batch","Serway_8_2"),
+        ("initial","Serway_8_3"),("batch","Serway_8_3")]
+    assert result["student_publication_authorized"] is False
+

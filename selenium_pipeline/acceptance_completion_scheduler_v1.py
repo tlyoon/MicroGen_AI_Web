@@ -236,6 +236,19 @@ def _g3_media_zero_send(*,manifest:Path,state:Path,media:Path)->dict:
                             draft_receipt=Path(packet["draft_receipt"]),
                             source_hashes=spec["identity"][
                                 "source_inputs_sha256"])
+                        initial=row["publisher_quote_mapping_recovery"]
+                        remaining=initial.get("remaining_unprocessed_ambiguous_tasks")
+                        if (type(remaining) is int and remaining>0
+                                and initial.get("new_source_quote_tasks_staged",0)>0):
+                            from .g3_source_quote_bounded_continuation_v1 import (
+                                continue_quotes)
+                            row["publisher_quote_batch_continuation"]=continue_quotes(
+                                source_folder=media/SECTION[section],
+                                state_root=state,section=section,
+                                draft_receipt=Path(packet["draft_receipt"]),
+                                source_hashes=spec["identity"]["source_inputs_sha256"],
+                                expected_remaining=remaining)
+
                     except Exception as error:
                         row["publisher_quote_mapping_recovery"]={
                             "status":"G3_PUBLISHER_QUOTE_SOURCE_REVIEW_HELD",
@@ -283,9 +296,13 @@ def _g3_media_zero_send(*,manifest:Path,state:Path,media:Path)->dict:
             for row in sections),
         "new_physically_source_witnessed_mapping_tasks_staged":sum(
             row.get("publisher_quote_mapping_recovery",{}).get(
+                "new_source_quote_tasks_staged",0)
+            + row.get("publisher_quote_batch_continuation",{}).get(
                 "new_source_quote_tasks_staged",0) for row in sections),
         "source_only_physical_quote_candidates_staged":sum(
             row.get("publisher_quote_mapping_recovery",{}).get(
+                "new_physically_witnessed_publisher_quotes",0)
+            + row.get("publisher_quote_batch_continuation",{}).get(
                 "new_physically_witnessed_publisher_quotes",0)
             for row in sections),
         "independent_video_highlight_QA_complete":False,
