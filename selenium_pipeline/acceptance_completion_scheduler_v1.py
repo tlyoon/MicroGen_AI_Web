@@ -222,6 +222,30 @@ def _g3_media_zero_send(*,manifest:Path,state:Path,media:Path)->dict:
                         state_root=state,section=section,
                         original_source_hashes=spec["identity"][
                             "source_inputs_sha256"])
+                    # Do not stop at an unapproved worklist: reuse the
+                    # historical physically witnessed publisher context
+                    # retriever for up to two *new* ambiguous original units.
+                    # No new model Send, no guessed figure semantics, no TTS.
+                    try:
+                        from .g3_element_publisher_quote_autoforward_v1 import (
+                            advance as source_quotes)
+                        packet=row["element_mapping_source_review"]
+                        row["publisher_quote_mapping_recovery"]=source_quotes(
+                            source_folder=media/SECTION[section],
+                            state_root=state,section=section,
+                            draft_receipt=Path(packet["draft_receipt"]),
+                            source_hashes=spec["identity"][
+                                "source_inputs_sha256"])
+                    except Exception as error:
+                        row["publisher_quote_mapping_recovery"]={
+                            "status":"G3_PUBLISHER_QUOTE_SOURCE_REVIEW_HELD",
+                            "error_class":type(error).__name__,
+                            "error_detail":str(error)[:200],
+                            "source_scientific_QA_complete":False,
+                            "per_element_TTS_ready":False,
+                            "student_publication_authorized":False,
+                            "new_browser_sends":0,
+                            "new_paid_gemini_API_calls":0}
                 except Exception as error:
                     row["element_mapping_source_review"]={
                         "status":"G3_SOURCE_ELEMENT_MAPPING_DRAFT_HELD",
@@ -256,6 +280,13 @@ def _g3_media_zero_send(*,manifest:Path,state:Path,media:Path)->dict:
         "source_only_element_mapping_drafts_staged":sum(
             row.get("element_mapping_source_review",{}).get("status")==
                 "G3_ORIGINAL_SOURCE_ELEMENT_MAPPING_REVIEW_STAGED_NO_TTS"
+            for row in sections),
+        "new_physically_source_witnessed_mapping_tasks_staged":sum(
+            row.get("publisher_quote_mapping_recovery",{}).get(
+                "new_source_quote_tasks_staged",0) for row in sections),
+        "source_only_physical_quote_candidates_staged":sum(
+            row.get("publisher_quote_mapping_recovery",{}).get(
+                "new_physically_witnessed_publisher_quotes",0)
             for row in sections),
         "independent_video_highlight_QA_complete":False,
         "source_video_pages_pixel_witnessed":
@@ -325,6 +356,8 @@ def _gate_matrix(results:dict)->list[dict]:
          "source_pinned_rebuild_worklists":static_rebuild_count,
          "source_only_element_review_worklists":(media or {}).get(
              "source_only_element_mapping_drafts_staged",0),
+         "new_publisher_quote_mapping_tasks":(media or {}).get(
+             "new_physically_source_witnessed_mapping_tasks_staged",0),
          "next_action":(
              "Rebuild source-verified element-synchronized MP4 in isolated "+
              "staging, requiring genuine per-element source anchors and "+

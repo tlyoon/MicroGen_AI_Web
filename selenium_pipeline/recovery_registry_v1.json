@@ -1472,6 +1472,20 @@
       "environment": "Dell-115 source-pinned original G3 Serway 8.2/8.3 figures, exact script and decoded pixel static legacy video",
       "retry_policy": "Recompute original publisher element drafts and mandatory review worklists; never infer source math, figure panels, per-element audio or academic approval; leave old assets unchanged",
       "enabled": true
+    },
+    {
+      "id": "G3_ORIGINAL_ELEMENT_PHYSICAL_PUBLISHER_QUOTE_AUTOFORWARD_20261125",
+      "match_type": "g3_element_publisher_quote_autoforward",
+      "signature": "G3_AMBIGUOUS_ELEMENT_REVIEW_DRAFT_LACKS_PHYSICAL_TEXTBOOK_CONTEXT",
+      "mechanism": "CONTINUE_BOUNDED_SOURCE_QUOTE_WITNESSES_WITHOUT_MODEL_SEND",
+      "classification": "G3_ORIGINAL_GRAPHICS_ELEMENT_NARRATION_UNRESOLVED_WITHOUT_PHYSICAL_SOURCE_CONTEXT",
+      "handler": "NORMAL_G3_CONTINUE_SOURCE_PHYSICAL_QUOTE_REVIEW_WITHOUT_SEND",
+      "preconditions": "Original source.pdf slides.pdf script.txt original hashes and immutable PR639 source element draft; original content and source reviewers all remain unapproved",
+      "verification_test": "tests/test_g3_element_publisher_quote_autoforward_v1.py physical publisher source geometry, original unapproved scope, capped proof retrieval, saved-no-replay, forged quote and changed original SHA rejection",
+      "last_verified_date": "2026-11-25",
+      "environment": "Dell-115 original source Serway 8.2 and 8.3 115 ambiguous narrated visual mapping candidates",
+      "retry_policy": "Bounded append-only source quote candidate search, skip only already staged original scope and continue other tasks/sections; physical quote does not approve physics, source mapping, TTS, acoustic, highlights or publication; no model API/send",
+      "enabled": true
     }
   ]
 }
