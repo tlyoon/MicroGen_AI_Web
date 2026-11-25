@@ -179,10 +179,11 @@ def _agreement(*,folder:Path,job:dict,first:dict,second:dict,
 def run_one(*,spec:dict,task_file:Path,
             worklist_root:Path,state_root:Path,
             campaign_id:str,max_possible_sends:int=2,
-            execute:bool=False,transport=None)->dict:
+            execute:bool=False,transport=None,before_send=None)->dict:
     need(lookup_mechanism(KIND,SIGNATURE)==MECHANISM,
          "G3 independent source science controller not in recovery registry")
     need(type(execute) is bool
+         and (before_send is None or callable(before_send))
          and type(max_possible_sends) is int
          and 0<=max_possible_sends<=2,
          "Source math two-pass campaign has finite possible Sends")
@@ -243,6 +244,12 @@ def run_one(*,spec:dict,task_file:Path,
             if proof is None:
                 status="G3_DISTINCT_SCIENCE_FRESH_NEON_HEALTH_REQUIRED"
                 break
+            # Reserve the *global* possible Send just in time, after the
+            # previous pass has an independently revalidated response. Never
+            # pre-reserve a CHALLENGE before INITIAL has really succeeded.
+            # A crashed global reservation must fail closed on restart.
+            if before_send is not None:
+                before_send(scope,phase)
             events=_append(campaign,header,events,"RESERVE",
                            scope=scope,phase=phase,detail=task["original_utterance_id"])
             try:

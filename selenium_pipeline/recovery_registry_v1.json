@@ -1486,6 +1486,20 @@
       "environment": "Dell-115 original source Serway 8.2 and 8.3 115 ambiguous narrated visual mapping candidates",
       "retry_policy": "Bounded append-only source quote candidate search, skip only already staged original scope and continue other tasks/sections; physical quote does not approve physics, source mapping, TTS, acoustic, highlights or publication; no model API/send",
       "enabled": true
+    },
+    {
+      "id": "G3_JUST_IN_TIME_TWO_PASS_MODEL_SEND_RESERVATION_20261125",
+      "match_type": "g3_just_in_time_science_send_reservation",
+      "signature": "G3_INITIAL_UNCERTAIN_PREMATURELY_RESERVED_CHALLENGE_SEND",
+      "mechanism": "RESERVE_INDIVIDUAL_G3_SCIENCE_PASSES_AFTER_SAVED_SOURCE_RESPONSE",
+      "classification": "G3_TWO_PASS_SCIENCE_CAMPAIGN_RESERVED_CHALLENGE_BEFORE_ANY_INITIAL_RESPONSE",
+      "handler": "NORMAL_G3_RESERVE_CHALLENGE_ONLY_AFTER_AUTHENTICATED_INITIAL_REVIEW",
+      "preconditions": "Original immutable finite global G3 campaign journal and original source/manifest SHA, fresh owned source-free Neon High health, per-task checkpoint; no old uncertain request replay",
+      "verification_test": "tests/test_g3_just_in_time_science_reservation_v1.py simulated one-pass uncertainty, verified two-pass reservation, old history immutability and crash fault injection",
+      "last_verified_date": "2026-11-25",
+      "environment": "Dell-115 original G3 Serway 8.3 finite original source-science campaigns and their real SHA-chained Send journals",
+      "retry_policy": "Reserve INITIAL immediately before its possible Send; reserve CHALLENGE only after source-validated INITIAL response. Preserve old claims, never replay uncertain Sends, extend budgets or grant academic/video approval",
+      "enabled": true
     }
   ]
 }

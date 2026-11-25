@@ -35,6 +35,13 @@ def item(spec,scope,kind):
         "spec":spec,"file":spec["source_folder"]/(scope+".json")}
 
 
+def _test_two_actual_model_passes(kw):
+    """The stub must trigger exactly the same just-in-time Send boundary."""
+    if kw["execute"]:
+        for phase in ("INITIAL","CHALLENGE"):
+            kw["before_send"](kw["task_file"].stem,phase)
+
+
 def test_auto_advances_context_then_next_distinct_task(campaign,monkeypatch):
     state,manifest,spec=campaign
     first=item(spec,"b"*64,"NEW_CONTEXT")
@@ -43,6 +50,7 @@ def test_auto_advances_context_then_next_distinct_task(campaign,monkeypatch):
     monkeypatch.setattr(driver,"_eligible",
        lambda **kw:[x for x in (first,second) if x["scope"] not in done])
     def run(**kw):
+        _test_two_actual_model_passes(kw)
         scope=kw["task_file"].stem
         done.append(scope)
         return {"status":"G3_SOURCE_MODEL_ONE_PASS_CANDIDATE",
@@ -77,12 +85,13 @@ def test_crash_between_global_reservation_and_model_dispatch_is_restart_safe(
     count=[0]
     def interrupted(**kw):
         count[0]+=1
-        if count[0]==1:
-            raise RuntimeError("Simulated process crash before model response")
-        return {"status":"G3_TEST_SOURCE_NO_SEND_RECONCILED",
-                "possible_sends_reserved":2,
-                "two_pass_science_evidence":{
-                    "science_AI_source_agreed":False},
+        if kw["execute"]:
+            kw["before_send"](kw["task_file"].stem,"INITIAL")
+            raise RuntimeError("Simulated crash after reserved uncertain INITIAL")
+        # Read-only restart cannot fabricate a response or replay the claim.
+        return {"status":"G3_TEST_OLD_UNCERTAIN_SEND_RECONCILE_ONLY",
+                "possible_sends_reserved":1,
+                "two_pass_science_evidence":None,
                 "semantic_context_recovery":None}
     monkeypatch.setattr(driver,"run_one",interrupted)
     args={
@@ -93,8 +102,10 @@ def test_crash_between_global_reservation_and_model_dispatch_is_restart_safe(
     with pytest.raises(RuntimeError):
         driver.advance(**args)
     resumed=driver.advance(**args)
-    assert resumed["science_browser_sends_reserved"]==2
+    assert resumed["science_browser_sends_reserved"]==1
     assert resumed["stages_advanced_this_run"]==1
+    assert resumed["stage_results"][0]["status"]==(
+        "G3_TEST_OLD_UNCERTAIN_SEND_RECONCILE_ONLY")
     assert count[0]==2
     with pytest.raises(ValueError):
         driver.advance(**{**args,"max_science_sends":4})
@@ -114,6 +125,7 @@ def test_conservative_existing_campaign_budget_reentry_preserves_journal(
         lambda **kw:[x for x in (first,second)
                      if x["scope"] not in sent])
     def run(**kw):
+        _test_two_actual_model_passes(kw)
         sent.append(kw["task_file"].stem)
         return {"status":"SOURCE_SCIENCE_NOT_AUTOMATICALLY_APPROVED",
                 "possible_sends_reserved":2,
@@ -152,6 +164,7 @@ def test_tighter_budget_never_resumes_more_previously_reserved_sends(
     monkeypatch.setattr(driver,"_eligible",
         lambda **kw:[x for x in todo if x["scope"] not in completed])
     def run(**kw):
+        _test_two_actual_model_passes(kw)
         completed.append(kw["task_file"].stem)
         return {"status":"NOT_APPROVED","possible_sends_reserved":2,
                 "two_pass_science_evidence":{"science_AI_source_agreed":False},
@@ -233,11 +246,14 @@ def test_source_health_probe_separately_capped_and_original_pdf_never_uploaded(
             "status":"G3_SOURCE_FREE_NEON_HIGH_HEALTH_VERIFIED",
             "fresh_neon_high_source_free_health":True,
             "observed_unix":100.0}))
-    monkeypatch.setattr(driver,"run_one",lambda **kw:{
+    def health_probe_review(**kw):
+        _test_two_actual_model_passes(kw)
+        return {
         "status":"G3_SCOPED_SOURCE_ONLY_NO_APPROVAL",
         "possible_sends_reserved":2,
         "two_pass_science_evidence":{"science_AI_source_agreed":False},
-        "semantic_context_recovery":None})
+        "semantic_context_recovery":None}
+    monkeypatch.setattr(driver,"run_one",health_probe_review)
     result=driver.advance(
         manifest=manifest,state_root=state,
         campaign_id="health_once_20261124",max_science_sends=2,
@@ -298,7 +314,11 @@ def test_held_unreconciled_source_send_does_not_strand_another_task(
     models=[]
     monkeypatch.setattr(driver,"_eligible",lambda **kw:[first,second])
     def review(**kw):
+        # A held INITIAL consumes one possible Send, not a fictitious second.
+        kw["before_send"](kw["task_file"].stem,"INITIAL")
         scope=kw["task_file"].stem
+        if scope!=first["scope"]:
+            kw["before_send"](scope,"CHALLENGE")
         models.append(scope)
         return {
             "status":(
@@ -318,7 +338,7 @@ def test_held_unreconciled_source_send_does_not_strand_another_task(
     outcome=driver.advance(**args)
     assert models==["1"*64,"2"*64]
     assert outcome["stages_advanced_this_run"]==2
-    assert outcome["science_browser_sends_reserved"]==4
+    assert outcome["science_browser_sends_reserved"]==3
     assert outcome["stage_results"][0]["status"]==(
         "G3_DISTINCT_SCIENCE_UNCERTAIN_NO_REPLAY")
     assert outcome["original_historical_model_claims_replayed"] is False
@@ -374,6 +394,7 @@ def test_missing_health_in_one_section_does_not_block_another(
                         None if kw["source_sha"]=="a"*64 else verified)
     ran=[]
     def run(**kw):
+        _test_two_actual_model_passes(kw)
         ran.append(kw["task_file"].stem)
         return {"status":"SCIENCE_SOURCE_REVIEW_STAGED_UNAPPROVED",
                 "possible_sends_reserved":2,
