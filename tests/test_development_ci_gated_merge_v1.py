@@ -74,6 +74,7 @@ def test_registered_exact_head_gate_and_windows_workflow_on_all_prs():
     wf=Path(__file__).resolve().parents[1]/".github/workflows/microgen-reliability-tests.yml"
     txt=wf.read_text("utf8").split("on:",1)[1].split("jobs:",1)[0]
     assert "pull_request:" in txt
+    assert "types: [opened, synchronize, reopened, ready_for_review]" in txt
     assert "paths:" not in txt
     assert "runs-on: windows-latest" in wf.read_text("utf8")
     assert "ubuntu" not in wf.read_text("utf8").casefold()
