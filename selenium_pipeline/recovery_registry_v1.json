@@ -1514,6 +1514,20 @@
       "environment": "Dell-115 Selenium Neon/High exact source academic review, no paid API",
       "retry_policy": "One UTC-day, one scope, two possible Sends; no historic claim replay, no budget reset, no publication or implied acceptance",
       "enabled": true
+    },
+    {
+      "id": "G3_INDEPENDENT_LONG_HORIZON_SOURCE_AUTOFORWARD_20261125",
+      "match_type": "long_horizon_g3_source_continuation",
+      "signature": "G2_MODEL_SEND_HELD_G3_SOURCE_WORK_MUST_AUTONOMOUSLY_CONTINUE",
+      "mechanism": "RESUME_INDEPENDENT_G3_SOURCE_ONLY_SCOPES_WITH_IMMUTABLE_CHECKPOINTS",
+      "classification": "G2_UNCERTAIN_MODEL_RESPONSE_MUST_NOT_STRAND_G3_ORIGINAL_SOURCE_WORK",
+      "handler": "NORMAL_ISOLATED_G3_SOURCE_ONLY_LONG_HORIZON_WORKER",
+      "preconditions": "Archived source/slides/script SHA and original element drafts; model requests and student publication forbidden; exclusive owner lock",
+      "verification_test": "tests/test_long_horizon_g3_source_worker_v1.py restart, source drift, independent lane isolation, budget and forged progress",
+      "last_verified_date": "2026-11-25",
+      "environment": "Dell-115 original Serway 8.2/8.3 Windows source-only witness, no Gemini calls",
+      "retry_policy": "Bounded maximum 64 rounds, 2 original source units per subsection per round; derive progress from immutable PDF quote scopes; stop only held section, write durable receipts; never Send/release",
+      "enabled": true
     }
   ]
 }
