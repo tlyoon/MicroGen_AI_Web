@@ -361,6 +361,9 @@ def valid(stage: str, folder: Path) -> bool:
     if stage == "slides":
         if slide_pages(folder) <= 0:
             return False
+        from .vendor_template_v2.default_beamer_style_v1 import default_style_errors
+        if default_style_errors((folder / "slides.tex").read_text(encoding="utf8")):
+            return False
         from .source_caption_figure_chain_v1 import (
             has_real_pdf_header, verify_rendered_pdf_source_figures)
         if has_real_pdf_header(folder / "source.pdf"):
@@ -373,7 +376,10 @@ def valid(stage: str, folder: Path) -> bool:
         return len(blocks((folder / "script.txt").read_text(encoding="utf-8"))) == slide_pages(folder)
     if stage == "script_qa":
         report = json.loads((folder / "script_risk_report.json").read_text(encoding="utf-8"))
-        return int(report.get("summary", {}).get("blocking", 1)) == 0
+        from .vendor_template_v2.script_tts_risk import analyze_script_text
+        current = analyze_script_text((folder / "script.txt").read_text(encoding="utf8"))
+        return (int(report.get("summary", {}).get("blocking", 1)) == 0
+                and int(current["summary"]["blocking"]) == 0)
     if stage == "tts":
         count = len(blocks((folder / "script.txt").read_text(encoding="utf-8")))
         return all((folder / f"slide{i}.wav").is_file() and
@@ -814,7 +820,7 @@ def _execute_unlocked(s: Settings) -> Path:
             if stage in {"figures","slides","narration"}
             else "deterministic-local")
         if stage == "script_qa":
-            model_stamp = "script-risk-v1"
+            model_stamp = "script-risk-v2:standalone-lecture"
         elif stage == "tts":
             model_stamp = f"{s.tts_provider}:{s.tts_model}:{s.tts_voice}"
         elif stage == "tts_qa":

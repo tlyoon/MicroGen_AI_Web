@@ -5,7 +5,7 @@ Two files are attached:
 - source.pdf
 
 Use slides.pdf to determine the slide order and the visible content on each slide.
-Use source.pdf only as supporting background for the same topic.
+Use source.pdf as the sole scientific basis for explaining the content of slides.pdf; never add knowledge or examples that cannot be grounded in that source.
 
 The uploaded slides.pdf contains exactly {slide_count} slides, so your response must contain exactly {slide_count} slide blocks.
 
@@ -102,6 +102,22 @@ The narration will be sent directly to a text-to-speech engine. Write the narrat
 - Before returning the script, mentally read every sentence aloud and rewrite any token that could plausibly be pronounced in more than one way.
 - Slide 1 remains exempt from rewriting because its title must match the slide exactly.
 
+======================================================================
+SELF-CONTAINED LECTURE VOICE (MANDATORY)
+======================================================================
+
+- Deliver a fully standalone video lecture. Speak directly as a physics lecturer to students, explaining what is visible and why it is true; do not tell students to consult any other material.
+- The slides.pdf is authoritative for slide order, content, variables, equations, diagrams and examples; source.pdf is the sole scientific grounding for improving the explanation. Keep this distinction INTERNAL.
+- NEVER speak about the source as a source. Forbidden lecture framing includes: "the textbook says/shows/explains", "according to the textbook", "in the textbook", "the book states", "the source PDF", "the attached document", "the author states", "Serway says", "on page ...", "as described in the book" or "the printed figure".
+- The word "book" is allowed only when it names an actual physical object in the physics problem (for example a book sliding across a table), not as a reference to the source.
+- Replace source-referential language with a direct physics explanation. For example, say "The maximum speed occurs before the spring reaches equilibrium, because ..." rather than "The textbook points out that ...".
+- Refer to "the diagram", "Figure 8.7" or "the equation on this slide" only when it is actually visible on that slide. Avoid external-reference language, citations, source page numbers, and unrelated chapter or section navigation.
+- Narrate complete cause-and-effect reasoning, not a disconnected reading of bullet points. Explain the assumptions, law, algebra or numerical substitution, result, physical interpretation, and limitations that are supported by the same source section.
+- Explain all quantities when reading equations aloud. Show how consecutive steps follow logically, keeping units and signs accurate. Work through each source-supported example, including its parts and important special cases.
+- Do not invent details, physical assumptions, historical claims, examples, or corrections beyond source.pdf to make the lecture sound fuller.
+- Maintain natural spoken English, concise transitions between consecutive slides, no repetitive filler or source attribution, and no ungrounded statements of authority.
+- This rule applies to EVERY spoken slide after Slide 1. Keep the established exact-title-only Slide 1 rule unless the pipeline's first-slide contract is changed explicitly.
+
 Narration requirements for Slides 2 onward
 
 - Explain only the concept shown on that slide.
@@ -109,7 +125,7 @@ Narration requirements for Slides 2 onward
 - Define technical terms before using them.
 - If a formula appears on the slide, convert it into natural spoken English and briefly explain the meaning of each quantity in words.
 - If a figure appears, briefly describe what it shows.
-- Avoid repeating the same explanation across slides.
+- Avoid repeating the same explanation across slides; use coherent transitions when a derivation or example continues.
 - Do not mention material from other chapters, other slide decks, or prior conversations unless it is clearly grounded in the current files.
 
 Length guidance
@@ -129,5 +145,5 @@ Final self-check before responding
 - No ambiguous dotted abbreviation remains in the narration.
 - No unexplained one-letter variable or label remains in running narration; its role is explicit in the spoken wording.
 - Numbers, signs, exponents, units, acronyms, and scientific notation have one clear intended pronunciation.
-- No citation markers, grounding markers, or bracketed source artefacts appear anywhere in the response body.
+- No citation markers, grounding markers, references to the textbook/source/author, or bracketed source artefacts appear anywhere in the response body.
 - The only allowed square brackets in the entire output are the timing brackets in slide headers.

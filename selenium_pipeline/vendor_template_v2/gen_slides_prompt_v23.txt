@@ -306,9 +306,39 @@ Initial Slides Template
   \end{frame}
 
 Content Density Rules
-- Each content frame: at most 1-2 main concepts.
-- Use 3-5 concise bullets only.
+- Each content frame should introduce at most 1-2 closely connected main concepts.
+- DO NOT enforce a fixed 3-5-bullet structure. Use the format that best teaches the physics: an equation sequence, worked calculation, compact table, properly explained diagram, or concise bullets.
+- Scientific completeness takes priority over minimizing the number of frames. Split long proofs, numerical substitutions, and physical interpretations into consecutive frames instead of compressing essential steps.
+- Keep each individual frame readable. Separate setup/assumptions, derivation, numerical calculation, and interpretation across frames when necessary.
 - If a frame would be overcrowded, split it into multiple frames using the same frametitle with "(cont.)".
+
+======================================================================
+ACADEMIC TEACHING QUALITY CONTRACT (CONTENT, NOT DESIGN)
+======================================================================
+
+- Produce a complete, teachable, standalone physics lecture based ONLY on the attached source.pdf. Slides must make scientific sense without assuming the student has the source open.
+- Do not introduce the source as an external object. Do NOT write phrases such as "the textbook states", "according to the book", "on page 191", or "the attached PDF explains" in student-facing frames.
+- Identify all relevant core physical ideas, assumptions, definitions, derivations, cases, cautions, equations, worked examples, questions, and figure panels from the actual section before preparing frames.
+- Start a derivation with the underlying law and explicitly state the system, assumptions, sign convention and meaning of variables. Show intermediate algebraic steps before arriving at the result.
+- For each source-worked example, show the given quantities and what is sought, the force/energy model and equations, numerical substitution with units, the final answer, and a physical or dimensional check. Preserve every meaningful part/subcase and "what if" question in the source.
+- Clearly distinguish an idealized illustrative model from a general physical law. Do not silently generalize a result beyond the assumptions or confuse a defined mathematical integral with a different physical concept.
+- Include source-grounded limits of applicability and likely misconceptions when the section supports them. Clearly distinguish a source-derived deduction from a statement directly provided in the source.
+- Every printed source figure that belongs to the target section must have all relevant labelled panels represented; if one composite is too small, put its distinct source-derived panels on dedicated readable frames with accurate (a), (b), etc. captions.
+- Mathematical detail is not a license to fill frames with tiny text: create additional frames to preserve both correctness and readability.
+- Maintain the source's notation, numerical values, physical meaning, and order of reasoning. Do not embellish with physics facts from general model knowledge.
+- Treat the following as different dimensions: content depth can improve; the official LaTeX Beamer style cannot change.
+
+======================================================================
+NON-NEGOTIABLE DEFAULT LATEX PRESENTATION CONTRACT
+======================================================================
+
+- Retain the EXACT initial package Beamer preamble below. It is the only authorized slide format; no alternate theme or new personal design.
+- Keep \documentclass[10.5pt]{beamer} with its default 4:3 aspect ratio; never add aspectratio=169, font changes, or a different document-class option.
+- Keep \usetheme{Madrid}, the default lightblue frametitle with black text, the top-right slide counter, and empty footline. Do not add a coloured footer or citation banner.
+- Do not use \usecolortheme, \usefonttheme, \setbeamerfont, extra \setbeamercolor, \setbeamertemplate overrides, \definecolor variations, or new page/slide style commands.
+- Only add content-level LaTeX commands and math packages when required for accurate physics, without altering global slide appearance. No explanatory reference to the source or textbook as an external material on any slide.
+- This contract overrides stylistic suggestions elsewhere in this prompt. Model-generated alternative preambles are INVALID even if the PDF compiles.
+
 
 Figure Policy
 - Include a figure only if the filtered content explicitly references it.
@@ -322,13 +352,13 @@ Figure Policy
 - Do not allow a figure to exceed its bounded-box limits merely to make it larger.
 
 Required wrapper for all included figures:
-- Always use this exact outer structure:
-  \IfFileExists{filename.png}{%
-    \begin{figure}
-      \centering
-      \includegraphics[CHOSEN_OPTION,keepaspectratio]{filename.png}
-    \end{figure}
-  }{}
+- Never use \IfFileExists or another construct that silently hides a missing figure.
+- Always use this exact visible-figure structure:
+  \begin{figure}
+    \centering
+    \includegraphics[CHOSEN_OPTION,keepaspectratio]{filename.png}
+  \end{figure}
+- If the figure file is absent, compilation or the figure-release gate must fail; do not omit it.
 - Replace CHOSEN_OPTION with one bounded-box option such as:
   * width=0.88\textwidth,height=0.56\textheight
   * width=0.76\textwidth,height=0.42\textheight

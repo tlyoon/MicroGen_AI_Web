@@ -20,6 +20,50 @@ RAW_MATH = re.compile(r"[\\^_]|[±×÷√ΔσΩπ]|(?<=\w)/(?=\w)")
 ALL_CAPS = re.compile(r"\b[A-Z]{2,6}\b")
 
 
+# A standalone lecture may still discuss a real, physical book (for
+# example a block-like book sliding on a table). Only meta-references to
+# external teaching material are blocked. Never rewrite text automatically.
+EXTERNAL_SOURCE_REFERENCES = re.compile(
+    r"(?ix)"
+    r"\b(?:the|a|this|our)\s+textbook\b"
+    r"|\b(?:source[.]pdf|slides[.]pdf|source\s+(?:pdf|document)|attached\s+(?:pdf|file|document))\b"
+    r"|\b(?:the|this|original)\s+source\s+(?:states?|explains?|"
+    r"notes?|points?\s+out|describes?|shows?|says?|presents?|introduces?|discusses?)\b"
+    r"|\b(?:according\s+to|as\s+(?:stated|explained|described|shown|written)\s+in|"
+    r"in|from)\s+(?:the|this)\s+(?:textbook|source\s+(?:pdf|document)|book|author)\b"
+    r"|\b(?:the|this)\s+book\s+(?:states?|explains?|notes?|points?\s+out|"
+    r"describes?|shows?|says?|presents?|introduces?|discusses?|tells?\s+us)\b"
+    r"|\b(?:the|this)\s+author\s+(?:states?|explains?|notes?|"
+    r"describes?|shows?|says?|points?\s+out)\b"
+    r"|\b(?:Serway|Jewett)\s+(?:states?|explains?|notes?|"
+    r"describes?|shows?|says?|points?\s+out)\b"
+    r"|\b(?:on|at|refer\s+to|turn\s+to)\s+page\s+\d+\b"
+    r"|\b(?:as|like)\s+(?:seen|discussed|explained|shown)\s+in\s+the\s+(?:textbook|book|source)\b"
+)
+
+def source_reference_findings(text: str, *, slide: int | None) -> list[dict[str, Any]]:
+    """Block listener-facing mentions of external teaching documents.
+
+    No automatic rewriting: ask for targeted narration regeneration.
+    Slide 1 is the exact source-derived title and has no spoken script.
+    """
+    if slide == 1:
+        return []
+    results = []
+    for m in EXTERNAL_SOURCE_REFERENCES.finditer(text):
+        line, column = _line_col(text, m.start())
+        results.append({
+            "slide": slide, "severity": "blocking",
+            "kind": "external_source_reference",
+            "text": m.group(0),
+            "line": line, "column": column,
+            "message": "Standalone video narration must explain the physics directly, "
+                       "without mentioning a textbook, author, source PDF or page. "
+                       "Keep physical objects such as a sliding book unchanged.",
+        })
+    return results
+
+
 def parse_blocks(text: str) -> list[tuple[int, str]]:
     matches = list(SLIDE_RE.finditer(text))
     result: list[tuple[int, str]] = []
@@ -183,8 +227,10 @@ def analyze_script_text(text: str) -> dict[str, Any]:
     if slides:
         for number, body in slides:
             findings.extend(collect_tts_risks(body, slide=number))
+            findings.extend(source_reference_findings(body, slide=number))
     else:
         findings.extend(collect_tts_risks(text, slide=None))
+        findings.extend(source_reference_findings(text, slide=None))
 
     blocking = [item for item in findings if item["severity"] == "blocking"]
     warnings = [item for item in findings if item["severity"] == "warning"]
