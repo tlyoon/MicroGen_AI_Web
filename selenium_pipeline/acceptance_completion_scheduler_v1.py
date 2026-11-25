@@ -247,7 +247,8 @@ def _g3_media_zero_send(*,manifest:Path,state:Path,media:Path)->dict:
                                 state_root=state,section=section,
                                 draft_receipt=Path(packet["draft_receipt"]),
                                 source_hashes=spec["identity"]["source_inputs_sha256"],
-                                expected_remaining=remaining)
+                                expected_remaining=remaining,
+                                resume_from_saved=True)
 
                     except Exception as error:
                         row["publisher_quote_mapping_recovery"]={

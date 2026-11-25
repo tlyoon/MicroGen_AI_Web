@@ -79,3 +79,67 @@ def test_new_browser_send_is_never_admitted():
             section="Serway_8_3",draft_receipt="draft.json",
             source_hashes={},expected_remaining=2,advance_one=bad)
 
+
+
+def test_recover_interrupted_scopes_before_forward_batch():
+    calls=[]
+    def replay(**kwargs):
+        calls.append(kwargs.get("max_new_tasks",2))
+        if kwargs.get("max_new_tasks")==0:
+            return dict(status="G3_SOURCE_PHYSICAL_CONTEXT_INCREMENTALLY_STAGED_NO_APPROVAL",
+                original_ambiguous_utterance_count=47,reused_source_quote_tasks=26,
+                remaining_unprocessed_ambiguous_tasks=21,
+                new_source_quote_tasks_staged=0,
+                new_physically_witnessed_publisher_quotes=0,
+                student_publication_authorized=False,
+                source_scientific_QA_complete=False,new_browser_sends=0,
+                new_paid_gemini_API_calls=0)
+        return fake([(2,19)],[])(**kwargs)
+    result=continue_quotes(source_folder="original",state_root="state",
+        section="Serway_8_2",draft_receipt="draft.json",source_hashes={},
+        expected_remaining=37,max_batches=1,resume_from_saved=True,
+        advance_one=replay)
+    assert result["prior_unfinalized_scopes_recovered"]==16
+    assert result["new_source_quote_tasks_staged"]==2
+    assert result["remaining_unprocessed_ambiguous_tasks"]==19
+    assert calls==[0,2]
+
+
+def test_unsafe_mismatched_checkpoint_receipt_fails_closed():
+    def unsafe(**kw):
+        return dict(status="G3_SOURCE_PHYSICAL_CONTEXT_INCREMENTALLY_STAGED_NO_APPROVAL",
+            original_ambiguous_utterance_count=47,reused_source_quote_tasks=99,
+            remaining_unprocessed_ambiguous_tasks=0,new_source_quote_tasks_staged=0,
+            new_physically_witnessed_publisher_quotes=0,student_publication_authorized=False,
+            source_scientific_QA_complete=False,new_browser_sends=0,
+            new_paid_gemini_API_calls=0)
+    with pytest.raises(ValueError,match="inventory inconsistent"):
+        continue_quotes(source_folder="original",state_root="state",
+            section="Serway_8_2",draft_receipt="draft.json",source_hashes={},
+            expected_remaining=37,resume_from_saved=True,advance_one=unsafe)
+
+
+def test_previous_source_drift_cannot_resume_as_success():
+    def corrupted(**kw):
+        raise ValueError("Original textbook SHA mismatch")
+    with pytest.raises(ValueError,match="SHA mismatch"):
+        continue_quotes(source_folder="original",state_root="state",
+            section="Serway_8_3",draft_receipt="draft.json",source_hashes={},
+            expected_remaining=50,resume_from_saved=True,advance_one=corrupted)
+
+
+def test_restarted_completed_source_inventory_returns_no_new_sends():
+    seen=[]
+    def only_reconcile(**kw):
+        seen.append(kw.get("max_new_tasks"))
+        return dict(status="G3_SOURCE_PHYSICAL_CONTEXT_INCREMENTALLY_STAGED_NO_APPROVAL",
+            original_ambiguous_utterance_count=47,reused_source_quote_tasks=47,
+            remaining_unprocessed_ambiguous_tasks=0,new_source_quote_tasks_staged=0,
+            new_physically_witnessed_publisher_quotes=0,student_publication_authorized=False,
+            source_scientific_QA_complete=False,new_browser_sends=0,
+            new_paid_gemini_API_calls=0)
+    r=continue_quotes(source_folder="original",state_root="state",
+        section="Serway_8_2",draft_receipt="draft.json",source_hashes={},
+        expected_remaining=21,resume_from_saved=True,advance_one=only_reconcile)
+    assert r["prior_unfinalized_scopes_recovered"]==21
+    assert r["batches_executed"]==0 and seen==[0]
