@@ -111,10 +111,17 @@ def collect_tts_risks(text: str, *, slide: int | None = None) -> list[dict[str, 
         if token == "A" and _sentence_start(text, pos):
             continue
 
+        # A spoken indexed area A one/A two is unambiguously a lettered
+        # physics quantity when preceded by its area role, including "area is".
+        # Unexplained capital A remains a blocking ambiguity.
+        indexed_area = (token == "A"
+            and bool(re.search(r"\barea(?:\s+is)?\s+$", head))
+            and bool(re.match(r"\s+(?:one|two|three|four|five)\b", tail)))
         explicit_context = bool(
             re.match(r"(?:-|\s+)(?:axis|coordinate|component|direction)\b", tail)
             or explicit_role_re.search(head)
             or re.search(r"\btriangle\s+[a-z]\s+$", head)
+            or indexed_area
         )
 
         # Mid-sentence capital A is uniquely dangerous because it may be either

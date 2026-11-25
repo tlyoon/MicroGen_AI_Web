@@ -705,6 +705,23 @@ def _execute_unlocked(s: Settings) -> Path:
             s.chrome_port, DEFAULT_BROWSER_UI_MODE, stage=first_browser_stage)
         print(f"[microgen] verified Gemini mode for {first_browser_stage}: {picked}")
     prepare(source, folder)
+    # A complete Selenium narration saved before a later lint/transport failure
+    # is recoverable without another expensive model submission. Validate the
+    # same source, deck, slide count, exact first title and current script QA.
+    if s.from_stage == "script_qa" and not (folder / "script.txt").exists():
+        from .narration_saved_selenium_recovery_v1 import recover_saved_selenium_candidate
+        recovered = recover_saved_selenium_candidate(folder, source)
+        if recovered:
+            # Stage-only recovery bypasses the normal narration publication.
+            # Persist the same verified script beside source.pdf before
+            # downstream structural-sync and source-pinned video checks.
+            original_script = source.parent / "script.txt"
+            if original_script.exists() and digest(original_script) != recovered["script_sha256"]:
+                raise RuntimeError("Conflicting published narration; preserve original and stop")
+            published_narration = publish_stage_outputs(folder, source, "narration")
+            if original_script not in published_narration:
+                raise RuntimeError("Recovered narration was not published to original source")
+            print("[microgen] source-verified saved narration recovered and published; zero new Gemini Sends", flush=True)
     if s.from_stage == "video":
         hydrate_video_only_inputs(source, folder)
     stamp = folder / ".selenium_pipeline_state.json"
@@ -1007,6 +1024,11 @@ def _execute_unlocked(s: Settings) -> Path:
     # success, retain only published lecture deliverables plus the completion
     # receipt. Never delete inputs that may be needed by an unfinished run.
     if s.through_stage == "video":
+        # Always enforce the contracted <600-second narrated MP4 part cap.
+        # This is source/WAV-grounded local media repair, not highlight approval.
+        from .video_length_control_v1 import enforce as enforce_video_length
+        split_result = enforce_video_length(source.parent)
+        print("[microgen] automatic narrated-video length control:", split_result, flush=True)
         final_names = ("slides.tex", "slides.pdf", "script.txt", "slides.mp4")
         if all((source.parent / name).is_file() and
                (source.parent / name).stat().st_size > 0 for name in final_names):
