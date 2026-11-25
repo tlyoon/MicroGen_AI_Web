@@ -37,6 +37,9 @@ SKIP_KIND="g3_blocked_source_auto_skip"
 SKIP_SIGNATURE="G3_SOURCE_HEALTH_BLOCKED_ONE_SUBSECTION_PREMATURELY_STOPPED_OTHER_WORK"
 SKIP_MECHANISM="CONTINUE_DISTINCT_SOURCE_AFTER_HEALTH_HOLD_WITHOUT_NEW_SEND"
 ORIGINAL="G3_DISTINCT_SOURCE_SEMANTIC_QA_READY_NO_SEND"
+LAZY_KIND="g3_just_in_time_science_send_reservation"
+LAZY_SIGNATURE="G3_INITIAL_UNCERTAIN_PREMATURELY_RESERVED_CHALLENGE_SEND"
+LAZY_MECHANISM="RESERVE_INDIVIDUAL_G3_SCIENCE_PASSES_AFTER_SAVED_SOURCE_RESPONSE"
 UNSAFE_REPLAY_STATES={
     "SUBMITTED_OR_UNCERTAIN","NO_RESPONSE_UNRESOLVED",
     "REJECTED_RESPONSE_UNTRUSTED","LEGACY_SENT_NO_RESPONSE",
@@ -203,6 +206,8 @@ def advance(*,manifest:Path,state_root:Path,
             health_probe=None,review_transport=None)->dict:
     need(lookup_mechanism(KIND,SIGNATURE)==MECHANISM,
          "G3 source-first automatic advancement not in recovery registry")
+    need(lookup_mechanism(LAZY_KIND,LAZY_SIGNATURE)==LAZY_MECHANISM,
+         "Original science Send-phase reservation repair not executable")
     need(type(execute) is bool
          and type(max_science_sends) is int
          and 0<=max_science_sends<=8
@@ -315,19 +320,30 @@ def advance(*,manifest:Path,state_root:Path,
             # repeat its old/uncertain Send, or probe it again this run.
             # Other independently sourced sections may still be healthy.
             continue
-        if not same and execute:
-            events=_append(log,header,events,"RESERVE",
-                scope=item["scope"],phase="INITIAL",
-                detail="G3_SOURCE_CONTEXT_AUTOFORWARD")
-            events=_append(log,header,events,"RESERVE",
-                scope=item["scope"],phase="CHALLENGE",
-                detail="G3_TWO_PASS_SCIENCE_FINITE_BUDGET")
+        # Old global reservations may have been persisted BEFORE any model
+        # reply (the historical false 2/2 exhaustion). Never re-dispatch an
+        # ambiguous INITIAL after a restart or change an old Send event.
+        # Read-only reconciliation may admit BOTH saved authentic passes.
+        recovering_uncertain=bool(same and execute)
+        def reserve_exact_pass(scope:str,phase:str)->None:
+            nonlocal events
+            need(scope==item["scope"] and phase in ("INITIAL","CHALLENGE"),
+                 "G3 global Send reserve source/phase mismatch")
+            need(not _reservation(events,scope,phase),
+                 "Historical G3 possible Send already claimed; no replay")
+            need(_possible_sends(events)<max_science_sends,
+                 "Original G3 finite Send cap exhausted; no replay")
+            events=_append(log,header,events,"RESERVE",scope=scope,
+                phase=phase,detail="G3_JUST_IN_TIME_"+phase+"_SCIENCE")
         result=run_one(
             spec=spec,task_file=item["file"],
             worklist_root=root/"offline_source_quote_worklists_v2",
             state_root=root,campaign_id=campaign_id,
             max_possible_sends=2 if execute else 0,
-            execute=execute,transport=review_transport)
+            execute=bool(execute and not recovering_uncertain),
+            transport=review_transport,
+            before_send=reserve_exact_pass if execute and not recovering_uncertain
+                        else None)
         attempts+=1
         observations.append({"scope":item["scope"],
             "section":item["section"],"kind":item["kind"],
@@ -345,7 +361,10 @@ def advance(*,manifest:Path,state_root:Path,
                            "RESULT" if result["two_pass_science_evidence"]
                            is not None else "HOLD",
                            scope=item["scope"],phase="RECONCILE",
-                           detail=result["status"][:120])
+                           detail=("OLD_UNCERTAIN_GLOBAL_SEND_NO_REPLAY"
+                                   if recovering_uncertain and
+                                   result["two_pass_science_evidence"] is None
+                                   else result["status"][:120]))
         if not execute:
             break
         # Even when the previous task was quarantined, the next iteration
