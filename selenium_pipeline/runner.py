@@ -1015,6 +1015,11 @@ def _execute_unlocked(s: Settings) -> Path:
     # success, retain only published lecture deliverables plus the completion
     # receipt. Never delete inputs that may be needed by an unfinished run.
     if s.through_stage == "video":
+        # Always enforce the contracted <600-second narrated MP4 part cap.
+        # This is source/WAV-grounded local media repair, not highlight approval.
+        from .video_length_control_v1 import enforce as enforce_video_length
+        split_result = enforce_video_length(source.parent)
+        print("[microgen] automatic narrated-video length control:", split_result, flush=True)
         final_names = ("slides.tex", "slides.pdf", "script.txt", "slides.mp4")
         if all((source.parent / name).is_file() and
                (source.parent / name).stat().st_size > 0 for name in final_names):
