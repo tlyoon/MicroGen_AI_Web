@@ -243,3 +243,16 @@ def test_new_pending_other_workflow_does_not_get_ignored():
                        status="in_progress",conclusion=None))
     with pytest.raises(ValueError,match="Another applicable"):
         gate.inspect(pr_number=654,fetch=g.fetch)
+
+
+def test_failed_github_merge_surfaces_bounded_redacted_failure_reason(monkeypatch):
+    def fake(args,**kw):
+        return subprocess.CompletedProcess(
+            args,1,stdout="",stderr="GraphQL: Branch protection pending ghp_"
+            +"A"*40+"; retry after status")
+    monkeypatch.setattr(gate.subprocess,"run",fake)
+    with pytest.raises(ValueError,match="GitHub exact-head merge refused") as error:
+        gate.issue_merge(654,"a"*40)
+    assert "GraphQL" in str(error.value)
+    assert "ghp_" not in str(error.value)
+    assert len(str(error.value))<310

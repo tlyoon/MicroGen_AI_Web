@@ -71,7 +71,14 @@ def issue_merge(pr:int,head_sha:str)->None:
           "--squash","--match-head-commit",head_sha]
     proc=subprocess.run(args,capture_output=True,text=True,timeout=100,
                         check=False)
-    need(proc.returncode==0,"GitHub exact-head merge refused; no retry")
+    if proc.returncode!=0:
+        # A bare "merge refused" hid the real cause in a live Windows test.
+        # Preserve bounded, sanitized CLI diagnostics, never auth tokens.
+        message=(proc.stderr or proc.stdout or "").strip().replace("\r"," ").replace("\n"," ")
+        message=re.sub(r"(?:gh[opusr]_[A-Za-z0-9_]{12,}|github_pat_[A-Za-z0-9_]{12,})",
+                       "[REDACTED_TOKEN]",message,flags=re.I)
+        raise ValueError("GitHub exact-head merge refused, exit="
+                         +str(proc.returncode)+": "+message[:210])
 
 
 def _sha(value)->bool:
