@@ -114,8 +114,13 @@ if slides_tex.exists() and slides_pdf.exists():
             "WARN",
         )
     else:
-        log("slides.tex and slides.pdf already exist and pass citation guard. Skipping Gemini submission.", "INFO")
-        sys.exit(0)
+        from default_beamer_style_v1 import default_style_errors
+        mismatches = default_style_errors(slides_tex.read_text(encoding="utf8"))
+        if not mismatches:
+            log("slides.tex and slides.pdf pass citation and default Beamer style guards; reusing.", "INFO")
+            sys.exit(0)
+        log("Saved slides violate default appearance; rejecting stale deck: " +
+            "; ".join(mismatches[:5]), "WARN")
     
 # ------------------------------------------------------------
 # Pre-check compile
@@ -794,7 +799,7 @@ def beamer_stack_sanity_check(
     tex_text: str,
     target_dir: Path,
     min_slides: int = 6,
-    max_slides: int = 25,
+    max_slides: int = 40,
 ) -> tuple[bool, List[str]]:
     """
     Strict sanity gate for MicroGen Beamer slide stacks.
@@ -835,6 +840,13 @@ def beamer_stack_sanity_check(
 
     if raw.startswith("```") or raw.endswith("```"):
         reasons.append("markdown code fence still present after sanitization")
+
+    # Scientific detail may vary; the package's default appearance may not.
+    try:
+        from default_beamer_style_v1 import default_style_errors
+    except ModuleNotFoundError:  # Native package imports in unit tests.
+        from selenium_pipeline.vendor_template_v2.default_beamer_style_v1 import default_style_errors
+    reasons.extend(default_style_errors(raw))
 
     # ------------------------------------------------------------
     # Document-class gate
@@ -951,7 +963,7 @@ def beamer_stack_sanity_check(
         reasons.append("uses \\tableofcontents but has no \\section{...} entries")
     
     
-    # A 6-25 slide lecture should not be a tiny one-line document.
+    # A source-grounded lecture with 6-40 slides must not be one-line filler.
     if len(raw) < 2500:
         reasons.append(f"payload too short for a Beamer lecture stack: {len(raw)} characters")
 
@@ -1560,6 +1572,13 @@ def main() -> int:
     # Final release gate: inspect both the accepted LaTeX and the rendered PDF.
     # Compilation success alone is insufficient if source-tracking metadata is
     # visible to students.
+    # Final release gate catches a LaTeX repair process changing the original
+    # MicroGen document class, theme, colours, header or footer.
+    from default_beamer_style_v1 import default_style_errors
+    style_errors = default_style_errors(out_tex.read_text(encoding="utf-8", errors="replace"))
+    if style_errors:
+        log("Final slide deck rejected: " + "; ".join(style_errors[:6]), "ERROR")
+        return 1
     final_tex_artifacts = find_citation_artifacts(
         out_tex.read_text(encoding="utf-8", errors="replace")
     )

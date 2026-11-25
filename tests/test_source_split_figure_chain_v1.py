@@ -82,8 +82,19 @@ class SplitFigureAcrossTwoSlidesTests(TestCase):
 
     def _tex(self,omit=False,comment=False):
         names=["Figure_8_1_upper.png","Figure_8_1_lower.png"]
-        lines=[r"\documentclass{beamer}",r"\usepackage{graphicx}",
-               r"\begin{document}"]
+        lines=[r"""\documentclass[10.5pt]{beamer}
+\usetheme{Madrid}
+\setbeamertemplate{frametitle}[default]
+\definecolor{lightblue}{RGB}{173,216,230}
+\setbeamercolor{frametitle}{bg=lightblue, fg=black}
+\setbeamertemplate{headline}{%
+    \hfill%
+    \insertframenumber{} / \inserttotalframenumber%
+    \par%
+}
+\setbeamertemplate{footline}{}
+\usepackage{graphicx}
+\begin{document}"""]
         for i,name in enumerate(names):
             if omit and i==1:continue
             line=r"\begin{frame}"+"\n"+r"\includegraphics{"+name+"}"+"\n"+r"\end{frame}"

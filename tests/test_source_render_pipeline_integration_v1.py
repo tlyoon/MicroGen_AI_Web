@@ -29,8 +29,30 @@ class NormalSourceFigureChainIntegrationTests(unittest.TestCase):
         deck.new_page(width=612,height=792)
         deck.save(self.job/"slides.pdf")
         deck.close()
+        # The normal slides gate now requires the production default Beamer
+        # preamble, even when this test isolates the rendered-figure verifier.
         self.job.joinpath("slides.tex").write_text(
-            r"\includegraphics{Figure 8.2.png}",encoding="utf8")
+            r"""\documentclass[10.5pt]{beamer}
+\usetheme{Madrid}
+\setbeamertemplate{frametitle}[default]
+\definecolor{lightblue}{RGB}{173,216,230}
+\setbeamercolor{frametitle}{bg=lightblue, fg=black}
+\setbeamertemplate{headline}{%
+    \hfill%
+    \insertframenumber{} / \inserttotalframenumber%
+    \par%
+}
+\setbeamertemplate{footline}{}
+\usepackage{graphicx}
+\title{Test Figure}
+\author{}
+\date{}
+\begin{document}
+\begin{frame}{Figure}
+\includegraphics{Figure 8.2.png}
+\end{frame}
+\end{document}
+""", encoding="utf8")
 
     def test_normal_slide_gate_calls_rendered_pixel_verifier(self):
         with patch(
