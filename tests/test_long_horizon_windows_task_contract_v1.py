@@ -1,4 +1,4 @@
-﻿"""Ensure the Windows long-horizon task is explicit, fail-closed and parseable."""
+"""Ensure the Windows long-horizon task is explicit, fail-closed and parseable."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -45,4 +45,3 @@ def test_powershell_scripts_parse_without_side_effects():
                           "-Command",command],
                          capture_output=True,text=True,timeout=20)
         assert p.returncode==0,p.stdout+p.stderr
-

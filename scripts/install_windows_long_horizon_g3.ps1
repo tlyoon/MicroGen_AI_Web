@@ -1,4 +1,4 @@
-﻿param(
+param(
     [Parameter(Mandatory=$true)][string]$RepoPath,
     [Parameter(Mandatory=$true)][string]$OriginalReport,
     [Parameter(Mandatory=$true)][string]$ArchiveRoot,
@@ -73,4 +73,3 @@ if($installed.Actions[0].WorkingDirectory -ne $repo -or $installed.Settings.Mult
     throw 'Scheduled long-horizon source worker policy attestation failed'
 }
 Write-Output ('INSTALLED_SOURCE_ONLY_TASK '+$TaskName+' revision='+$head)
-

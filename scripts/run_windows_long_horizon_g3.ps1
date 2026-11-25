@@ -1,4 +1,4 @@
-﻿param(
+param(
     [Parameter(Mandatory=$true)][string]$ConfigPath
 )
 Set-StrictMode -Version Latest
@@ -48,4 +48,3 @@ if($result.source_only_completed -eq $true -or $pending.Count -eq 0){
     Add-Content -LiteralPath $log -Value 'TASK_SELF_DISABLED_AT_SOURCE_ONLY_TERMINAL_STATE'
 }
 exit 0
-
