@@ -174,3 +174,50 @@ def test_original_reserved_global_campaign_never_replays_or_modifies_old_claims(
     again=driver.advance(**args)
     assert again["science_browser_sends_reserved"]==1
     assert again["stages_advanced_this_run"]==0
+
+
+def test_old_possible_send_readonly_reconciliation_needs_no_browser_health(
+        campaign,monkeypatch):
+    state,manifest,spec=campaign
+    scope="d"*64
+    work=item(spec,scope,"NEW_CONTEXT")
+    monkeypatch.setattr(driver,"_eligible",lambda **kw:[work])
+    # A real prior controller run may die after creating an initial reserve.
+    def first(**kw):
+        kw["before_send"](scope,"INITIAL")
+        raise ConnectionError("Browser terminated after possible initial Send")
+    monkeypatch.setattr(driver,"run_one",first)
+    args=dict(manifest=manifest,state_root=state,
+        campaign_id="g3_old_send_without_current_health",
+        max_science_sends=2,max_tasks=1,max_health_probes=1)
+    with pytest.raises(ConnectionError):
+        driver.advance(**args)
+    root=state/"g3_continuous_advance_v1"/args["campaign_id"]
+    original={x.name:x.read_bytes() for x in root.glob("event_*.json")}
+    monkeypatch.setattr(driver,"latest_health",lambda **kw:None)
+    monkeypatch.setattr(driver,"probe_once",
+        lambda **kw:pytest.fail("No health probe for READ-ONLY old claim"))
+    saw=[]
+    def recover(**kw):
+        saw.append((kw["execute"],kw["before_send"]))
+        assert kw["execute"] is False
+        return {
+            "status":"G3_PERSISTED_UNCERTAIN_INITIAL_READONLY_AUDITED",
+            "possible_sends_reserved":0,
+            "two_pass_science_evidence":None,
+            "semantic_context_recovery":None,
+        }
+    monkeypatch.setattr(driver,"run_one",recover)
+    result=driver.advance(**args)
+    assert saw==[(False,None)]
+    assert result["health_probes_attempted_this_run"]==0
+    assert result["stages_advanced_this_run"]==1
+    assert result["science_browser_sends_reserved"]==1
+    assert result["stage_results"][0]["status"]==(
+        "G3_PERSISTED_UNCERTAIN_INITIAL_READONLY_AUDITED")
+    assert result["student_publication_authorized"] is False
+    for name,old in original.items():
+        assert (root/name).read_bytes()==old
+    again=driver.advance(**args)
+    assert again["stages_advanced_this_run"]==0
+    assert saw==[(False,None)]
