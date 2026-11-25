@@ -28,6 +28,7 @@ def test_task_never_dispatches_browser_or_api_or_changes_existing_task():
     assert "-RepetitionDuration (New-TimeSpan -Days 365)" in installer
     assert "WindowsIdentity" in installer
     assert "GitHub-certified main" in installer
+    assert "if(@(& git -C $repo status --porcelain).Count -gt 0)" in installer
     assert "Existing source-only task configuration differs; no overwrite" in installer
     assert "-LogonType Interactive" in installer
     assert "student_publication_authorized=$false" in installer

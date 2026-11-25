@@ -25,7 +25,7 @@ foreach($p in @($repo,$archive,$state,$python,$runner,$report)){
 }
 $head=(& git -C $repo rev-parse HEAD).Trim()
 if($LASTEXITCODE -ne 0 -or $head -notmatch '^[0-9a-f]{40}$'){throw 'Unverified code revision'}
-if((& git -C $repo status --porcelain).Count -gt 0){throw 'Source worker repo checkout is not clean'}
+if(@(& git -C $repo status --porcelain).Count -gt 0){throw 'Source worker repo checkout is not clean'}
 $expectedRemote=& git -C $repo ls-remote origin refs/heads/main
 if($LASTEXITCODE -ne 0 -or -not $expectedRemote.StartsWith($head)){throw 'Worker must use GitHub-certified main'}
 $configPath=Join-Path $output 'long_horizon_windows_task_config.json'
