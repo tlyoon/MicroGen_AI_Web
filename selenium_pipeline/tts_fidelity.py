@@ -136,8 +136,12 @@ def normalize_for_comparison(text: str) -> str:
         .replace("?", "-")
         .replace("?", "-")
     )
-    # Apostrophes and quotation marks are not audible.  Treat e.g. Coulombs and
-    # Coulomb's, or quoted 'A' and A, as the same spoken token.
+    # Unicode typography is not audible. Normalize all common curved apostrophes
+    # before removing them; otherwise Newton’s is tokenized as "newton s" while
+    # the listener correctly hears "Newtons", triggering false paid TTS repairs.
+    # Never normalize mathematical minus signs or alter scientific quantities.
+    text = text.translate(str.maketrans({"\u2018": "'", "\u2019": "'", "\u02bc": "'", "\uff07": "'"}))
+    # Apostrophes and quotation marks are not audible. Treat possessives as one token.
     text = text.replace("'", "")
     text = re.sub(r"(?<=\d),(?=\d)", "", text)
 
