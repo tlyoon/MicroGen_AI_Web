@@ -1,4 +1,4 @@
-﻿"""Read-only revision reconciliation for MicroGen Dell production checkouts.
+"""Read-only revision reconciliation for MicroGen Dell production checkouts.
 
 Never resets, pulls, stashes, edits the active worktree, or touches a
 running daemon. A clean *new* staging clone is allowed only on request.
@@ -27,6 +27,8 @@ def _git(*args: str, cwd: Path | None = None) -> str:
 
 def audit(repo: Path, *, expected_origin: str = DEFAULT_ORIGIN) -> dict:
     """Compare a checkout to the live upstream; dirty files are never altered."""
+    from .development_continuity_executor_v71 import require_recovery
+    require_recovery("CHECKOUT_REVISION_DRIFT")
     repo = Path(repo).resolve()
     result = {"schema_version": 1, "repository": str(repo),
               "status": "UNVERIFIED", "safe_to_cutover": False,
