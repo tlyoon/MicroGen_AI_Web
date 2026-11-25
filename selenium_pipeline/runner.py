@@ -54,8 +54,8 @@ DEFAULT_SLIDE_MODEL = ACTIVE_LLM_MODEL
 DEFAULT_NARRATION_MODEL = ACTIVE_LLM_MODEL
 DEFAULT_PRO = "gemini-3.1-pro-preview"  # Explicit benchmark only, never default.
 DEFAULT_BROWSER_UI_MODE = os.getenv("MICROGEN_GEMINI_UI_MODE", "flash").strip().lower()
-if DEFAULT_BROWSER_UI_MODE not in {"flash", "pro"}:
-    raise ValueError("MICROGEN_GEMINI_UI_MODE must be 'flash' or 'pro'")
+if DEFAULT_BROWSER_UI_MODE not in {"flash", "pro", "hydrogen", "hydrogen-thinking"}:
+    raise ValueError("MICROGEN_GEMINI_UI_MODE must be a supported, UI-verified model family: flash, pro, hydrogen or hydrogen-thinking")
 
 STAGES = ("figures", "slides", "narration", "script_qa", "tts", "tts_qa", "video")
 CHROME_STAGES = {"figures", "slides", "narration"}
