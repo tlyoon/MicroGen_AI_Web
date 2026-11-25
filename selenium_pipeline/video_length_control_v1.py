@@ -86,7 +86,10 @@ def enforce(folder:Path)->dict:
              sha(folder/p["filename"])==p["sha256"] and
              0<float(p["duration_seconds"])<600
              for p in old.get("parts",[]))):
-            return {"status":"existing_verified","parts":len(old["parts"])}
+            from .completion_receipt_reconciliation_v1 import reconcile
+            receipt = reconcile(folder, old)
+            return {"status":"existing_verified","parts":len(old["parts"]),
+                    "receipt":receipt}
         raise RuntimeError("Conflicting/stale part manifest; do not overwrite")
     if list(folder.glob("slides_part*.mp4")):
         raise RuntimeError("Unexpected preexisting multipart MP4 without manifest")
