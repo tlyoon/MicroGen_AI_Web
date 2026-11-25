@@ -166,9 +166,74 @@ def _g3_media_zero_send(*,manifest:Path,state:Path,media:Path)->dict:
             and result["new_paid_gemini_API_calls"]==0
             and result["student_publication_authorized"] is False,
             "Video page match must not be called academic/video acceptance")
+    # Use the ALREADY REGISTERED historical G3 pixel-based static-video
+    # recovery rather than reimplementing a superficial visual detector.
+    # Its actual encoded frame/wav/part/source probes distinguish original
+    # static legacy exports from a usable element-highlight video. A found
+    # defect automatically receives an isolated, immutable source-bound
+    # rebuild worklist, without overwriting any legacy MP4 or granting QA.
+    from .g3_multisection_autoforward_v71 import _verified_specs
+    from .g3_source_media_technical_preflight_v1 import SECTION
+    from .g3_legacy_visual_recovery_v71 import (
+        inspect_legacy,stage_recovery)
+    _,specs=_verified_specs(manifest)
+    state=Path(state).absolute()
+    media=Path(media).absolute()
+    staging=state/"g3_legacy_static_auto_rebuild_worklists_v1"
+    require(not staging.is_symlink() and not staging.is_relative_to(media),
+            "G3 original source/encoding and repair worklists must be isolated")
+    staging.mkdir(exist_ok=True)
+    sections=[]
+    for spec in specs:
+        section=spec["section"]
+        require(section in SECTION,
+                "No original source-bound G3 media mapping for visual repair")
+        try:
+            diagnosis=inspect_legacy(folder=media/SECTION[section])
+            require(all(diagnosis["original_sha256"][name]==
+                        spec["identity"]["source_inputs_sha256"][name]
+                        for name in ("source.pdf","slides.pdf","script.txt"))
+                    and diagnosis["student_publication_authorized"] is False
+                    and diagnosis["model_requests"]==0
+                    and diagnosis["paid_api_requests"]==0,
+                    "Static-video pixel diagnosis is not original source pinned")
+            row={
+                "section":section,"status":diagnosis["status"],
+                "original_slide_count":diagnosis["original_slide_count"],
+                "moving_slides":diagnosis["moving_slides"],
+                "encoded_frames_sampled":diagnosis["sampled_encoded_frames"],
+                "original_MP4_SHA":diagnosis["original_full_video_sha256"],
+                "isolation_rebuild_worklist":None,
+                "independent_within_slide_highlight_QA":False,
+                "student_publication_authorized":False}
+            if diagnosis["status"]=="G3_LEGACY_STATIC_VIDEO_REBUILD_REQUIRED":
+                path=stage_recovery(report=diagnosis,staging_root=staging)
+                row["isolation_rebuild_worklist"]=str(path)
+                row["isolation_rebuild_worklist_sha256"]=_sha(path)
+            else:
+                require(diagnosis["status"]==
+                        "G3_MOTION_OBSERVED_HIGHLIGHT_STILL_UNATTESTED",
+                        "Unknown encoded video visual state")
+            sections.append(row)
+        except Exception as exc:
+            # A source-specific missing legacy manifest is NOT permission
+            # to suppress QA, nor to strand the other original subsection.
+            sections.append({
+                "section":section,"status":"G3_STATIC_REBUILD_SOURCE_HELD",
+                "error_class":type(exc).__name__,
+                "error_detail":str(exc)[:200],
+                "independent_within_slide_highlight_QA":False,
+                "student_publication_authorized":False})
+    require(len(sections)==len(specs),
+            "Every original G3 section needs its own visual disposition")
     return {
         "status":"G3_SOURCE_PINNED_TECHNICAL_MEDIA_REVERIFIED_NO_RELEASE",
         "original_subsections_checked":len(result["sections"]),
+        "source_bound_actual_highlight_recovery":sections,
+        "original_static_video_rebuilds_staged":sum(
+            row["status"]=="G3_LEGACY_STATIC_VIDEO_REBUILD_REQUIRED"
+            for row in sections),
+        "independent_video_highlight_QA_complete":False,
         "source_video_pages_pixel_witnessed":
             result["original_slides_pixel_witnessed"],
         "source_video_page_receipt_sha256":[
@@ -185,6 +250,8 @@ def _gate_matrix(results:dict)->list[dict]:
     g2=results.get("G2_SOURCE")
     g3=results.get("G3_SCIENCE")
     media=results.get("G3_MEDIA")
+    static_rebuild_count=(media or {}).get(
+        "original_static_video_rebuilds_staged",0)
     agreed=g2.get("total_two_pass_AI_agreements",0) if g2 else 0
     total=g2.get("original_total") if g2 else None
     source_ai_done=bool(g2 is not None and type(total) is int
@@ -228,9 +295,17 @@ def _gate_matrix(results:dict)->list[dict]:
              media.get("source_video_pages_pixel_witnessed") if media else None),
          "next_action":"Retain original encoded-frame SHA and PDF page proof"},
         {"gate_id":"G3_WITHIN_SLIDE_VISUAL_HIGHLIGHT_QA","accepted":False,
-         "status":"PENDING_ACTUAL_HIGHLIGHT_AND_SPEECH_TIMING",
-         "next_action":"Independently witness physics element highlights "+
-             "in actual encoded MP4 at genuine spoken timings"},
+         "status":("BLOCKED_SOURCE_PINNED_STATIC_VIDEO_REBUILD_REQUIRED"
+                   if static_rebuild_count else
+                   "PENDING_ACTUAL_HIGHLIGHT_AND_SPEECH_TIMING"),
+         "source_pinned_rebuild_worklists":static_rebuild_count,
+         "next_action":(
+             "Rebuild source-verified element-synchronized MP4 in isolated "+
+             "staging, requiring genuine per-element source anchors and "+
+             "narration timing; then obtain independent encoded video QA"
+             if static_rebuild_count else
+             "Independently witness physics element highlights in actual "+
+             "encoded MP4 at genuine spoken timings")},
         {"gate_id":"G3_SECOND_SUBSECTION_ACCEPTANCE","accepted":False,
          "status":"BLOCKED_PENDING_SCIENCE_ACOUSTIC_HIGHLIGHT_ACCEPTANCE",
          "next_action":"Close source science, authentic acoustic and "+
