@@ -142,6 +142,11 @@ def _inspect_under_owner_lock(*,folder:Path,queue_root:Path,candidate_file:Path,
     require(header.is_file() and not header.is_symlink(),
             "Never create a new campaign to evade exhausted old Send budget")
     previous=json.loads(header.read_text("utf8"))
+    if campaign_id.startswith("g2_v3_explicit_"):
+        from .g2_v3_explicit_scoped_capacity_v1 import verify_grant
+        verify_grant(queue_root=queue_root,source_sha=job["source_sha256"],
+                     scope_sha=row["scope_sha256"],candidate_sha=_sha(candidate_file),
+                     campaign_id=campaign_id,cap=previous.get("max_possible_model_sends"))
     cap=previous.get("max_possible_model_sends")
     require(type(cap) is int and 0<=cap<=6,
             "Original G2 science possible-Send cap is untrusted")
