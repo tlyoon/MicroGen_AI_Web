@@ -1458,6 +1458,20 @@
       "environment": "Dell-115 original Serway 1.3 G2 source AI independent V1 and new ranked V3 reviewer checkpoints",
       "retry_policy": "Never promote unreviewed V3 inputs, one-pass data, old duplicate utterance, untrusted saved model text, missing original source or claimed math agreement; no API and no student release",
       "enabled": true
+    },
+    {
+      "id": "G3_ORIGINAL_STATIC_SOURCE_ELEMENT_AUTODRAFT_20261125",
+      "match_type": "g3_static_source_element_draft",
+      "signature": "G3_STATIC_ORIGINAL_VIDEO_REBUILD_NEEDS_TEXTBOOK_ELEMENT_WORKLIST",
+      "mechanism": "REUSE_ORIGINAL_ELEMENT_AUTODRAFT_STAGE_IMMUTABLE_UNAPPROVED_INPUT",
+      "classification": "ORIGINAL_G3_STATIC_MP4_SOURCE_REBUILD_AWAITS_SAFE_SOURCE_ELEMENT_MAPPING",
+      "handler": "NORMAL_G3_STAGE_SOURCE_ONLY_ELEMENT_REVIEW_WORKLIST_NO_TTS",
+      "preconditions": "Original Serway 8.2/8.3 authoritative source.pdf slides.pdf script.txt exact SHA plus independently staged actual static encoded MP4 repair worklist",
+      "verification_test": "tests/test_g3_source_element_review_draft_v1.py original source SHA fault injection, unverifiable text QA guard, no paid TTS, immutable restart and independent subsection continuation",
+      "last_verified_date": "2026-11-25",
+      "environment": "Dell-115 source-pinned original G3 Serway 8.2/8.3 figures, exact script and decoded pixel static legacy video",
+      "retry_policy": "Recompute original publisher element drafts and mandatory review worklists; never infer source math, figure panels, per-element audio or academic approval; leave old assets unchanged",
+      "enabled": true
     }
   ]
 }
