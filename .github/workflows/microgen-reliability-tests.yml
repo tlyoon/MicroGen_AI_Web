@@ -2,13 +2,10 @@
 # Contract: docs/MicroGen_Windows_Only_Development_Regression_Contract_20261125.md
 name: MicroGen reliability regressions
 
+# Required status checks must exist on EVERY PR, including docs/scripts-only
+# changes, otherwise GitHub branch protection would strand the PR.
 on:
   pull_request:
-    paths:
-      - 'selenium_pipeline/**'
-      - 'tests/**'
-      - 'docs/MicroGen_Stage3_Regression_Acceptance_20261012.md'
-      - '.github/workflows/microgen-reliability-tests.yml'
   push:
     branches: [main]
 

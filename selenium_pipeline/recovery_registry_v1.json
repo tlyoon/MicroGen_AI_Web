@@ -1528,6 +1528,20 @@
       "environment": "Dell-115 original Serway 8.2/8.3 Windows source-only witness, no Gemini calls",
       "retry_policy": "Bounded maximum 64 rounds, 2 original source units per subsection per round; derive progress from immutable PDF quote scopes; stop only held section, write durable receipts; never Send/release",
       "enabled": true
+    },
+    {
+      "id": "MICROGEN_EXACT_WINDOWS_CI_GATED_GITHUB_MERGE_20261125",
+      "match_type": "development_pr_ci_gated_merge",
+      "signature": "GITHUB_UNPROTECTED_MAIN_ALLOWED_PR_MERGE_BEFORE_WINDOWS_CI_COMPLETE",
+      "mechanism": "VERIFY_LATEST_EXACT_PR_HEAD_ALL_REQUIRED_WINDOWS_CI_BEFORE_MATCH_HEAD_MERGE",
+      "classification": "PREMATURE_GITHUB_PR_MERGE_WITH_PENDING_OR_STALE_WINDOWS_TESTS",
+      "handler": "NORMAL_EXACT_HEAD_WINDOWS_CI_MERGE_GUARD",
+      "preconditions": "Exactly matching PR head, base branch main, latest active reliability workflow attempt, all jobs passed, no draft, no mergeable conflicts; repeat before head-pinned squash merge",
+      "verification_test": "tests/test_development_ci_gated_merge_v1.py simulates pending, failure, stale, rerun, race, job spoof, wrong repo, exact successful merge",
+      "last_verified_date": "2026-11-25",
+      "environment": "Dell-115 Windows GitHub authenticated CLI; GitHub CI Windows-only project contract",
+      "retry_policy": "No auto merge, no admin override, no bypass; hold until same exact PR head CI is complete; bounded GitHub status retrieval; never replay uncertain model requests",
+      "enabled": true
     }
   ]
 }
