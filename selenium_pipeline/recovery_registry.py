@@ -69,6 +69,7 @@ _HANDLERS = {
     "g3_source_media_technical_preflight": "NORMAL_G3_SOURCE_BOUND_MEDIA_TECHNICAL_CHECK_NO_ACCEPTANCE",
     "g3_original_video_page_parity": "NORMAL_G3_WITNESS_ORIGINAL_SLIDE_PAGES_IN_ENCODED_VIDEO_NO_ACCEPTANCE",
     "g3_static_source_element_draft": "NORMAL_G3_STAGE_SOURCE_ONLY_ELEMENT_REVIEW_WORKLIST_NO_TTS",
+    "g3_element_publisher_quote_autoforward": "NORMAL_G3_CONTINUE_SOURCE_PHYSICAL_QUOTE_REVIEW_WITHOUT_SEND",
     "completion_driven_acceptance_scheduler": "NORMAL_G2_G3_COMPLETION_GATES_SOURCE_ONLY_AUTOFORWARD",
     "g2_ranked_v3_owned_science_handoff": "NORMAL_G2_V3_FINITE_OWNED_SELENIUM_SCIENCE_REVIEW_HANDOFF",
     "g2_ranked_v3_two_pass_consensus": "NORMAL_G2_ADMIT_ACTUAL_V3_TWO_PASS_SOURCE_AI_AGREEMENTS",
