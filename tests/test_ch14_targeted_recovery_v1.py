@@ -61,3 +61,18 @@ def test_saved_selenium_candidate_requires_matching_source_and_slide_count(tmp_p
     assert result and result["zero_new_model_sends"]
     assert (folder/"script.txt").read_text()==p.read_text()
     assert recover_saved_selenium_candidate(folder,source) is None
+
+
+def test_recovered_script_is_published_source_adjacent_with_same_hash(tmp_path):
+    from selenium_pipeline.output_paths import publish_stage_outputs
+    import hashlib
+    source=tmp_path/"14.5"/"source.pdf"
+    source.parent.mkdir()
+    source.write_bytes(b"%PDF-1.5 source")
+    workspace=source.parent/".microgen_work"
+    workspace.mkdir()
+    script=workspace/"script.txt"
+    script.write_text("**Slide 1 [8 sec]:\\nFluid Dynamics**",encoding="utf8")
+    sent=publish_stage_outputs(workspace,source,"narration")
+    assert source.parent/"script.txt" in sent
+    assert hashlib.sha256((source.parent/"script.txt").read_bytes()).digest()==hashlib.sha256(script.read_bytes()).digest()

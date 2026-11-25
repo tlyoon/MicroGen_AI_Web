@@ -712,7 +712,16 @@ def _execute_unlocked(s: Settings) -> Path:
         from .narration_saved_selenium_recovery_v1 import recover_saved_selenium_candidate
         recovered = recover_saved_selenium_candidate(folder, source)
         if recovered:
-            print("[microgen] source-verified saved narration recovered; zero new Gemini Sends", flush=True)
+            # Stage-only recovery bypasses the normal narration publication.
+            # Persist the same verified script beside source.pdf before
+            # downstream structural-sync and source-pinned video checks.
+            original_script = source.parent / "script.txt"
+            if original_script.exists() and digest(original_script) != recovered["script_sha256"]:
+                raise RuntimeError("Conflicting published narration; preserve original and stop")
+            published_narration = publish_stage_outputs(folder, source, "narration")
+            if original_script not in published_narration:
+                raise RuntimeError("Recovered narration was not published to original source")
+            print("[microgen] source-verified saved narration recovered and published; zero new Gemini Sends", flush=True)
     if s.from_stage == "video":
         hydrate_video_only_inputs(source, folder)
     stamp = folder / ".selenium_pipeline_state.json"
