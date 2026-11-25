@@ -24,6 +24,8 @@ def test_task_never_dispatches_browser_or_api_or_changes_existing_task():
     assert "Refuse to modify an existing source task automatically" in installer
     assert "IgnoreNew" in installer
     assert "StartWhenAvailable" in installer
+    assert "-RepetitionInterval (New-TimeSpan -Minutes 15)" in installer
+    assert "-RepetitionDuration (New-TimeSpan -Days 365)" in installer
     assert "WindowsIdentity" in installer
     assert "GitHub-certified main" in installer
     assert "-LogonType Interactive" in installer

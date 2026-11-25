@@ -57,9 +57,9 @@ $stream=[IO.File]::Open($configPath,[IO.FileMode]::CreateNew,[IO.FileAccess]::Wr
 try{$stream.Write($bytes,0,$bytes.Length);$stream.Flush($true)}finally{$stream.Dispose()}
 $argument='-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "'+$runner+'" -ConfigPath "'+$configPath+'"'
 $action=New-ScheduledTaskAction -Execute (Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe') -Argument $argument -WorkingDirectory $repo
-$trigger=New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(2)
-$trigger.Repetition.Interval='PT15M'
-$trigger.Repetition.Duration='P365D'
+$trigger=New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(2) 
+    -RepetitionInterval (New-TimeSpan -Minutes 15) 
+    -RepetitionDuration (New-TimeSpan -Days 365)
 $settings=New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Hours 2)
 $principal=New-ScheduledTaskPrincipal -UserId ([Security.Principal.WindowsIdentity]::GetCurrent().Name) -LogonType Interactive -RunLevel Limited
 try{
