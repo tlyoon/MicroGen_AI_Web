@@ -250,6 +250,8 @@ def _gate_matrix(results:dict)->list[dict]:
     g2=results.get("G2_SOURCE")
     g3=results.get("G3_SCIENCE")
     media=results.get("G3_MEDIA")
+    static_rebuild_count=(media or {}).get(
+        "original_static_video_rebuilds_staged",0)
     agreed=g2.get("total_two_pass_AI_agreements",0) if g2 else 0
     total=g2.get("original_total") if g2 else None
     source_ai_done=bool(g2 is not None and type(total) is int
@@ -293,9 +295,17 @@ def _gate_matrix(results:dict)->list[dict]:
              media.get("source_video_pages_pixel_witnessed") if media else None),
          "next_action":"Retain original encoded-frame SHA and PDF page proof"},
         {"gate_id":"G3_WITHIN_SLIDE_VISUAL_HIGHLIGHT_QA","accepted":False,
-         "status":"PENDING_ACTUAL_HIGHLIGHT_AND_SPEECH_TIMING",
-         "next_action":"Independently witness physics element highlights "+
-             "in actual encoded MP4 at genuine spoken timings"},
+         "status":("BLOCKED_SOURCE_PINNED_STATIC_VIDEO_REBUILD_REQUIRED"
+                   if static_rebuild_count else
+                   "PENDING_ACTUAL_HIGHLIGHT_AND_SPEECH_TIMING"),
+         "source_pinned_rebuild_worklists":static_rebuild_count,
+         "next_action":(
+             "Rebuild source-verified element-synchronized MP4 in isolated "+
+             "staging, requiring genuine per-element source anchors and "+
+             "narration timing; then obtain independent encoded video QA"
+             if static_rebuild_count else
+             "Independently witness physics element highlights in actual "+
+             "encoded MP4 at genuine spoken timings")},
         {"gate_id":"G3_SECOND_SUBSECTION_ACCEPTANCE","accepted":False,
          "status":"BLOCKED_PENDING_SCIENCE_ACOUSTIC_HIGHLIGHT_ACCEPTANCE",
          "next_action":"Close source science, authentic acoustic and "+

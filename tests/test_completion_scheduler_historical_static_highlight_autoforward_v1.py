@@ -152,3 +152,30 @@ def test_registered_historical_recovery_is_required_not_reimplemented():
     from selenium_pipeline.recovery_registry import lookup_mechanism
     assert lookup_mechanism(historical.KIND,historical.SIGNATURE)==(
         historical.MECHANISM)
+
+
+def test_g3_highlight_acceptance_gate_reports_actual_static_rebuild_blockers(
+        tmp_path,monkeypatch):
+    state,media,manifest,calls=install(tmp_path,monkeypatch)
+    proof=controller._g3_media_zero_send(
+        manifest=manifest,state=state,media=media)
+    gate={x["gate_id"]:x for x in controller._gate_matrix({
+        "G3_MEDIA":proof})}["G3_WITHIN_SLIDE_VISUAL_HIGHLIGHT_QA"]
+    assert gate["status"]=="BLOCKED_SOURCE_PINNED_STATIC_VIDEO_REBUILD_REQUIRED"
+    assert gate["source_pinned_rebuild_worklists"]==2
+    assert gate["accepted"] is False
+    assert "per-element source anchors" in gate["next_action"]
+    assert proof["independent_video_highlight_QA_complete"] is False
+
+
+def test_g3_highlight_acceptance_gate_does_not_equate_motion_to_approval(
+        tmp_path,monkeypatch):
+    state,media,manifest,calls=install(
+        tmp_path,monkeypatch,changed=("8.2","8.3"))
+    proof=controller._g3_media_zero_send(
+        manifest=manifest,state=state,media=media)
+    gate={x["gate_id"]:x for x in controller._gate_matrix({
+        "G3_MEDIA":proof})}["G3_WITHIN_SLIDE_VISUAL_HIGHLIGHT_QA"]
+    assert gate["status"]=="PENDING_ACTUAL_HIGHLIGHT_AND_SPEECH_TIMING"
+    assert gate["source_pinned_rebuild_worklists"]==0
+    assert gate["accepted"] is False
