@@ -16,6 +16,7 @@ import json
 import os
 import re
 import subprocess
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -66,12 +67,29 @@ def issue_merge(pr:int,head_sha:str)->None:
     need(type(pr) is int and 1<=pr<=1_000_000
          and type(head_sha) is str and SHA.fullmatch(head_sha),
          "Unsafe PR/head for guarded merge")
-    # Never use --auto or --admin: GitHub itself gets exact-head compare.
-    args=["gh","pr","merge",str(pr),"--repo",REPO,
-          "--squash","--match-head-commit",head_sha]
-    proc=subprocess.run(args,capture_output=True,text=True,timeout=100,
-                        check=False)
-    need(proc.returncode==0,"GitHub exact-head merge refused; no retry")
+    # REST API supports SHA-based compare-and-swap without the GitHub CLI's
+    # GraphQL mutation path. The live historical failure was a CLI nonzero
+    # response after GitHub actually created a squash commit.
+    request={"sha":head_sha,"merge_method":"squash"}
+    with tempfile.TemporaryDirectory(prefix="microgen_exact_head_merge_") as temp:
+        request_file=Path(temp)/"request.json"
+        request_file.write_bytes(canonical(request))
+        args=["gh","api","--method","PUT",
+              f"repos/{REPO}/pulls/{pr}/merge",
+              "--input",str(request_file)]
+        proc=subprocess.run(args,capture_output=True,text=True,timeout=100,
+                            check=False)
+    if proc.returncode!=0:
+        # Nonzero is not evidence that a remote side effect did not occur.
+        message=(proc.stderr or proc.stdout or "").strip().replace("\r"," ").replace("\n"," ")
+        message=re.sub(r"(?:gh[opusr]_[A-Za-z0-9_]{12,}|github_pat_[A-Za-z0-9_]{12,})",
+                       "[REDACTED_TOKEN]",message,flags=re.I)
+        raise ValueError("GitHub exact-head REST merge outcome uncertain, exit="
+                         +str(proc.returncode)+": "+message[:210])
+    reply=json.loads(proc.stdout)
+    need(type(reply) is dict and reply.get("merged") is True
+         and _sha(reply.get("sha")),
+         "REST response not a verified merge, reconcile original PR before retry")
 
 
 def _sha(value)->bool:
@@ -211,7 +229,42 @@ def gate(*,pr_number:int,perform_merge:bool=False,fetch=api,
     # Re-query the PR, main and every CI receipt immediately before merge.
     second=inspect(pr_number=pr_number,fetch=fetch)
     need(first==second,"CI evidence or PR head changed before merge; HOLD")
-    merge_fn(pr_number,first["head_sha"])
+    try:
+        merge_fn(pr_number,first["head_sha"])
+    except (ValueError,OSError,subprocess.TimeoutExpired) as error:
+        # The historical PR #654 failure returned GraphQL errors AFTER a
+        # GitHub-authored squash commit with exactly the approved source
+        # tree had already appeared on main, while the PR stayed OPEN.
+        # Never assume a nonzero remote command means no side effect.
+        saved=fetch(f"repos/{REPO}/pulls/{pr_number}")
+        need(saved.get("head",{}).get("sha")==first["head_sha"],
+             "Merge response uncertain and PR head changed: HOLD")
+        if saved.get("merged_at") is not None and saved.get("state")=="closed":
+            return {**first,"status":MERGED,
+                    "merged_at":saved["merged_at"],
+                    "merge_commit_sha":saved.get("merge_commit_sha"),
+                    "recovered_after_failed_client_response":True,
+                    "automatic_merge_used":False}
+        current=fetch(f"repos/{REPO}/branches/{BRANCH}")
+        current_sha=current.get("commit",{}).get("sha")
+        if _sha(current_sha) and current_sha!=first["base_sha"]:
+            main_commit=fetch(f"repos/{REPO}/git/commits/{current_sha}")
+            requested_head=fetch(f"repos/{REPO}/git/commits/{first['head_sha']}")
+            parent_sha=[v.get("sha") for v in main_commit.get("parents",[])]
+            same_tree=(main_commit.get("tree",{}).get("sha")==
+                       requested_head.get("tree",{}).get("sha"))
+            if same_tree and parent_sha==[first["base_sha"]]:
+                return {**first,
+                        "status":"REMOTE_SQUASH_TREE_IDENTICAL_BUT_PR_STILL_OPEN_HOLD",
+                        "main_commit_sha":current_sha,
+                        "same_file_tree_verified":True,
+                        "merge_completed":False,
+                        "previous_client_error_class":type(error).__name__,
+                        "original_request_retried":False,
+                        "student_publication_authorized":False}
+        raise ValueError(
+            "Client merge outcome uncertain; independently inspected PR/main; "
+            "no retry authorized. "+str(error)[:150]) from error
     # A timed-out merge command is uncertain; callers must inspect remote
     # PR state, not retry the same operation blindly.
     saved=fetch(f"repos/{REPO}/pulls/{pr_number}")
@@ -263,7 +316,7 @@ def main(argv=None):
     if args.receipt:
         persist(args.receipt,result)
     print(json.dumps(result,indent=2))
-    return 0
+    return 0 if result["status"] in {PASS,MERGED} else 2
 
 
 if __name__=="__main__":

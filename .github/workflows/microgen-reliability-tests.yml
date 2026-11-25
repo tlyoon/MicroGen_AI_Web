@@ -6,6 +6,7 @@ name: MicroGen reliability regressions
 # changes, otherwise GitHub branch protection would strand the PR.
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches: [main]
 

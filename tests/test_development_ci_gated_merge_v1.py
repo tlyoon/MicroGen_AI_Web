@@ -74,6 +74,7 @@ def test_registered_exact_head_gate_and_windows_workflow_on_all_prs():
     wf=Path(__file__).resolve().parents[1]/".github/workflows/microgen-reliability-tests.yml"
     txt=wf.read_text("utf8").split("on:",1)[1].split("jobs:",1)[0]
     assert "pull_request:" in txt
+    assert "types: [opened, synchronize, reopened, ready_for_review]" in txt
     assert "paths:" not in txt
     assert "runs-on: windows-latest" in wf.read_text("utf8")
     assert "ubuntu" not in wf.read_text("utf8").casefold()
@@ -178,18 +179,23 @@ def test_ci_run_purpose_and_workflow_path_identity_are_strict():
         gate.inspect(pr_number=654,fetch=g.fetch)
 
 
-def test_cli_merge_uses_git_hub_commit_cas_without_auto_admin(monkeypatch):
+def test_rest_merge_uses_exact_head_sha_cas_and_squash(monkeypatch):
     seen=[]
     def dummy(args,**kwargs):
         seen.append(args)
-        return subprocess.CompletedProcess(args,0,stdout="merged",stderr="")
+        assert args[:4]==["gh","api","--method","PUT"]
+        assert f"repos/{gate.REPO}/pulls/654/merge" in args
+        assert "--input" in args
+        body=json.loads(Path(args[-1]).read_text("utf8"))
+        assert body=={"sha":"a"*40,"merge_method":"squash"}
+        return subprocess.CompletedProcess(
+            args,0,stdout=json.dumps({"merged":True,"sha":"f"*40}),stderr="")
     monkeypatch.setattr(gate.subprocess,"run",dummy)
     gate.issue_merge(654,"a"*40)
     assert len(seen)==1
-    assert "--squash" in seen[0]
-    assert "--match-head-commit" in seen[0]
     assert "--auto" not in seen[0] and "--admin" not in seen[0]
-    assert seen[0][-1]=="a"*40
+
+
 
 
 def test_write_audit_receipt_is_atomic_and_immutable_to_source(tmp_path):
@@ -243,3 +249,60 @@ def test_new_pending_other_workflow_does_not_get_ignored():
                        status="in_progress",conclusion=None))
     with pytest.raises(ValueError,match="Another applicable"):
         gate.inspect(pr_number=654,fetch=g.fetch)
+
+
+def test_failed_github_merge_surfaces_bounded_redacted_failure_reason(monkeypatch):
+    def fake(args,**kw):
+        return subprocess.CompletedProcess(
+            args,1,stdout="",stderr="GraphQL: Branch protection pending ghp_"
+            +"A"*40+"; retry after status")
+    monkeypatch.setattr(gate.subprocess,"run",fake)
+    with pytest.raises(ValueError,match="GitHub exact-head REST merge outcome uncertain") as error:
+        gate.issue_merge(654,"a"*40)
+    assert "GraphQL" in str(error.value)
+    assert "ghp_" not in str(error.value)
+    assert len(str(error.value))<310
+
+
+def test_uncertain_remote_merge_with_exact_same_main_tree_must_not_repeat():
+    g=GitHubFixture()
+    original=g.fetch
+    g.main_sha_after="f"*40
+    def fetch(path):
+        if path==f"repos/{gate.REPO}/git/commits/{g.main_sha_after}":
+            return {"parents":[{"sha":g.main}],"tree":{"sha":"c"*40}}
+        if path==f"repos/{gate.REPO}/git/commits/{g.h}":
+            return {"parents":[{"sha":g.main}],"tree":{"sha":"c"*40}}
+        return original(path)
+    calls=[]
+    def uncertain(pr,sha):
+        calls.append((pr,sha))
+        g.main_obj["commit"]["sha"]=g.main_sha_after
+        raise ValueError("Remote GraphQL replied error after committed squash")
+    result=gate.gate(pr_number=654,fetch=fetch,perform_merge=True,
+                     merge_fn=uncertain)
+    assert result["status"]=="REMOTE_SQUASH_TREE_IDENTICAL_BUT_PR_STILL_OPEN_HOLD"
+    assert result["merge_completed"] is False
+    assert result["same_file_tree_verified"] is True
+    assert calls==[(654,g.h)]
+
+
+def test_uncertain_remote_merge_with_different_tree_never_claims_success():
+    g=GitHubFixture()
+    original=g.fetch
+    later="f"*40
+    def fetch(path):
+        if path==f"repos/{gate.REPO}/git/commits/{later}":
+            return {"parents":[{"sha":g.main}],"tree":{"sha":"d"*40}}
+        if path==f"repos/{gate.REPO}/git/commits/{g.h}":
+            return {"parents":[{"sha":g.main}],"tree":{"sha":"c"*40}}
+        return original(path)
+    calls=[]
+    def uncertain(pr,sha):
+        calls.append((pr,sha))
+        g.main_obj["commit"]["sha"]=later
+        raise ValueError("Uncertain REST merge result")
+    with pytest.raises(ValueError,match="outcome uncertain"):
+        gate.gate(pr_number=654,fetch=fetch,perform_merge=True,
+                  merge_fn=uncertain)
+    assert len(calls)==1
