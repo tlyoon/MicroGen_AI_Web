@@ -50,11 +50,18 @@ if(-not $Install){
     return
 }
 New-Item -ItemType Directory -Path $output -Force|Out-Null
-if(Test-Path -LiteralPath $configPath){throw 'Refuse to overwrite existing source-only task configuration'}
-# Write config before task registration; no credentials, textbook content or prompts.
-$bytes=[Text.UTF8Encoding]::new($false).GetBytes(($config|ConvertTo-Json -Depth 4)+"`n")
-$stream=[IO.File]::Open($configPath,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
-try{$stream.Write($bytes,0,$bytes.Length);$stream.Flush($true)}finally{$stream.Dispose()}
+# A crash after writing the config but before task registration is safe
+# to resume ONLY for byte-identical pinned source-only inputs.
+$text=($config|ConvertTo-Json -Depth 4)+"`n"
+$bytes=[Text.UTF8Encoding]::new($false).GetBytes($text)
+if(Test-Path -LiteralPath $configPath){
+    if([IO.File]::ReadAllText($configPath) -cne $text){
+        throw 'Existing source-only task configuration differs; no overwrite'
+    }
+}else{
+    $stream=[IO.File]::Open($configPath,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
+    try{$stream.Write($bytes,0,$bytes.Length);$stream.Flush($true)}finally{$stream.Dispose()}
+}
 $argument='-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "'+$runner+'" -ConfigPath "'+$configPath+'"'
 $action=New-ScheduledTaskAction -Execute (Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe') -Argument $argument -WorkingDirectory $repo
 $trigger=New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(2) -RepetitionInterval (New-TimeSpan -Minutes 15) -RepetitionDuration (New-TimeSpan -Days 365)
