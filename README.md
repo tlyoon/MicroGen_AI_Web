@@ -1,5 +1,10 @@
 # MicroGen_AI
 
+## Supported development and regression platform: Windows only
+
+**MicroGen_AI_Web is developed and validated for Windows PCs only.** The authoritative [Windows-only development and regression contract](docs/MicroGen_Windows_Only_Development_Regression_Contract_20261125.md) requires Windows (windows-latest) CI and Windows-hosted local tests; Linux/Ubuntu regression suites are neither required nor accepted as a project completion gate. All existing scientific, recovery, figure, acoustic and publication acceptance checks remain mandatory. The continuous-development contract v7.1 continues to control autonomous task advancement; this amendment controls which OS tests are required.
+
+
 ## Integrated multidisciplinary lecture-series architecture (design proposal)
 
 The proposed next-generation architecture is defined in the [Integrated Architecture and Implementation Blueprint v1](docs/MicroGen_AI_Web_Integrated_Architecture_and_Implementation_Blueprint_v1.md). It covers discipline-aware teaching profiles (physics, mathematics, chemistry, biology, history and interdisciplinary sources), **top-down** multipart video planning (target 8–9 minutes per video; hard publication cap below 10 minutes 30 seconds), serial lecture continuity, speech-synchronized slide highlighting, source-fidelity QA, restart/receipt invalidation and staged three-PC acceptance. **These capabilities are not yet implemented or certified; the existing pipeline remains the legacy generation path until the new release gates pass.**
@@ -43,8 +48,8 @@ It dynamically discovers authorized computers, resolves the PDF source root on
 each device, checks actual runtime compatibility, distributes non-overlapping
 work, recovers from stalls, and verifies outputs beside their source PDFs.
 The [earlier v1 prompt](prompts/AUTO_MULTI_PC_LECTURE_GENERATION_PROMPT_v1.md)
-is retained for reference. The prompt is OS-agnostic, but the current
-experimental worker may require portability improvements for new PC types.
+is retained for reference. The prompt should select compatible **Windows** PCs only; non-Windows hosts
+are outside the supported development and regression contract.
 These instructions do **not** launch generation or authorize a GitHub push.
 
 ## New Dell-115 Selenium integration candidate

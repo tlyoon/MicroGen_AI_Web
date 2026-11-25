@@ -1,5 +1,7 @@
 # G3 continuous recovery and source-science advancement — 2026-11-24
 
+**Windows-only development/CI amendment:** This project uses only authorized Windows hosts and Windows (windows-latest) regression jobs under [the 25 November 2026 Windows platform contract](MicroGen_Windows_Only_Development_Regression_Contract_20261125.md). Do not wait for Linux CI; all G3 science, media, authorization and recovery gates remain unchanged.
+
 This is an **executable behavior** of `selenium_pipeline.g3_continuous_advance_v1`, not a future prompt asking the user to say "proceed". It applies to **MicroGen_AI_Web**, not Bosla or MicroGen_AI.
 
 ## Forward contract
