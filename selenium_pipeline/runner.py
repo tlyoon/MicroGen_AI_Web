@@ -705,6 +705,14 @@ def _execute_unlocked(s: Settings) -> Path:
             s.chrome_port, DEFAULT_BROWSER_UI_MODE, stage=first_browser_stage)
         print(f"[microgen] verified Gemini mode for {first_browser_stage}: {picked}")
     prepare(source, folder)
+    # A complete Selenium narration saved before a later lint/transport failure
+    # is recoverable without another expensive model submission. Validate the
+    # same source, deck, slide count, exact first title and current script QA.
+    if s.from_stage == "script_qa" and not (folder / "script.txt").exists():
+        from .narration_saved_selenium_recovery_v1 import recover_saved_selenium_candidate
+        recovered = recover_saved_selenium_candidate(folder, source)
+        if recovered:
+            print("[microgen] source-verified saved narration recovered; zero new Gemini Sends", flush=True)
     if s.from_stage == "video":
         hydrate_video_only_inputs(source, folder)
     stamp = folder / ".selenium_pipeline_state.json"
