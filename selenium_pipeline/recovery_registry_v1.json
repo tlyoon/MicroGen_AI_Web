@@ -4,6 +4,20 @@
   "scope": "MicroGen_AI_Web G2 normal forward engine initial executable integration; extend to other stages as each handler is verified",
   "entries": [
     {
+      "id": "G2_HISTORICAL_OWNED_REQUEST_ZERO_CAPTURE_20261126",
+      "match_type": "g2_owned_request_outcome_reconciliation",
+      "signature": "G2_UNCERTAIN_ORIGINAL_REQUEST_MISTAKEN_FOR_FRESH_SEND",
+      "mechanism": "PIN_OLD_SEND_AND_ZERO_CAPTURE_HOLD_REVIEW_NO_REPLAY",
+      "classification": "HISTORICAL_SOURCE_PINNED_G2_REQUEST_SUBMITTED_OR_UNCERTAIN_WITH_EMPTY_OR_UNVERIFIED_REPLY",
+      "handler": "NORMAL_PIN_HISTORICAL_G2_REPLY_CAPTURE_AND_HOLD_NO_REPLAY",
+      "preconditions": "Immutable G2 source and queue SHA, original owned request fingerprint/claim, exact quarantine raw/meta SHA, independent output directory",
+      "verification_test": "tests/test_g2_owned_request_outcome_reconciliation_v1.py plus Dell original slides 3/4/10/11, zero Sends",
+      "last_verified_date": "2026-11-26",
+      "environment": "Dell-115 original G2 preflights; source-locked request claims with empty historical Gemini capture",
+      "retry_policy": "Never replay original uncertain provider request; reject changed input, persist immutable SHA receipt, continue other independent work only",
+      "enabled": true
+    },
+    {
       "id": "G2_G3_SOURCE_READY_OFFLINE_DISPATCH_20261126",
       "match_type": "g2_g3_source_eligible_dispatch",
       "signature": "G2_G3_READONLY_SUPERVISOR_HAS_NO_NEW_VALID_HANDOFF_PLANS",
