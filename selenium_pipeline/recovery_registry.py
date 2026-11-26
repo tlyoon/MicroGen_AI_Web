@@ -34,6 +34,8 @@ _HANDLERS = {
     "test_helper_imports": "NORMAL_TEST_PACKAGE_SIBLING_IMPORT_RECOVERY",
     "offline_dev_autoforward": "NORMAL_WINDOWS_OFFLINE_CODE_DEVELOPMENT_CONTROLLER",
     "global_checkpoint_handoff": "NORMAL_V71_PROJECT_WIDE_OBSERVABLE_SUPERVISOR",
+    "g2_g3_source_eligible_dispatch":
+        "NORMAL_STAGE_G2_SOURCE_PREFLIGHT_KEEP_G3_SCIENCE_ON_HOLD",
     "daemon_owner_attestation": "NORMAL_V71_PROJECT_WIDE_OBSERVABLE_SUPERVISOR",
     "paid_api_scope": "NORMAL_SELENIUM_ONLY_GEMINI_EGRESS_GUARD",
     "request_cost_accounting": "NORMAL_DURABLE_GEMINI_REQUEST_COST_LEDGER",
