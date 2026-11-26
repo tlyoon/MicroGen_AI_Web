@@ -36,6 +36,8 @@ _HANDLERS = {
     "global_checkpoint_handoff": "NORMAL_V71_PROJECT_WIDE_OBSERVABLE_SUPERVISOR",
     "g2_g3_source_eligible_dispatch":
         "NORMAL_STAGE_G2_SOURCE_PREFLIGHT_KEEP_G3_SCIENCE_ON_HOLD",
+    "persistent_selenium_code_author":
+        "NORMAL_ISOLATED_ONE_CLAIM_BROWSER_SOURCE_AUTHOR_AND_PYTEST",
     "daemon_owner_attestation": "NORMAL_V71_PROJECT_WIDE_OBSERVABLE_SUPERVISOR",
     "paid_api_scope": "NORMAL_SELENIUM_ONLY_GEMINI_EGRESS_GUARD",
     "request_cost_accounting": "NORMAL_DURABLE_GEMINI_REQUEST_COST_LEDGER",

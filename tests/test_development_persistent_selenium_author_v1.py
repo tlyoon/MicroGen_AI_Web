@@ -91,7 +91,7 @@ def test_model_returns_safe_pure_source_and_pytest_passes(env):
     assert result["status"] == "SOURCE_CANDIDATE_TESTED_NO_PUBLICATION"
     assert result["pytest_exit_code"] == 0
     assert result["model_claims"] == 1
-    assert result["model_sends"] == 0
+    assert result["model_sends"] == 1
     assert result["paid_api_requests"] == 0
     assert "Independent" not in prompts[0] or prompts
     assert "test_zero_exit_with_swig" in prompts[0]
@@ -220,3 +220,97 @@ def test_worker_one_cycle_persists_heartbeat(env):
     assert heartbeat["worker_pid"] > 0
     assert heartbeat["jobs"][0]["status"] == (
         "SOURCE_CANDIDATE_TESTED_NO_PUBLICATION")
+
+
+REAL_FLATTENED = (
+    'Gemini said\n\n'
+    '"""Windows pytest process result classifier."""\n\n'
+    'def classify_pytest_result(return_code, stdout, stderr):\n'
+    '"""Classify a pytest process outcome strictly from its integer return code."""\n'
+    'passed = type(return_code) is int and return_code == 0\n'
+    'return {\n'
+    '"passed": passed,\n'
+    '"return_code": return_code,\n'
+    '"stdout": stdout,\n'
+    '"stderr": stderr,\n'
+    '}\n'
+)
+
+
+def test_real_owned_selenium_plain_text_indent_recovered_and_tests_pass(env):
+    root, repo, job = env
+    result=author.step(root=root, job_path=job,
+                       sender=lambda prompt: REAL_FLATTENED)
+    assert result["status"] == "SOURCE_CANDIDATE_TESTED_NO_PUBLICATION"
+    assert result["pytest_exit_code"] == 0
+    assert result["model_claims"] == 1
+    assert result["model_sends"] == 1
+    saved=(root / "state" / "windows_pytest_result_v1" /
+           "original_model_reply.txt")
+    assert saved.read_text() == REAL_FLATTENED
+
+
+def test_saved_quarantined_original_reply_reconciles_without_new_send(env):
+    root, repo, job = env
+    state=root / "state" / "windows_pytest_result_v1"
+    state.mkdir()
+    raw=state / "original_model_reply.txt"
+    raw.write_text(REAL_FLATTENED)
+    digest=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
+    (state / "coding_state.json").write_text(json.dumps({
+        "schema_version":1,"status":"UNSAFE_MODEL_REPLY_QUARANTINED",
+        "job_sha256":digest(job),"base_sha":_git(repo,"rev-parse","HEAD"),
+        "job_id":"windows_pytest_result_v1",
+        "model_claims":1,"model_sends":1,"paid_api_requests":0,
+        "model_reply_sha256":digest(raw),
+        "student_publication_authorized":False,"candidate_merged":False,
+    }))
+    def forbidden_model(prompt):
+        raise AssertionError("Original browser Send was consumed")
+    result=author.step(root=root,job_path=job,
+                       sender=forbidden_model,reconcile_only=True)
+    assert result["status"]=="SOURCE_CANDIDATE_TESTED_NO_PUBLICATION"
+    assert result["pytest_exit_code"]==0
+    assert result["model_claims"]==1
+    assert author.step(root=root,job_path=job,sender=forbidden_model)[
+        "status"]=="SOURCE_CANDIDATE_TESTED_NO_PUBLICATION"
+
+
+def test_offline_reconcile_cannot_create_new_model_claim(env):
+    root,repo,job=env
+    with pytest.raises(ValueError,match="cannot create a new browser"):
+        author.step(root=root,job_path=job,reconcile_only=True)
+    assert not (root / "state" / "windows_pytest_result_v1" /
+                "coding_state.json").exists()
+
+
+def test_non_owned_flattened_text_cannot_be_auto_repaired():
+    raw=('Unverified text\n\n'
+         'def classify_pytest_result(return_code, stdout, stderr):\n'
+         'return {"passed":True, "return_code":0, "stdout":stdout, "stderr":stderr}')
+    with pytest.raises(ValueError):
+        author.parse_reply(raw)
+
+
+@pytest.mark.parametrize("raw", [
+    "def bad():\n    import os\n    return 4\n",
+    "def bad():\n    from subprocess import run\n    return 4\n",
+    "def bad():\n    return print('secret')\n",
+    "def bad():\n    return object().mro()\n",
+])
+def test_nested_imports_and_nonpure_code_are_quarantined(raw):
+    with pytest.raises(ValueError):
+        author.validate_source(raw)
+
+
+def test_completed_code_candidate_survives_original_git_commit(env):
+    root, repo, job = env
+    first = author.step(root=root, job_path=job, sender=lambda p: GOOD)
+    assert first["status"] == "SOURCE_CANDIDATE_TESTED_NO_PUBLICATION"
+    _git(repo, "add", "selenium_pipeline/windows_pytest_result_v1.py")
+    _git(repo, "commit", "-m", "source-verified-model-candidate")
+    def forbidden(prompt):
+        raise AssertionError("Committed original job must never resend")
+    after = author.step(root=root, job_path=job, sender=forbidden)
+    assert after["status"] == first["status"]
+    assert after["candidate_sha256"] == first["candidate_sha256"]

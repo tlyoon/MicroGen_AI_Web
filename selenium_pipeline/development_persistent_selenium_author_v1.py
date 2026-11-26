@@ -22,6 +22,7 @@ import sys
 import time
 
 from .development_continuity_executor_v71 import _atomic_json, _exclusive
+from .recovery_registry import lookup_mechanism
 
 STATUS = "MICROGEN_PERSISTENT_SELENIUM_CODE_AUTHOR_V1"
 SHA40 = re.compile(r"[0-9a-f]{40}\Z")
@@ -48,7 +49,7 @@ _ALLOWED_IMPORTS = frozenset({"re", "json", "math", "statistics"})
 _ALLOWED_BUILTINS = frozenset({
     "str", "int", "float", "bool", "len", "range", "enumerate", "zip",
     "sorted", "reversed", "all", "any", "min", "max", "sum",
-    "isinstance", "dict", "list", "tuple", "set", "abs", "round",
+    "isinstance", "type", "dict", "list", "tuple", "set", "abs", "round",
 })
 
 
@@ -130,7 +131,11 @@ def validate_source(source: str):
                     "Only module docstrings allowed")
         else:
             raise ValueError("Unsafe Python top-level statement")
+    allowed_top_level = {id(node) for node in tree.body}
     for node in ast.walk(tree):
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            require(id(node) in allowed_top_level,
+                    "Nested or runtime imports are forbidden")
         require(not isinstance(node, (
             ast.Lambda, ast.ClassDef, ast.AsyncFunctionDef,
             ast.Await, ast.Yield, ast.YieldFrom, ast.Global,
@@ -145,10 +150,19 @@ def validate_source(source: str):
             require(not node.attr.startswith("_"),
                     "Private or magic attribute forbidden")
         if isinstance(node, ast.Call):
-            require(isinstance(node.func, (ast.Name, ast.Attribute))
-                    and (not isinstance(node.func, ast.Name)
-                         or node.func.id not in _BLOCKED),
-                    "Untrusted dynamic call target")
+            if isinstance(node.func, ast.Name):
+                require(node.func.id in _ALLOWED_BUILTINS,
+                        "Unapproved pure-function call target")
+            else:
+                require(isinstance(node.func, ast.Attribute)
+                        and node.func.attr in {
+                            "strip", "split", "splitlines", "startswith",
+                            "endswith", "lower", "upper", "casefold",
+                            "replace", "get", "items", "keys", "values",
+                            "append", "extend", "count", "index",
+                            "match", "fullmatch", "search", "sub",
+                            "find", "findall", "join",
+                        }, "Untrusted non-pure method call")
     return source.rstrip() + "\n"
 
 
@@ -156,6 +170,29 @@ def parse_reply(raw: str) -> str:
     require(type(raw) is str and 40 <= len(raw.encode("utf8")) <= MAX_REPLY,
             "Missing or oversized original model reply")
     raw = raw.replace("\r\n", "\n").strip()
+    # A real authenticated Gemini "Copy response" can flatten indentation
+    # while preserving all visible source tokens. Repair only this exact
+    # owned UI preamble and only unindented lines inside a function.
+    # Subsequent AST+pytest evidence must independently verify meaning.
+    if raw.startswith("Gemini said\n\n"):
+        require(lookup_mechanism(
+            "persistent_selenium_code_author",
+            "GEMINI_REAL_CODE_FLATTENED_SOURCE_REPLY_WITH_OWNED_CLAIM",
+        ) == "PIN_RESPONSE_REINDENT_PURE_FUNCTION_THEN_INDEPENDENT_PYTEST",
+            "Unregistered original coding UI response recovery")
+        raw = raw[len("Gemini said\n\n"):]
+        restored = []
+        inside = False
+        for line in raw.splitlines():
+            if line.startswith("def ") and line.endswith(":"):
+                inside = True
+            elif line.startswith(("import ", "from ", "class ")):
+                # Other top-level constructs are forbidden in flattened mode.
+                require(not inside, "Ambiguous flattened Gemini module scope")
+            elif inside and line and not line.startswith((" ", "\t")):
+                line = "    " + line
+            restored.append(line)
+        raw = "\n".join(restored)
     fence = chr(96) * 3
     if raw.startswith(fence + "python"):
         raw = raw[len(fence + "python"):].strip()
@@ -289,9 +326,40 @@ def save_once(path: Path, payload: bytes):
         os.fsync(stream.fileno())
 
 
-def step(*, root: Path, job_path: Path, sender=None) -> dict:
+def step(*, root: Path, job_path: Path, sender=None,
+         reconcile_only: bool = False) -> dict:
     root = Path(root).absolute()
     job_path = Path(job_path).absolute()
+    require(lookup_mechanism(
+        "persistent_selenium_code_author",
+        "PERSISTENT_SOURCE_PINNED_CODE_JOB_NEEDS_REAL_MODEL_DISPATCH",
+    ) == "ONE_CLAIM_SELENIUM_SOURCE_TEST_AND_IMMUTABLE_RESUME",
+        "Persistent model coding worker not registered")
+    require(job_path.parent == root / "inbox"
+            and job_path.is_file() and not job_path.is_symlink(),
+            "Untrusted original job path")
+    settled = root / "state" / job_path.stem / "coding_state.json"
+    if settled.is_file() and not settled.is_symlink():
+        previous = read(settled)
+        require(previous.get("job_sha256") == sha(job_path),
+                "Original coding job changed after a model claim")
+        if previous.get("status") in TERMINAL and (
+                not reconcile_only or previous["status"] !=
+                "UNSAFE_MODEL_REPLY_QUARANTINED"):
+            # No re-send even after the original Git branch is committed.
+            # Independently re-pin an accepted candidate's actual file SHA.
+            if previous["status"] == "SOURCE_CANDIDATE_TESTED_NO_PUBLICATION":
+                claim = read(job_path)
+                target = Path(claim["repo"]) / claim["target"]
+                original_reply = root / "state" / job_path.stem / (
+                    "original_model_reply.txt")
+                require(target.is_file() and not target.is_symlink()
+                        and sha(target) == previous.get("candidate_sha256")
+                        and original_reply.is_file()
+                        and sha(original_reply) ==
+                            previous.get("model_reply_sha256"),
+                        "Original authenticated saved reply or candidate changed")
+            return previous
     job = validate_job(root=root, file=job_path)
     repo = Path(job["repo"]).absolute()
     state_dir = root / "state" / job["job_id"]
@@ -305,25 +373,36 @@ def step(*, root: Path, job_path: Path, sender=None) -> dict:
             require(state.get("job_sha256") == job_hash,
                     "Original coding job changed: no replay")
             if state["status"] in TERMINAL:
-                return state
+                if (not reconcile_only or state["status"] !=
+                        "UNSAFE_MODEL_REPLY_QUARANTINED"):
+                    return state
+                require(reply.is_file() and not reply.is_symlink()
+                        and state.get("model_reply_sha256") == sha(reply),
+                        "Offline re-admission requires the exact saved reply")
             require(state["status"] in {
                 "SEND_CLAIMED_UNCERTAIN", "MODEL_REPLY_SAVED",
-                "SOURCE_APPLIED_CANDIDATE"},
+                "SOURCE_APPLIED_CANDIDATE",
+                "UNSAFE_MODEL_REPLY_QUARANTINED"},
                 "Unknown saved coding state cannot retry")
         else:
+            require(not reconcile_only,
+                    "Offline reconciliation cannot create a new browser Send claim")
             require(git(repo, "status", "--porcelain") == "",
                     "Source branch not clean before first model claim")
             state = {
                 "schema_version": 1, "status": "SEND_CLAIMED_UNCERTAIN",
                 "job_sha256": job_hash, "base_sha": job["base_sha"],
                 "job_id": job["job_id"], "model_claims": 1,
-                "model_sends": 0, "paid_api_requests": 0,
+                "model_sends": 1, "paid_api_requests": 0,
                 "student_publication_authorized": False,
                 "candidate_merged": False,
             }
             _atomic_json(state_file, state)
             model_claimed = True
         if not reply.exists():
+            if reconcile_only:
+                require(False,
+                        "Original reply missing: offline reconcile cannot Send")
             if not model_claimed:
                 state["status"] = "PROVIDER_SEND_UNCERTAIN_NO_REPLAY"
                 _atomic_json(state_file, state)
@@ -357,6 +436,7 @@ def step(*, root: Path, job_path: Path, sender=None) -> dict:
         raw = reply.read_bytes()
         require(40 <= len(raw) <= MAX_REPLY, "Saved model reply unsafe")
         state["model_reply_sha256"] = sha(reply)
+        state["model_sends"] = 1  # originally claimed one Selenium Send
         state["status"] = "MODEL_REPLY_SAVED"
         _atomic_json(state_file, state)
         try:
@@ -411,7 +491,8 @@ def step(*, root: Path, job_path: Path, sender=None) -> dict:
         return state
 
 
-def scan(*, root: Path, sender=None) -> dict:
+def scan(*, root: Path, sender=None,
+         reconcile_only: bool = False) -> dict:
     root = Path(root).absolute()
     require(root.is_dir() and not root.is_symlink()
             and (root / "inbox").is_dir()
@@ -423,7 +504,8 @@ def scan(*, root: Path, sender=None) -> dict:
     outcomes = []
     for job_path in candidates:
         try:
-            info = step(root=root, job_path=job_path, sender=sender)
+            info = step(root=root, job_path=job_path, sender=sender,
+                        reconcile_only=reconcile_only)
             outcomes.append({
                 "job": job_path.name, "status": info["status"],
                 "model_claims": info.get("model_claims", 0),
@@ -443,14 +525,16 @@ def scan(*, root: Path, sender=None) -> dict:
 
 
 def serve(*, root: Path, poll_seconds: int = 30,
-          max_cycles: int = 0, sender=None) -> dict:
+          max_cycles: int = 0, sender=None,
+          reconcile_only: bool = False) -> dict:
     require(type(poll_seconds) is int and 1 <= poll_seconds <= MAX_SLEEP
             and type(max_cycles) is int and 0 <= max_cycles <= 10000,
             "Unbounded polling settings")
     root = Path(root).absolute()
     cycles = 0
     while True:
-        outcome = scan(root=root, sender=sender)
+        outcome = scan(root=root, sender=sender,
+                       reconcile_only=reconcile_only)
         cycles += 1
         _atomic_json(root / "worker_heartbeat.json", {
             **outcome, "cycles": cycles,
@@ -467,9 +551,11 @@ def main(argv=None) -> int:
     p.add_argument("--root", type=Path, required=True)
     p.add_argument("--poll-seconds", type=int, default=30)
     p.add_argument("--max-cycles", type=int, default=0)
+    p.add_argument("--reconcile-only", action="store_true")
     args = p.parse_args(argv)
     report = serve(root=args.root, poll_seconds=args.poll_seconds,
-                   max_cycles=args.max_cycles)
+                   max_cycles=args.max_cycles,
+                   reconcile_only=args.reconcile_only)
     print(json.dumps(report, indent=2))
     return 0
 
