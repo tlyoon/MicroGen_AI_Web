@@ -202,6 +202,10 @@ def daemon(*,plan_path: Path,state_dir: Path,repo_root: Path,
         "existing_scheduled_tasks_modified":False,
         "handoff_dir":str(handoff_dir) if handoff_dir is not None else None,
         "last_handoff_status":"NOT_CONFIGURED",
+        "last_source_eligibility_status":"NOT_CONFIGURED",
+        "last_source_eligibility_slides":[],
+        "last_g3_source_status":"NOT_CONFIGURED",
+        "source_eligibility_error_class":None,
         "handoff_worker_starts_total":0,
         "code_authoring_executor":False,
         "last_journal_recovery_status":"NOT_REQUIRED",
@@ -254,7 +258,25 @@ def daemon(*,plan_path: Path,state_dir: Path,repo_root: Path,
                 # authored *offline-only* independent work in the same
                 # live daemon execution opportunity.
                 handoff=None
+                admission=None
                 if handoff_dir is not None:
+                    from .development_g2g3_eligible_dispatch_v1 import (
+                        discover)
+                    try:
+                        admission=discover(
+                            handoff_dir=handoff_dir,state_dir=state_dir)
+                    except (ValueError, OSError, KeyError, TypeError) as exc:
+                        # A malformed or changed source is confined to this
+                        # lane; independent already-pinned plans still run.
+                        admission={
+                            "status":"SOURCE_PINNED_DISCOVERY_HELD",
+                            "g3_status":"SOURCE_IDENTITY_UNVERIFIED",
+                            "source_g2_slides":[],
+                            "error_class":type(exc).__name__,
+                            "new_browser_sends":0,
+                            "new_paid_gemini_API_calls":0,
+                            "student_publication_authorized":False,
+                        }
                     from .development_continuity_handoff_v71 import (
                         scan_and_dispatch)
                     handoff=scan_and_dispatch(
@@ -264,6 +286,13 @@ def daemon(*,plan_path: Path,state_dir: Path,repo_root: Path,
                     state["last_controller_status"]=outcome["status"]
                     state["last_controller_completed"]=outcome["project_complete"]
                     state["cycles"]+=1
+                    if admission is not None:
+                        state["last_source_eligibility_status"]=admission["status"]
+                        state["last_source_eligibility_slides"]=admission.get(
+                            "source_g2_slides",[])
+                        state["last_g3_source_status"]=admission["g3_status"]
+                        state["source_eligibility_error_class"]=admission.get(
+                            "error_class")
                     if handoff is not None:
                         state["last_handoff_status"]=handoff["status"]
                         state["handoff_worker_starts_total"]+=handoff[
@@ -271,7 +300,18 @@ def daemon(*,plan_path: Path,state_dir: Path,repo_root: Path,
                 report("HANDOFF_DISPATCH_VERIFIED"
                        if handoff is not None and handoff[
                            "new_worker_starts"]>0 else
-                       "WAITING_FOR_ELIGIBLE_WORK"
+                       "SOURCE_PINNED_DISCOVERY_HELD"
+                       if admission is not None and admission["status"]==
+                           "SOURCE_PINNED_DISCOVERY_HELD" else
+                       "HANDOFF_CANDIDATE_QUARANTINED"
+                       if handoff is not None and any(
+                           x["status"] in {"CHANGED_PLAN_CONSUMED_NO_REPLAY",
+                               "QUARANTINED_INVALID_PLAN"}
+                           for x in handoff["outcomes"]) else
+                       "G2_G3_INDEPENDENT_ACCEPTANCE_EVIDENCE_REQUIRED"
+                       if admission is not None and admission["g3_status"]==
+                           "G3_ORIGINAL_SOURCE_COMPLETE_SCIENCE_AUDIO_VIDEO_OPEN"
+                       else "WAITING_FOR_ELIGIBLE_WORK"
                        if not outcome["project_complete"]
                        else "LOCAL_PLAN_COMPLETE_MONITORING")
                 if max_cycles and state["cycles"]>=max_cycles:

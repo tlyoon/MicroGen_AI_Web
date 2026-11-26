@@ -4,6 +4,20 @@
   "scope": "MicroGen_AI_Web G2 normal forward engine initial executable integration; extend to other stages as each handler is verified",
   "entries": [
     {
+      "id": "G2_G3_SOURCE_READY_OFFLINE_DISPATCH_20261126",
+      "match_type": "g2_g3_source_eligible_dispatch",
+      "signature": "G2_G3_READONLY_SUPERVISOR_HAS_NO_NEW_VALID_HANDOFF_PLANS",
+      "mechanism": "STAGE_REAL_PENDING_G2_SOURCE_PREFLIGHT_HOLD_G3_INDEPENDENT_QA",
+      "classification": "ORIGINAL_RELEASE_AUTHORIZATION_HELD_WHILE_G2_SOURCE_PREFLIGHT_REMAINS",
+      "handler": "NORMAL_STAGE_G2_SOURCE_PREFLIGHT_KEEP_G3_SCIENCE_ON_HOLD",
+      "preconditions": "Immutable G2 queue, source PDF/slides/script hashes, complete G3 source-only checkpoint, source-only contract and existing offline v7.1 executor",
+      "verification_test": "tests/test_development_g2g3_eligible_dispatch_v1.py and live Dell-115 original G2 four-slide preflight",
+      "last_verified_date": "2026-11-26",
+      "environment": "Dell-115 Windows read-only G2 source and original G3 evidence; no model Sends",
+      "retry_policy": "Write SHA-keyed immutable next plan once; existing v7.1 worker runs real source preflight, quarantines old requests, never raises science acceptance or replays G3 exhausted requests",
+      "enabled": true
+    },
+    {
       "id": "G2_ACADEMIC_FRESH_SINGLE_SEND",
       "match_type": "selection_action",
       "signature": "FRESH_FIRST_ATTEMPT",
