@@ -45,6 +45,8 @@ _HANDLERS = {
     "browser_coding_response_shape": "NORMAL_GEMINI_SOURCE_ONLY_CODE_CAPTURE_RECOVERY",
     "bounded_coding_dispatch": "NORMAL_SINGLE_OWNER_BROWSER_CODE_DISPATCH",
     "historical_quarantine_integrity": "NORMAL_IMMUTABLE_PROVIDER_CAPTURE_EVIDENCE_AUDIT",
+    "g2_owned_request_outcome_reconciliation":
+        "NORMAL_PIN_HISTORICAL_G2_REPLY_CAPTURE_AND_HOLD_NO_REPLAY",
     "g2_distinct_focused_source_review": "NORMAL_SOURCE_GROUNDED_DISTINCT_REVIEW_ADMISSION",
     "g2_focused_source_target_preflight": "NORMAL_G2_STAGE_ORIGINAL_SOURCE_TARGET_RANK_WITNESS_NO_SEND",
     "g2_ranked_source_review_candidate": "NORMAL_G2_PIN_DISTINCT_RANKED_SOURCE_REVIEW_INPUT_NO_SEND",

@@ -206,6 +206,9 @@ def daemon(*,plan_path: Path,state_dir: Path,repo_root: Path,
         "last_source_eligibility_slides":[],
         "last_g3_source_status":"NOT_CONFIGURED",
         "source_eligibility_error_class":None,
+        "last_historical_g2_disposition":"NOT_CONFIGURED",
+        "last_historical_g2_receipt_sha256":None,
+        "historical_g2_disposition_error_class":None,
         "handoff_worker_starts_total":0,
         "code_authoring_executor":False,
         "last_journal_recovery_status":"NOT_REQUIRED",
@@ -259,6 +262,7 @@ def daemon(*,plan_path: Path,state_dir: Path,repo_root: Path,
                 # live daemon execution opportunity.
                 handoff=None
                 admission=None
+                historical=None
                 if handoff_dir is not None:
                     from .development_g2g3_eligible_dispatch_v1 import (
                         discover)
@@ -282,6 +286,22 @@ def daemon(*,plan_path: Path,state_dir: Path,repo_root: Path,
                     handoff=scan_and_dispatch(
                         handoff_dir=handoff_dir,state_dir=state_dir,
                         repo_root=repo_root)
+                    from .g2_owned_request_outcome_reconciliation_v1 import (
+                        auto_audit_completed_handoff)
+                    try:
+                        historical=auto_audit_completed_handoff(
+                            handoff_dir=handoff_dir,state_dir=state_dir)
+                    except (ValueError,OSError,KeyError,TypeError) as exc:
+                        # This original owned-model-response lane is
+                        # evidence-only. Hold it without stopping independent
+                        # accepted source workers or replaying an old request.
+                        historical={
+                            "status":"HISTORICAL_G2_OWNED_EVIDENCE_HELD",
+                            "error_class":type(exc).__name__,
+                            "new_browser_sends":0,
+                            "new_paid_gemini_API_calls":0,
+                            "student_publication_authorized":False,
+                        }
                 with guard:
                     state["last_controller_status"]=outcome["status"]
                     state["last_controller_completed"]=outcome["project_complete"]
@@ -292,6 +312,12 @@ def daemon(*,plan_path: Path,state_dir: Path,repo_root: Path,
                             "source_g2_slides",[])
                         state["last_g3_source_status"]=admission["g3_status"]
                         state["source_eligibility_error_class"]=admission.get(
+                            "error_class")
+                    if historical is not None:
+                        state["last_historical_g2_disposition"]=historical["status"]
+                        state["last_historical_g2_receipt_sha256"]=historical.get(
+                            "receipt_sha256")
+                        state["historical_g2_disposition_error_class"]=historical.get(
                             "error_class")
                     if handoff is not None:
                         state["last_handoff_status"]=handoff["status"]
