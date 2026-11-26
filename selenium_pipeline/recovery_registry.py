@@ -70,6 +70,8 @@ _HANDLERS = {
     "g3_source_media_technical_preflight": "NORMAL_G3_SOURCE_BOUND_MEDIA_TECHNICAL_CHECK_NO_ACCEPTANCE",
     "g3_original_video_page_parity": "NORMAL_G3_WITNESS_ORIGINAL_SLIDE_PAGES_IN_ENCODED_VIDEO_NO_ACCEPTANCE",
     "g3_static_source_element_draft": "NORMAL_G3_STAGE_SOURCE_ONLY_ELEMENT_REVIEW_WORKLIST_NO_TTS",
+    "development_guarded_revision_cutover":
+        "NORMAL_BOUNDED_CI_CERTIFIED_WINDOWS_DAEMON_CUTOVER_AUTO_RETRY",
     "development_pr_ci_gated_merge": "NORMAL_EXACT_HEAD_WINDOWS_CI_MERGE_GUARD",
     "long_horizon_g3_source_continuation":
         "NORMAL_ISOLATED_G3_SOURCE_ONLY_LONG_HORIZON_WORKER",
