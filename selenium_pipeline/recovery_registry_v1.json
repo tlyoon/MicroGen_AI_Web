@@ -1542,6 +1542,20 @@
       "environment": "Dell-115 Windows GitHub authenticated CLI; GitHub CI Windows-only project contract",
       "retry_policy": "No auto merge, no admin override, no bypass; hold until same exact PR head CI is complete; bounded GitHub status retrieval; never replay uncertain model requests",
       "enabled": true
+    },
+    {
+      "id": "V71_CI_CERTIFIED_MAIN_CUTOVER_SCHEDULER_TRANSIENT_AUTOREPAIR_20261126",
+      "match_type": "development_guarded_revision_cutover",
+      "signature": "WINDOWS_SCHEDULED_DAEMON_NEW_PID_DIED_DURING_CI_CERTIFIED_CUTOVER",
+      "mechanism": "RECONCILE_ROLLBACK_OWNER_AND_RETRY_ONE_SHA_PINNED_GUARDED_CUTOVER",
+      "classification": "WINDOWS_TASK_CUTOVER_NEW_DAEMON_PROCESS_DIED_BEFORE_PID_OWNER_ACCEPTANCE",
+      "handler": "NORMAL_BOUNDED_CI_CERTIFIED_WINDOWS_DAEMON_CUTOVER_AUTO_RETRY",
+      "preconditions": "Current main and guarded script SHA pinned, original plan immutable, old and new checkout same v7.1 executor SHA, Windows task live PID ownership verified and no provider Sends; old rollback re-attested before any retry",
+      "verification_test": "tests/test_development_guarded_cutover_recovery_v1.py real read-only Dell-115 owner attestation, simulated first fail/rollback/success and failure isolation",
+      "last_verified_date": "2026-11-26",
+      "environment": "Dell-115 original Windows scheduled task MicroGen_AI_Web_v71_OfflineDevelopment and CI-certified main checkout",
+      "retry_policy": "At most two guarded cutover attempts; after any uncertain first attempt, require independent old owner/heartbeat/task attestation before a second; no code-writing by daemon, no model Send or publication; SHA witness before each attempt",
+      "enabled": true
     }
   ]
 }
