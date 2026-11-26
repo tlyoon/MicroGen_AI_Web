@@ -68,7 +68,9 @@ def inspect(*,spec:dict,media_root:Path,state_root:Path,
     require(prior.is_file() and not prior.is_symlink()
             and prior.parent==state/TECH_ROOT/spec["section"],
             "Source/video evidence not pinned to original technical packet")
-    old=json.loads(prior.read_text("utf8"))
+    prior_bytes=prior.read_bytes()
+    prior_sha=hashlib.sha256(prior_bytes).hexdigest()
+    old=json.loads(prior_bytes)
     require(old["status"]==
             "G3_SOURCE_MEDIA_TECHNICALLY_CHECKED_UNAPPROVED"
             and old["section"]==spec["section"]
@@ -118,7 +120,10 @@ def inspect(*,spec:dict,media_root:Path,state_root:Path,
                 "within_slide_highlights_verified":False,
             })
     require(_sha(full)==old["videos"][0]["sha256"]
-            and _sha(prior)==hashlib.sha256(prior.read_bytes()).hexdigest(),
+            and _sha(prior)==prior_sha
+            and _sha(slides)==spec["identity"]["source_inputs_sha256"]["slides.pdf"]
+            and all(_sha(media/f"slide{row['slide']}.wav")==row["sha256"]
+                    for row in old["original_slide_wavs"]),
             "Original video/source technical packet changed during comparison")
     record={
         "schema_version":1,"status":STATUS,
@@ -126,7 +131,7 @@ def inspect(*,spec:dict,media_root:Path,state_root:Path,
         "original_source_inputs_sha256":
             spec["identity"]["source_inputs_sha256"],
         "original_full_encoded_MP4_sha256":old["videos"][0]["sha256"],
-        "original_technical_packet_sha256":_sha(prior),
+        "original_technical_packet_sha256":prior_sha,
         "original_slide_count":len(observations),
         "original_page_witness_samples":observations,
         "maximum_encoded_frame_source_RGB_MAE":max(

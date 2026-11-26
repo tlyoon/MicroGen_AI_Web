@@ -146,3 +146,18 @@ def test_normal_g3_controller_executes_technical_then_original_page_parity(
     assert result["original_encoded_video_source_page_QA"][
         "independent_video_highlight_QA_complete"] is False
     assert result["student_publication_authorized"] is False
+
+@pytest.mark.parametrize("target", ["receipt", "slides.pdf", "slide1.wav"])
+def test_mid_comparison_source_mutation_rejected(media, target):
+    spec,root,state,dst,probe=media
+    def mutate(**kw):
+        if kw["slide"]==2:
+            path=(next((state/video.TECH_ROOT/spec["section"]).glob("*.json"))
+                  if target=="receipt" else dst/target)
+            with path.open("ab") as out:
+                out.write(b" ")
+        return _good(**kw)
+    with pytest.raises(ValueError,match="changed during comparison"):
+        video.inspect(spec=spec,media_root=root,state_root=state,
+                      compare=mutate,technical_probe=probe)
+    assert not (state/video.ROOT).exists()

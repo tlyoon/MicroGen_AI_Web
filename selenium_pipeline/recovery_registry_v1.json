@@ -1411,10 +1411,10 @@
       "classification": "ORIGINAL_G3_ENCODED_VIDEO_STATIC_SLIDE_PAGE_ORDER_NOT_YET_SOURCE_PROVEN",
       "handler": "NORMAL_G3_WITNESS_ORIGINAL_SLIDE_PAGES_IN_ENCODED_VIDEO_NO_ACCEPTANCE",
       "preconditions": "Original Serway 8.2/8.3 source SHA, exact slide WAVs and full decoded H264/AAC technical receipt, original authored PDF frame count and historical encoded frame pixel verifier",
-      "verification_test": "tests/test_g3_original_video_page_parity_v1.py and Dell original 32 source PDF slide pages against encoded MP4 frames at genuine WAV midpoints",
+      "verification_test": "tests/test_g3_original_video_page_parity_v1.py (3 mid-comparison mutation faults) and Dell original 32 PDF pages vs MP4 frames at genuine WAV midpoints",
       "last_verified_date": "2026-11-24",
       "environment": "Dell-115 original Serway 8.2/8.3 4:3 source slides pillarboxed to 16:9 video",
-      "retry_policy": "Reuse historical centred PDF pillarbox pixel comparator, not distorted stretching; sample each slide independently, reject mismatched frame, pin immutable receipt, no source science, acoustic or highlight approval and no model Sends",
+      "retry_policy": "Use centred PDF pillarbox pixel comparator; sample each slide; pin initial technical receipt SHA; recheck receipt, PDF, MP4 and every WAV after comparison before immutable proof, reject mutations; no science, acoustic, highlight approval or sends",
       "enabled": true
     },
     {
