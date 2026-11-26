@@ -4,6 +4,34 @@
   "scope": "MicroGen_AI_Web G2 normal forward engine initial executable integration; extend to other stages as each handler is verified",
   "entries": [
     {
+      "id": "PERSISTENT_SELENIUM_CODE_AUTHOR_ONE_SEND_20261126",
+      "match_type": "persistent_selenium_code_author",
+      "signature": "PERSISTENT_SOURCE_PINNED_CODE_JOB_NEEDS_REAL_MODEL_DISPATCH",
+      "mechanism": "ONE_CLAIM_SELENIUM_SOURCE_TEST_AND_IMMUTABLE_RESUME",
+      "classification": "SCHEDULED_DEVELOPMENT_ONLY_POLLED_WITHOUT_EXECUTING_AUTHORING_TASK",
+      "handler": "NORMAL_ISOLATED_ONE_CLAIM_BROWSER_SOURCE_AUTHOR_AND_PYTEST",
+      "preconditions": "Immutable source Git head, unique clean worktree, source and independent-test SHA, original one-Send claim, Selenium only, no paid API",
+      "verification_test": "tests/test_development_persistent_selenium_author_v1.py and Dell real one-Send authoring on new isolated worktree",
+      "last_verified_date": "2026-11-26",
+      "environment": "Dell-115 Windows authenticated Gemini Chrome 9222, separate protected offline v7.1 daemon",
+      "retry_policy": "Single claimed browser request per original job; save real response; offline reconcile same original bytes, never submit again; quarantine failures",
+      "enabled": true
+    },
+    {
+      "id": "PERSISTENT_BROWSER_SOURCE_INDENT_RECOVERY_20261126",
+      "match_type": "persistent_selenium_code_author",
+      "signature": "GEMINI_REAL_CODE_FLATTENED_SOURCE_REPLY_WITH_OWNED_CLAIM",
+      "mechanism": "PIN_RESPONSE_REINDENT_PURE_FUNCTION_THEN_INDEPENDENT_PYTEST",
+      "classification": "GEMINI_CODE_COPY_LOST_VISIBLE_INDENT_WITH_ORIGINAL_REPLY_PRESERVED",
+      "handler": "NORMAL_ISOLATED_ONE_CLAIM_BROWSER_SOURCE_AUTHOR_AND_PYTEST",
+      "preconditions": "Immutable one-Send original Gemini said UI response and source/test SHA; do not manufacture a new reply or resend",
+      "verification_test": "tests/test_development_persistent_selenium_author_v1.py and original Dell 345-byte code response recovered offline",
+      "last_verified_date": "2026-11-26",
+      "environment": "Dell-115 Selenium authorized code writer; lost plain-text indentation only",
+      "retry_policy": "Restore one function-body indentation only after exact owned UI prefix; then AST check, independent pytest, immutable one-response receipt",
+      "enabled": true
+    },
+    {
       "id": "G2_HISTORICAL_OWNED_REQUEST_ZERO_CAPTURE_20261126",
       "match_type": "g2_owned_request_outcome_reconciliation",
       "signature": "G2_UNCERTAIN_ORIGINAL_REQUEST_MISTAKEN_FOR_FRESH_SEND",
