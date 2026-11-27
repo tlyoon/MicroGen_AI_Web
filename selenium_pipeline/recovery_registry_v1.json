@@ -18,6 +18,20 @@
       "enabled": true
     },
     {
+      "id": "LONG_HORIZON_NATIVE_SCHEDULER_TASK_SELF_HEAL_20261127",
+      "match_type": "long_horizon_windows_task_self_heal",
+      "signature": "NATIVE_LOGON_ONLY_DEVELOPMENT_TASKS_EXHAUST_RESTARTS_AND_STOP",
+      "mechanism": "SOURCE_GUARDED_FIVE_MINUTE_RECONCILE_ONLY_STOPPED_TASKS",
+      "classification": "PERSISTENT_G2_G3_OFFLINE_AND_PROMOTION_TASKS_STOP_AFTER_FINITE_LOGON_RETRIES",
+      "handler": "NORMAL_SOURCE_GUARDED_WINDOWS_RECURRING_OWNER_RECOVERY",
+      "preconditions": "Dell-115 current limited interactive user, exactly original two task actions and owners, clean exact protected GitHub main, stale real daemon heartbeat, one five-minute repeating native schedule",
+      "verification_test": "tests/test_development_windows_autorestart_watchdog_v1.py and Windows native schedule dry-run, provenance, no-op and fail-closed cases",
+      "last_verified_date": "2026-11-27",
+      "environment": "Dell-115 persistent offline G2/G3 daemon and guarded CI promotion controller, no model Send",
+      "retry_policy": "Five-minute bounded independent scheduler starts only original stopped task after heartbeat maturity; never kill running tasks, replay model Sends or authorize publication",
+      "enabled": true
+    },
+    {
       "id": "AUTONOMOUS_G2G3_REQUIREMENT_TEST_FACTORY_20261127",
       "match_type": "autonomous_g2g3_requirement_test_derivation",
       "signature": "G2_G3_QA_GAPS_PERSIST_WHILE_REVIEWED_SOURCE_JOB_CATALOG_EXHAUSTED",
