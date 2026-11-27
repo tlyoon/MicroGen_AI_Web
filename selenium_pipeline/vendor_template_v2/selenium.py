@@ -1348,10 +1348,23 @@ class GeminiSeleniumClient:
         adaptive_allowed=(active_stage in {"figures","slides","narration",
                                            "rich_mapping","academic_review"}
                           and os.getenv("MICROGEN_DISABLE_ADAPTIVE_MODEL_FALLBACK")!="1")
-        requires_thinking = browser_stage_needs_thinking(mode=target_mode)
         from selenium_pipeline.gemini_model import MODEL_SPECS
         if target_mode not in MODEL_SPECS:
             raise RuntimeError(f"Unsupported MICROGEN_GEMINI_UI_MODE={target_mode!r}")
+        # A previous stage can leave an officially verified frontier-family
+        # *name* in the environment, but this narration task has not yet
+        # selected that family with its own owned-tab picker/Thinking radio.
+        # Verifying the task route before that picker runs causes an
+        # unrecoverable bootstrap deadlock: every future fresh task fails
+        # before it can create its own required evidence. This is not
+        # permission to send. The authoritative stage-specific model gate
+        # is still applied AFTER selecting the owned picker below, again
+        # after New Chat, and immediately before Gemini Send.
+        if (adaptive_allowed and target_mode in
+                ("hydrogen","hydrogen-thinking","argon","carbon","neon")):
+            requires_thinking = True
+        else:
+            requires_thinking = browser_stage_needs_thinking(mode=target_mode)
         # Every mapping page gets a browser tab owned by this MicroGen instance.
         # Reusing an arbitrary authenticated user tab left stale image chips,
         # nonreactive Send buttons and even another conversation's prompt history.
