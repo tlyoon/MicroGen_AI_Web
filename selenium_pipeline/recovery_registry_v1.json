@@ -102,6 +102,20 @@
       "enabled": true
     },
     {
+      "id": "PERSISTENT_ONE_EXACT_SAVED_REPLY_INDENT_REPAIR_20261127",
+      "match_type": "persistent_selenium_code_author",
+      "signature": "G3_SINGLE_FUNCTION_PARTIAL_INDENT_ORIGINAL_REPLY_QUARANTINED",
+      "mechanism": "RESTORE_ONLY_SAVED_SOURCE_INDENT_WITH_IMMUTABLE_REPLY_AND_PYTEST",
+      "classification": "AUTHENTICATED_ONE_FUNCTION_G3_CAPTION_PNG_CODE_REPLY_HAS_PARTIAL_FLATTENED_BROWSER_INDENT",
+      "handler": "NORMAL_ISOLATED_ONE_CLAIM_BROWSER_SOURCE_AUTHOR_AND_PYTEST",
+      "preconditions": "Exact original saved reply SHA c88641a0cf2f9c148395ca7a315b133c9b5ae9739247ce875d1d1c3722414706, single original model claim, immutable original job/test SHA and independent pre-Send test, zero replay",
+      "verification_test": "tests/test_development_persistent_selenium_author_v1.py original pinned reply restore, token preservation, 7 technical tests, invalid SHA hold and no second Send",
+      "last_verified_date": "2026-11-27",
+      "environment": "Dell-115 real original Selenium code response under historical G3 PDF caption-to-PNG inventory job",
+      "retry_policy": "On only this exact original saved SHA and source job, recover indentation offline once then independent pytest; quarantine other ambiguous replies unchanged",
+      "enabled": true
+    },
+    {
       "id": "G2_HISTORICAL_OWNED_REQUEST_ZERO_CAPTURE_20261126",
       "match_type": "g2_owned_request_outcome_reconciliation",
       "signature": "G2_UNCERTAIN_ORIGINAL_REQUEST_MISTAKEN_FOR_FRESH_SEND",

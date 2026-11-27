@@ -36,6 +36,15 @@ TERMINAL = frozenset({
     "PROVIDER_SEND_UNCERTAIN_NO_REPLAY",
     "SOURCE_INPUT_CHANGED_NO_SEND",
 })
+PINNED_ONE_FUNCTION_REPLY_SHA = (
+    "c88641a0cf2f9c148395ca7a315b133c9b5ae9739247ce875d1d1c3722414706"
+)
+PINNED_ONE_FUNCTION_SIGNATURE = (
+    "G3_SINGLE_FUNCTION_PARTIAL_INDENT_ORIGINAL_REPLY_QUARANTINED"
+)
+PINNED_ONE_FUNCTION_MECHANISM = (
+    "RESTORE_ONLY_SAVED_SOURCE_INDENT_WITH_IMMUTABLE_REPLY_AND_PYTEST"
+)
 MAX_REPLY = 80_000
 MAX_CONTEXT = 18_000
 MAX_JOBS = 16
@@ -167,9 +176,64 @@ def validate_source(source: str):
     return source.rstrip() + "\n"
 
 
+def _recover_pinned_original_one_function(raw: str) -> str:
+    """Indent-only recovery of one exact, immutable Selenium copy response.
+
+    Never interpret an unknown or changed response. The original SHA gates
+    this historical incident; independent pre-Send tests must also pass.
+    This restoration changes only leading whitespace, never Python tokens.
+    """
+    require(hashlib.sha256(raw.encode("utf8")).hexdigest()
+            == PINNED_ONE_FUNCTION_REPLY_SHA,
+            "Unapproved historical model response for indent recovery")
+    require(lookup_mechanism(
+        "persistent_selenium_code_author",
+        PINNED_ONE_FUNCTION_SIGNATURE,
+    ) == PINNED_ONE_FUNCTION_MECHANISM,
+        "Pinned original model reply recovery absent from registry")
+    require(raw.startswith("Gemini said\n\nimport re\n\ndef "
+                           "compare_g3_pdf_caption_png_inventory("),
+            "Pinned reply source preamble not recognized")
+    lines = raw[len("Gemini said\n\n"):].splitlines()
+    heads = [i for i, line in enumerate(lines) if line.startswith("def ")]
+    require(len(heads) == 1 and heads[0] == 2
+            and lines[:2] == ["import re", ""],
+            "Historical reply must have exactly one original function")
+    head = heads[0]
+    require(lines[head].endswith("):")
+            and lines[head + 1].startswith("if type(")
+            and lines[head + 1].endswith(":")
+            and lines[head + 2] == "return {",
+            "Original single-function condition was not preserved")
+    first_body = head + 2
+    closer = next((i for i in range(first_body + 1, len(lines))
+                   if lines[i] == "}"), -1)
+    require(first_body + 2 < closer < first_body + 16
+            and all(line.startswith('"') and '": ' in line
+                    for line in lines[first_body + 1:closer]),
+            "Original first flattened dictionary structure ambiguous")
+    restored = lines[:head + 1]
+    for i in range(head + 1, len(lines)):
+        line = lines[i]
+        if not line.strip():
+            restored.append("")
+            continue
+        adjustment = ("    " if i in (first_body, closer)
+                      else "        " if first_body < i < closer else "")
+        restored.append("    " + adjustment + line)
+    result = "\n".join(restored).rstrip() + "\n"
+    require([line.strip() for line in result.splitlines() if line.strip()]
+            == [line.strip() for line in lines if line.strip()],
+            "Indent recovery changed original model code tokens")
+    return validate_source(result)
+
+
 def parse_reply(raw: str) -> str:
     require(type(raw) is str and 40 <= len(raw.encode("utf8")) <= MAX_REPLY,
             "Missing or oversized original model reply")
+    if hashlib.sha256(raw.encode("utf8")).hexdigest() == (
+            PINNED_ONE_FUNCTION_REPLY_SHA):
+        return _recover_pinned_original_one_function(raw)
     raw = raw.replace("\r\n", "\n").strip()
     # A real authenticated Gemini "Copy response" can flatten indentation
     # while preserving all visible source tokens. Repair only this exact
@@ -523,8 +587,28 @@ def scan(*, root: Path, sender=None,
     outcomes = []
     for job_path in candidates:
         try:
+            recover_only = reconcile_only
+            if not reconcile_only and job_path.stem == (
+                    "g3_pdf_caption_png_inventory_v1"):
+                old = root / "state" / job_path.stem / "coding_state.json"
+                saved = root / "state" / job_path.stem / "original_model_reply.txt"
+                if (old.is_file() and not old.is_symlink()
+                        and saved.is_file() and not saved.is_symlink()):
+                    previous = read(old)
+                    if (previous.get("status") == "UNSAFE_MODEL_REPLY_QUARANTINED"
+                            and previous.get("model_sends") == 1
+                            and previous.get("paid_api_requests") == 0
+                            and previous.get("model_reply_sha256")
+                                == PINNED_ONE_FUNCTION_REPLY_SHA
+                            and sha(saved) == PINNED_ONE_FUNCTION_REPLY_SHA):
+                        require(lookup_mechanism(
+                            "persistent_selenium_code_author",
+                            PINNED_ONE_FUNCTION_SIGNATURE)
+                            == PINNED_ONE_FUNCTION_MECHANISM,
+                            "Original offline source repair not registered")
+                        recover_only = True
             info = step(root=root, job_path=job_path, sender=sender,
-                        reconcile_only=reconcile_only)
+                        reconcile_only=recover_only)
             outcomes.append({
                 "job": job_path.name, "status": info["status"],
                 "model_claims": info.get("model_claims", 0),

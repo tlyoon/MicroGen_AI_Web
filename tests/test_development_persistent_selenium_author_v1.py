@@ -195,6 +195,106 @@ def test_invalid_provider_reply_is_quarantined_and_not_replayed(env):
                            "UNSAFE_MODEL_REPLY_QUARANTINED")
 
 
+def _pinned_caption_reply_fixture():
+    fixture = (Path(__file__).parent / "fixtures" /
+               "g3_pdf_caption_png_inventory_original_reply_v1.txt")
+    assert author.sha(fixture) == author.PINNED_ONE_FUNCTION_REPLY_SHA
+    return fixture
+
+
+def _make_quarantined_original_caption_job(env):
+    root, repo, old_job = env
+    test = repo/"tests"/"test_g3_pdf_caption_png_inventory_v1.py"
+    shutil.copyfile(
+        Path(__file__).parent.parent/"development_specs"/"specs"/
+        "g3_pdf_caption_png_inventory_v1.py", test)
+    _git(repo, "add", "tests/test_g3_pdf_caption_png_inventory_v1.py")
+    _git(repo, "commit", "-m", "Immutable independently reviewed G3 PNG tests")
+    job=json.loads(old_job.read_text())
+    job["job_id"]="g3_pdf_caption_png_inventory_v1"
+    job["base_sha"]=_git(repo,"rev-parse","HEAD")
+    job["target"]="selenium_pipeline/g3_pdf_caption_png_inventory_v1.py"
+    job["target_original_sha256"]=None
+    job["test"]="tests/test_g3_pdf_caption_png_inventory_v1.py"
+    job["test_sha256"]=author.sha(test)
+    job["context_path"]=job["test"]
+    job["context_sha256"]=author.sha(test)
+    job["instruction"]=("Implement pure source-caption versus cropped-PNG technical "
+                        "identifier inventory comparison with distinct missing "
+                        "and orphan identifiers; never grant science acceptance.")
+    old_job.unlink()
+    job_path=root/"inbox"/"g3_pdf_caption_png_inventory_v1.json"
+    job_path.write_text(json.dumps(job))
+    state_dir=root/"state"/job["job_id"]
+    state_dir.mkdir()
+    reply=state_dir/"original_model_reply.txt"
+    reply.write_bytes(_pinned_caption_reply_fixture().read_bytes())
+    state={
+        "schema_version":1,"status":"UNSAFE_MODEL_REPLY_QUARANTINED",
+        "job_sha256":author.sha(job_path),"base_sha":job["base_sha"],
+        "job_id":job["job_id"],"model_claims":1,"model_sends":1,
+        "model_reply_sha256":author.sha(reply),"paid_api_requests":0,
+        "student_publication_authorized":False,"candidate_merged":False,
+    }
+    (state_dir/"coding_state.json").write_text(json.dumps(state))
+    return root,repo,job_path,reply
+
+
+def test_original_saved_one_function_indent_recovery_never_changes_tokens():
+    fixture=_pinned_caption_reply_fixture()
+    original=fixture.read_text("utf8")
+    assert author.lookup_mechanism(
+        "persistent_selenium_code_author",
+        author.PINNED_ONE_FUNCTION_SIGNATURE
+    ) == author.PINNED_ONE_FUNCTION_MECHANISM
+    clean=author.parse_reply(original)
+    assert clean.startswith("import re\n\ndef ")
+    assert "def compare_g3_pdf_caption_png_inventory(" in clean
+    assert [line.strip() for line in clean.splitlines() if line.strip()] == [
+        line.strip() for line in original.removeprefix("Gemini said\n\n").splitlines()
+        if line.strip()]
+    assert author.parse_reply(original) == clean
+
+
+def test_pinned_quarantined_response_auto_reconciles_without_new_send(env):
+    root,repo,job,reply=_make_quarantined_original_caption_job(env)
+    original_hash=author.sha(reply)
+    def forbidden(_):
+        raise AssertionError("Second Selenium Send forbidden")
+    result=author.scan(root=root,sender=forbidden)
+    assert result["jobs"][0]["status"]=="SOURCE_CANDIDATE_TESTED_NO_PUBLICATION", result
+    saved=json.loads((root/"state"/job.stem/"coding_state.json").read_text())
+    assert saved["pytest_exit_code"]==0
+    assert saved["model_claims"]==saved["model_sends"]==1
+    assert saved["paid_api_requests"]==0
+    assert saved["student_publication_authorized"] is False
+    assert author.sha(reply)==original_hash==author.PINNED_ONE_FUNCTION_REPLY_SHA
+    assert author.sha(repo/"selenium_pipeline"/
+                      "g3_pdf_caption_png_inventory_v1.py")==saved["candidate_sha256"]
+    again=author.scan(root=root,sender=forbidden)
+    assert again["jobs"][0]["status"]=="SOURCE_CANDIDATE_TESTED_NO_PUBLICATION"
+    assert author.sha(reply)==original_hash
+
+
+def test_mutated_quarantined_original_stays_blocked_without_replay(env):
+    root,repo,job,reply=_make_quarantined_original_caption_job(env)
+    saved=reply.read_bytes()
+    reply.write_bytes(saved.replace(b"import re",b"import os",1))
+    def forbidden(_):
+        raise AssertionError("Second Selenium Send forbidden")
+    r=author.scan(root=root,sender=forbidden)
+    assert r["jobs"][0]["status"]=="UNSAFE_MODEL_REPLY_QUARANTINED"
+    assert not (repo/"selenium_pipeline"/
+                "g3_pdf_caption_png_inventory_v1.py").exists()
+
+
+def test_unknown_saved_response_cannot_use_pinned_indent_recovery():
+    original=_pinned_caption_reply_fixture().read_text("utf8")
+    with pytest.raises(ValueError):
+        author._recover_pinned_original_one_function(
+            original.replace("import re", "import os", 1))
+
+
 def test_different_pending_jobs_are_processed_after_one_fails(env):
     root, repo, job = env
     old = json.loads(job.read_text())
