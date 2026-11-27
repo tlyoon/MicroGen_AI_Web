@@ -163,8 +163,40 @@ def validate_source(source: str):
                 require(node.func.id in _ALLOWED_BUILTINS,
                         "Unapproved pure-function call target")
             else:
-                require(isinstance(node.func, ast.Attribute)
-                        and node.func.attr in {
+                safe_caption_pattern = (
+                    isinstance(node.func, ast.Attribute)
+                    and node.func.attr == "compile"
+                    and isinstance(node.func.value, ast.Name)
+                    and node.func.value.id == "re"
+                    and len(node.args) == 2
+                    and not node.keywords
+                    and isinstance(node.args[0], ast.Constant)
+                    and node.args[0].value
+                        == r"^[A-Za-z0-9]+(?:[._-][A-Za-z0-9]+)*$"
+                    and isinstance(node.args[1], ast.Attribute)
+                    and isinstance(node.args[1].value, ast.Name)
+                    and node.args[1].value.id == "re"
+                    and node.args[1].attr == "ASCII"
+                )
+                if safe_caption_pattern:
+                    require(
+                        any(isinstance(top, ast.Import)
+                            and any(alias.name == "re" and alias.asname is None
+                                    for alias in top.names) for top in tree.body)
+                        and not any(
+                            (isinstance(x, ast.Name) and x.id == "re"
+                             and isinstance(x.ctx, (ast.Store, ast.Del)))
+                            or (isinstance(x, ast.arg) and x.arg == "re")
+                            for x in ast.walk(tree)),
+                        "Original re module must not be dynamically shadowed")
+                    require(lookup_mechanism(
+                        "persistent_selenium_code_author",
+                        "SOURCE_PURE_REGEX_COMPILE_FOR_LITERAL_CAPTION_IDS")
+                        == "ALLOW_FIXED_ASCII_CAPTION_REGEX_ONLY_WITH_INDEPENDENT_TEST",
+                        "Source caption regex compilation not registered")
+                require(safe_caption_pattern
+                        or (isinstance(node.func, ast.Attribute)
+                            and node.func.attr in {
                             "strip", "split", "splitlines", "startswith",
                             "endswith", "lower", "upper", "casefold",
                             "replace", "get", "items", "keys", "values",
@@ -172,7 +204,7 @@ def validate_source(source: str):
                             "match", "fullmatch", "search", "sub",
                             "isfinite",
                             "find", "findall", "join",
-                        }, "Untrusted non-pure method call")
+                        }), "Untrusted non-pure method call")
     return source.rstrip() + "\n"
 
 
@@ -235,6 +267,21 @@ def parse_reply(raw: str) -> str:
             PINNED_ONE_FUNCTION_REPLY_SHA):
         return _recover_pinned_original_one_function(raw)
     raw = raw.replace("\r\n", "\n").strip()
+    # Gemini's copied code-pane content can include a plain "Python" UI
+    # language heading before a properly indented source module. Remove
+    # ONLY this exact UI prefix, after registry authorization. Do not
+    # synthesize Python tokens, and enforce the pure-source AST policy.
+    if raw.startswith("Gemini said\nPython\n"):
+        require(lookup_mechanism(
+            "persistent_selenium_code_author",
+            "GEMINI_UI_PYTHON_LANGUAGE_HEADER_SINGLE_SAFE_FUNCTION")
+            == "STRIP_ONLY_UI_HEADING_THEN_AST_PYTEST_WITHOUT_RESEND",
+            "Gemini language-heading transport recovery not registered")
+        candidate=validate_source(raw[len("Gemini said\nPython\n"):])
+        parsed=ast.parse(candidate)
+        require(sum(isinstance(x,ast.FunctionDef) for x in parsed.body)==1,
+                "Language-headed code reply must contain exactly one function")
+        return candidate
     # A real authenticated Gemini "Copy response" can flatten indentation
     # while preserving all visible source tokens. Repair only this exact
     # owned UI preamble and only unindented lines inside a function.
@@ -609,6 +656,29 @@ def scan(*, root: Path, sender=None,
                             PINNED_ONE_FUNCTION_SIGNATURE)
                             == PINNED_ONE_FUNCTION_MECHANISM,
                             "Original offline source repair not registered")
+                        recover_only = True
+            # A separate reusable, no-Send recovery for authenticated source
+            # copied from Gemini's code pane with its "Python" language label.
+            # State and raw saved bytes must still have the exact original SHA.
+            if not recover_only:
+                old = root / "state" / job_path.stem / "coding_state.json"
+                saved = root / "state" / job_path.stem / "original_model_reply.txt"
+                if (old.is_file() and not old.is_symlink()
+                        and saved.is_file() and not saved.is_symlink()):
+                    previous = read(old)
+                    original = saved.read_bytes()
+                    if (previous.get("status") == "UNSAFE_MODEL_REPLY_QUARANTINED"
+                            and previous.get("model_claims") == 1
+                            and previous.get("model_sends") == 1
+                            and previous.get("paid_api_requests") == 0
+                            and previous.get("model_reply_sha256") == sha(saved)
+                            and original.replace(b"\r\n",b"\n").startswith(
+                                b"Gemini said\nPython\n")):
+                        require(lookup_mechanism(
+                            "persistent_selenium_code_author",
+                            "GEMINI_UI_PYTHON_LANGUAGE_HEADER_SINGLE_SAFE_FUNCTION")
+                            == "STRIP_ONLY_UI_HEADING_THEN_AST_PYTEST_WITHOUT_RESEND",
+                            "Language UI recovery absent from executable registry")
                         recover_only = True
             info = step(root=root, job_path=job_path, sender=sender,
                         reconcile_only=recover_only)
