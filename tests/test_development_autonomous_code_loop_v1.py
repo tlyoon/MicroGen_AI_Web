@@ -92,6 +92,8 @@ def test_three_recoveries_must_be_registered():
     assert lookup_mechanism(
         promoter.KIND,promoter.SIGNATURE)==promoter.MECHANISM
     assert lookup_mechanism(
+        promoter.KIND,promoter.CRLF_SIGNATURE)==promoter.CRLF_MECHANISM
+    assert lookup_mechanism(
         deployer.KIND,deployer.SIGNATURE)==deployer.MECHANISM
 
 
@@ -250,6 +252,77 @@ def test_source_test_candidate_gets_real_git_commit_but_not_double_push(env,monk
                        run_cmd=command,fetch=fetch,lookup=look)
     assert b["status"]=="GITHUB_WINDOWS_CI_AWAITING_EVIDENCE"
     assert remote["pushes"]==1 and remote["pr_creates"]==1
+
+
+def _put_original_on_main_with_crlf(env, path):
+    job=json.loads(path.read_text())
+    # Prevent the Windows global autocrlf filter from double-transforming
+    # the deliberately CRLF-encoded fixture during the Git comparison.
+    git(env["main"],"config","core.autocrlf","false")
+    for item in (job["target"], job["test"]):
+        original=(Path(job["repo"])/item).read_bytes()
+        assert b"\r" not in original.replace(b"\r\n", b"")
+        destination=env["main"]/item
+        destination.parent.mkdir(parents=True,exist_ok=True)
+        destination.write_bytes(original.replace(b"\r\n", b"\n").replace(b"\n", b"\r\n"))
+    git(env["main"],"add","-A")
+    git(env["main"],"commit","-m","Source already integrated under Windows CRLF")
+
+
+def test_original_source_already_on_main_with_windows_crlf_no_pr_or_replay(env):
+    path=_accepted_original_model(env)
+    _put_original_on_main_with_crlf(env,path)
+    def forbidden(*args,**kwargs):
+        raise AssertionError("Already verified source must never mutate remote")
+    args=dict(job_path=path,root=env["backlog"],main_repo=env["main"],
+              promotions=env["control"]/"promotions",
+              run_cmd=forbidden,lookup=forbidden,
+              fetch=lambda _:{"sha":git(env["main"],"rev-parse","HEAD")})
+    first=promoter.promote(**args)
+    again=promoter.promote(**args)
+    assert first["status"]==again["status"]=="ALREADY_ON_VERIFIED_MAIN"
+    assert first["newline_only_source_reconciliation"] is True
+    assert first["student_publication_authorized"] is False
+    assert not first.get("pr_number")
+    assert git(env["main"],"status","--porcelain")==""
+
+
+def test_actual_source_change_is_not_cleared_as_crlf_only(env):
+    path=_accepted_original_model(env)
+    _put_original_on_main_with_crlf(env,path)
+    job=json.loads(path.read_text())
+    target=env["main"]/job["target"]
+    original=target.read_bytes()
+    assert b'"passed"' in original
+    target.write_bytes(original.replace(b'"passed"',b'"changed"',1))
+    git(env["main"],"add","-A")
+    git(env["main"],"commit","-m","Semantically different source")
+    def local_only(args,timeout=90):
+        assert args[:2]==["git","-C"] and "worktree" in args
+        result=subprocess.run(args,capture_output=True,text=True,
+                              timeout=timeout,check=True)
+        return result.stdout.strip()
+    with pytest.raises(ValueError,match="Previously staged candidate differs"):
+        promoter.promote(
+            job_path=path,root=env["backlog"],main_repo=env["main"],
+            promotions=env["control"]/"promotions",
+            run_cmd=local_only,
+            fetch=lambda _:{"sha":git(env["main"],"rev-parse","HEAD")})
+    assert not list((env["control"]/"promotions").glob("*.pending"))
+
+
+def test_line_ending_proof_rejects_bare_cr_and_whitespace_change(tmp_path):
+    a=tmp_path/"a.py"
+    b=tmp_path/"b.py"
+    a.write_bytes(b"def f():\n    return 1\n")
+    b.write_bytes(b"def f():\r\n    return 1\r\n")
+    assert promoter._equal_except_crlf(a,b) is True
+    b.write_bytes(b"def f():\r    return 1\r")
+    assert promoter._equal_except_crlf(a,b) is False
+    b.write_bytes(b"def f():\r\n    return 2\r\n")
+    assert promoter._equal_except_crlf(a,b) is False
+    b.write_bytes(b"def f():\r\n     return 1\r\n")
+    assert promoter._equal_except_crlf(a,b) is False
 
 
 def test_uncertain_original_push_is_never_repeated(env):

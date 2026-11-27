@@ -32,6 +32,20 @@
       "enabled": true
     },
     {
+      "id": "AUTONOMOUS_CODE_ORIGINAL_CRLF_PROOF_20261127",
+      "match_type": "autonomous_verified_candidate_promotion",
+      "signature": "WINDOWS_CRLF_ONLY_PROMOTION_SOURCE_HELD_AFTER_ORIGINAL_PYTEST",
+      "mechanism": "VERIFY_PINNED_ORIGINAL_AND_RECONCILE_CRLF_ONLY_CURRENT_MAIN",
+      "classification": "WINDOWS_WORKTREE_LINE_ENDINGS_CAUSE_FALSE_SOURCE_SHA_PROMOTION_HOLD",
+      "handler": "NORMAL_EXACT_HEAD_SOURCE_VERIFIED_PR_AND_CI_PROMOTION",
+      "preconditions": "Frozen one-Send reply SHA and candidate/test hashes, independently passing source pytest, exact clean protected GitHub main; only CRLF-to-LF may differ",
+      "verification_test": "tests/test_development_autonomous_code_loop_v1.py: CRLF, tampered source, bare CR and no remote replay",
+      "last_verified_date": "2026-11-27",
+      "environment": "Dell-115 Windows autocrlf source worktree and protected exact main",
+      "retry_policy": "If original source and test match only after CRLF normalization, attest already on main and do not push; otherwise hold without modifying original claim",
+      "enabled": true
+    },
+    {
       "id": "AUTONOMOUS_CODE_GUARDED_DUAL_WINDOWS_DEPLOY_20261127",
       "match_type": "autonomous_certified_code_candidate_deployment",
       "signature": "MERGED_AND_WINDOWS_CI_CERTIFIED_MODEL_CODE_AWAITS_GUARDED_PRODUCTION_CUTOVER",
