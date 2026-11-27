@@ -19,6 +19,8 @@ from .recovery_registry import lookup_mechanism
 KIND="autonomous_independent_test_job_selection"
 SIGNATURE="CODE_AUTHOR_RUNNING_WITHOUT_NEW_SOURCE_PINNED_ELIGIBLE_JOB"
 MECHANISM="STAGE_APPROVED_TEST_SHA_TO_DISTINCT_GIT_WORKTREE_ONCE"
+RENEW_SIGNATURE="SOURCE_PINNED_CATALOG_EXHAUSTED_LOCAL_COPY_WHILE_REVIEWED_GIT_MAIN_ADVANCES"
+RENEW_MECHANISM="ADMIT_CLEAN_MAIN_TRACKED_CATALOG_SPECS_NO_REPLAY"
 SCHEMA="MICROGEN_SOURCE_PINNED_NEXT_JOB_CATALOG_V1"
 CATALOG_SHA256="cbec12b6286e0d9225cb8b7ca8933f6c71dd31b21810e4f074f569ac6ca46a7c"
 SHA64=re.compile(r"^[a-f0-9]{64}$")
@@ -43,12 +45,13 @@ def cmd(args,timeout=60):
     return out.stdout.strip()
 
 
-def _catalog(path):
+def _catalog(path, *, reviewed_main=False):
     need(path.is_file() and not path.is_symlink()
          and path.stat().st_size<=40000,
          "Missing or oversized approved independent-test catalog")
-    need(sha(path)==CATALOG_SHA256,
-         "Approved next-task catalog SHA differs from reviewed Git source")
+    if not reviewed_main:
+        need(sha(path)==CATALOG_SHA256,
+             "Approved next-task catalog SHA differs from reviewed Git source")
     value=json.loads(path.read_text(encoding="utf8"))
     need(type(value) is dict and set(value)=={
         "schema_version","status","jobs","paid_api_authorized",
@@ -98,13 +101,30 @@ def select(*,catalog_path:Path,backlog_root:Path,repo_root:Path,
          and not repo_root.is_relative_to(backlog_root)
          and not backlog_root.is_relative_to(repo_root),
          "Source/main and original code-job inbox not isolated")
-    catalog=_catalog(catalog_path)
     current=git(["git","-C",str(repo_root),"rev-parse","HEAD"])
     remote=git(["gh","api","repos/tlyoon/MicroGen_AI_Web/commits/main",
                 "--jq",".sha"])
     need(re.fullmatch(r"[a-f0-9]{40}",current) and remote==current
          and git(["git","-C",str(repo_root),"status","--porcelain"])=="",
          "Only clean exact-current protected GitHub main can stage new code")
+    # Prefer the code-reviewed catalog in the exact clean GitHub main tree.
+    # This allows new independent test jobs to become eligible after CI and
+    # guarded deployment without editing an unreviewed mutable local catalog.
+    # Keep the legacy hardcoded-SHA catalog for older isolated installations.
+    main_catalog=repo_root/"development_specs"/"approved_source_jobs_v1.json"
+    reviewed_main=main_catalog.exists() or main_catalog.is_symlink()
+    if reviewed_main:
+        need(lookup_mechanism(KIND,RENEW_SIGNATURE)==RENEW_MECHANISM,
+             "Verified-main source-catalog renewal absent from registry")
+        need(main_catalog.is_file() and not main_catalog.is_symlink()
+             and not main_catalog.parent.is_symlink()
+             and git(["git","-C",str(repo_root),"ls-files",
+                      "--error-unmatch","--",
+                      "development_specs/approved_source_jobs_v1.json"])
+                 =="development_specs/approved_source_jobs_v1.json",
+             "Reviewed main catalog was not committed to verified main")
+        catalog_path=main_catalog
+    catalog=_catalog(catalog_path,reviewed_main=reviewed_main)
     for row in catalog["jobs"]:
         ident=row["job_id"]
         manifest=backlog_root/"inbox"/(ident+".json")
@@ -121,6 +141,12 @@ def select(*,catalog_path:Path,backlog_root:Path,repo_root:Path,
              and sha(spec)==row["spec_sha256"]
              and spec.stat().st_size<12000,
              "Original independent test specimen changed")
+        if reviewed_main:
+            relative_spec=spec.relative_to(repo_root).as_posix()
+            need(git(["git","-C",str(repo_root),"ls-files",
+                      "--error-unmatch","--",relative_spec])
+                 ==relative_spec,
+                 "Uncommitted original independent test cannot be staged")
         # Preserve exact first approved main source under one new branch.
         worktrees=backlog_root.parent/"MICROGEN_AUTONOMOUS_CODE_WORKTREES_V1"
         need(worktrees.is_dir() and not worktrees.is_symlink()

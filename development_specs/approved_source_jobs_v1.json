@@ -21,6 +21,15 @@
       "target": "selenium_pipeline/g3_narration_segment_page_index_v1.py",
       "instruction": "Implement pure Python function compare_g3_narration_segment_page_index(expected_page_ids, observed_page_ids) to compare ordered positive integer page IDs including length, duplicates, missing and reordered positions. Return technical_page_index_match, mismatched_positions as one-based positions, independent_scientific_acceptance=False, independent_acoustic_acceptance=False, student_publication_authorized=False. Boolean, negative, zero and string page indices are never valid. A technical page-index match is not independent review of speech, timing, physics or visuals.",
       "selenium_mode": "hydrogen"
+    },
+    {
+      "job_id": "g3_pdf_caption_png_inventory_v1",
+      "spec_path": "specs/g3_pdf_caption_png_inventory_v1.py",
+      "spec_sha256": "c2f952f9844743462da74f677eb236a497fb9659e1109cff335f30eae37de800",
+      "test": "tests/test_g3_pdf_caption_png_inventory_v1.py",
+      "target": "selenium_pipeline/g3_pdf_caption_png_inventory_v1.py",
+      "instruction": "Implement pure Python function compare_g3_pdf_caption_png_inventory(source_caption_ids, png_caption_ids) to compare identifiers extracted from original source.pdf figure captions with identifiers on exported cropped PNG assets. Inputs must be lists of unique, nonblank ASCII alphanumeric IDs with optional single internal dot, underscore or hyphen separators; reject paths, whitespace, .png extensions, duplicates, wrong types and malformed labels. For invalid input return technical_caption_coverage_match=False, missing_png_caption_ids=[], orphan_png_caption_ids=[], invalid_input=True. For valid input compare IDs without regard to order and return sorted missing/orphan lists, technical_caption_coverage_match reflecting exact coverage, invalid_input=False. Always return independent_scientific_acceptance=False and student_publication_authorized=False. Implement as exactly one top-level function using only the standard pure-library allowlist and comprehensions; do not create helper functions, classes, imports of unapproved modules or nested functions. Pure metadata QA is not scientific or visual-semantic acceptance; no file IO, API or model calls.",
+      "selenium_mode": "hydrogen"
     }
   ]
 }
