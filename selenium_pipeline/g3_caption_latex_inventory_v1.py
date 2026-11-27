@@ -1,0 +1,53 @@
+import re
+
+
+def compare_g3_caption_latex_inventory(source_caption_ids, latex_figure_ids):
+    pattern = re.compile(r"^[A-Za-z0-9]+(?:[._-][A-Za-z0-9]+)*$", re.ASCII)
+    invalid = False
+
+    if (
+        type(source_caption_ids) is not list
+        or type(latex_figure_ids) is not list
+        or len(source_caption_ids) == 0
+        or len(latex_figure_ids) == 0
+    ):
+        invalid = True
+    else:
+        for collection in (source_caption_ids, latex_figure_ids):
+            for item in collection:
+                if (
+                    type(item) is not str
+                    or item.lower().endswith(".png")
+                    or pattern.match(item) is None
+                ):
+                    invalid = True
+                    break
+            if invalid or len(set(collection)) != len(collection):
+                invalid = True
+                break
+
+    if invalid:
+        return {
+            "technical_caption_latex_match": False,
+            "missing_ids": [],
+            "unexpected_ids": [],
+            "invalid_input": True,
+            "independent_scientific_acceptance": False,
+            "independent_visual_semantic_acceptance": False,
+            "student_publication_authorized": False,
+        }
+
+    source_set = set(source_caption_ids)
+    latex_set = set(latex_figure_ids)
+    missing_ids = sorted(source_set - latex_set)
+    unexpected_ids = sorted(latex_set - source_set)
+
+    return {
+        "technical_caption_latex_match": len(missing_ids) == 0 and len(unexpected_ids) == 0,
+        "missing_ids": missing_ids,
+        "unexpected_ids": unexpected_ids,
+        "invalid_input": False,
+        "independent_scientific_acceptance": False,
+        "independent_visual_semantic_acceptance": False,
+        "student_publication_authorized": False,
+    }
