@@ -90,6 +90,8 @@ def test_three_recoveries_must_be_registered():
     assert lookup_mechanism(
         selector.KIND,selector.SIGNATURE)==selector.MECHANISM
     assert lookup_mechanism(
+        selector.KIND,selector.RENEW_SIGNATURE)==selector.RENEW_MECHANISM
+    assert lookup_mechanism(
         promoter.KIND,promoter.SIGNATURE)==promoter.MECHANISM
     assert lookup_mechanism(
         promoter.KIND,promoter.CRLF_SIGNATURE)==promoter.CRLF_MECHANISM
@@ -147,6 +149,66 @@ def test_catalog_rejects_invented_remote_executable_path(env):
         selector.select(catalog_path=env["catalog"],
                         backlog_root=env["backlog"],
                         repo_root=env["main"],git=fake_git(env["main"]))
+
+
+def _commit_main_reviewed_catalog(env):
+    # Simulates exact-current reviewed GitHub main; the real source selector
+    # also requires protected remote main and clean local Git readback.
+    catalog_root=env["main"]/"development_specs"
+    folder=catalog_root/"specs"
+    folder.mkdir(parents=True)
+    shutil.copyfile(env["spec"],folder/env["spec"].name)
+    reviewed=catalog_root/"approved_source_jobs_v1.json"
+    reviewed.write_bytes(env["catalog"].read_bytes())
+    git(env["main"],"add","development_specs")
+    git(env["main"],"commit","-m","Reviewed independent coding tasks on main")
+    return reviewed
+
+
+def test_next_job_is_read_from_verified_main_not_stale_local_catalog(env):
+    reviewed=_commit_main_reviewed_catalog(env)
+    stale=json.loads(env["catalog"].read_text())
+    stale["paid_api_authorized"]=True
+    env["catalog"].write_text(json.dumps(stale))
+    result=selector.select(catalog_path=env["catalog"],
+        backlog_root=env["backlog"],repo_root=env["main"],
+        git=fake_git(env["main"]))
+    assert result["status"]=="NEW_ELIGIBLE_CODING_JOB_STAGED"
+    assert result["model_sends"]==result["paid_api_requests"]==0
+    job=env["backlog"]/"inbox"/(result["job"]+".json")
+    original=job.read_bytes()
+    assert json.loads(original)["test_sha256"]==sha(env["spec"])
+    again=selector.select(catalog_path=env["catalog"],
+        backlog_root=env["backlog"],repo_root=env["main"],
+        git=fake_git(env["main"]))
+    assert again["status"]=="NO_NEW_APPROVED_SOURCE_TEST_JOBS"
+    assert job.read_bytes()==original
+    assert sha(reviewed)==sha(env["main"]/"development_specs"/"approved_source_jobs_v1.json")
+
+
+def test_dirty_reviewed_main_catalog_never_stages_a_model_job(env):
+    reviewed=_commit_main_reviewed_catalog(env)
+    value=json.loads(reviewed.read_text())
+    value["paid_api_authorized"]=True
+    reviewed.write_text(json.dumps(value))
+    with pytest.raises(ValueError,match="Only clean exact-current protected GitHub main"):
+        selector.select(catalog_path=env["catalog"],
+            backlog_root=env["backlog"],repo_root=env["main"],
+            git=fake_git(env["main"]))
+    assert not list((env["backlog"]/"inbox").glob("*.json"))
+
+
+def test_reviewed_main_spec_is_sha_pinned_not_substituted(env):
+    reviewed=_commit_main_reviewed_catalog(env)
+    spec=env["main"]/"development_specs"/"specs"/env["spec"].name
+    spec.write_text("forged independent source specification")
+    git(env["main"],"add","-A")
+    git(env["main"],"commit","-m","Different source spec after originally reviewed catalog")
+    with pytest.raises(ValueError,match="Original independent test specimen changed"):
+        selector.select(catalog_path=env["catalog"],
+            backlog_root=env["backlog"],repo_root=env["main"],
+            git=fake_git(env["main"]))
+    assert not list((env["backlog"]/"inbox").glob("*.json"))
 
 
 def _accepted_original_model(env):
@@ -558,19 +620,23 @@ def test_catalog_changed_after_original_source_review_holds_without_git(env):
     assert not list((env["backlog"]/"inbox").glob("*.json"))
 
 
-def test_windows_checkout_retains_exact_approved_catalog_and_spec_sha():
-    """Actual cloned Windows worktree must not CRLF-mutate source identities."""
+def test_windows_checkout_retains_exact_reviewed_catalog_spec_shas():
+    """New reviewed Git-main spec hashes survive Windows checkout unchanged."""
     base=Path(__file__).parent.parent
     spec_dir=base/"development_specs"
     catalog=spec_dir/"approved_source_jobs_v1.json"
-    expected="cbec12b6286e0d9225cb8b7ca8933f6c71dd31b21810e4f074f569ac6ca46a7c"
-    assert sha(catalog)==expected
     cfg=json.loads(catalog.read_text())
+    assert cfg["paid_api_authorized"] is False
+    assert cfg["student_publication_authorized"] is False
+    assert len(cfg["jobs"])>=3
+    attr=git(base,"check-attr","text","--",
+             "development_specs/approved_source_jobs_v1.json")
+    assert attr.endswith("text: unset")
     for row in cfg["jobs"]:
-        source=spec_dir/Path(row["spec_path"]).name
-        assert sha(source)==row["spec_sha256"]
+        source=spec_dir/row["spec_path"]
+        assert source.is_file() and sha(source)==row["spec_sha256"]
         attr=git(base,"check-attr","text","--",
-                 "development_specs/"+source.name)
+                 "development_specs/"+row["spec_path"])
         assert attr.endswith("text: unset")
 
 
