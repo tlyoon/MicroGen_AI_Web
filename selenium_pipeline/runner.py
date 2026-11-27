@@ -691,7 +691,7 @@ def _execute_unlocked(s: Settings) -> Path:
     # archiving artifacts or invalidating downstream checkpoints.
     if "tts_qa" in planned and not s.confirm_paid_tts_qa:
         from .paid_api_policy import require_paid_gemini_api
-        require_paid_gemini_api("tts_qa")
+        require_paid_gemini_api("tts_qa", model=s.tts_qa_model)
     from .source_bound_v3_repair import registered_and_complete
     v3_figures_only = registered_and_complete(source)
     first_browser_stage = next((x for x in planned if _needs_browser(x)
@@ -1118,7 +1118,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--communication-mode", choices=("selenium",),
                    help="Selenium-only; paid API/fallback are forbidden for content")
     p.add_argument("--confirm-paid-tts-qa", action="store_true",
-                   help="Explicitly approve paid Gemini WAV-quality checks for THIS run only")
+                   help="Approve an alternative paid TTS-QA model for this run; gemini-3.8-flash TTS QA is automatically authorized")
     p.add_argument("--chrome-port", type=int, default=9222)
     p.add_argument("--alternate-gemini-user", metavar="PROFILE_LABEL",
                    help="Use a separate persistent Chrome profile; sign-in is interactive only if needed")

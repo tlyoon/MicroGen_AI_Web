@@ -24,7 +24,7 @@ def failing_slides(report: dict) -> list[int]:
 def repair(folder: Path, *, model: str, threshold: float, provider: str,
            tts_model: str, voice: str, max_repairs: int = 2) -> dict:
     from .paid_api_policy import require_paid_gemini_api, tts_qa_explicitly_approved
-    require_paid_gemini_api("tts_qa", qa_approved=tts_qa_explicitly_approved())
+    require_paid_gemini_api("tts_qa", qa_approved=tts_qa_explicitly_approved(), model=model)
     from .gemini_request_cost import set_job_context
     set_job_context(folder)
     os.environ["MICROGEN_ACTIVE_GENERATION_STAGE"] = "tts_qa"
@@ -98,7 +98,7 @@ def main(argv=None) -> int:
     parser.add_argument("--voice", required=True)
     parser.add_argument("--max-repairs", type=int, default=2)
     parser.add_argument("--confirm-paid-tts-qa", action="store_true",
-                        help="Approve paid TTS fidelity/voice QA for this repair run")
+                        help="Per-run permission for alternative QA models; gemini-3.8-flash needs no flag")
     args = parser.parse_args(argv)
     from .paid_api_policy import set_tts_qa_approval_for_run
     set_tts_qa_approval_for_run(args.confirm_paid_tts_qa)
