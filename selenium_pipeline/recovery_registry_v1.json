@@ -25,10 +25,10 @@
       "classification": "GEMINI_CODE_COPY_LOST_VISIBLE_INDENT_WITH_ORIGINAL_REPLY_PRESERVED",
       "handler": "NORMAL_ISOLATED_ONE_CLAIM_BROWSER_SOURCE_AUTHOR_AND_PYTEST",
       "preconditions": "Immutable one-Send original Gemini said UI response and source/test SHA; do not manufacture a new reply or resend",
-      "verification_test": "tests/test_development_persistent_selenium_author_v1.py and original Dell 345-byte code response recovered offline",
+      "verification_test": "tests/test_development_persistent_selenium_author_v1.py plus Dell original 345-byte pytest and 1466-byte G3 multiline reply, no replay",
       "last_verified_date": "2026-11-26",
       "environment": "Dell-115 Selenium authorized code writer; lost plain-text indentation only",
-      "retry_policy": "Restore one function-body indentation only after exact owned UI prefix; then AST check, independent pytest, immutable one-response receipt",
+      "retry_policy": "Restore literal function-body indentation only after exact owned UI prefix, including multiline function header; then AST, independent pytest, no resend",
       "enabled": true
     },
     {
