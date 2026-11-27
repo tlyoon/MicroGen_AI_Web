@@ -295,6 +295,126 @@ def test_unknown_saved_response_cannot_use_pinned_indent_recovery():
             original.replace("import re", "import os", 1))
 
 
+def _real_g3_latex_reply():
+    path = (Path(__file__).parent / "fixtures" /
+            "g3_caption_latex_original_ui_python_heading_v1.txt")
+    assert author.sha(path) == (
+        "c81b5e2651ae6036831da328ad9f03e2f5cf2832d679a3a3e7d2e6fbb951bf9a")
+    return path
+
+
+def _make_saved_g3_latex_job(env):
+    from selenium_pipeline.development_g2g3_requirement_task_factory_v1 import (
+        compile_independent_test)
+    root, repo, old = env
+    reviewed = json.loads((
+        Path(__file__).parent.parent / "development_specs" /
+        "g2g3_technical_requirement_rules_v1.json").read_text())
+    rule = next(r for r in reviewed["requirements"]
+                if r["id"] == "g3_caption_latex_inventory_v1")
+    source = compile_independent_test(rule)
+    test = repo / "tests" / "test_g3_caption_latex_inventory_v1.py"
+    test.write_bytes(source)
+    _git(repo, "add", "tests/test_g3_caption_latex_inventory_v1.py")
+    _git(repo, "commit", "-m", "Preapproved independent G3 latex technical test")
+    j = json.loads(old.read_text())
+    j["job_id"] = rule["id"]
+    j["base_sha"] = _git(repo, "rev-parse", "HEAD")
+    j["target"] = "selenium_pipeline/g3_caption_latex_inventory_v1.py"
+    j["target_original_sha256"] = None
+    j["test"] = "tests/test_g3_caption_latex_inventory_v1.py"
+    j["test_sha256"] = author.sha(test)
+    j["context_path"] = j["test"]
+    j["context_sha256"] = j["test_sha256"]
+    j["instruction"] = rule["instruction"]
+    old.unlink()
+    job = root / "inbox" / (rule["id"] + ".json")
+    job.write_text(json.dumps(j))
+    evidence = root / "state" / rule["id"]
+    evidence.mkdir()
+    raw = evidence / "original_model_reply.txt"
+    raw.write_bytes(_real_g3_latex_reply().read_bytes())
+    state = {
+        "schema_version":1,"status":"UNSAFE_MODEL_REPLY_QUARANTINED",
+        "job_sha256":author.sha(job),"base_sha":j["base_sha"],
+        "job_id":rule["id"],"model_claims":1,"model_sends":1,
+        "model_reply_sha256":author.sha(raw),"paid_api_requests":0,
+        "student_publication_authorized":False,"candidate_merged":False
+    }
+    (evidence / "coding_state.json").write_text(json.dumps(state))
+    return root,repo,job,raw
+
+
+def test_owned_python_language_label_removed_only_after_original_sha_check():
+    original = _real_g3_latex_reply().read_text("utf8")
+    assert original.startswith("Gemini said\nPython\n")
+    clean = author.parse_reply(original)
+    assert clean.startswith("import re\n")
+    assert "re.compile" in clean
+    assert clean.rstrip() == original.removeprefix(
+        "Gemini said\nPython\n").rstrip()
+    assert author.lookup_mechanism(
+        "persistent_selenium_code_author",
+        "GEMINI_UI_PYTHON_LANGUAGE_HEADER_SINGLE_SAFE_FUNCTION"
+    ) == "STRIP_ONLY_UI_HEADING_THEN_AST_PYTEST_WITHOUT_RESEND"
+    assert author.lookup_mechanism(
+        "persistent_selenium_code_author",
+        "SOURCE_PURE_REGEX_COMPILE_FOR_LITERAL_CAPTION_IDS"
+    ) == "ALLOW_FIXED_ASCII_CAPTION_REGEX_ONLY_WITH_INDEPENDENT_TEST"
+
+
+def test_existing_language_header_original_reconciles_without_selenium_resend(env):
+    root,repo,job,raw = _make_saved_g3_latex_job(env)
+    digest=author.sha(raw)
+    def forbidden(_):
+        raise AssertionError("Never repeat original Gemini Selenium Send")
+    outcome=author.scan(root=root,sender=forbidden)
+    assert outcome["jobs"][0]["status"] == (
+        "SOURCE_CANDIDATE_TESTED_NO_PUBLICATION"), outcome
+    state=json.loads((
+        root/"state"/job.stem/"coding_state.json").read_text())
+    assert state["pytest_exit_code"] == 0, state
+    assert state["model_claims"] == state["model_sends"] == 1
+    assert state["paid_api_requests"] == 0
+    assert state["student_publication_authorized"] is False
+    assert author.sha(raw) == digest
+    assert author.sha(repo/"selenium_pipeline"/
+                      "g3_caption_latex_inventory_v1.py") == state["candidate_sha256"]
+    again=author.scan(root=root,sender=forbidden)
+    assert again["jobs"][0]["status"] == "SOURCE_CANDIDATE_TESTED_NO_PUBLICATION"
+    assert author.sha(raw)==digest
+
+
+def test_changed_saved_ui_language_reply_is_quarantined_not_replayed(env):
+    root,repo,job,raw = _make_saved_g3_latex_job(env)
+    raw.write_bytes(raw.read_bytes().replace(b"import re",b"import os",1))
+    outcome=author.scan(root=root,sender=lambda _: (_ for _ in ()).throw(
+        AssertionError("Second Send forbidden")))
+    assert outcome["jobs"][0]["status"] == "UNSAFE_MODEL_REPLY_QUARANTINED"
+    assert not (repo/"selenium_pipeline"/
+                "g3_caption_latex_inventory_v1.py").exists()
+
+
+def test_untrusted_python_compilation_and_code_prose_stay_rejected():
+    valid=author.parse_reply(_real_g3_latex_reply().read_text("utf8"))
+    for source in (
+        valid.replace('re.compile(r"^[A-Za-z0-9]+(?:[._-][A-Za-z0-9]+)*$", re.ASCII)',
+                      're.compile(r".*", re.ASCII)'),
+        valid.replace('re.compile(r"^[A-Za-z0-9]+(?:[._-][A-Za-z0-9]+)*$", re.ASCII)',
+                      're.compile(source_caption_ids[0], re.ASCII)'),
+        valid.replace('re.compile(r"^[A-Za-z0-9]+(?:[._-][A-Za-z0-9]+)*$", re.ASCII)',
+                      'latex_figure_ids.compile(r"^[A-Za-z0-9]+(?:[._-][A-Za-z0-9]+)*$", re.ASCII)'),
+        valid.replace('    pattern = re.compile(',
+                      '    re = latex_figure_ids[0]\n    pattern = re.compile('),
+    ):
+        with pytest.raises(ValueError):
+            author.validate_source(source)
+    with pytest.raises(ValueError):
+        author.parse_reply("Gemini said\nJavascript\n"+valid)
+    with pytest.raises(ValueError):
+        author.parse_reply("Gemini said\nPython\n"+valid+"print('extra')\n")
+
+
 def test_different_pending_jobs_are_processed_after_one_fails(env):
     root, repo, job = env
     old = json.loads(job.read_text())

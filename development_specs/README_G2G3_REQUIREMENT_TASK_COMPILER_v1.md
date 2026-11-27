@@ -4,6 +4,8 @@ This mechanism extends the previously finite `approved_source_jobs_v1.json` queu
 
 The compiler reads the **live** G2/G3 daemon heartbeat at `RECONCILE_20261125/live_state_migrated_v1/daemon_heartbeat.json`, checks the actual open G2/G3 milestone status, and selects the next unclaimed technical rule. It builds the **independent** test program deterministically from the reviewed `set_coverage` or `ordered_alignment` oracle, writes a durable original evidence receipt, commits the test to a dedicated Git worktree, and atomically stages a SHA-pinned one-claim Selenium author job. It never uses an AI model to write its own acceptance tests.
 
+An authenticated Gemini UI code-pane copy may include a non-Python language label (`Gemini said` followed by `Python`). The source worker strips only this registered, exact UI heading after verifying the saved original reply SHA. The pure-source AST admits only the fixed, reviewed ASCII caption-identifier pattern in `re.compile`; every other compilation method or dynamic pattern remains blocked. The original model output is never rewritten or resent, and the original independent tests still determine code eligibility.
+
 All code-generation requests remain Selenium-only with one immutable Send claim. The separate original worker must pass its independent test, then the existing promotion controller requires GitHub Windows CI, strict merge verification and guarded dual-worker deployment. Failed, uncertain, or quarantined prior Sends are never recycled. No scientific, acoustic, visual-semantic, or student-publication acceptance is conferred by metadata parity.
 
 ## Current source-grounded technical requirements

@@ -116,6 +116,34 @@
       "enabled": true
     },
     {
+      "id": "PERSISTENT_GEMINI_CODE_PANE_PYTHON_HEADER_20261127",
+      "match_type": "persistent_selenium_code_author",
+      "signature": "GEMINI_UI_PYTHON_LANGUAGE_HEADER_SINGLE_SAFE_FUNCTION",
+      "mechanism": "STRIP_ONLY_UI_HEADING_THEN_AST_PYTEST_WITHOUT_RESEND",
+      "classification": "AUTHENTICATED_GEMINI_BROWSER_COPIED_PYTHON_LANGUAGE_LABEL_BEFORE_SOURCE",
+      "handler": "NORMAL_ISOLATED_ONE_CLAIM_BROWSER_SOURCE_AUTHOR_AND_PYTEST",
+      "preconditions": "Immutable original one-Send reply SHA and independent source/test SHA; exact Gemini said newline Python newline prefix with a single valid function; no second Send",
+      "verification_test": "tests/test_development_persistent_selenium_author_v1.py verifies real SHA, no replay, synthetic malicious extra heading and independent tests",
+      "last_verified_date": "2026-11-27",
+      "environment": "Dell-115 one-claim Selenium author after G2/G3 derived technical job",
+      "retry_policy": "Strip only the owned UI language line before bounded pure-source AST and independent pytest; quarantine anything not safely parsed",
+      "enabled": true
+    },
+    {
+      "id": "PERSISTENT_LITERAL_ASCII_CAPTION_REGEX_20261127",
+      "match_type": "persistent_selenium_code_author",
+      "signature": "SOURCE_PURE_REGEX_COMPILE_FOR_LITERAL_CAPTION_IDS",
+      "mechanism": "ALLOW_FIXED_ASCII_CAPTION_REGEX_ONLY_WITH_INDEPENDENT_TEST",
+      "classification": "SAVED_PURE_SOURCE_USES_RE_COMPILE_WITH_LITERAL_SAFE_ASCII_CAPTION_IDENTIFIER_PATTERN",
+      "handler": "NORMAL_ISOLATED_ONE_CLAIM_BROWSER_SOURCE_AUTHOR_AND_PYTEST",
+      "preconditions": "Only re.compile with exact reviewed ASCII caption-ID literal and re.ASCII; no dynamic pattern, file I/O, arbitrary .compile method or model-derived tests",
+      "verification_test": "tests/test_development_persistent_selenium_author_v1.py real safe regex plus malicious or dynamic compilation rejection",
+      "last_verified_date": "2026-11-27",
+      "environment": "Dell-115 original independent code-authoring AST policy",
+      "retry_policy": "Allow exactly one reviewed pure regex compile expression; all other non-pure calls held",
+      "enabled": true
+    },
+    {
       "id": "PERSISTENT_ONE_EXACT_SAVED_REPLY_INDENT_REPAIR_20261127",
       "match_type": "persistent_selenium_code_author",
       "signature": "G3_SINGLE_FUNCTION_PARTIAL_INDENT_ORIGINAL_REPLY_QUARANTINED",
