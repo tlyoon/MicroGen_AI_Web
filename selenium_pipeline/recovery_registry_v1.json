@@ -32,6 +32,20 @@
       "enabled": true
     },
     {
+      "id": "CI_MERGED_OLD_DAEMON_REENTRY_20261127",
+      "match_type": "ci_merged_old_daemon_cutover_reentry",
+      "signature": "GITHUB_MAIN_ADVANCED_WHILE_ORIGINAL_CI_DEPLOY_DAEMON_STOPPED",
+      "mechanism": "VERIFY_ONE_MERGED_TESTED_PROMOTION_AND_RESTART_ONLY_OLD_OWNER",
+      "classification": "CI_MERGED_CODE_NEEDS_GUARDED_CUTOVER_BUT_OLD_DAEMON_EXITED_BEFORE_DEPLOY",
+      "handler": "NORMAL_FIVE_MINUTE_NATIVE_WATCHDOG_WITH_ONE_CI_MERGE_IDENTITY_BRIDGE",
+      "preconditions": "Only original limited native owner, exact old clean source and STOPPED stale heartbeat, one persisted one-claim MERGED_AWAITING_GUARDED_CUTOVER promotion, exact remote GitHub merge tree and both latest Windows CI jobs passed",
+      "verification_test": "tests/test_development_pending_merge_restart_bridge_v1.py fault-injection and tests/test_development_windows_autorestart_watchdog_v1.py old-daemon/source-drift restart",
+      "last_verified_date": "2026-11-27",
+      "environment": "Dell-115 watchdog and original autonomous code promotion, GitHub CI-certified squash merge not yet guarded deployed",
+      "retry_policy": "Restart only the original stopped task once when native Ready; never bypass CI, create a second Send, mutate a PR, restart a Running daemon, or treat technical evidence as academic acceptance",
+      "enabled": true
+    },
+    {
       "id": "AUTONOMOUS_G2G3_REQUIREMENT_TEST_FACTORY_20261127",
       "match_type": "autonomous_g2g3_requirement_test_derivation",
       "signature": "G2_G3_QA_GAPS_PERSIST_WHILE_REVIEWED_SOURCE_JOB_CATALOG_EXHAUSTED",

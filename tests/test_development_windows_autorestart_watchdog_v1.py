@@ -223,3 +223,86 @@ def test_native_schedule_scripts_never_have_broad_task_kill_or_model_sends():
         assert "SendKeys" not in item
         assert "GeminiAPI" not in item
     assert "development_windows_autorestart_watchdog_v1 --tick" in run
+
+
+def test_ci_merged_source_gap_recovers_only_stopped_original_daemon(
+        env, monkeypatch):
+    """Actual Nov 27 ordering: GitHub merged, prior daemon stopped, deploy held."""
+    from selenium_pipeline import development_pending_merge_restart_bridge_v1 as bridge
+    env["native"][wd.TASK_DAEMON]["state"] = "Ready"
+    env["native"][wd.TASK_PROMOTE]["state"] = "Ready"
+    hb = env["heartbeat"].copy()
+    hb.update(running=False, status="STOPPED",
+              heartbeat_utc=(env["now"]-dt.timedelta(minutes=8)).isoformat())
+    env["beat"].write_text(json.dumps(hb))
+    monkeypatch.setattr(wd, "native_snapshot", lambda ps=None:env["native"])
+    def newer_main(*args):
+        raise ValueError("Original source behind newly CI merged protected main")
+    monkeypatch.setattr(wd, "_verified_main", newer_main)
+    signed = {"status": bridge.STATUS, "old_sha":"a"*40,
+              "merged_sha":"b"*40, "original_pr_number":676,
+              "provider_sends":0, "student_publication_authorized":False}
+    calls = []
+    monkeypatch.setattr(bridge, "verify", lambda **kwargs:signed)
+    monkeypatch.setattr(wd, "attest_live_daemon",
+                        lambda **kwargs:{"running_verified":True})
+    def launch(name, ps=None):
+        assert env["native"][name]["state"] == "Ready"
+        env["native"][name]["state"] = "Running"
+        calls.append(name)
+    monkeypatch.setattr(wd, "_start_exact_task", launch)
+    def advance(seconds):
+        assert seconds == 10
+        beat = env["heartbeat"].copy()
+        beat["heartbeat_utc"] = dt.datetime.now(dt.timezone.utc).isoformat()
+        env["beat"].write_text(json.dumps(beat))
+    result = wd.tick(root=env["tmp"], now=env["now"], sleep=advance)
+    assert result["status"] == "RECOVERED_BOTH_NATIVE_DEVELOPMENT_TASKS"
+    assert calls == [wd.TASK_DAEMON, wd.TASK_PROMOTE]
+    assert result["prior_revision_restart_authorized_by_exact_windows_ci"] is True
+    assert result["verified_merged_code_cutover"] == signed
+    assert result["paid_api_requests"] == result["provider_sends"] == 0
+    assert result["student_publication_authorized"] is False
+
+
+def test_unreviewed_main_change_never_starts_a_stale_daemon(
+        env, monkeypatch):
+    from selenium_pipeline import development_pending_merge_restart_bridge_v1 as bridge
+    env["native"][wd.TASK_DAEMON]["state"] = "Ready"
+    beat = env["heartbeat"].copy()
+    beat.update(running=False, status="STOPPED",
+                heartbeat_utc=(env["now"]-dt.timedelta(minutes=8)).isoformat())
+    env["beat"].write_text(json.dumps(beat))
+    monkeypatch.setattr(wd, "native_snapshot", lambda ps=None:env["native"])
+    def bad_main(*args):
+        raise ValueError("Github current main differs")
+    monkeypatch.setattr(wd, "_verified_main", bad_main)
+    def no_verified_ci(**kwargs):
+        raise ValueError("A model or actor changed GitHub without CI")
+    monkeypatch.setattr(bridge, "verify", no_verified_ci)
+    calls = []
+    monkeypatch.setattr(wd, "_start_exact_task",
+                        lambda name, ps=None:calls.append(name))
+    with pytest.raises(ValueError, match="without CI"):
+        wd.tick(root=env["tmp"], now=env["now"])
+    assert calls == []
+
+
+def test_stale_running_daemon_is_never_restarted_by_ci_merge(
+        env, monkeypatch):
+    from selenium_pipeline import development_pending_merge_restart_bridge_v1 as bridge
+    beat = env["heartbeat"].copy()
+    beat["heartbeat_utc"] = (env["now"]-dt.timedelta(minutes=8)).isoformat()
+    env["beat"].write_text(json.dumps(beat))
+    monkeypatch.setattr(wd, "native_snapshot", lambda ps=None:env["native"])
+    def bad_main(*args):
+        raise ValueError("Github main differs")
+    monkeypatch.setattr(wd, "_verified_main", bad_main)
+    called = []
+    monkeypatch.setattr(bridge, "verify",
+                        lambda **kwargs:called.append("unsafe"))
+    monkeypatch.setattr(wd, "_start_exact_task",
+                        lambda name, ps=None:called.append(name))
+    with pytest.raises(ValueError, match="Uncertified stale daemon"):
+        wd.tick(root=env["tmp"], now=env["now"])
+    assert called == []
