@@ -34,22 +34,22 @@ def test_tts_allowed_but_qa_not_inferred_from_tts_or_api_keys(monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY_1","EXAMPLE_NOT_REAL")
     monkeypatch.delenv(TTS_QA_APPROVAL_ENV,raising=False)
     require_paid_gemini_api("tts")
-    with pytest.raises(PaidAPIPolicyBlocked,match="EXPLICIT_APPROVAL"):
+    with pytest.raises(PaidAPIPolicyBlocked,match="MODEL_NOT_AUTHORIZED"):
         require_paid_gemini_api("tts_qa",qa_approved=True)
-    with pytest.raises(PaidAPIPolicyBlocked,match="EXPLICIT_APPROVAL"):
+    with pytest.raises(PaidAPIPolicyBlocked,match="MODEL_NOT_AUTHORIZED"):
         require_paid_gemini_api("tts_qa")
 
 
 def test_tts_qa_requires_literal_explicit_this_run_approval(monkeypatch):
     monkeypatch.setenv(TTS_QA_APPROVAL_ENV,"1")
     assert not tts_qa_explicitly_approved()
-    with pytest.raises(PaidAPIPolicyBlocked,match="EXPLICIT_APPROVAL"):
+    with pytest.raises(PaidAPIPolicyBlocked,match="MODEL_NOT_AUTHORIZED"):
         require_paid_gemini_api("tts_qa",qa_approved=True)
     with monkeypatch.context() as scope:
         scope.setenv(TTS_QA_APPROVAL_ENV,TTS_QA_APPROVAL_LITERAL)
         assert tts_qa_explicitly_approved()
         require_paid_gemini_api("tts_qa",qa_approved=True)
-        with pytest.raises(PaidAPIPolicyBlocked,match="EXPLICIT_APPROVAL"):
+        with pytest.raises(PaidAPIPolicyBlocked,match="MODEL_NOT_AUTHORIZED"):
             require_paid_gemini_api("tts_qa",qa_approved=False)
 
 
@@ -121,8 +121,10 @@ def test_approved_audio_qa_can_use_mocked_sdk_but_not_other_purposes(tmp_path,mo
     wav=tmp_path/"slide1.wav";wav.write_bytes(b"RIFF"+b"0"*64)
     monkeypatch.delenv(TTS_QA_APPROVAL_ENV,raising=False)
     with patch("gemini_keys.call_with_client_failover") as send:
-        with pytest.raises(PaidAPIPolicyBlocked,match="EXPLICIT_APPROVAL"):
-            tts_fidelity._inspect_audio_direct(wav,"Hello.")
+        # Alternative QA model remains unapproved. The exact Flash 3.8
+        # default is now automatically authorized by the owner.
+        with pytest.raises(PaidAPIPolicyBlocked,match="MODEL_NOT_AUTHORIZED"):
+            tts_fidelity._inspect_audio_direct(wav,"Hello.", model="gemini-3.1-pro")
         send.assert_not_called()
     monkeypatch.setenv(TTS_QA_APPROVAL_ENV,TTS_QA_APPROVAL_LITERAL)
     with patch("gemini_keys.call_with_client_failover",
@@ -130,9 +132,10 @@ def test_approved_audio_qa_can_use_mocked_sdk_but_not_other_purposes(tmp_path,mo
                    "transcript":"Hello.","pronunciation_issues":[],
                    "critical_token_issues":[],"audio_defects":[],
                }))) as send:
-        result=tts_fidelity._inspect_audio_direct(wav,"Hello.")
+        result=tts_fidelity._inspect_audio_direct(wav,"Hello.",model="gemini-3.1-pro")
         assert result["transcript"]=="Hello."
         assert send.call_args.kwargs["purpose"]=="tts_qa"
+        assert send.call_args.kwargs["model"]=="gemini-3.1-pro"
 
 
 def test_new_content_policy_never_creates_api_attempts(monkeypatch):

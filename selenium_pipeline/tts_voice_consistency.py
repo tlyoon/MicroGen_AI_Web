@@ -67,7 +67,7 @@ def _parse_json(text: str) -> dict[str, Any]:
 
 def _inspect_direct(candidate: Path, references: list[Path], model: str) -> dict[str, Any]:
     from .paid_api_policy import require_paid_gemini_api, tts_qa_explicitly_approved
-    require_paid_gemini_api("tts_qa", qa_approved=tts_qa_explicitly_approved())
+    require_paid_gemini_api("tts_qa", qa_approved=tts_qa_explicitly_approved(), model=model)
     from google import genai
     from google.genai import types
     from gemini_keys import call_with_client_failover
@@ -101,7 +101,7 @@ def _inspect_direct(candidate: Path, references: list[Path], model: str) -> dict
             config={"temperature": 0, "response_mime_type": "application/json"},
         ),
         label=f"TTS voice continuity {candidate.name}",
-        max_retries=1, purpose="tts_qa",
+        max_retries=1, purpose="tts_qa", model=model,
     )
     return _parse_json(_response_text(response))
 
@@ -131,7 +131,7 @@ def compare_voice(
     threshold: float | None = None,
 ) -> dict[str, Any]:
     from .paid_api_policy import require_paid_gemini_api, tts_qa_explicitly_approved
-    require_paid_gemini_api("tts_qa", qa_approved=tts_qa_explicitly_approved())
+    require_paid_gemini_api("tts_qa", qa_approved=tts_qa_explicitly_approved(), model=model)
     if len(references) < 2:
         raise RuntimeError("At least two primary-voice reference WAVs are required")
     threshold = (

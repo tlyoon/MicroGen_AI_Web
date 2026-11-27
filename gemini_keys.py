@@ -143,9 +143,11 @@ def call_with_client_failover(
     label: str = "Gemini request",
     max_retries: int | None = None,
     purpose: str | None = None,
+    model: str | None = None,
 ) -> T:
     """Reject unclassified paid work BEFORE choosing API keys."""
-    require_paid_gemini_api(purpose, qa_approved=tts_qa_explicitly_approved())
+    require_paid_gemini_api(
+        purpose, qa_approved=tts_qa_explicitly_approved(), model=model)
     from selenium_pipeline.gemini_request_cost import MeteredGeminiClient
     import uuid
     from selenium_pipeline.gemini_request_cost import next_attempt_index
@@ -172,6 +174,7 @@ def call_with_client_failover(
         label=label,
         max_retries=max_retries,
         purpose=purpose,
+        model=model,
     )
 
 
@@ -181,9 +184,11 @@ def call_with_key_failover(
     label: str = "Gemini request",
     max_retries: int | None = None,
     purpose: str | None = None,
+    model: str | None = None,
 ) -> T:
     """No API key discovery, retry or billed Send for unapproved purposes."""
-    require_paid_gemini_api(purpose, qa_approved=tts_qa_explicitly_approved())
+    require_paid_gemini_api(
+        purpose, qa_approved=tts_qa_explicitly_approved(), model=model)
     assert_gemini_available()
     keys = get_gemini_api_keys()
     if not keys:

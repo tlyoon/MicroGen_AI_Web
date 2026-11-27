@@ -1,5 +1,10 @@
 # MicroGen_AI
 
+
+## Paid TTS audio-quality checking authorization
+
+Gemini 3.8 Flash TTS/acoustic QA has standing owner authorization (27 November 2026), without per-run confirmation; see [the model-and-purpose-pinned contract](docs/MicroGen_Standing_Gemini38_Flash_TTS_QA_Authorization_20261127.md). Paid API use for lecture content/scientific review remains prohibited (Selenium only). Other paid QA models still require explicit per-run authorization.
+
 ## Supported development and regression platform: Windows only
 
 **MicroGen_AI_Web is developed and validated for Windows PCs only.** The authoritative [Windows-only development and regression contract](docs/MicroGen_Windows_Only_Development_Regression_Contract_20261125.md) requires Windows (windows-latest) CI and Windows-hosted local tests; Linux/Ubuntu regression suites are neither required nor accepted as a project completion gate. All existing scientific, recovery, figure, acoustic and publication acceptance checks remain mandatory. The continuous-development contract v7.1 continues to control autonomous task advancement; this amendment controls which OS tests are required.

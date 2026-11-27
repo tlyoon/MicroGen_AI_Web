@@ -300,7 +300,7 @@ def _inspect_audio_direct(
     model: str = DEFAULT_MODEL,
 ) -> dict[str, Any]:
     from .paid_api_policy import require_paid_gemini_api, tts_qa_explicitly_approved
-    require_paid_gemini_api("tts_qa", qa_approved=tts_qa_explicitly_approved())
+    require_paid_gemini_api("tts_qa", qa_approved=tts_qa_explicitly_approved(), model=model)
     from google import genai
     from google.genai import types
     from gemini_keys import call_with_client_failover
@@ -335,7 +335,7 @@ def _inspect_audio_direct(
         qa_client,
         request,
         label=f"TTS fidelity {wav_path.name}",
-        max_retries=2, purpose="tts_qa",
+        max_retries=2, purpose="tts_qa", model=model,
     )
     return _parse_json_payload(_response_text(response))
 
@@ -404,7 +404,7 @@ def inspect_audio(
     model: str = DEFAULT_MODEL,
 ) -> dict[str, Any]:
     from .paid_api_policy import require_paid_gemini_api, tts_qa_explicitly_approved
-    require_paid_gemini_api("tts_qa", qa_approved=tts_qa_explicitly_approved())
+    require_paid_gemini_api("tts_qa", qa_approved=tts_qa_explicitly_approved(), model=model)
     attempts = max(1, int(os.environ.get("MICROGEN_TTS_QA_HARD_ATTEMPTS", "2")))
     timeout_seconds = _qa_hard_timeout_seconds(wav_path)
     last_error: Exception | None = None

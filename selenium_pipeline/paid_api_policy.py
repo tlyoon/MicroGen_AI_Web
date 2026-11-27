@@ -4,7 +4,9 @@ Gemini browser Selenium is the ONLY model transport for figures, slide/script
 creation, and scientific review. No exception for an outage, timeout, low
 remaining web quota, browser failure, retry exhaustion, old configuration or
 an installed API key. Paid Gemini API is reserved solely for TTS synthesis or
-an EXPLICITLY approved TTS audio-quality check.
+an approved TTS audio-quality check. The owner granted standing automatic
+permission on 27 Nov 2026 for the exact gemini-3.8-flash QA model.
+Other paid QA models still need an explicit per-run approval.
 
 The default for every unknown API purpose is NO SEND. Do not infer QA approval
 from successful TTS, a saved web login, available credits or a generic model
@@ -21,6 +23,8 @@ class PaidAPIPolicyBlocked(RuntimeError):
 
 TTS_QA_APPROVAL_ENV = "MICROGEN_PAID_TTS_QA_APPROVAL"
 TTS_QA_APPROVAL_LITERAL = "EXPLICIT_APPROVAL_FOR_THIS_RUN"
+STANDING_TTS_QA_MODEL = "gemini-3.8-flash"
+STANDING_TTS_QA_POLICY = "USER_CONFIRMED_MICROGEN_AI_WEB_2026_11_27"
 
 
 def tts_qa_explicitly_approved() -> bool:
@@ -51,20 +55,32 @@ def _require_registered_paid_scope() -> None:
             "PAID_API_POLICY_REGISTRY_NOT_VERIFIED_NO_SEND")
 
 
-def require_paid_gemini_api(purpose: str, *, qa_approved: bool = False) -> None:
-    """Fail closed BEFORE client creation, credential selection or API Send."""
+def require_paid_gemini_api(
+    purpose: str, *, qa_approved: bool = False, model: str | None = None
+) -> None:
+    """Fail closed before billed Send; standing permission is model-and-purpose pinned.
+
+    On 27 Nov 2026 the owner clarified that paid gemini-3.8-flash is
+    automatically permitted for MicroGen_AI_Web TTS/acoustic QA. It is not
+    permission to use paid APIs for slides, narration or scientific review.
+    The actual egress adapter MUST pass the model, not rely on a preflight.
+    """
     if purpose == "tts":
         _require_registered_paid_scope()
         return
-    if (purpose == "tts_qa"
-            and qa_approved is True
-            and tts_qa_explicitly_approved()):
-        _require_registered_paid_scope()
-        return
     if purpose == "tts_qa":
+        if model == STANDING_TTS_QA_MODEL:
+            _require_registered_paid_scope()
+            return
+        # Preserve the historical per-run opt-in for other QA models.
+        if qa_approved is True and tts_qa_explicitly_approved():
+            _require_registered_paid_scope()
+            return
         raise PaidAPIPolicyBlocked(
-            "PAID_GEMINI_TTS_QA_NEEDS_EXPLICIT_APPROVAL_FOR_THIS_RUN; "
-            "use --confirm-paid-tts-qa on this TTS quality-check operation")
+            "PAID_GEMINI_TTS_QA_MODEL_NOT_AUTHORIZED; "
+            "automatic standing approval applies only to gemini-3.8-flash "
+            "for TTS QA; alternative paid QA models still require "
+            "--confirm-paid-tts-qa for this run")
     raise PaidAPIPolicyBlocked(
         "PAID_GEMINI_API_CONTENT_FORBIDDEN_SELENIUM_ONLY; "
         "all lecture creation and scientific review must use owned Gemini "

@@ -413,7 +413,8 @@ class _ModelsMeter:
         from .paid_api_policy import (
             require_paid_gemini_api, tts_qa_explicitly_approved)
         require_paid_gemini_api(
-            self._purpose, qa_approved=tts_qa_explicitly_approved())
+            self._purpose, qa_approved=tts_qa_explicitly_approved(),
+            model=model)
         text, opaque = _text_parts(contents)
         req = begin(model=model, purpose=self._purpose, transport="api",
                     input_text=text, opaque_input=opaque,
@@ -443,6 +444,7 @@ class _InteractionsMeter:
         )
         require_paid_gemini_api(
             self._purpose, qa_approved=tts_qa_explicitly_approved(),
+            model=kwargs.get("model"),
         )
         model = kwargs.get("model")
         text, opaque = _text_parts(kwargs.get("input"))
