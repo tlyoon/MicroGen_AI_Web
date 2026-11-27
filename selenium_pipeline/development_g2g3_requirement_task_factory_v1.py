@@ -26,7 +26,8 @@ ID = re.compile(r"[a-z][a-z0-9_]{6,50}\Z")
 FUNC = re.compile(r"compare_[a-z0-9_]{6,65}\Z")
 OUTPUT = re.compile(r"technical_[a-z0-9_]{5,65}\Z")
 FLAG = re.compile(r"(independent_[a-z0-9_]+|student_publication_authorized)\Z")
-KINDS = frozenset(("set_coverage", "ordered_alignment"))
+KINDS = frozenset(("set_coverage", "ordered_alignment",
+                   "review_provenance", "highlight_timing"))
 GATES = frozenset(("g3_source_complete_qa_open",
                    "g2_source_review_evidence_open"))
 
@@ -225,9 +226,151 @@ def test_wrong_container_types_are_invalid():
         assert observed[MATCH] is False and observed["invalid_input"] is True
 '''.lstrip()
 
+_REVIEW_PROVENANCE_ORACLE = '''
+from selenium_pipeline.__MODULE__ import __FUNCTION__
+
+FLAGS = __FLAGS__
+MATCH = "__MATCH__"
+HASH = "a" * 64
+OTHER = "b" * 64
+KEYS = {"reviewer_id", "request_id", "source_sha256", "evidence_sha256"}
+REQUIRED = {MATCH, "conflicting_fields", "invalid_input"} | set(FLAGS)
+
+def _pass(reviewer, request, source=HASH, evidence=HASH):
+    return {"reviewer_id": reviewer, "request_id": request,
+            "source_sha256": source, "evidence_sha256": evidence}
+
+def _shape(row):
+    assert type(row) is dict and set(row) == REQUIRED
+    assert type(row[MATCH]) is bool and type(row["invalid_input"]) is bool
+    assert type(row["conflicting_fields"]) is list
+    assert row["conflicting_fields"] == sorted(set(row["conflicting_fields"]))
+    assert all(row[k] is False for k in FLAGS)
+
+def test_two_distinct_owned_responses_have_technical_provenance_not_approval():
+    row = __FUNCTION__(HASH, _pass("neon", "send-one"),
+                       _pass("hydrogen", "send-two", evidence=OTHER))
+    _shape(row)
+    assert row[MATCH] is True and row["invalid_input"] is False
+    assert row["conflicting_fields"] == []
+
+def test_original_source_hash_mismatches_are_reported_not_approved():
+    for first, second, expected in (
+        (_pass("neon", "send-one", source=OTHER),
+         _pass("hydrogen", "send-two"), ["first_source_sha256"]),
+        (_pass("neon", "send-one"),
+         _pass("hydrogen", "send-two", source=OTHER), ["second_source_sha256"]),
+        (_pass("neon", "send-one", source=OTHER),
+         _pass("hydrogen", "send-two", source=OTHER),
+         ["first_source_sha256", "second_source_sha256"]),
+    ):
+        row = __FUNCTION__(HASH, first, second)
+        _shape(row)
+        assert row[MATCH] is False and row["invalid_input"] is False
+        assert row["conflicting_fields"] == expected
+
+def test_same_reviewer_or_same_send_cannot_claim_independent_review():
+    for first, second in (
+        (_pass("neon", "send-one"), _pass("neon", "send-two")),
+        (_pass("neon", "send-one"), _pass("hydrogen", "send-one")),
+        (_pass("neon", "send-one"), _pass("neon", "send-one")),
+    ):
+        row = __FUNCTION__(HASH, first, second)
+        _shape(row)
+        assert row[MATCH] is False and row["invalid_input"] is True
+        assert row["conflicting_fields"] == []
+
+def test_invalid_hash_or_malformed_model_evidence_fails_closed():
+    valid = _pass("neon", "send-one")
+    another = _pass("hydrogen", "send-two")
+    bad = (
+        ("ABC", valid, another),
+        (HASH.upper(), valid, another),
+        (HASH, dict(valid, evidence_sha256="x"), another),
+        (HASH, dict(valid, source_sha256="x"), another),
+        (HASH, dict(valid, reviewer_id="../escape"), another),
+        (HASH, dict(valid, request_id=" "), another),
+        (HASH, dict(valid, extra="surprise"), another),
+        (HASH, {"request_id": "send-one"}, another),
+        (HASH, None, another),
+        (HASH, valid, "wrong"),
+    )
+    for source, first, second in bad:
+        row = __FUNCTION__(source, first, second)
+        _shape(row)
+        assert row[MATCH] is False and row["invalid_input"] is True
+        assert row["conflicting_fields"] == []
+'''.lstrip()
+
+_HIGHLIGHT_TIMING_ORACLE = '''
+from selenium_pipeline.__MODULE__ import __FUNCTION__
+
+FLAGS = __FLAGS__
+MATCH = "__MATCH__"
+REQUIRED = {MATCH, "mismatched_segments", "invalid_input"} | set(FLAGS)
+
+def seg(element, narration, start, end):
+    return {"element_id": element, "narration_id": narration,
+            "start_ms": start, "end_ms": end}
+
+def _shape(row):
+    assert type(row) is dict and set(row) == REQUIRED
+    assert type(row[MATCH]) is bool and type(row["invalid_input"]) is bool
+    assert type(row["mismatched_segments"]) is list
+    assert row["mismatched_segments"] == sorted(set(row["mismatched_segments"]))
+    assert all(type(i) is int and i > 0 for i in row["mismatched_segments"])
+    assert all(row[k] is False for k in FLAGS)
+
+def test_nonoverlapping_source_anchored_segments_are_technical_only():
+    row = __FUNCTION__(10000, [seg("Fig_8-4", "spoken_1", 0, 1500),
+                               seg("Equation_8-3", "spoken_2", 1600, 4900)])
+    _shape(row)
+    assert row[MATCH] is True and row["invalid_input"] is False
+    assert row["mismatched_segments"] == []
+
+def test_overlapping_or_outside_slide_time_is_reported():
+    for segments, expected in (
+        ([seg("A", "spoken_1", 0, 6000),
+          seg("B", "spoken_2", 5000, 8000)], [2]),
+        ([seg("A", "spoken_1", 0, 5000),
+          seg("B", "spoken_2", 5000, 11000)], [2]),
+        ([seg("A", "spoken_1", 0, 15000)], [1]),
+    ):
+        row = __FUNCTION__(10000, segments)
+        _shape(row)
+        assert row[MATCH] is False and row["invalid_input"] is False
+        assert row["mismatched_segments"] == expected
+
+def test_missing_provenance_or_invalid_timing_never_passes():
+    valid = seg("A", "spoken_1", 0, 100)
+    for duration, segments in (
+        (0, [valid]), (True, [valid]), ("1000", [valid]),
+        (1000, []), (1000, None), (1000, [None]),
+        (1000, [dict(valid, element_id="")]),
+        (1000, [dict(valid, element_id="../source")]),
+        (1000, [dict(valid, narration_id="file.wav")]),
+        (1000, [dict(valid, start_ms=-1)]),
+        (1000, [dict(valid, start_ms=True)]),
+        (1000, [dict(valid, end_ms=0)]),
+        (1000, [dict(valid, end_ms=1.0)]),
+        (1000, [dict(valid, extra=1)]),
+        (1000, [valid, dict(valid, element_id="B")]),
+    ):
+        row = __FUNCTION__(duration, segments)
+        _shape(row)
+        assert row[MATCH] is False and row["invalid_input"] is True
+        assert row["mismatched_segments"] == []
+'''.lstrip()
+
+
 def compile_independent_test(rule: dict) -> bytes:
     """Tests come from reviewed deterministic oracles, not Selenium output."""
-    text = _SET_ORACLE if rule["kind"] == "set_coverage" else _ORDER_ORACLE
+    text = {
+        "set_coverage": _SET_ORACLE,
+        "ordered_alignment": _ORDER_ORACLE,
+        "review_provenance": _REVIEW_PROVENANCE_ORACLE,
+        "highlight_timing": _HIGHLIGHT_TIMING_ORACLE,
+    }[rule["kind"]]
     substitutions = {
         "__MODULE__": rule["id"],
         "__FUNCTION__": rule["function"],
