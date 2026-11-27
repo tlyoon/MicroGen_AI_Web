@@ -4,6 +4,48 @@
   "scope": "MicroGen_AI_Web G2 normal forward engine initial executable integration; extend to other stages as each handler is verified",
   "entries": [
     {
+      "id": "AUTONOMOUS_CODE_NEXT_SOURCE_PINNED_JOB_20261127",
+      "match_type": "autonomous_independent_test_job_selection",
+      "signature": "CODE_AUTHOR_RUNNING_WITHOUT_NEW_SOURCE_PINNED_ELIGIBLE_JOB",
+      "mechanism": "STAGE_APPROVED_TEST_SHA_TO_DISTINCT_GIT_WORKTREE_ONCE",
+      "classification": "ACTIVE_WRITER_HAS_NO_ORIGINAL_PRETESTED_CODE_JOBS",
+      "handler": "NORMAL_STAGED_NEXT_SOURCE_PINNED_INDEPENDENT_CODE_TASK",
+      "preconditions": "Verified GitHub-main identity and immutable bounded independent pytest spec/catalog SHA",
+      "verification_test": "tests/test_development_autonomous_code_loop_v1.py plus isolated Dell catalogue",
+      "last_verified_date": "2026-11-27",
+      "environment": "Dell-115 source-pinned code writer with original one-claim Selenium transport",
+      "retry_policy": "Never recycle original code-job names; stage distinct SHA-bound test-only Git branch and move to next eligible original job",
+      "enabled": true
+    },
+    {
+      "id": "AUTONOMOUS_CODE_CANDIDATE_PROMOTION_20261127",
+      "match_type": "autonomous_verified_candidate_promotion",
+      "signature": "SOURCE_TESTED_CODE_JOB_STOPS_BEFORE_GITHUB_PR_WINDOWS_CI",
+      "mechanism": "JOURNAL_CAS_BRANCH_PR_EXACT_CI_MERGE_AND_DEPLOY_GATE",
+      "classification": "TESTED_MODEL_SOURCE_AWAITS_SOURCE_SHA_PR_WINDOWS_CI",
+      "handler": "NORMAL_EXACT_HEAD_SOURCE_VERIFIED_PR_AND_CI_PROMOTION",
+      "preconditions": "Frozen one-Send model reply, certified generated source/test SHA, independent actual pytest and authenticated GitHub protected main",
+      "verification_test": "tests/test_development_autonomous_code_loop_v1.py and bounded Dell real candidate",
+      "last_verified_date": "2026-11-27",
+      "environment": "Dell-115 authenticated gh REST and exact-head Windows checks",
+      "retry_policy": "Write ahead before every GitHub push/PR/merge, reconcile uncertain operations from exact remote SHA/PR/main without duplicate mutation",
+      "enabled": true
+    },
+    {
+      "id": "AUTONOMOUS_CODE_GUARDED_DUAL_WINDOWS_DEPLOY_20261127",
+      "match_type": "autonomous_certified_code_candidate_deployment",
+      "signature": "MERGED_AND_WINDOWS_CI_CERTIFIED_MODEL_CODE_AWAITS_GUARDED_PRODUCTION_CUTOVER",
+      "mechanism": "PIN_MERGED_TREE_GUARD_BOTH_WINDOWS_DAEMONS_AND_CONTINUE",
+      "classification": "GITHUB_MERGED_SOURCE_NEEDS_SAFE_DUAL_WORKER_DEPLOYMENT",
+      "handler": "NORMAL_BOTH_WINDOWS_WORKERS_GUARDED_CERTIFIED_CUTOVER",
+      "preconditions": "Exact PR head equal merged GitHub main tree, CI checks and protected old task owners with unmodified executor and original code-model journals",
+      "verification_test": "tests/test_development_autonomous_code_loop_v1.py plus guarded Dell real source merge",
+      "last_verified_date": "2026-11-27",
+      "environment": "Dell-115 dual interactive Limited Windows tasks, persistent v7.1 original state",
+      "retry_policy": "Use pinned original certified PowerShell templates, exact main Git SHA and independent owner readback; hold uncertain incomplete cutover",
+      "enabled": true
+    },
+    {
       "id": "PERSISTENT_SELENIUM_CODE_AUTHOR_ONE_SEND_20261126",
       "match_type": "persistent_selenium_code_author",
       "signature": "PERSISTENT_SOURCE_PINNED_CODE_JOB_NEEDS_REAL_MODEL_DISPATCH",
