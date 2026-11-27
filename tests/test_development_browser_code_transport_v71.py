@@ -256,7 +256,12 @@ def test_full_registry_growth_preserves_finite_schema_and_size_bounds(tmp_path):
     assert len(registry["entries"]) >= 2
     assert REGISTRY_PATH.stat().st_size > 65536
     excessive = tmp_path / "too_large_registry.json"
-    excessive.write_bytes(REGISTRY_PATH.read_bytes() + b" " * 70000)
+    from selenium_pipeline.recovery_registry import MAX_REGISTRY_BYTES
+    assert 131072 <= MAX_REGISTRY_BYTES <= 262144
+    padding = MAX_REGISTRY_BYTES + 1 - REGISTRY_PATH.stat().st_size
+    assert padding > 0
+    excessive.write_bytes(REGISTRY_PATH.read_bytes() + b" " * padding)
+    assert excessive.stat().st_size == MAX_REGISTRY_BYTES + 1
     with pytest.raises(ValueError, match="Invalid size"):
         load_registry(excessive)
 

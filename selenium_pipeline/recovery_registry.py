@@ -38,6 +38,12 @@ _HANDLERS = {
         "NORMAL_STAGE_G2_SOURCE_PREFLIGHT_KEEP_G3_SCIENCE_ON_HOLD",
     "persistent_selenium_code_author":
         "NORMAL_ISOLATED_ONE_CLAIM_BROWSER_SOURCE_AUTHOR_AND_PYTEST",
+    "autonomous_independent_test_job_selection":
+        "NORMAL_STAGED_NEXT_SOURCE_PINNED_INDEPENDENT_CODE_TASK",
+    "autonomous_verified_candidate_promotion":
+        "NORMAL_EXACT_HEAD_SOURCE_VERIFIED_PR_AND_CI_PROMOTION",
+    "autonomous_certified_code_candidate_deployment":
+        "NORMAL_BOTH_WINDOWS_WORKERS_GUARDED_CERTIFIED_CUTOVER",
     "daemon_owner_attestation": "NORMAL_V71_PROJECT_WIDE_OBSERVABLE_SUPERVISOR",
     "paid_api_scope": "NORMAL_SELENIUM_ONLY_GEMINI_EGRESS_GUARD",
     "request_cost_accounting": "NORMAL_DURABLE_GEMINI_REQUEST_COST_LEDGER",
@@ -100,16 +106,18 @@ _REQUIRED = {
     "environment", "retry_policy", "enabled",
 }
 _KINDS = frozenset(_HANDLERS)
+MAX_REGISTRY_BYTES = 262144  # Finite cap, with strict schema and 200-entry bound.
 
 
 def load_registry(path: Path | None = None) -> dict:
     target = Path(path or REGISTRY_PATH)
     if not target.is_file() or target.is_symlink():
         raise ValueError("Recovery registry absent or linked: stop before stage execution")
-    # Versioned registry has grown with executable, verified repairs. Retain
-    # finite 128-KiB byte cap PLUS the original strict 200-entry/schema gates;
-    # the legacy 64-KiB cap would otherwise strand all verified recoveries.
-    if not 0 < target.stat().st_size <= 131072:
+    # Executable recoveries are append-only, not an invitation to remove old
+    # handlers to satisfy a stale limit. Retain finite 256-KiB PLUS the strict
+    # 200-entry/schema/signature gates and per-field length bounds; the former
+    # 128-KiB limit stranded independent verified long-horizon repairs.
+    if not 0 < target.stat().st_size <= MAX_REGISTRY_BYTES:
         raise ValueError("Invalid size of persistent recovery registry")
     obj = json.loads(target.read_text(encoding="utf8"))
     if (type(obj) is not dict or obj.get("schema_version") != 1

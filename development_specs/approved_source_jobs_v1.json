@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "status": "MICROGEN_SOURCE_PINNED_NEXT_JOB_CATALOG_V1",
+  "paid_api_authorized": false,
+  "student_publication_authorized": false,
+  "jobs": [
+    {
+      "job_id": "g3_png_asset_coverage_v1",
+      "spec_path": "specs/g3_captioned_png_asset_coverage_v1.py",
+      "spec_sha256": "6f1cbe1a1c00bfe17a3d5705073e7981563d0282134c2c17b66c396df964c6f0",
+      "test": "tests/test_g3_captioned_png_asset_coverage_v1.py",
+      "target": "selenium_pipeline/g3_captioned_png_asset_coverage_v1.py",
+      "instruction": "Implement a pure Python function compare_g3_captioned_png_asset_coverage(expected_figures_by_slide, exported_figures_by_slide). Each input is a list of slides, each slide a list of caption identifiers. Return a dictionary with technical_asset_coverage_match, mismatched_slides as one-based slide numbers, independent_scientific_acceptance=False, independent_visual_semantic_acceptance=False, student_publication_authorized=False. Reject blanks, nonstrings, duplicates, missing slides and extra asset identifiers. Technical metadata matching alone never verifies the science or visual meaning.",
+      "selenium_mode": "hydrogen"
+    },
+    {
+      "job_id": "g3_narration_page_index_v1",
+      "spec_path": "specs/g3_narration_segment_page_index_v1.py",
+      "spec_sha256": "c08463039a9f3b6d0e1e7f1c36eb170beef3fbf7ddf535b3a595a155a591102e",
+      "test": "tests/test_g3_narration_segment_page_index_v1.py",
+      "target": "selenium_pipeline/g3_narration_segment_page_index_v1.py",
+      "instruction": "Implement pure Python function compare_g3_narration_segment_page_index(expected_page_ids, observed_page_ids) to compare ordered positive integer page IDs including length, duplicates, missing and reordered positions. Return technical_page_index_match, mismatched_positions as one-based positions, independent_scientific_acceptance=False, independent_acoustic_acceptance=False, student_publication_authorized=False. Boolean, negative, zero and string page indices are never valid. A technical page-index match is not independent review of speech, timing, physics or visuals.",
+      "selenium_mode": "hydrogen"
+    }
+  ]
+}
