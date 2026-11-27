@@ -106,6 +106,7 @@ _REQUIRED = {
     "environment", "retry_policy", "enabled",
 }
 _KINDS = frozenset(_HANDLERS)
+MAX_REGISTRY_BYTES = 262144  # Finite cap, with strict schema and 200-entry bound.
 
 
 def load_registry(path: Path | None = None) -> dict:
@@ -116,7 +117,7 @@ def load_registry(path: Path | None = None) -> dict:
     # handlers to satisfy a stale limit. Retain finite 256-KiB PLUS the strict
     # 200-entry/schema/signature gates and per-field length bounds; the former
     # 128-KiB limit stranded independent verified long-horizon repairs.
-    if not 0 < target.stat().st_size <= 262144:
+    if not 0 < target.stat().st_size <= MAX_REGISTRY_BYTES:
         raise ValueError("Invalid size of persistent recovery registry")
     obj = json.loads(target.read_text(encoding="utf8"))
     if (type(obj) is not dict or obj.get("schema_version") != 1
