@@ -682,9 +682,24 @@ def recover_printed_source_figures(folder: Path) -> dict:
     if registered_and_complete(source):
         return recover_source_figures_v3(folder)
     failed = []
-    for index in range(2):
-        stage = folder / (".microgen_source_caption_crop_stage_v1"
-                          + (f"_retry{index}" if index else ""))
+    stages = [
+        folder / ".microgen_source_caption_crop_stage_v1",
+        folder / ".microgen_source_caption_crop_stage_v1_retry1",
+    ]
+    # A source-SHA-pinned, reviewed new geometry registry is new recovery
+    # evidence, not permission to overwrite previously failed candidates.
+    # The original two attempts remain immutable. Exactly ONE new local
+    # candidate is eligible for each distinct source-specific override digest.
+    overrides = Path(__file__).with_name("source_crop_overrides_v1.json")
+    registry = json.loads(overrides.read_text(encoding="utf-8"))
+    source_overrides = registry.get("overrides", {}).get(source_sha)
+    if isinstance(source_overrides, dict) and source_overrides:
+        revision = hashlib.sha256(
+            json.dumps(source_overrides, sort_keys=True,
+                       separators=(",", ":")).encode("utf-8")).hexdigest()[:12]
+        stages.append(folder / (
+            ".microgen_source_caption_crop_stage_v1_override_" + revision))
+    for index, stage in enumerate(stages):
         if stage.exists():
             _require(stage.is_dir() and not stage.is_symlink(),
                      "Linked or foreign figure candidate directory")
@@ -719,6 +734,10 @@ def recover_printed_source_figures(folder: Path) -> dict:
             "previous_failed_local_attempts": failed,
             "academic_or_student_publication_approved": False,
         }
+    if len(stages) > 2:
+        raise FigureChainError(
+            "SOURCE_FIGURE_NEW_SHA_BOUND_OVERRIDE_RECOVERY_FAILED; "
+            "all old and revised source candidates preserved; no Gemini Send")
     raise FigureChainError(
         "SOURCE_FIGURE_LOCAL_RECOVERY_BOUNDED_TWO_ATTEMPTS_EXHAUSTED; "
         "candidate evidence retained; no Gemini or media release")

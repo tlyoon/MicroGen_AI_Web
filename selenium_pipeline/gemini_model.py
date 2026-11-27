@@ -564,6 +564,26 @@ def select_owned_gemini_with_recovery(
                 or os.getenv("MICROGEN_GEMINI_INTERACTION_STAGE","")
                 ).strip().casefold()
         offered=visible_offered_gemini_families(driver)
+        if not offered:
+            # On HP the old family can disappear while Angular closes the
+            # selected model menu during the strict Flash probe. Reopen the
+            # exact OWNED picker once and collect fresh atomic menu evidence.
+            # Never infer another family from surrounding page text or Send.
+            from .gemini_thinking import (
+                _open_owned_mode_picker_with_verified_fallback,
+                GeminiThinkingError)
+            try:
+                picker=_owned_picker(driver,owned_handle)
+                if (picker.get_attribute("aria-expanded") or "").lower() != "true":
+                    _open_owned_mode_picker_with_verified_fallback(
+                        driver,owned_handle,picker,allow_model_switch=True)
+                for _ in range(6):
+                    offered=visible_offered_gemini_families(driver)
+                    if offered:
+                        break
+                    time.sleep(0.25)
+            except (GeminiModelError,GeminiThinkingError):
+                offered=[]
         if not offered or mode in offered:
             raise GeminiModelError(
                 "PRE_SEND_MODEL_FALLBACK_NOT_AUTHORIZED_WITHOUT_EXACT_MENU_EVIDENCE"
