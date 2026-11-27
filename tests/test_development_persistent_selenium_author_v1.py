@@ -415,6 +415,111 @@ def test_untrusted_python_compilation_and_code_prose_stay_rejected():
         author.parse_reply("Gemini said\nPython\n"+valid+"print('extra')\n")
 
 
+@pytest.mark.parametrize("name,sha_expected", [
+    ("g3_wav_slide_alignment_v1",
+     "6f061994beced5279acd40d1c1c941529b3a9519864e363911d67d33e1fae1f6"),
+    ("g3_mp4_page_alignment_v1",
+     "c280e99a971c63a764e9db515de6c596d120d80e413d5c322b7d4a5afb84d1ee"),
+])
+def test_original_local_empty_set_reply_recovers_without_model_resend(
+        env,name,sha_expected):
+    from selenium_pipeline.development_g2g3_requirement_task_factory_v1 import (
+        compile_independent_test)
+    root,repo,old=env
+    rules=json.loads((Path(__file__).parent.parent /
+       "development_specs"/"g2g3_technical_requirement_rules_v1.json").read_text())
+    rule=next(row for row in rules["requirements"] if row["id"]==name)
+    independent=compile_independent_test(rule)
+    test=repo/"tests"/("test_"+name+".py")
+    test.write_bytes(independent)
+    _git(repo,"add","--","tests/"+test.name)
+    _git(repo,"commit","-m","Immutable independently reviewed G3 ordering tests")
+    claim=json.loads(old.read_text())
+    claim["job_id"]=name
+    claim["base_sha"]=_git(repo,"rev-parse","HEAD")
+    claim["target"]="selenium_pipeline/"+name+".py"
+    claim["target_original_sha256"]=None
+    claim["test"]="tests/"+test.name
+    claim["test_sha256"]=author.sha(test)
+    claim["context_path"]=claim["test"]
+    claim["context_sha256"]=claim["test_sha256"]
+    claim["instruction"]=rule["instruction"]
+    old.unlink()
+    job=root/"inbox"/(name+".json")
+    job.write_text(json.dumps(claim))
+    state_dir=root/"state"/name
+    state_dir.mkdir()
+    raw=state_dir/"original_model_reply.txt"
+    fixture=Path(__file__).parent/"fixtures"/(name+"_original_ui_python_v1.txt")
+    assert author.sha(fixture)==sha_expected
+    raw.write_bytes(fixture.read_bytes())
+    prior=dict(schema_version=1,status="UNSAFE_MODEL_REPLY_QUARANTINED",
+         job_sha256=author.sha(job),base_sha=claim["base_sha"],
+         job_id=name,model_claims=1,model_sends=1,
+         model_reply_sha256=author.sha(raw),
+         paid_api_requests=0,student_publication_authorized=False,
+         candidate_merged=False)
+    (state_dir/"coding_state.json").write_text(json.dumps(prior))
+    def no_send(_):
+        raise AssertionError("Uncertain model request must never be replayed")
+    first=author.scan(root=root,sender=no_send)
+    assert first["jobs"][0]["status"]=="SOURCE_CANDIDATE_TESTED_NO_PUBLICATION",first
+    saved=json.loads((state_dir/"coding_state.json").read_text())
+    assert saved["pytest_exit_code"]==0,saved
+    assert saved["model_claims"]==saved["model_sends"]==1
+    assert saved["paid_api_requests"]==0
+    assert saved["student_publication_authorized"] is False
+    assert author.sha(raw)==sha_expected
+    assert author.sha(repo/claim["target"])==saved["candidate_sha256"]
+    second=author.scan(root=root,sender=no_send)
+    assert second["jobs"][0]["status"]=="SOURCE_CANDIDATE_TESTED_NO_PUBLICATION"
+    assert author.sha(raw)==sha_expected
+
+
+def test_add_requires_nonshadowed_single_local_empty_set():
+    source=('def pure(value):\n'
+            '    seen = set()\n'
+            '    for x in value:\n'
+            '        seen.add(x)\n'
+            '    return len(seen)\n')
+    assert author.validate_source(source).rstrip()==source.rstrip()
+    assert author.lookup_mechanism(
+        "persistent_selenium_code_author",
+        "SOURCE_BOUNDED_LOCAL_EMPTY_SET_ADDITION") == (
+        "ALLOW_ONLY_ONE_NONSHADOWED_LOCAL_SET_ADD_THEN_AST_PYTEST")
+    unsafe=(
+        source.replace('    seen = set()','    seen = []'),
+        source.replace('    seen = set()','    seen = set()\n    seen = value'),
+        source.replace('    seen.add(x)','    value.add(x)'),
+        source.replace('def pure(value):','def pure(value, seen):'),
+        source.replace('    seen = set()',
+                       '    set = value\n    seen = set()'),
+        source.replace('    seen.add(x)',
+                       '    seen.add(x)\n    seen.add(x, x)'),
+        source.replace('    seen = set()','    seen.add(value)\n    seen = set()'),
+    )
+    for candidate in unsafe:
+        with pytest.raises(ValueError):
+            author.validate_source(candidate)
+
+
+def test_original_unknown_set_add_source_is_never_silently_reinterpreted():
+    files=list((Path(__file__).parent/"fixtures").glob(
+        "g3_*alignment_v1_original_ui_python_v1.txt"))
+    assert len(files)==2
+    for path in files:
+        raw=path.read_text("utf8")
+        clean=author.parse_reply(raw)
+        assert clean.rstrip()==raw.removeprefix("Gemini said\nPython\n").rstrip()
+        altered=raw.replace("seen.add(item)", "value.add(item)")
+        if altered==raw:
+            altered=raw.replace("seen_pages.add(page_index)",
+                                "value.add(page_index)")
+        assert altered!=raw
+        with pytest.raises(ValueError):
+            author.parse_reply(altered)
+
+
 def test_different_pending_jobs_are_processed_after_one_fails(env):
     root, repo, job = env
     old = json.loads(job.read_text())
