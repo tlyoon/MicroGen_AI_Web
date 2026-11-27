@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "status": "MICROGEN_G2G3_SOURCE_GROUNDED_TECHNICAL_TASK_RULES_V1",
+  "paid_api_authorized": false,
+  "student_publication_authorized": false,
+  "requirements": [
+    {
+      "id": "g3_caption_latex_inventory_v1",
+      "gate": "g3_source_complete_qa_open",
+      "kind": "set_coverage",
+      "function": "compare_g3_caption_latex_inventory",
+      "output": "technical_caption_latex_match",
+      "false_flags": [
+        "independent_scientific_acceptance",
+        "independent_visual_semantic_acceptance",
+        "student_publication_authorized"
+      ],
+      "instruction": "Implement compare_g3_caption_latex_inventory(source_caption_ids, latex_figure_ids) as a pure function to reconcile original source.pdf caption identifiers with rendered Beamer LaTeX graphic identifiers, ignoring ordering. Both inputs must be nonempty lists of unique, nonblank ASCII alphanumeric caption IDs with optional internal dot, underscore or hyphen separators, not file paths or .png extensions. Return exact keys technical_caption_latex_match, missing_ids, unexpected_ids, invalid_input, independent_scientific_acceptance, independent_visual_semantic_acceptance and student_publication_authorized. Invalid inputs return mismatch, invalid_input=True and empty missing/unexpected lists; valid sets return sorted differences. Both independent acceptances and publication must always be False. Only metadata, not visual meaning."
+    },
+    {
+      "id": "g3_wav_slide_alignment_v1",
+      "gate": "g3_source_complete_qa_open",
+      "kind": "ordered_alignment",
+      "function": "compare_g3_wav_slide_alignment",
+      "output": "technical_wav_slide_match",
+      "false_flags": [
+        "independent_acoustic_acceptance",
+        "independent_scientific_acceptance",
+        "student_publication_authorized"
+      ],
+      "instruction": "Implement compare_g3_wav_slide_alignment(expected_slide_ids, wav_slide_ids) as a pure technical mapping check for narration WAV segment slide indices against source slide indices, preserving order. Inputs must be nonempty lists of distinct positive integers (not bool); invalid input returns technical_wav_slide_match=False, mismatched_positions=[], invalid_input=True. For valid inputs compare positions one-based, including missing and extra tail positions. Return exact keys technical_wav_slide_match, mismatched_positions, invalid_input, independent_acoustic_acceptance, independent_scientific_acceptance, student_publication_authorized. All acceptance and publication flags must remain False. This does not verify pronunciation or audio quality."
+    },
+    {
+      "id": "g3_mp4_page_alignment_v1",
+      "gate": "g3_source_complete_qa_open",
+      "kind": "ordered_alignment",
+      "function": "compare_g3_mp4_page_alignment",
+      "output": "technical_mp4_page_match",
+      "false_flags": [
+        "independent_video_acceptance",
+        "independent_scientific_acceptance",
+        "student_publication_authorized"
+      ],
+      "instruction": "Implement compare_g3_mp4_page_alignment(expected_page_indices, rendered_video_page_indices) as a pure metadata check for segment-to-page correspondence in exported MP4 lecture video. Inputs must be nonempty lists of distinct positive integers, with bool excluded. Invalid input returns technical_mp4_page_match=False, mismatched_positions=[], invalid_input=True. For valid inputs, report exactly the one-based positions where the page differs or one list lacks an item. Return exact keys technical_mp4_page_match, mismatched_positions, invalid_input, independent_video_acceptance, independent_scientific_acceptance, student_publication_authorized. Acceptance and publication flags always False; no synchronized highlight or visual semantics claims."
+    },
+    {
+      "id": "g2_reviewer_source_coverage_v1",
+      "gate": "g2_source_review_evidence_open",
+      "kind": "set_coverage",
+      "function": "compare_g2_reviewer_source_coverage",
+      "output": "technical_reviewer_source_coverage_match",
+      "false_flags": [
+        "independent_reviewer_agreement_established",
+        "independent_scientific_acceptance",
+        "student_publication_authorized"
+      ],
+      "instruction": "Implement compare_g2_reviewer_source_coverage(source_slide_identifiers, reviewer_evidence_slide_identifiers) as a pure metadata coverage check that the G2 independent reviewer submitted evidence references for the corresponding original source slide identifiers. Both inputs must be nonempty lists of distinct nonblank ASCII alphanumeric IDs with optional internal dot, underscore, hyphen separators; reject paths, .png extensions and duplicates. Return exact keys technical_reviewer_source_coverage_match, missing_ids, unexpected_ids, invalid_input, independent_reviewer_agreement_established, independent_scientific_acceptance, student_publication_authorized. Invalid input fails closed with empty lists; valid inputs compare sets with sorted differences. Reviewer agreement, scientific acceptance and publication always False; source-reference matching alone does not establish valid physics."
+    }
+  ]
+}

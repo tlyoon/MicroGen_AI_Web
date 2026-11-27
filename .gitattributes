@@ -4,4 +4,5 @@ selenium_pipeline/vendor_template_v2/** -whitespace
 # Original source-pinned catalog/tests must never undergo Windows CRLF conversion.
 development_specs/* -text
 development_specs/specs/*.py -text
+development_specs/g2g3_technical_requirement_rules_v1.json -text
 tests/fixtures/g3_pdf_caption_png_inventory_original_reply_v1.txt -text
