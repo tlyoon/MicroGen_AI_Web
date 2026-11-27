@@ -31,9 +31,6 @@ def env(tmp_path):
     main=tmp_path/"main"
     main.mkdir()
     git(main,"init","-b","main")
-    # Pin deterministic test Git EOL handling; production Windows checkout
-    # differences are injected explicitly by the CRLF regression fixtures.
-    git(main,"config","core.autocrlf","false")
     git(main,"config","user.name","MicroGen safe test")
     git(main,"config","user.email","source-only@example.invalid")
     (main/"selenium_pipeline").mkdir()
@@ -259,6 +256,9 @@ def test_source_test_candidate_gets_real_git_commit_but_not_double_push(env,monk
 
 def _put_original_on_main_with_crlf(env, path):
     job=json.loads(path.read_text())
+    # Prevent the Windows global autocrlf filter from double-transforming
+    # the deliberately CRLF-encoded fixture during the Git comparison.
+    git(env["main"],"config","core.autocrlf","false")
     for item in (job["target"], job["test"]):
         original=(Path(job["repo"])/item).read_bytes()
         assert b"\r" not in original.replace(b"\r\n", b"")
