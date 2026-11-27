@@ -96,10 +96,24 @@ def cycle(*,backlog_root:Path,control_root:Path,catalog_path:Path,
         saved=json.loads(previous.read_text(encoding="utf8"))
         if saved.get("status")!="MERGED_AWAITING_GUARDED_CUTOVER":
             continue
+        # The guarded cutover switches the read-only daemon FIRST. After a
+        # crash, the next cycle sees the NEW checkout from Task Scheduler,
+        # while the code writer might still be on the OLD checkout. Pin the
+        # old owner before any Windows side effect, and keep it across
+        # restarts until both workers are independently attested.
+        from .development_verified_candidate_promotion_v1 import save
+        if "deployment_original_repo" not in saved:
+            saved["deployment_original_repo"]=str(main_repo)
+            save(previous,saved)
+        old=Path(saved["deployment_original_repo"]).absolute()
+        if (not old.is_dir() or old.is_symlink()
+                or not old.is_relative_to(cutover_root)
+                or old==cutover_root):
+            raise ValueError("Original guarded deployment checkout was lost")
         item=deploy_fn(
             number=saved["pr_number"],
             head_sha=saved["promotion_commit_sha"],
-            cutover_root=cutover_root,current_repo=main_repo,
+            cutover_root=cutover_root,current_repo=old,
             template_root=template_root,record_root=control_root)
         result["jobs"].append({"id":job.stem,
                                "status":item["status"],

@@ -499,3 +499,34 @@ def test_windows_checkout_retains_exact_approved_catalog_and_spec_sha():
         attr=git(base,"check-attr","text","--",
                  "development_specs/"+source.name)
         assert attr.endswith("text: unset")
+
+
+def test_partial_guarded_cutover_restart_preserves_original_repo_identity(env):
+    """First task switched, next cycle must NOT call new main its old repo."""
+    cutoff=env["control"]
+    original=cutoff/"post_pr801_main"
+    new=cutoff/"post_pr802_main"
+    original.mkdir()
+    new.mkdir()
+    job=env["backlog"]/"inbox"/"partial_deploy_v1.json"
+    job.write_text('{"source_pinned":true}')
+    receipt=cutoff/"promotions"/"partial_deploy_v1.json"
+    receipt.write_text(json.dumps({
+        "status":"MERGED_AWAITING_GUARDED_CUTOVER",
+        "pr_number":802,"promotion_commit_sha":"c"*40}))
+    observed=[]
+    def deploy(**kw):
+        observed.append(kw["current_repo"])
+        return {"status":("DAEMON_SWITCHED_WRITER_PENDING"
+                          if len(observed)==1 else "GUARDED_DEPLOYED")}
+    kw=dict(backlog_root=env["backlog"],control_root=cutoff,
+            catalog_path=env["catalog"],template_root=cutoff,
+            cutover_root=cutoff,deploy_fn=deploy,
+            select_fn=lambda **kw:pytest.fail("Unexpected new code job"))
+    a=controller.cycle(**kw,main_repo=original)
+    assert a["jobs"][0]["status"]=="DAEMON_SWITCHED_WRITER_PENDING"
+    assert json.loads(receipt.read_text())["deployment_original_repo"] == str(original)
+    b=controller.cycle(**kw,main_repo=new)
+    assert b["jobs"][0]["status"]=="GUARDED_DEPLOYED"
+    assert observed==[original,original]
+    assert json.loads(receipt.read_text())["status"]=="GUARDED_DEPLOYED"
