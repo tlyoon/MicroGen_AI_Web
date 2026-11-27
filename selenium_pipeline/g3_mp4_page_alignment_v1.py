@@ -1,0 +1,47 @@
+def compare_g3_mp4_page_alignment(expected_page_indices, rendered_video_page_indices):
+    is_valid = True
+    for sequence in (expected_page_indices, rendered_video_page_indices):
+        if not isinstance(sequence, list) or len(sequence) == 0:
+            is_valid = False
+            break
+        seen_pages = set()
+        for page_index in sequence:
+            if isinstance(page_index, bool) or not isinstance(page_index, int) or page_index <= 0:
+                is_valid = False
+                break
+            if page_index in seen_pages:
+                is_valid = False
+                break
+            seen_pages.add(page_index)
+        if not is_valid:
+            break
+
+    if not is_valid:
+        return {
+            "technical_mp4_page_match": False,
+            "mismatched_positions": [],
+            "invalid_input": True,
+            "independent_video_acceptance": False,
+            "independent_scientific_acceptance": False,
+            "student_publication_authorized": False,
+        }
+
+    expected_len = len(expected_page_indices)
+    rendered_len = len(rendered_video_page_indices)
+    max_len = expected_len if expected_len >= rendered_len else rendered_len
+    mismatched_positions = []
+
+    for index in range(max_len):
+        if index >= expected_len or index >= rendered_len:
+            mismatched_positions.append(index + 1)
+        elif expected_page_indices[index] != rendered_video_page_indices[index]:
+            mismatched_positions.append(index + 1)
+
+    return {
+        "technical_mp4_page_match": len(mismatched_positions) == 0,
+        "mismatched_positions": mismatched_positions,
+        "invalid_input": False,
+        "independent_video_acceptance": False,
+        "independent_scientific_acceptance": False,
+        "student_publication_authorized": False,
+    }
