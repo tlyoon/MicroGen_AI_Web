@@ -161,6 +161,7 @@ def validate_source(source: str):
                             "replace", "get", "items", "keys", "values",
                             "append", "extend", "count", "index",
                             "match", "fullmatch", "search", "sub",
+                            "isfinite",
                             "find", "findall", "join",
                         }, "Untrusted non-pure method call")
     return source.rstrip() + "\n"
@@ -183,15 +184,33 @@ def parse_reply(raw: str) -> str:
         raw = raw[len("Gemini said\n\n"):]
         restored = []
         inside = False
+        signature = False
         for line in raw.splitlines():
-            if line.startswith("def ") and line.endswith(":"):
-                inside = True
-            elif line.startswith(("import ", "from ", "class ")):
-                # Other top-level constructs are forbidden in flattened mode.
-                require(not inside, "Ambiguous flattened Gemini module scope")
+            if line.startswith("def "):
+                require(not inside and not signature,
+                        "Ambiguous multiple flattened code functions")
+                require("(" in line, "Missing original function parameters")
+                if line.rstrip().endswith(":"):
+                    inside = True
+                else:
+                    require(line.rstrip().endswith("("),
+                            "Only multiline open-parameter function header allowed")
+                    signature = True
+            elif signature:
+                if line.strip() == "):":
+                    signature = False
+                    inside = True
+                else:
+                    require(bool(line.strip()) and not line.startswith(
+                        ("import ", "from ", "class ", "def ")),
+                        "Ambiguous multiline function signature")
             elif inside and line and not line.startswith((" ", "\t")):
+                require(not line.startswith((
+                    "import ", "from ", "class ", "def ")),
+                    "Ambiguous flattened model body scope")
                 line = "    " + line
             restored.append(line)
+        require(not signature, "Unclosed original multi-line function header")
         raw = "\n".join(restored)
     fence = chr(96) * 3
     if raw.startswith(fence + "python"):

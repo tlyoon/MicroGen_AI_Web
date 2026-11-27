@@ -314,3 +314,65 @@ def test_completed_code_candidate_survives_original_git_commit(env):
     after = author.step(root=root, job_path=job, sender=forbidden)
     assert after["status"] == first["status"]
     assert after["candidate_sha256"] == first["candidate_sha256"]
+
+
+G3_FLATTENED_MULTI_LINE = (
+    'Gemini said\n\n'
+    '"""Technical original response."""\n'
+    'import math\n\n'
+    'def compare_g3_audio_video_page_durations(\n'
+    'wav_durations_ms, frame_durations_ms, tolerance_ms\n'
+    '):\n'
+    '"""Only technical page timing; never academic acceptance."""\n'
+    'page_count = max(len(wav_durations_ms), len(frame_durations_ms))\n'
+    'mismatched_pages = [\n'
+    'idx + 1\n'
+    'for idx in range(page_count)\n'
+    'if not (\n'
+    'idx < len(wav_durations_ms)\n'
+    'and idx < len(frame_durations_ms)\n'
+    'and math.isfinite(wav_durations_ms[idx])\n'
+    'and abs(wav_durations_ms[idx] - frame_durations_ms[idx]) <= tolerance_ms\n'
+    ')\n'
+    ']\n'
+    'return {\n'
+    '"technical_timing_match": bool(page_count > 0 and not mismatched_pages),\n'
+    '"mismatched_pages": mismatched_pages,\n'
+    '"independent_scientific_acceptance": False,\n'
+    '"independent_acoustic_acceptance": False,\n'
+    '"student_publication_authorized": False,\n'
+    '}\n'
+)
+
+
+def test_original_g3_multiline_signature_and_comprehension_recovered():
+    import ast
+    recovered = author.parse_reply(G3_FLATTENED_MULTI_LINE)
+    ast.parse(recovered)
+    assert "def compare_g3_audio_video_page_durations(\n" in recovered
+    assert "\n    page_count = max(" in recovered
+    assert "\n    return {\n" in recovered
+    assert "\n    for idx in range(page_count)\n" in recovered
+
+
+def test_unclosed_multiline_signature_not_normalized():
+    bad = (
+        'Gemini said\n\n'
+        'def compare_g3_audio_video_page_durations(\n'
+        'argument, another\n'
+        'return argument\n'
+    )
+    with pytest.raises(ValueError):
+        author.parse_reply(bad)
+
+
+def test_second_flattened_function_cannot_masquerade_as_body():
+    bad = (
+        'Gemini said\n\n'
+        'def first_valid_function():\n'
+        'return 5\n\n'
+        'def unapproved_second_function():\n'
+        'return 6\n'
+    )
+    with pytest.raises(ValueError, match="multiple flattened"):
+        author.parse_reply(bad)
