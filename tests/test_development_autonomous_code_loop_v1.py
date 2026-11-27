@@ -483,3 +483,19 @@ def test_catalog_changed_after_original_source_review_holds_without_git(env):
                         backlog_root=env["backlog"],
                         repo_root=env["main"],git=fake_git(env["main"]))
     assert not list((env["backlog"]/"inbox").glob("*.json"))
+
+
+def test_windows_checkout_retains_exact_approved_catalog_and_spec_sha():
+    """Actual cloned Windows worktree must not CRLF-mutate source identities."""
+    base=Path(__file__).parent.parent
+    spec_dir=base/"development_specs"
+    catalog=spec_dir/"approved_source_jobs_v1.json"
+    expected="cbec12b6286e0d9225cb8b7ca8933f6c71dd31b21810e4f074f569ac6ca46a7c"
+    assert sha(catalog)==expected
+    cfg=json.loads(catalog.read_text())
+    for row in cfg["jobs"]:
+        source=spec_dir/Path(row["spec_path"]).name
+        assert sha(source)==row["spec_sha256"]
+        attr=git(base,"check-attr","text","--",
+                 "development_specs/"+source.name)
+        assert attr.endswith("text: unset")

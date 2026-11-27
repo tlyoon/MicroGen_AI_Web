@@ -1,2 +1,5 @@
 # Preserve original legacy source exactly; inherited whitespace is not a new-code defect.
 selenium_pipeline/vendor_template_v2/** -whitespace
+
+# Original source-pinned catalog/tests must never undergo Windows CRLF conversion.
+development_specs/* -text
