@@ -121,7 +121,7 @@ def test_registry_integrated_and_templates_are_independent():
     assert lookup_mechanism(factory.KIND, factory.SIGNATURE) == factory.MECHANISM
     path = Path(__file__).parent.parent / factory.MANIFEST
     rules = json.loads(path.read_text())
-    assert len(rules["requirements"]) == 4
+    assert len(rules["requirements"]) == 6
     assert rules["paid_api_authorized"] is False
     for rule in rules["requirements"]:
         source = factory.compile_independent_test(rule)
@@ -164,7 +164,7 @@ def test_repeated_dispatch_never_reuses_claim_or_mutates_existing_model_job(env)
     assert job.read_bytes() == frozen
     assert first_receipt.read_bytes() == receipt_bytes
     outputs = {original["job"], another["job"]}
-    for _ in range(2):
+    for _ in range(4):
         new = call(env)
         assert new["new_coding_jobs"] == 1
         assert new["job"] not in outputs
@@ -172,7 +172,7 @@ def test_repeated_dispatch_never_reuses_claim_or_mutates_existing_model_job(env)
     last = call(env)
     assert last["status"] == "SOURCE_G2G3_REQUIREMENT_TEST_JOBS_EXHAUSTED"
     assert last["new_coding_jobs"] == 0
-    assert len(outputs) == 4
+    assert len(outputs) == 6
 
 
 def test_closed_or_unknown_g2g3_status_never_invents_a_code_task(env):
@@ -231,7 +231,8 @@ def test_no_unverified_approval_or_acoustic_video_claim_in_test_program(env):
     rules = json.loads((env["main"] / factory.MANIFEST).read_text())
     for rule in rules["requirements"]:
         program = factory.compile_independent_test(rule).decode()
-        assert 'all(result[name] is False for name in FLAGS)' in program
+        assert ("all(result[name] is False for name in FLAGS)" in program
+                or "all(row[k] is False for k in FLAGS)" in program)
         assert 'technical_' in rule["output"]
         assert "independent_scientific_acceptance" in rule["false_flags"]
 
@@ -250,3 +251,34 @@ def test_technical_oracle_fails_incorrect_model_implementation(env):
                        cwd=working, capture_output=True, text=True, timeout=45)
     assert r.returncode != 0
     assert "failed" in r.stdout.lower() or "error" in r.stdout.lower()
+
+
+@pytest.mark.parametrize("rule_kind", ["review_provenance", "highlight_timing"])
+def test_new_source_grounded_oracle_rejects_false_positive_stub(tmp_path, rule_kind):
+    """A technical pass/approval fabricated by the coder must fail the oracle."""
+    rules = json.loads((Path(__file__).parent.parent / factory.MANIFEST).read_text())
+    rule, = [row for row in rules["requirements"] if row["kind"] == rule_kind]
+    package = tmp_path / "selenium_pipeline"
+    package.mkdir()
+    (package / "__init__.py").write_text("")
+    (package / (rule["id"] + ".py")).write_text(
+        "def " + rule["function"] + "(*args):\n"
+        "    return {"
+        + repr(rule["output"]) + ": True, "
+        + repr("invalid_input") + ": False, "
+        + repr("conflicting_fields" if rule_kind == "review_provenance"
+               else "mismatched_segments") + ": [], "
+        + ", ".join(repr(flag) + ": True" for flag in rule["false_flags"])
+        + "}\n")
+    tests = tmp_path / "tests"
+    tests.mkdir()
+    test = tests / ("test_" + rule["id"] + ".py")
+    test.write_bytes(factory.compile_independent_test(rule))
+    # Explicit PYTHONPATH isolates the exact false model module.
+    import os
+    environment = dict(os.environ, PYTHONPATH=str(tmp_path))
+    run = subprocess.run([sys.executable, "-m", "pytest", "-q", str(test)],
+                         cwd=tmp_path, env=environment,
+                         capture_output=True, text=True, timeout=45)
+    assert run.returncode != 0
+    assert "failed" in run.stdout.lower() or "error" in run.stdout.lower()
