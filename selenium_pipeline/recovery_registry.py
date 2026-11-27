@@ -40,6 +40,8 @@ _HANDLERS = {
         "NORMAL_ISOLATED_ONE_CLAIM_BROWSER_SOURCE_AUTHOR_AND_PYTEST",
     "autonomous_independent_test_job_selection":
         "NORMAL_STAGED_NEXT_SOURCE_PINNED_INDEPENDENT_CODE_TASK",
+    "autonomous_g2g3_requirement_test_derivation":
+        "NORMAL_SOURCE_GROUNDED_TEST_COMPILER_AND_ONE_CLAIM_DISPATCH",
     "autonomous_verified_candidate_promotion":
         "NORMAL_EXACT_HEAD_SOURCE_VERIFIED_PR_AND_CI_PROMOTION",
     "autonomous_certified_code_candidate_deployment":

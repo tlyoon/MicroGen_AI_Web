@@ -207,6 +207,9 @@ def select(*,catalog_path:Path,backlog_root:Path,repo_root:Path,
                 "test_sha256":row["spec_sha256"],
                 "model_sends":0,"paid_api_requests":0,
                 "student_publication_authorized":False}
-    return {"status":"NO_NEW_APPROVED_SOURCE_TEST_JOBS",
-            "new_coding_jobs":0,"model_sends":0,"paid_api_requests":0,
-            "student_publication_authorized":False}
+    # When the pre-reviewed finite catalog is exhausted, construct new
+    # independent technical tests from verified unresolved G2/G3 milestones.
+    # The compiler itself is reviewed on protected GitHub main and requires
+    # a live source checkpoint; it never generates scientific acceptance.
+    from .development_g2g3_requirement_task_factory_v1 import derive
+    return derive(backlog_root=backlog_root,repo_root=repo_root,git=git)

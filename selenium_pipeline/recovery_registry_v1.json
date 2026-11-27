@@ -18,6 +18,20 @@
       "enabled": true
     },
     {
+      "id": "AUTONOMOUS_G2G3_REQUIREMENT_TEST_FACTORY_20261127",
+      "match_type": "autonomous_g2g3_requirement_test_derivation",
+      "signature": "G2_G3_QA_GAPS_PERSIST_WHILE_REVIEWED_SOURCE_JOB_CATALOG_EXHAUSTED",
+      "mechanism": "PIN_CHECKPOINT_AND_GENERATE_INDEPENDENT_TECHNICAL_TEST_ONCE",
+      "classification": "REVIEWED_TECHNICAL_WORK_REQUIREMENTS_UNEXECUTED_WHILE_G2_G3_EVIDENCE_GATES_OPEN",
+      "handler": "NORMAL_SOURCE_GROUNDED_TEST_COMPILER_AND_ONE_CLAIM_DISPATCH",
+      "preconditions": "Exact clean protected GitHub main and version-controlled requirement rules; current live G2/G3 open gate and zero student publication; one SHA-pinned independent test per new source requirement",
+      "verification_test": "tests/test_development_g2g3_requirement_task_factory_v1.py and tests/test_development_autonomous_code_loop_v1.py with duplicate/tamper/no-replay fault injection",
+      "last_verified_date": "2026-11-27",
+      "environment": "Dell-115 long-horizon code author and G2/G3 source-grounded checkpoints",
+      "retry_policy": "Do not invent academic acceptance; compile only deterministic reviewed technical tests and freeze original job claim once; quarantine unknown evidence and never replay a Selenium Send",
+      "enabled": true
+    },
+    {
       "id": "AUTONOMOUS_MAIN_TRACKED_TEST_CATALOG_RENEWAL_20261127",
       "match_type": "autonomous_independent_test_job_selection",
       "signature": "SOURCE_PINNED_CATALOG_EXHAUSTED_LOCAL_COPY_WHILE_REVIEWED_GIT_MAIN_ADVANCES",
