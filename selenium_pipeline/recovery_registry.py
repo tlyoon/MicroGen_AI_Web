@@ -44,6 +44,8 @@ _HANDLERS = {
         "NORMAL_SOURCE_GROUNDED_TEST_COMPILER_AND_ONE_CLAIM_DISPATCH",
     "long_horizon_windows_task_self_heal":
         "NORMAL_SOURCE_GUARDED_WINDOWS_RECURRING_OWNER_RECOVERY",
+    "ci_merged_old_daemon_cutover_reentry":
+        "NORMAL_FIVE_MINUTE_NATIVE_WATCHDOG_WITH_ONE_CI_MERGE_IDENTITY_BRIDGE",
     "autonomous_verified_candidate_promotion":
         "NORMAL_EXACT_HEAD_SOURCE_VERIFIED_PR_AND_CI_PROMOTION",
     "autonomous_certified_code_candidate_deployment":

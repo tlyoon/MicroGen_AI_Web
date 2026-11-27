@@ -213,11 +213,29 @@ def tick(*, ps=native_ps, runner=subprocess.run,
             "Watchdog checkpoint root not owned by local account")
     native=native_snapshot(ps=ps)
     repo=_owner_verified(native)
-    main_sha=_verified_main(repo,runner)
     beat_file=root/"RECONCILE_20261125"/"live_state_migrated_v1"/"daemon_heartbeat.json"
     hb=_read_heartbeat(beat_file)
     instant=now if now is not None else dt.datetime.now(dt.timezone.utc)
     decision,_=eligible(native,hb,instant)
+    pending=None
+    try:
+        main_sha=_verified_main(repo,runner)
+    except ValueError:
+        # Source drift NEVER admits an arbitrary old daemon. Only an EXACT
+        # one-claim model-code promotion that is already merged with both
+        # independent Windows CI checks may restart the old owner required
+        # by the original guarded cutover mechanism.
+        require(decision in ("START_ORIGINAL_OFFLINE_DAEMON",
+                             "START_ORIGINAL_PROMOTION_CONTROLLER",
+                             "BOTH_CONTROLLERS_RUNNING")
+                and (decision != "START_ORIGINAL_OFFLINE_DAEMON"
+                     or (hb.get("running") is False
+                         and hb.get("status") == "STOPPED")),
+                "Uncertified stale daemon or ambiguous live source drift")
+        from .development_pending_merge_restart_bridge_v1 import verify
+        pending=verify(old_repo=repo,controller_root=CONTROLLER_ROOT,
+                       runner=runner)
+        main_sha=pending["merged_sha"]
     acted=[]
     if decision == "START_ORIGINAL_OFFLINE_DAEMON":
         _start_exact_task(TASK_DAEMON,ps=ps)
@@ -252,6 +270,9 @@ def tick(*, ps=native_ps, runner=subprocess.run,
             "native_task_starts":acted,"provider_sends":0,"paid_api_requests":0,
             "student_publication_authorized":False,
             "checked_utc":dt.datetime.now(dt.timezone.utc).isoformat()}
+    if pending is not None:
+        status["verified_merged_code_cutover"]=pending
+        status["prior_revision_restart_authorized_by_exact_windows_ci"]=True
     _record(CONTROLLER_ROOT/"native_health_watchdog_v1.json",status)
     return status
 
