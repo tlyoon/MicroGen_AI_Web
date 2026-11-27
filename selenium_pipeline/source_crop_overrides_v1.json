@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "description": "Original-PDF-SHA and printed-figure-ID pinned geometry. Crops must still pass panel, source-pixel and edge verification. One specifically registered figure uses a COMPLETE printed caption because the diagram and caption physically share the same source rectangle; partial caption crops are never accepted. Chapter 9 verified source-bound geometry migrated from Yoga 6 v3; all original page/caption, source-pixel and visual checks remain mandatory. Chapter 11 v3 recovery adds five original-PDF-SHA-pinned, source-pixel/edge/panel verified crops for defective 11.1, 11.3 and 11.5. Section 1.1 Figure 1.1(a,b) includes two vertically stacked printed source photos, with a/b labels immediately below each photo. Exact source-SHA-pinned rectangular crop includes both panels and both labels, remains disjoint from the caption, and must pass pixel/edge QA. Section 1.2 printed Figures 1.2–1.5 use exact original-PDF-SHA-pinned vector geometry with full physical object bounds, disjoint printed captions, zero edge clipping, and source-raster reconstruction verification; old failed source-bound candidate directories must be retained. Serway 1.3, 1.4 and 1.5 share original Figure 1.6. Three exact original PDF SHA profiles include the full unaltered raster graphic in a distinct page and never overlap the printed caption. The same original source bitmap, mandatory object containment, no clipped edges and reconstructable PNG are tested on HP and normal CI preserves source SHA matching.",
+  "description": "Original-PDF-SHA and printed-figure-ID pinned geometry. Crops must still pass panel, source-pixel and edge verification. One specifically registered figure uses a COMPLETE printed caption because the diagram and caption physically share the same source rectangle; partial caption crops are never accepted. Chapter 9 verified source-bound geometry migrated from Yoga 6 v3; all original page/caption, source-pixel and visual checks remain mandatory. Chapter 11 v3 recovery adds five original-PDF-SHA-pinned, source-pixel/edge/panel verified crops for defective 11.1, 11.3 and 11.5. Section 1.1 Figure 1.1(a,b) includes two vertically stacked printed source photos, with a/b labels immediately below each photo. Exact source-SHA-pinned rectangular crop includes both panels and both labels, remains disjoint from the caption, and must pass pixel/edge QA. Section 1.2 printed Figures 1.2–1.5 use exact original-PDF-SHA-pinned vector geometry with full physical object bounds, disjoint printed captions, zero edge clipping, and source-raster reconstruction verification; old failed source-bound candidate directories must be retained. Serway 1.3, 1.4 and 1.5 share original Figure 1.6. Three exact original PDF SHA profiles include the full unaltered raster graphic in a distinct page and never overlap the printed caption. The same original source bitmap, mandatory object containment, no clipped edges and reconstructable PNG are tested on HP and normal CI preserves source SHA matching. Original Serway 2.1 SHA profile verifies two disjoint printed source figures: Figure 2.1 has both labeled original vector panels (a)/(b) and complete physical drawings, while Figure 2.2 contains just the distinct original raster image above its own caption. Strict original PDF render, caption separation and edge/panel parity checks are retained.",
   "overrides": {
     "fb33af9a5fd164702c6b2aac708bd409098476fa48044535d9aec4e4a18a8a1f": {
       "10.1": [
@@ -794,6 +794,20 @@
         453,
         549,
         625
+      ]
+    },
+    "dfdd2090462074af43211f71027d559dda326e2cc48c9535eeece69420dcafde": {
+      "2.1": [
+        25,
+        53,
+        560,
+        278
+      ],
+      "2.2": [
+        28,
+        366,
+        169,
+        465
       ]
     }
   },
