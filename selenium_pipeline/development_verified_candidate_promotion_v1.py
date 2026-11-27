@@ -29,6 +29,8 @@ from .recovery_registry import lookup_mechanism
 KIND="autonomous_verified_candidate_promotion"
 SIGNATURE="SOURCE_TESTED_CODE_JOB_STOPS_BEFORE_GITHUB_PR_WINDOWS_CI"
 MECHANISM="JOURNAL_CAS_BRANCH_PR_EXACT_CI_MERGE_AND_DEPLOY_GATE"
+CRLF_SIGNATURE="WINDOWS_CRLF_ONLY_PROMOTION_SOURCE_HELD_AFTER_ORIGINAL_PYTEST"
+CRLF_MECHANISM="VERIFY_PINNED_ORIGINAL_AND_RECONCILE_CRLF_ONLY_CURRENT_MAIN"
 REPO="tlyoon/MicroGen_AI_Web"
 SHA40=re.compile(r"^[a-f0-9]{40}$")
 ID=re.compile(r"^[a-z][a-z0-9_]{6,50}$")
@@ -40,6 +42,23 @@ REMOTE_HOLD="REMOTE_MUTATION_UNCERTAIN_NO_RETRY"
 def need(ok,reason):
     if not ok:
         raise ValueError(reason)
+
+
+def _equal_except_crlf(first: Path, second: Path) -> bool:
+    """Reconcile only Windows CRLF vs LF, never changed code or test bytes.
+
+    Both files must be real, readable source files. Bare CR, BOM differences,
+    whitespace, code or test changes remain failures. The original reply,
+    candidate and independent test SHAs are separately checked by _original.
+    """
+    first, second = Path(first), Path(second)
+    if not (first.is_file() and second.is_file()
+            and not first.is_symlink() and not second.is_symlink()):
+        return False
+    left, right = first.read_bytes(), second.read_bytes()
+    if b"\r" in left.replace(b"\r\n", b"") or b"\r" in right.replace(b"\r\n", b""):
+        return False
+    return left.replace(b"\r\n", b"\n") == right.replace(b"\r\n", b"\n")
 
 
 def run(cmd,timeout=90):
@@ -191,11 +210,20 @@ def promote(*,job_path:Path,root:Path,main_repo:Path,
          "Original promotion base must be current clean protected main")
     current_target=main_repo/job["target"]
     current_test=main_repo/job["test"]
-    if (current_target.is_file() and current_test.is_file()
-            and sha(current_target)==source_hash
-            and sha(current_test)==job["test_sha256"]):
+    # Windows checkout CRLF conversion is not new code. Require exact
+    # original model/test SHA in _original, clean protected HEAD above,
+    # and byte-for-byte equality after CRLF-only normalization here.
+    original_target=Path(job["repo"])/job["target"]
+    original_test=Path(job["repo"])/job["test"]
+    if (_equal_except_crlf(current_target,original_target)
+            and _equal_except_crlf(current_test,original_test)):
+        need(lookup_mechanism(KIND,CRLF_SIGNATURE)==CRLF_MECHANISM,
+             "Windows newline-only promotion repair absent from registry")
         state["status"]="ALREADY_ON_VERIFIED_MAIN"
         state["verified_main_sha"]=main_sha
+        state["newline_only_source_reconciliation"]=(
+            sha(current_target)!=source_hash
+            or sha(current_test)!=job["test_sha256"])
         save(saved,state);return state
 
     worktrees=promotions/"worktrees"
