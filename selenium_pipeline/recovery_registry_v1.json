@@ -130,6 +130,20 @@
       "enabled": true
     },
     {
+      "id": "PERSISTENT_BOUND_LOCAL_EMPTY_SET_ADD_20261127",
+      "match_type": "persistent_selenium_code_author",
+      "signature": "SOURCE_BOUNDED_LOCAL_EMPTY_SET_ADDITION",
+      "mechanism": "ALLOW_ONLY_ONE_NONSHADOWED_LOCAL_SET_ADD_THEN_AST_PYTEST",
+      "classification": "AUTHENTICATED_PURE_G3_WAV_VIDEO_CODE_USES_ADD_ON_LOCAL_EMPTY_SET",
+      "handler": "NORMAL_ISOLATED_ONE_CLAIM_BROWSER_SOURCE_AUTHOR_AND_PYTEST",
+      "preconditions": "Original SHA-pinned one-Send response, one safe function, exactly one assignment local name to bare set(), no reassignment or shadowed built-in, independent pre-Send source test and no API or publication",
+      "verification_test": "tests/test_development_persistent_selenium_author_v1.py original SHA G3 WAV and MP4 reply plus malformed receiver fault injection",
+      "last_verified_date": "2026-11-27",
+      "environment": "Dell-115 original Selenium source-only code-authoring source validator",
+      "retry_policy": "Allow .add only on proven local uniquely assigned empty set; all other object.add calls rejected, after immutable original model SHA proof and no second Send",
+      "enabled": true
+    },
+    {
       "id": "PERSISTENT_LITERAL_ASCII_CAPTION_REGEX_20261127",
       "match_type": "persistent_selenium_code_author",
       "signature": "SOURCE_PURE_REGEX_COMPILE_FOR_LITERAL_CAPTION_IDS",

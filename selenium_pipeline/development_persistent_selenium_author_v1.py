@@ -94,6 +94,54 @@ def git(repo: Path, *args: str) -> str:
     return outcome.stdout.strip()
 
 
+def _owned_local_empty_set_add(node: ast.Call, tree: ast.Module) -> bool:
+    """Prove one .add call targets one non-reassigned local empty set.
+
+    This is an AST-only admission rule, not an invitation to call arbitrary
+    methods. A parameter, non-set assignment, alias, or shadowed set builtin
+    cannot satisfy the proof.
+    """
+    call = node.func
+    if not (isinstance(call, ast.Attribute)
+            and call.attr == "add"
+            and isinstance(call.value, ast.Name)
+            and len(node.args) == 1 and not node.keywords):
+        return False
+    name = call.value.id
+    if name.startswith("_") or name in _BLOCKED or name == "set":
+        return False
+    functions = [top for top in tree.body
+                 if isinstance(top, ast.FunctionDef)]
+    if len(functions) != 1:
+        return False
+    function = functions[0]
+    # Locals and the pure built-in set must not be rebound in this module.
+    if any((isinstance(x, ast.arg) and x.arg in {name, "set"})
+           or (isinstance(x, ast.Name)
+               and x.id == "set"
+               and isinstance(x.ctx, (ast.Store, ast.Del)))
+           for x in ast.walk(tree)):
+        return False
+    assignments = [
+        x for x in ast.walk(function)
+        if isinstance(x, ast.Assign)
+        and len(x.targets) == 1
+        and isinstance(x.targets[0], ast.Name)
+        and x.targets[0].id == name
+        and isinstance(x.value, ast.Call)
+        and isinstance(x.value.func, ast.Name)
+        and x.value.func.id == "set"
+        and not x.value.args and not x.value.keywords
+    ]
+    stores = sum(
+        isinstance(x, ast.Name)
+        and x.id == name
+        and isinstance(x.ctx, (ast.Store, ast.Del))
+        for x in ast.walk(tree))
+    return (len(assignments) == 1 and stores == 1
+            and assignments[0].lineno < node.lineno)
+
+
 def validate_source(source: str):
     """Bounded static sanity policy, NOT a substitute for a sandbox.
 
@@ -194,7 +242,14 @@ def validate_source(source: str):
                         "SOURCE_PURE_REGEX_COMPILE_FOR_LITERAL_CAPTION_IDS")
                         == "ALLOW_FIXED_ASCII_CAPTION_REGEX_ONLY_WITH_INDEPENDENT_TEST",
                         "Source caption regex compilation not registered")
-                require(safe_caption_pattern
+                safe_owned_set_add = _owned_local_empty_set_add(node, tree)
+                if safe_owned_set_add:
+                    require(lookup_mechanism(
+                        "persistent_selenium_code_author",
+                        "SOURCE_BOUNDED_LOCAL_EMPTY_SET_ADDITION")
+                        == "ALLOW_ONLY_ONE_NONSHADOWED_LOCAL_SET_ADD_THEN_AST_PYTEST",
+                        "Local empty-set addition recovery not registered")
+                require(safe_caption_pattern or safe_owned_set_add
                         or (isinstance(node.func, ast.Attribute)
                             and node.func.attr in {
                             "strip", "split", "splitlines", "startswith",

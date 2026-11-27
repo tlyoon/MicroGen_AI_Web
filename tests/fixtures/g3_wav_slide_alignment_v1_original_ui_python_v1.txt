@@ -1,0 +1,45 @@
+Gemini said
+Python
+def compare_g3_wav_slide_alignment(expected_slide_ids, wav_slide_ids):
+    invalid = False
+    for seq in (expected_slide_ids, wav_slide_ids):
+        if type(seq) is not list or not seq:
+            invalid = True
+            break
+        seen = set()
+        for item in seq:
+            if type(item) is not int or item <= 0 or item in seen:
+                invalid = True
+                break
+            seen.add(item)
+        if invalid:
+            break
+
+    if invalid:
+        return {
+            "technical_wav_slide_match": False,
+            "mismatched_positions": [],
+            "invalid_input": True,
+            "independent_acoustic_acceptance": False,
+            "independent_scientific_acceptance": False,
+            "student_publication_authorized": False,
+        }
+
+    mismatched_positions = []
+    max_len = max(len(expected_slide_ids), len(wav_slide_ids))
+    for idx in range(max_len):
+        if (
+            idx >= len(expected_slide_ids)
+            or idx >= len(wav_slide_ids)
+            or expected_slide_ids[idx] != wav_slide_ids[idx]
+        ):
+            mismatched_positions.append(idx + 1)
+
+    return {
+        "technical_wav_slide_match": len(mismatched_positions) == 0,
+        "mismatched_positions": mismatched_positions,
+        "invalid_input": False,
+        "independent_acoustic_acceptance": False,
+        "independent_scientific_acceptance": False,
+        "student_publication_authorized": False,
+    }
