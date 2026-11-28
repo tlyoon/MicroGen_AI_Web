@@ -186,6 +186,20 @@
       "enabled": true
     },
     {
+      "id": "PERSISTENT_SAVED_HIGHLIGHT_SOURCE_REGEX_20261127",
+      "match_type": "persistent_selenium_code_author",
+      "signature": "SOURCE_FIXED_ASCII_HIGHLIGHT_NARRATION_ID_REGEX",
+      "mechanism": "ALLOW_ONLY_STATIC_ASCII_ID_REGEX_WITH_ORIGINAL_REPLY_AND_PYTEST",
+      "classification": "IMMUTABLE_OWNED_G3_HIGHLIGHT_SOURCE_REJECTED_ONLY_BY_LITERAL_SAFE_ID_REGEX",
+      "handler": "NORMAL_ISOLATED_ONE_CLAIM_BROWSER_SOURCE_AUTHOR_AND_PYTEST",
+      "preconditions": "Exact pure literal ASCII highlight element and narration ID regex, nonshadowed top-level imported re, no dynamic regex, one authenticated saved Selenium reply and immutable independent timing pytest tests",
+      "verification_test": "tests/test_development_persistent_selenium_author_v1.py original g3_highlight_speech_timing_v1 SHA fixture and negative source/regex/replay fault injection",
+      "last_verified_date": "2026-11-27",
+      "environment": "Dell-115 original one-Send Selenium code author and offline saved-reply reconciliation",
+      "retry_policy": "Reconcile original immutable UI response without another Gemini Send; allow only exact static regular expression and keep all arbitrary or dynamic regex source quarantined",
+      "enabled": true
+    },
+    {
       "id": "PERSISTENT_ONE_EXACT_SAVED_REPLY_INDENT_REPAIR_20261127",
       "match_type": "persistent_selenium_code_author",
       "signature": "G3_SINGLE_FUNCTION_PARTIAL_INDENT_ORIGINAL_REPLY_QUARANTINED",

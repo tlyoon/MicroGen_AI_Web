@@ -1,0 +1,87 @@
+Gemini said
+Python
+import re
+
+
+def compare_g3_highlight_speech_timing(slide_duration_ms, segments):
+    if (
+        type(slide_duration_ms) is not int
+        or slide_duration_ms <= 0
+        or type(segments) is not list
+        or len(segments) == 0
+    ):
+        return {
+            "technical_highlight_segment_timing_match": False,
+            "mismatched_segments": [],
+            "invalid_input": True,
+            "independent_video_acceptance": False,
+            "independent_acoustic_acceptance": False,
+            "independent_scientific_acceptance": False,
+            "student_publication_authorized": False,
+        }
+
+    expected_keys = {"element_id", "narration_id", "start_ms", "end_ms"}
+    id_pattern = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9_-]*[A-Za-z0-9])?")
+    seen_narration_ids = set()
+
+    for segment in segments:
+        if type(segment) is not dict or set(segment.keys()) != expected_keys:
+            return {
+                "technical_highlight_segment_timing_match": False,
+                "mismatched_segments": [],
+                "invalid_input": True,
+                "independent_video_acceptance": False,
+                "independent_acoustic_acceptance": False,
+                "independent_scientific_acceptance": False,
+                "student_publication_authorized": False,
+            }
+
+        element_id = segment["element_id"]
+        narration_id = segment["narration_id"]
+        start_ms = segment["start_ms"]
+        end_ms = segment["end_ms"]
+
+        if (
+            type(element_id) is not str
+            or type(narration_id) is not str
+            or id_pattern.fullmatch(element_id) is None
+            or id_pattern.fullmatch(narration_id) is None
+            or narration_id in seen_narration_ids
+            or type(start_ms) is not int
+            or type(end_ms) is not int
+            or start_ms < 0
+            or end_ms <= start_ms
+        ):
+            return {
+                "technical_highlight_segment_timing_match": False,
+                "mismatched_segments": [],
+                "invalid_input": True,
+                "independent_video_acceptance": False,
+                "independent_acoustic_acceptance": False,
+                "independent_scientific_acceptance": False,
+                "student_publication_authorized": False,
+            }
+
+        seen_narration_ids.add(narration_id)
+
+    mismatched_segments = []
+    prev_end_ms = None
+
+    for index, segment in enumerate(segments, start=1):
+        start_ms = segment["start_ms"]
+        end_ms = segment["end_ms"]
+        exceeds_duration = end_ms > slide_duration_ms
+        overlaps_preceding = prev_end_ms is not None and start_ms < prev_end_ms
+        if exceeds_duration or overlaps_preceding:
+            mismatched_segments.append(index)
+        prev_end_ms = end_ms
+
+    return {
+        "technical_highlight_segment_timing_match": len(mismatched_segments) == 0,
+        "mismatched_segments": mismatched_segments,
+        "invalid_input": False,
+        "independent_video_acceptance": False,
+        "independent_acoustic_acceptance": False,
+        "independent_scientific_acceptance": False,
+        "student_publication_authorized": False,
+    }
