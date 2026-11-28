@@ -394,6 +394,47 @@ def wait_owned_gemini_picker(driver, owned_handle: str | None, *,
         time.sleep(0.25)
 
 
+def _reopen_owned_model_menu_if_empty(driver, owned_handle: str | None) -> bool:
+    """Recover a stale expanded Gemini picker with no live menu options.
+
+    The owned picker can say aria-expanded=true after its Angular popover has
+    disappeared. Only its exact control may be toggled, before any Send; the
+    original model, tab and source stay unchanged. Never infer model choices
+    from a picker label, global page text or a different Gemini tab.
+    """
+    if not owned_handle or driver.current_window_handle != owned_handle:
+        raise GeminiModelError("PRE_SEND_OWNED_GEMINI_TAB_CHANGED")
+    picker = _owned_picker(driver, owned_handle)
+    if (picker.get_attribute("aria-expanded") or "").lower() != "true":
+        return False
+    if _visible_model_options(driver):
+        return False
+    # Differentiate a truly stranded popover from normal asynchronous hydration.
+    time.sleep(0.35)
+    if _visible_model_options(driver):
+        return False
+    picker.click()  # Close only the uniquely identified owned model picker.
+    deadline = time.monotonic() + 2.0
+    while time.monotonic() < deadline:
+        if driver.current_window_handle != owned_handle:
+            raise GeminiModelError("PRE_SEND_OWNED_GEMINI_TAB_CHANGED")
+        picker = _owned_picker(driver, owned_handle)
+        if (picker.get_attribute("aria-expanded") or "").lower() == "false":
+            break
+        time.sleep(0.15)
+    else:
+        raise GeminiModelError("PRE_SEND_STALE_MODEL_MENU_COULD_NOT_CLOSE_NO_SEND")
+    from .gemini_thinking import (
+        _open_owned_mode_picker_with_verified_fallback, GeminiThinkingError)
+    try:
+        _open_owned_mode_picker_with_verified_fallback(
+            driver, owned_handle, picker, allow_model_switch=True)
+    except GeminiThinkingError as exc:
+        raise GeminiModelError(
+            "PRE_SEND_STALE_MODEL_MENU_COULD_NOT_REOPEN_NO_SEND") from exc
+    return True
+
+
 def select_owned_gemini_mode(driver, owned_handle: str | None, *,
                              mode: str = "flash", timeout: float = 15) -> str:
     """Select exactly the requested UI family *inside the owned tab*.
@@ -427,6 +468,10 @@ def select_owned_gemini_mode(driver, owned_handle: str | None, *,
         except GeminiThinkingError as exc:
             raise GeminiModelError(
                 "PRE_SEND_OWNED_MODEL_MENU_NOT_OPEN_VERIFIED_NO_SEND") from exc
+    # HP live reproduction (28 Nov): aria-expanded remained true while the
+    # popup had no selectable options. One owned close/reopen restored the
+    # positive Hydrogen/Neon/Carbon menu evidence without a model Send.
+    _reopen_owned_model_menu_if_empty(driver, owned_handle)
     deadline = time.monotonic() + timeout
     target = None
     while time.monotonic() < deadline:
