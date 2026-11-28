@@ -798,8 +798,13 @@ def _execute_unlocked(s: Settings) -> Path:
         # including stage-only resumes that do not contain a figures stage.
         env["MICROGEN_TTS_PYTHON"] = tts_python_executable()
     changed_upstream = False
+    from .stage_route_env_v1 import sync_stage_route_env
     for stage in planned:
         env["MICROGEN_ACTIVE_GENERATION_STAGE"] = stage
+        # A pending route belongs to exactly one stage. The launcher copies
+        # its environment before entering the loop; do not leak a figures
+        # or slides route into a narration child when Gemini changes model.
+        sync_stage_route_env(stage,env)
         # A successful PDF compile can silently skip missing IfFileExists
         # figures. Never accept that as permission to generate narration.
         if stage == "video":
@@ -882,6 +887,12 @@ def _execute_unlocked(s: Settings) -> Path:
                     "MICROGEN_GEMINI_UI_MODE",DEFAULT_BROWSER_UI_MODE)
                 env["MICROGEN_LLM_MODEL"]=os.getenv(
                     "MICROGEN_LLM_MODEL",ACTIVE_LLM_MODEL)
+                # ensure_mode may select a verified *new* stage-specific
+                # Hydrogen/Neon route. Refresh the child's pending stage
+                # identity AFTER selection, not from the previous stage's
+                # env snapshot. Commit still requires fresh model + Thinking
+                # verification in the same owned tab before any Send.
+                sync_stage_route_env(stage,env)
                 print(f"[microgen] {stage} verified owned Gemini mode: {picked}")
             if stage not in {"tts", "video"}:
                 # Video assembly archives the prior MP4 only after its new
