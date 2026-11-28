@@ -211,6 +211,13 @@ def reconcile(v,srcs):
 def evaluate(entry,pin):
  if entry["status"]=="VIDEO_VERIFIED":return False
  if entry["status"]=="QUARANTINED_INTERRUPTED_OR_EXTERNAL_OUTCOME":return False
+ if entry["status"]=="QUARANTINED_MANUAL_RECONCILIATION":
+  # Do not blanket-rearm uncertain Sends. Only the exact already-diagnosed
+  # HP stage-handoff or 3x confirmed no-Send Thinking failure may retry
+  # after a NEW verified code SHA, with identical source and full logs.
+  from selenium_pipeline.safe_presend_retry_v1 import (
+      verified_new_code_stage_handoff_retry)
+  return verified_new_code_stage_handoff_retry(entry,pin,LOGDIR)
  if entry["status"].startswith("QUARANTINED"):return False
  tries=entry["attempts"]
  if not tries:return True

@@ -58,3 +58,64 @@ def verified_new_code_presend_retry(entry:dict, new_sha:str, log_dir:Path)->bool
                for marker in PRE_SEND_SIGNATURES):
         return False
     return True
+
+def verified_new_code_stage_handoff_retry(entry:dict,new_sha:str,log_dir:Path)->bool:
+    """Rearm only proven no-Send HP stage-handoff / Thinking failures.
+
+    A quarantined historical uncertain Gemini request is never eligible.
+    These two errors occurred after owned-model/Thinking proof and before
+    upload/typing/Send; require their complete exact latest log signatures,
+    preserved source identity, and a DIFFERENT verified code revision.
+    """
+    if (not isinstance(entry,dict)
+        or entry.get("status")!="QUARANTINED_MANUAL_RECONCILIATION"
+        or not isinstance(new_sha,str)
+        or not re.fullmatch(r"[a-f0-9]{40}",new_sha)):
+        return False
+    tries=entry.get("attempts")
+    if not isinstance(tries,list) or not tries:
+        return False
+    source=entry.get("source_sha256")
+    if not isinstance(source,str) or not re.fullmatch(r"[a-f0-9]{64}",source):
+        return False
+    if any(not isinstance(x,dict) or x.get("source_sha256")!=source
+           for x in tries):
+        return False
+    last=tries[-1]
+    if (last.get("code_sha")==new_sha
+        or not re.fullmatch(r"[a-f0-9]{40}",str(last.get("code_sha","")))
+        or type(last.get("returncode")) is not int
+        or last["returncode"]==0):
+        return False
+    try:
+        path=Path(last["log"])
+        if (path.parent.resolve()!=Path(log_dir).resolve()
+            or path.suffix!=".log" or not path.is_file()
+            or path.stat().st_size>2_000_000):
+            return False
+        raw=path.read_text("utf8",errors="replace")
+    except (OSError,TypeError,ValueError,KeyError):
+        return False
+    if any(marker in raw for marker in UNCERTAIN_MARKERS):
+        return False
+    # The section 1.4 narration case: verified model and Medium, then
+    # pending stage identity mismatch before any user content was uploaded.
+    route_case=all(marker in raw for marker in (
+        "Pending dynamic route identity changed",
+        "Dynamic task route could not be persisted; do not Send",
+        "gen_script_selenium_v15.py",
+        "[GEMINI-MODE] OWNED_FAMILY_VERIFIED_AFTER_NEW_CHAT",
+        "[GEMINI-THINKING] OWNED_LEVEL_VERIFIED_AFTER_NEW_CHAT",
+    )) and not any(marker in raw for marker in (
+        "[SEND-VERIFY]", "Gemini narration response", "Gemini response received",
+    ))
+    # The section 1.6 slide attempt: three independently diagnosed no-Send
+    # failures immediately after verified picker/Thinking selection.
+    thinking_case=(
+        raw.count("VERIFIED_PRE_SEND_FAILURE") == 3
+        and raw.count("owned Gemini pre-send stage failure: OWNED_MEDIUM_THINKING_SELECTION")==3
+        and "Failed to produce a valid Beamer slide stack after all attempts" in raw
+        and "gen_slides_selenium_v11.py" in raw
+        and "Gemini response received" not in raw
+    )
+    return route_case or thinking_case
