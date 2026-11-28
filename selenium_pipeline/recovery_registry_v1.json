@@ -46,6 +46,20 @@
       "enabled": true
     },
     {
+      "id": "PROTECTED_MAIN_AUTOCUTOVER_AFTER_FOREIGN_CI_MERGE_20261128",
+      "match_type": "ci_merged_main_autocutover",
+      "signature": "FOREIGN_CI_CERTIFIED_MAIN_MERGE_LEAVES_DELL_CODE_DAEMON_ON_STALE_CHECKOUT",
+      "mechanism": "VERIFY_MERGED_PR_ANCESTRY_WINDOWS_CI_AND_GUARDED_SOURCE_CUTOVER",
+      "classification": "AUTONOMOUS_CODE_CONTROLLER_CANNOT_ADMIT_NEW_JOB_AFTER_UNRELATED_GITHUB_MERGE",
+      "handler": "NORMAL_CI_CERTIFIED_SOURCE_STALE_DAEMON_GUARDED_CATCHUP",
+      "preconditions": "Dell original running main and writer owners, clean old source, finite forward-only protected GitHub ancestry, exact merged latest PR, same-tree squash, latest head Windows CI success",
+      "verification_test": "tests/test_development_ci_merged_main_autocutover_v1.py and tests/test_development_autonomous_code_loop_v1.py with fail-closed CI/source/ownership tests",
+      "last_verified_date": "2026-11-28",
+      "environment": "Dell-115 persistent Selenium code and G2/G3 controller when HP/other approved Windows CI PRs advance GitHub main",
+      "retry_policy": "Only exact-head CI-certified guarded native daemon/writer cutover; preserve one-Send journals, prohibit paid API/release, never deploy uncertain source",
+      "enabled": true
+    },
+    {
       "id": "AUTONOMOUS_G2G3_REQUIREMENT_TEST_FACTORY_20261127",
       "match_type": "autonomous_g2g3_requirement_test_derivation",
       "signature": "G2_G3_QA_GAPS_PERSIST_WHILE_REVIEWED_SOURCE_JOB_CATALOG_EXHAUSTED",
