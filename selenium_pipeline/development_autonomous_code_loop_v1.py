@@ -21,6 +21,7 @@ import time
 from .development_verified_candidate_promotion_v1 import promote
 from .development_certified_candidate_deploy_v1 import deploy
 from .development_source_pinned_next_job_v1 import select
+from .development_ci_merged_main_autocutover_v1 import catch_up
 from .three_pc_worker import LocalInstanceLock
 
 STATUS="MICROGEN_AUTONOMOUS_SOURCE_TO_PRODUCTION_V1"
@@ -59,7 +60,8 @@ def _owner_repo():
 
 def cycle(*,backlog_root:Path,control_root:Path,catalog_path:Path,
           template_root:Path,cutover_root:Path,main_repo:Path|None=None,
-          promote_fn=promote,deploy_fn=deploy,select_fn=select):
+          promote_fn=promote,deploy_fn=deploy,select_fn=select,
+          source_sync_fn=catch_up):
     backlog_root=Path(backlog_root).absolute()
     control_root=Path(control_root).absolute()
     template_root=Path(template_root).absolute()
@@ -68,6 +70,7 @@ def cycle(*,backlog_root:Path,control_root:Path,catalog_path:Path,
     if not all(p.is_dir() and not p.is_symlink()
                for p in (backlog_root,control_root,template_root,cutover_root)):
         raise ValueError("Original safe continuation storage missing")
+    native_source_owner=main_repo is None
     if main_repo is None:
         main_repo=_owner_repo()
     else:
@@ -123,6 +126,24 @@ def cycle(*,backlog_root:Path,control_root:Path,catalog_path:Path,
             from .development_verified_candidate_promotion_v1 import save
             save(previous,saved)
         return result
+    # Before staging code from a stale revision, reconcile unrelated,
+    # independently Windows-CI-certified protected GitHub main merges.
+    # The original source-tested model PR deployment above keeps priority.
+    if native_source_owner:
+        try:
+            upgrade=source_sync_fn(
+                old_repo=main_repo, controller_root=control_root,
+                cutover_root=cutover_root, template_root=template_root)
+        except (ValueError,KeyError,OSError,TypeError,
+                subprocess.TimeoutExpired) as exc:
+            result["source_sync"]={
+                "status":"CERTIFIED_MAIN_SOURCE_CUTOVER_HELD",
+                "error_class":type(exc).__name__, "model_sends":0,
+                "student_publication_authorized":False}
+            return result
+        result["source_sync"]=upgrade
+        if upgrade["status"]=="CERTIFIED_MAIN_SOURCE_AUTO_CUTOVER_DEPLOYED":
+            return result
     # Exactly one live PR per cycle. Avoid racing a new source commit with
     # pending exact-head Windows CI or a remote GitHub ambiguity.
     for job in jobs:
