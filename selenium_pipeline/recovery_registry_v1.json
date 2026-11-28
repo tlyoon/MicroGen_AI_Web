@@ -1808,6 +1808,20 @@
       "environment": "Dell-115 original Windows scheduled task MicroGen_AI_Web_v71_OfflineDevelopment and CI-certified main checkout",
       "retry_policy": "At most two guarded cutover attempts; after any uncertain first attempt, require independent old owner/heartbeat/task attestation before a second; no code-writing by daemon, no model Send or publication; SHA witness before each attempt",
       "enabled": true
+    },
+    {
+      "id": "ACADEMIC_EVIDENCE_FRONTIER_STALL_RECOVERY_20261128",
+      "match_type": "academic_evidence_frontier_recovery",
+      "signature": "G2G3_TECHNICAL_QUEUE_EXHAUSTED_WITH_OPEN_INDEPENDENT_ACCEPTANCE_GATES",
+      "mechanism": "TRACK_VERIFIED_ACCEPTANCE_DELTA_AND_STAGE_ONE_SHA_PINNED_RECOVERY",
+      "classification": "TECHNICAL_QUEUE_EXHAUSTED_WHILE_INDEPENDENT_SOURCE_SCIENCE_AND_MEDIA_GATES_OPEN",
+      "handler": "NORMAL_SHA_PINNED_ACCEPTANCE_PROGRESS_AND_QUARANTINE_ESCALATION",
+      "preconditions": "Original immutable independent academic completion receipt, current clean CI-certified source checkout, SHA-pinned original source reply, independent source tests, no additional Send",
+      "verification_test": "tests/test_development_acceptance_frontier_v1.py original real receipt, quarantine SHA, restart cursor, fault injection, immutable publisher and provider holds",
+      "last_verified_date": "2026-11-28",
+      "environment": "Dell-115 real G2 29/85 and Serway 8.2/8.3 G3 finite original science/media evidence",
+      "retry_policy": "Reconcile every cycle after source catalog exhaustion; record accepted-unit delta, prioritize original SHA-pinned offline repair; never reset Send caps or promote technical QA into academic acceptance",
+      "enabled": true
     }
   ]
 }
