@@ -17,6 +17,11 @@ import pymupdf
 
 from .figure_source_identity import _sha, require
 from .pdf_text_source_span_witness import prove_source_quote_occurrence
+from .recovery_registry import lookup_mechanism
+
+FORMULA_KIND = "g2_formula_source_citation_priority"
+FORMULA_SIGNATURE = "G2_SOURCE_QUOTE_SELECTED_BEFORE_COMPLETE_VISIBLE_MATH_FORMULA"
+FORMULA_MECHANISM = "RANK_SOURCE_SHA_WITNESSED_FORMULA_COMPLETE_PDF_SPAN_NO_ACCEPTANCE"
 
 _STOP = frozenset(
     "about above after again along also among another around because before "
@@ -252,6 +257,38 @@ def _numeric_tokens(text: str) -> set[str]:
         if len(n) >= 2 or "." in n}
 
 
+def _formula_tokens_from_visible_slide(visible: str) -> frozenset[str]:
+    """Literal symbolic formula fragments, only as source retrieval hints.
+
+    A dimension [v] or ratio L/T shown on a slide should be sought in the
+    original PDF citation; overlap with mere prose is not mathematical proof.
+    Do not normalize source PDF glyph 5 to '=', infer exponents, or modify the
+    original publisher quote. Source SHA/geometry and reviewer checks remain.
+    """
+    if type(visible) is not str or len(visible) > 8000:
+        return frozenset()
+    return frozenset(re.findall(
+        r"\[[A-Za-z][A-Za-z0-9]{0,4}\]|"
+        r"(?<![A-Za-z0-9])[A-Za-z][A-Za-z0-9]{0,4}/"
+        r"[A-Za-z][A-Za-z0-9]{0,4}(?![A-Za-z0-9])",
+        visible
+    ))
+
+
+def _formula_source_relevance(visible: str, original_quote: str) -> float:
+    """Reward a quote carrying the actual slide's symbolic claim.
+
+    A source paragraph that ends before its formula must not outrank a
+    physically verified adjacent line showing the formula itself merely
+    because the first part shares common narration words.
+    """
+    symbols = _formula_tokens_from_visible_slide(visible)
+    if not symbols or type(original_quote) is not str:
+        return 0.0
+    matched = sum(symbol in original_quote for symbol in symbols)
+    return 12.0 * matched / len(symbols) + (3.0 if matched == len(symbols) else 0.0)
+
+
 def _terms(text: str) -> set[str]:
     # These are *retrieval* lexemes only. The original, unchanged exact
     # publisher text, geometry and SHA are checked independently afterwards.
@@ -361,6 +398,9 @@ def _line_catalog(source_path: str, expected_sha256: str) -> tuple:
 
 def build_verified_source_candidates(*, folder: Path, job: dict) -> dict:
     """Bound candidate *identities* to the source+slides+script+utterances."""
+    require(lookup_mechanism(FORMULA_KIND,FORMULA_SIGNATURE) ==
+            FORMULA_MECHANISM,
+            "G2 formula-complete academic citation recovery is not registered")
     folder = Path(folder).absolute()
     source = folder / "source.pdf"
     require(folder.is_dir() and not folder.is_symlink()
@@ -435,6 +475,7 @@ def build_verified_source_candidates(*, folder: Path, job: dict) -> dict:
                     + .20 * sum(1.0/(1.0+counts[t]) for t in intersection)
                     + .18 * sum(1.0/(1.0+counts[t]) for t in visible_hits)
                     + .12 * sum(1.0/(1.0+numeric_counts[n]) for n in numbers)
+                    + _formula_source_relevance(visible,quote)
                 )
                 ranked.append((score, len(intersection) + len(visible_hits)
                                + len(numbers), page, quote, physical_bbox))
