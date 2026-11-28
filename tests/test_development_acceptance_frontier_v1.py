@@ -314,3 +314,24 @@ def test_source_file_without_original_test_is_not_treated_as_recovered(setup):
     row = run(setup)
     assert row["status"] == "ACADEMIC_STALL_REPAIRABLE_SOURCE_JOB_IDENTIFIED"
     assert row["unresolved_quarantined_source_jobs"] == 1
+
+
+def test_future_unlisted_sha_pinned_quarantine_is_discovered(setup):
+    # The next failure is NOT on the three known historical job IDs. The
+    # academic recovery frontier must still identify a genuinely original
+    # one-Send job rather than exhaust another finite hardcoded list.
+    future = "g2_future_review_index_v7"
+    assert future not in QUARANTINED
+    original_quarantine(setup, job_id=future)
+    row = run(setup)
+    assert row["next_work"]["job_id"] == future
+    assert row["unresolved_quarantined_source_jobs"] == 1
+    assert row["provider_sends"] == 0
+    assert row["student_publication_authorized"] is False
+
+
+def test_missing_quarantined_original_reply_fails_closed(setup):
+    state = original_quarantine(setup)
+    (state / "original_model_reply.txt").unlink()
+    with pytest.raises(ValueError, match="evidence missing"):
+        run(setup)

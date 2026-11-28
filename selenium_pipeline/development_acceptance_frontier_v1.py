@@ -130,17 +130,35 @@ def _acceptance(receipt: dict) -> tuple[dict, list]:
 def _quarantines(backlog_root: Path, current_repo: Path) -> list:
     """Only original, SHA-witnessed, nonreplayable coding artifacts qualify."""
     result = []
-    for job_id in QUARANTINED:
-        inbox = backlog_root / "inbox" / (job_id + ".json")
-        checkpoint = (backlog_root / "state" / job_id / "coding_state.json")
-        reply = (backlog_root / "state" / job_id / "original_model_reply.txt")
-        if not all(p.is_file() and not p.is_symlink()
-                   for p in (inbox, checkpoint, reply)):
-            continue
-        job, job_sha = read_json(inbox)
+    state_root = backlog_root / "state"
+    if not state_root.exists():
+        return result
+    require(state_root.is_dir() and not state_root.is_symlink(),
+            "Original source-code recovery state redirected")
+    candidates = sorted(state_root.glob("*/coding_state.json"))
+    require(len(candidates) <= 64, "Unbounded original coding state scan")
+    for checkpoint in candidates:
+        job_id = checkpoint.parent.name
+        require(re.fullmatch(r"[a-z][a-z0-9_]{6,75}", job_id)
+                and checkpoint.is_file() and not checkpoint.is_symlink()
+                and not checkpoint.parent.is_symlink(),
+                "Invalid or linked original coding checkpoint")
         state, _ = read_json(checkpoint)
         if state.get("status") != "UNSAFE_MODEL_REPLY_QUARANTINED":
             continue
+        inbox = backlog_root / "inbox" / (job_id + ".json")
+        reply = checkpoint.parent / "original_model_reply.txt"
+        require(all(p.is_file() and not p.is_symlink()
+                    for p in (inbox, reply)),
+                "Quarantined one-Send source evidence missing")
+        job, job_sha = read_json(inbox)
+        require(type(job.get("target")) is str
+                and re.fullmatch(r"selenium_pipeline/[a-z][a-z0-9_]*[.]py",
+                                 job["target"])
+                and type(job.get("test")) is str
+                and re.fullmatch(r"tests/test_[a-z0-9_]+[.]py",
+                                 job["test"]),
+                "Unreviewed original code/test path cannot be recovered")
         require(job.get("job_id") == job_id
                 and state.get("job_id") == job_id
                 and state.get("job_sha256") == job_sha
