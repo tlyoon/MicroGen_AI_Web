@@ -21,12 +21,20 @@ from .recovery_registry import lookup_mechanism
 
 KIND="g2_explicit_scoped_science_capacity"
 SIGNATURE="G2_NEW_DISTINCT_SCIENCE_SCOPE_USER_AUTHORIZED_AFTER_FINITE_CAP"
+RENEW_SIGNATURE="G2_PREVIOUS_UTC_DAY_SCOPE_GRANT_MUST_NOT_STRAND_DISTINCT_NEW_DAY"
 MECHANISM="PIN_FRESH_ONE_SCOPE_TWO_PASS_BUDGET_WITHOUT_OLD_SEND_REPLAY"
 ROOT="G2_EXPLICIT_SCOPED_SCIENCE_GRANTS_V1"
 PREFIX="g2_v3_explicit_"
 STATUS="G2_SCOPED_DISTINCT_TWO_PASS_CAPACITY_AUTHORIZED_UNAPPROVED"
 CONSENT="USER_PROCEED_WITH_FIRST_NEW_INDEPENDENT_G2_TWO_PASS_REVIEW_20261125"
 PARENT="g2_autoforward_live_20261123a"
+
+
+def _consent_for_utc_day(day:str)->str:
+    # Preserve the original November 25 consent identifier without making
+    # it the authorization label for an unrelated future distinct scope.
+    return (CONSENT if day=="20261125" else
+            "USER_EXPLICIT_DISTINCT_G2_TWO_PASS_SCOPE_"+day)
 
 
 def _read(path:Path)->dict:
@@ -75,6 +83,46 @@ def _location(queue_root:Path,source_sha:str,day:str)->Path:
     return root/(day+".json")
 
 
+def _verify_prior_utc_day_grants(*,queue_root:Path,source_sha:str,
+          queue_sha:str,day:str,new_scope:str,parent:dict)->None:
+    """One new scope per day; never use a different day to resend a scope."""
+    root=queue_root.parent/ROOT/source_sha
+    require(not root.is_symlink(),"Unsafe original scoped grant root")
+    grants=sorted(root.glob("*.json"))
+    require(len(grants)<=128,"Unbounded cross-day G2 approval history")
+    for path in grants:
+        require(path.is_file() and not path.is_symlink()
+                and len(path.stem)==8 and path.stem.startswith("20")
+                and path.stem.isdecimal() and path.stem<=day,
+                "Redirected or future-dated original G2 grant")
+        row=_read(path)
+        prior_scope=row.get("eligible_scope_sha256")
+        require(type(prior_scope) is str and len(prior_scope)==64
+                and all(c in "0123456789abcdef" for c in prior_scope)
+                and row.get("schema_version")==1
+                and row.get("status")==STATUS
+                and row.get("consent_reference")==
+                    _consent_for_utc_day(path.stem)
+                and row.get("campaign_id")==
+                    PREFIX+path.stem+"_"+prior_scope[:12]
+                and row.get("source_sha256")==source_sha
+                and row.get("queue_sha256")==queue_sha
+                and row.get("max_possible_model_sends")==2
+                and row.get("original_campaign_snapshot")==parent
+                and row.get("browser_selenium_only") is True
+                and row.get("automatic_paid_api_fallback_authorized") is False
+                and row.get("original_request_replay_authorized") is False
+                and row.get("student_publication_authorized") is False
+                and row.get("two_pass_science_accepted") is False,
+                "Prior distinct G2 grant identity changed: fail closed")
+        if path.stem!=day:
+            require(prior_scope!=new_scope,
+                    "Previously reserved review scope cannot be replayed on another UTC day")
+        else:
+            require(prior_scope==new_scope,
+                    "Only one distinct G2 review scope is authorized per UTC day")
+
+
 def verify_grant(*,queue_root:Path, source_sha:str, scope_sha:str,
                  candidate_sha:str,campaign_id:str,cap:int)->dict:
     queue_root=Path(queue_root).absolute()
@@ -85,7 +133,8 @@ def verify_grant(*,queue_root:Path, source_sha:str, scope_sha:str,
             "Not a currently authorized distinct G2 science campaign")
     path=_location(queue_root,source_sha,day)
     grant=_read(path)
-    require(grant.get("status")==STATUS and grant.get("consent_reference")==CONSENT
+    require(grant.get("status")==STATUS and grant.get("consent_reference")==
+                _consent_for_utc_day(day)
             and grant.get("eligible_scope_sha256")==scope_sha
             and grant.get("candidate_file_sha256")==candidate_sha
             and grant.get("source_sha256")==source_sha
@@ -103,6 +152,10 @@ def verify_grant(*,queue_root:Path, source_sha:str, scope_sha:str,
     original=_parent(queue_root,source_sha,grant["queue_sha256"])
     require(grant["original_campaign_snapshot"]==original,
             "Original old campaign mutated after new-scoped approval")
+    _verify_prior_utc_day_grants(
+        queue_root=queue_root,source_sha=source_sha,
+        queue_sha=grant["queue_sha256"],day=day,
+        new_scope=scope_sha,parent=original)
     home=queue_root/"autonomous_recovery_continuation_v1"/campaign_id
     require((home/"campaign.json").is_file()
             and _read(home/"campaign.json").get("max_possible_model_sends")==2,
@@ -112,7 +165,8 @@ def verify_grant(*,queue_root:Path, source_sha:str, scope_sha:str,
 
 def provision(*,folder:Path,queue_root:Path,candidate_file:Path,
               health_result:Path,explicit_user_consent:bool=False)->dict:
-    require(lookup_mechanism(KIND,SIGNATURE)==MECHANISM,
+    require(lookup_mechanism(KIND,SIGNATURE)==MECHANISM
+            and lookup_mechanism(KIND,RENEW_SIGNATURE)==MECHANISM,
             "Scoped new science capacity recovery is not registered")
     require(explicit_user_consent is True,
             "No fresh, explicit authorization for a second scoped campaign")
@@ -135,12 +189,18 @@ def provision(*,folder:Path,queue_root:Path,candidate_file:Path,
         target=queue_root.parent/REVIEW_ROOT/scope
         grant_path=_location(queue_root,source_sha,day)
         existing=grant_path.exists()
+        # Previous days are not a permanent ban on different G2 units.
+        # However, the same source scope MUST NEVER be reclaimed across dates;
+        # the current UTC day has exactly one receipt filename.
+        _verify_prior_utc_day_grants(
+            queue_root=queue_root,source_sha=source_sha,
+            queue_sha=queue_sha,day=day,
+            new_scope=scope,parent=parent)
         if not existing:
             require(not target.exists() and not target.is_symlink(),
                     "Previously claimed V3 model request must never be re-sent")
-            require(not any(x.is_file() for x in grant_path.parent.glob("*.json")),
-                    "Already authorized another G2 scope for this source/day")
-        grant={"schema_version":1,"status":STATUS,"consent_reference":CONSENT,
+        grant={"schema_version":1,"status":STATUS,
+            "consent_reference":_consent_for_utc_day(day),
             "eligible_scope_sha256":scope,"candidate_file_sha256":_sha(candidate_file),
             "source_sha256":source_sha,"queue_sha256":queue_sha,
             "campaign_id":name,"max_possible_model_sends":2,

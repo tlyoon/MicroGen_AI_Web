@@ -133,3 +133,109 @@ def test_new_campaign_with_no_explicit_grant_cannot_use_reviewer(eligible):
     with pytest.raises(ValueError,match="explicit grant"):
         handoff.inspect(folder=folder,queue_root=queue,candidate_file=candidate,
                        campaign_id=name,execute=False)
+
+
+def _with_yesterday_then_today(eligible, monkeypatch):
+    """Make a genuine prior-date grant, then restore UTC today.
+
+    Does not mutate or reset the original immutable G2 campaign.
+    """
+    from datetime import datetime as real_datetime, timedelta
+    class Yesterday:
+        @staticmethod
+        def now(tz):
+            return real_datetime.now(tz) - timedelta(days=1)
+    folder, queue, candidate, _ = eligible
+    initial_parent(eligible)
+    monkeypatch.setattr(focused, "_health_ok", lambda **kw: {"verified": True})
+    monkeypatch.setattr(grant, "datetime", Yesterday)
+    yesterday = grant.provision(
+        folder=folder, queue_root=queue, candidate_file=candidate,
+        health_result=queue/"health.json", explicit_user_consent=True)
+    historical = (queue.parent/grant.ROOT/_sha(folder/"source.pdf")/
+                  (real_datetime.now(grant.timezone.utc) -
+                   timedelta(days=1)).strftime("%Y%m%d"))
+    saved = (historical.with_suffix(".json")).read_bytes()
+    monkeypatch.setattr(grant, "datetime", real_datetime)
+    return yesterday, historical.with_suffix(".json"), saved
+
+
+def _pretend_new_independent_ranked_scope(eligible, monkeypatch):
+    """Inject a separately bound source scope for the grant-only unit test.
+
+    The real V3 source inspector independently verifies such scopes; this
+    mock never invokes Gemini and cannot qualify a forged model request.
+    """
+    original = handoff._verify
+    def select(*, folder, queue_root, candidate_file):
+        row, job = original(folder=folder, queue_root=queue_root,
+                            candidate_file=candidate_file)
+        return {**row, "scope_sha256": "f" * 64}, job
+    monkeypatch.setattr(handoff, "_verify", select)
+
+
+def test_new_utc_day_allows_distinct_scope_without_old_send_replay(eligible, monkeypatch):
+    folder, queue, candidate, _ = eligible
+    parent = queue/"autonomous_recovery_continuation_v1"/grant.PARENT
+    old_original=parent
+    # same source and parent, prior daily grant has no new-review Send
+    yesterday, prior_file, prior_bytes = _with_yesterday_then_today(
+        eligible,monkeypatch)
+    historical_sha=_sha(old_original/"campaign.json")
+    _pretend_new_independent_ranked_scope(eligible,monkeypatch)
+    today = grant.provision(folder=folder,queue_root=queue,
+        candidate_file=candidate,health_result=queue/"health.json",
+        explicit_user_consent=True)
+    assert yesterday["scope_sha256"] != today["scope_sha256"]
+    assert yesterday["new_campaign_id"] != today["new_campaign_id"]
+    assert yesterday["new_model_requests"] == today["new_model_requests"] == 0
+    assert prior_file.read_bytes() == prior_bytes
+    assert _sha(old_original/"campaign.json") == historical_sha
+    assert today["old_cap_unchanged"]
+    assert today["student_publication_authorized"] is False
+    assert grant.verify_grant(
+        queue_root=queue,source_sha=_sha(folder/"source.pdf"),
+        scope_sha=today["scope_sha256"],
+        candidate_sha=_sha(candidate),campaign_id=today["new_campaign_id"],
+        cap=2)["original_request_replay_authorized"] is False
+
+
+def test_yesterday_reserved_same_scope_cannot_be_replayed_today(eligible, monkeypatch):
+    folder,queue,candidate,_ = eligible
+    _, prior_file, saved = _with_yesterday_then_today(eligible,monkeypatch)
+    with pytest.raises(ValueError, match="cannot be replayed"):
+        grant.provision(folder=folder,queue_root=queue,
+            candidate_file=candidate,health_result=queue/"health.json",
+            explicit_user_consent=True)
+    assert prior_file.read_bytes() == saved
+
+
+def test_same_utc_day_cannot_allocate_second_different_scope(eligible, monkeypatch):
+    folder,queue,candidate,_ = eligible
+    initial_parent(eligible)
+    monkeypatch.setattr(focused,"_health_ok",lambda **kw:{})
+    first=grant.provision(folder=folder,queue_root=queue,
+        candidate_file=candidate,health_result=queue/"health.json",
+        explicit_user_consent=True)
+    _pretend_new_independent_ranked_scope(eligible,monkeypatch)
+    with pytest.raises(ValueError, match="Only one distinct G2"):
+        grant.provision(folder=folder,queue_root=queue,
+            candidate_file=candidate,health_result=queue/"health.json",
+            explicit_user_consent=True)
+
+
+def test_prior_grant_modified_or_removed_source_identity_fails_closed(eligible,monkeypatch):
+    folder,queue,candidate,_ = eligible
+    _, prior_file, _ = _with_yesterday_then_today(eligible,monkeypatch)
+    previous=json.loads(prior_file.read_text("utf8"))
+    previous["source_sha256"]="0"*64
+    prior_file.write_text(json.dumps(previous),encoding="utf8")
+    _pretend_new_independent_ranked_scope(eligible,monkeypatch)
+    with pytest.raises(ValueError,match="Prior distinct G2 grant identity changed"):
+        grant.provision(folder=folder,queue_root=queue,
+            candidate_file=candidate,health_result=queue/"health.json",
+            explicit_user_consent=True)
+
+
+def test_new_day_recovery_is_executable_registry_entry():
+    assert lookup_mechanism(grant.KIND,grant.RENEW_SIGNATURE)==grant.MECHANISM
