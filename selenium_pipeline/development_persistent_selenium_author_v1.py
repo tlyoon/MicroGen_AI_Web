@@ -226,7 +226,18 @@ def validate_source(source: str):
                     and node.args[1].value.id == "re"
                     and node.args[1].attr == "ASCII"
                 )
-                if safe_caption_pattern:
+                safe_source_id_pattern = (
+                    isinstance(node.func, ast.Attribute)
+                    and node.func.attr == "compile"
+                    and isinstance(node.func.value, ast.Name)
+                    and node.func.value.id == "re"
+                    and len(node.args) == 1
+                    and not node.keywords
+                    and isinstance(node.args[0], ast.Constant)
+                    and node.args[0].value
+                        == r"[A-Za-z0-9](?:[A-Za-z0-9_-]*[A-Za-z0-9])?"
+                )
+                if safe_caption_pattern or safe_source_id_pattern:
                     require(
                         any(isinstance(top, ast.Import)
                             and any(alias.name == "re" and alias.asname is None
@@ -237,11 +248,18 @@ def validate_source(source: str):
                             or (isinstance(x, ast.arg) and x.arg == "re")
                             for x in ast.walk(tree)),
                         "Original re module must not be dynamically shadowed")
-                    require(lookup_mechanism(
-                        "persistent_selenium_code_author",
-                        "SOURCE_PURE_REGEX_COMPILE_FOR_LITERAL_CAPTION_IDS")
-                        == "ALLOW_FIXED_ASCII_CAPTION_REGEX_ONLY_WITH_INDEPENDENT_TEST",
-                        "Source caption regex compilation not registered")
+                    if safe_caption_pattern:
+                        require(lookup_mechanism(
+                            "persistent_selenium_code_author",
+                            "SOURCE_PURE_REGEX_COMPILE_FOR_LITERAL_CAPTION_IDS")
+                            == "ALLOW_FIXED_ASCII_CAPTION_REGEX_ONLY_WITH_INDEPENDENT_TEST",
+                            "Source caption regex compilation not registered")
+                    if safe_source_id_pattern:
+                        require(lookup_mechanism(
+                            "persistent_selenium_code_author",
+                            "SOURCE_FIXED_ASCII_HIGHLIGHT_NARRATION_ID_REGEX")
+                            == "ALLOW_ONLY_STATIC_ASCII_ID_REGEX_WITH_ORIGINAL_REPLY_AND_PYTEST",
+                            "Source highlight/narration regex not registered")
                 safe_owned_set_add = _owned_local_empty_set_add(node, tree)
                 if safe_owned_set_add:
                     require(lookup_mechanism(
@@ -249,7 +267,8 @@ def validate_source(source: str):
                         "SOURCE_BOUNDED_LOCAL_EMPTY_SET_ADDITION")
                         == "ALLOW_ONLY_ONE_NONSHADOWED_LOCAL_SET_ADD_THEN_AST_PYTEST",
                         "Local empty-set addition recovery not registered")
-                require(safe_caption_pattern or safe_owned_set_add
+                require(safe_caption_pattern or safe_source_id_pattern
+                        or safe_owned_set_add
                         or (isinstance(node.func, ast.Attribute)
                             and node.func.attr in {
                             "strip", "split", "splitlines", "startswith",

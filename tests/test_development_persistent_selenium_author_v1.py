@@ -701,3 +701,119 @@ def test_second_flattened_function_cannot_masquerade_as_body():
     )
     with pytest.raises(ValueError, match="multiple flattened"):
         author.parse_reply(bad)
+
+
+def _original_g3_highlight_timing_reply():
+    path = (Path(__file__).parent / "fixtures" /
+            "g3_highlight_speech_timing_original_ui_python_v1.txt")
+    assert author.sha(path) == (
+        "85b95c9367576609b35a9ac1c0f795331b7dd7be0606bc0adc90ddf8bb5657be")
+    return path
+
+
+def _make_saved_g3_highlight_timing_job(env):
+    from selenium_pipeline.development_g2g3_requirement_task_factory_v1 import (
+        compile_independent_test)
+    root, repo, old = env
+    rules = json.loads((Path(__file__).parent.parent /
+                        "development_specs" /
+                        "g2g3_technical_requirement_rules_v1.json").read_text())
+    rule = next(x for x in rules["requirements"]
+                if x["id"] == "g3_highlight_speech_timing_v1")
+    content = compile_independent_test(rule)
+    test = repo / "tests" / "test_g3_highlight_speech_timing_v1.py"
+    test.write_bytes(content)
+    _git(repo, "add", "tests/" + test.name)
+    _git(repo, "commit", "-m",
+         "Immutable original independent G3 speech-highlight timing tests")
+    item = json.loads(old.read_text())
+    item["job_id"] = rule["id"]
+    item["base_sha"] = _git(repo, "rev-parse", "HEAD")
+    item["target"] = "selenium_pipeline/" + rule["id"] + ".py"
+    item["target_original_sha256"] = None
+    item["test"] = "tests/" + test.name
+    item["test_sha256"] = author.sha(test)
+    item["context_path"] = item["test"]
+    item["context_sha256"] = item["test_sha256"]
+    item["instruction"] = rule["instruction"]
+    old.unlink()
+    job = root / "inbox" / (rule["id"] + ".json")
+    job.write_text(json.dumps(item))
+    original = root / "state" / rule["id"]
+    original.mkdir()
+    reply = original / "original_model_reply.txt"
+    reply.write_bytes(_original_g3_highlight_timing_reply().read_bytes())
+    original_state = {
+        "schema_version": 1, "status": "UNSAFE_MODEL_REPLY_QUARANTINED",
+        "job_sha256": author.sha(job), "base_sha": item["base_sha"],
+        "job_id": item["job_id"], "model_claims": 1, "model_sends": 1,
+        "model_reply_sha256": author.sha(reply), "paid_api_requests": 0,
+        "student_publication_authorized": False,
+        "candidate_merged": False,
+    }
+    (original / "coding_state.json").write_text(json.dumps(original_state))
+    return root, repo, job, reply
+
+
+def test_exact_original_highlight_regex_is_no_send_source_recovery():
+    raw = _original_g3_highlight_timing_reply().read_text("utf8")
+    assert raw.startswith("Gemini said\nPython\n")
+    assert author.lookup_mechanism(
+        "persistent_selenium_code_author",
+        "SOURCE_FIXED_ASCII_HIGHLIGHT_NARRATION_ID_REGEX",
+    ) == "ALLOW_ONLY_STATIC_ASCII_ID_REGEX_WITH_ORIGINAL_REPLY_AND_PYTEST"
+    parsed = author.parse_reply(raw)
+    assert parsed.strip() == raw.removeprefix("Gemini said\nPython\n").strip()
+    assert parsed.count("def compare_g3_highlight_speech_timing(") == 1
+    assert "seen_narration_ids.add(narration_id)" in parsed
+
+
+def test_quarantined_original_g3_timing_source_passes_real_pinned_tests(
+        env):
+    root, repo, job, reply = _make_saved_g3_highlight_timing_job(env)
+    raw_digest = author.sha(reply)
+    def forbidden(_):
+        raise AssertionError("Second Gemini browser Send is not permitted")
+    result = author.scan(root=root, sender=forbidden)
+    assert result["jobs"][0]["status"] == (
+        "SOURCE_CANDIDATE_TESTED_NO_PUBLICATION"), result
+    saved = json.loads((root/"state"/job.stem/"coding_state.json").read_text())
+    assert saved["pytest_exit_code"] == 0, saved
+    assert saved["model_claims"] == saved["model_sends"] == 1
+    assert saved["paid_api_requests"] == 0
+    assert saved["student_publication_authorized"] is False
+    assert author.sha(reply) == raw_digest
+    assert author.sha(repo/"selenium_pipeline"/
+                      "g3_highlight_speech_timing_v1.py") == (
+                          saved["candidate_sha256"])
+    assert author.scan(root=root,sender=forbidden)["jobs"][0]["status"] == (
+        "SOURCE_CANDIDATE_TESTED_NO_PUBLICATION")
+    assert author.sha(reply) == raw_digest
+
+
+def test_only_exact_static_ascii_highlight_id_regex_is_admitted():
+    original = _original_g3_highlight_timing_reply().read_text("utf8")
+    valid = author.parse_reply(original)
+    exact = r're.compile(r"[A-Za-z0-9](?:[A-Za-z0-9_-]*[A-Za-z0-9])?")'
+    assert exact in valid
+    for unsafe in (
+        valid.replace(exact, 're.compile(r".*")'),
+        valid.replace(exact, "re.compile(segments[0]['element_id'])"),
+        valid.replace(exact, "id_pattern.compile(r'.*')"),
+        valid.replace(exact, exact.replace(")", ", re.IGNORECASE)")),
+        valid.replace("    expected_keys =", "    re = segments\n    expected_keys ="),
+    ):
+        with pytest.raises(ValueError):
+            author.validate_source(unsafe)
+
+
+def test_mutated_saved_g3_timing_reply_never_replayed_or_applied(env):
+    root, repo, job, reply = _make_saved_g3_highlight_timing_job(env)
+    reply.write_bytes(reply.read_bytes().replace(
+        b'[A-Za-z0-9_-]', b'.*', 1))
+    def forbidden(_):
+        raise AssertionError("Unauthorized duplicate Selenium Send")
+    result = author.scan(root=root, sender=forbidden)
+    assert result["jobs"][0]["status"] == "UNSAFE_MODEL_REPLY_QUARANTINED"
+    assert not (repo / "selenium_pipeline" /
+                "g3_highlight_speech_timing_v1.py").exists()
