@@ -1822,6 +1822,20 @@
       "environment": "Dell-115 real G2 29/85 and Serway 8.2/8.3 G3 finite original science/media evidence",
       "retry_policy": "Reconcile every cycle after source catalog exhaustion; record accepted-unit delta, prioritize original SHA-pinned offline repair; never reset Send caps or promote technical QA into academic acceptance",
       "enabled": true
+    },
+    {
+      "id": "G2_DISTINCT_NEW_UTC_DAY_SCIENCE_GRANT_NO_REPLAY_20261128",
+      "match_type": "g2_explicit_scoped_science_capacity",
+      "signature": "G2_PREVIOUS_UTC_DAY_SCOPE_GRANT_MUST_NOT_STRAND_DISTINCT_NEW_DAY",
+      "mechanism": "PIN_FRESH_ONE_SCOPE_TWO_PASS_BUDGET_WITHOUT_OLD_SEND_REPLAY",
+      "classification": "PAST_UTC_DAY_G2_SCIENCE_GRANT_INCORRECTLY_BLOCKS_GENUINELY_NEW_SOURCE_SCOPE",
+      "handler": "NORMAL_SCOPED_USER_APPROVED_G2_FINITE_SELENIUM_TWO_PASS",
+      "preconditions": "Fresh explicit user authorization; current date new source-and-queue pinned ranker scope; prior immutable grants and original 2/2 parent campaign verified; fresh post-incident owned Neon High health",
+      "verification_test": "tests/test_g2_v3_explicit_scoped_capacity_v1.py cross-day authorization, prior-scope replay refusal, same-day cap, old parent immutability and forged prior grant",
+      "last_verified_date": "2026-11-28",
+      "environment": "Dell-115 original Serway 1.3 G2 academic Neon High Selenium browser and historical immutable source-science claim journal",
+      "retry_policy": "At most one new independently verified source scope per UTC day with exactly two possible browser Sends; old scope identity never valid on another date and old possible Sends are never replayed",
+      "enabled": true
     }
   ]
 }
