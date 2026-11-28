@@ -1836,6 +1836,20 @@
       "environment": "Dell-115 original Serway 1.3 G2 academic Neon High Selenium browser and historical immutable source-science claim journal",
       "retry_policy": "At most one new independently verified source scope per UTC day with exactly two possible browser Sends; old scope identity never valid on another date and old possible Sends are never replayed",
       "enabled": true
+    },
+    {
+      "id": "G2_REAL_SOURCE_DIMENSIONAL_FORMULA_QUOTE_COVERAGE_20261129",
+      "match_type": "g2_formula_source_citation_priority",
+      "signature": "G2_SOURCE_QUOTE_SELECTED_BEFORE_COMPLETE_VISIBLE_MATH_FORMULA",
+      "mechanism": "RANK_SOURCE_SHA_WITNESSED_FORMULA_COMPLETE_PDF_SPAN_NO_ACCEPTANCE",
+      "classification": "INCOMPLETE_SOURCE_QUOTE_EXCLUDES_ORIGINAL_SLIDE_SYMBOLIC_CLAIM",
+      "handler": "NORMAL_G2_SOURCE_VERIFIED_FORMULA_QUOTE_RANKING",
+      "preconditions": "Original source/slides/script SHA, original visual target containing literal bracketed dimension or ratio, source PDF multi-line physical text span independently verified before admissible new review",
+      "verification_test": "tests/test_g2_formula_complete_source_quote_v1.py symbolic coverage, source SHA, academic nonapproval, no formula invention and PDF text-window integration",
+      "last_verified_date": "2026-11-29",
+      "environment": "Dell-115 real Serway 1.3 dimensional-speed source PDF and separate CI synthetic source paragraph with [v] 5 L/T",
+      "retry_policy": "Only rerank future source-locked quote candidates; preserve original previously claimed review prompt and Send identity, never reinterpret code output as source AI approval, no paid calls",
+      "enabled": true
     }
   ]
 }

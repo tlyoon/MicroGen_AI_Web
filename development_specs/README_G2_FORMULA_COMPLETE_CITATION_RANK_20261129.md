@@ -1,0 +1,21 @@
+# G2 physically complete symbolic-claim citation ranking — 29 November 2026
+
+## Original real Dell-115 failure, not synthetic only
+
+An authenticated, source-free Neon/High Selenium health request succeeded on 28 Nov, original Serway 1.3 source `source.pdf` SHA `181f0f361809d90daf72fce1bf50bcf2b88fbf37fc59ed181411266b53cb5ae8`. PR #689 repaired cross-day eligibility and enabled a genuinely distinct first-pass G2 science request for slide 3, utterance `s003.utterance.005`, source scope `4119ea0407889fa013d8d06821bc710fc083110e5d10a922d05208c98280aeab`, target `Example for speed v: [v] = L/T`.
+
+Real owned Gemini Neon High tab registered exactly ONE first-pass request; the reviewed files `source.pdf` and `slides.pdf` uploaded correctly. The model eventually returned **905 bytes of Python code trying to inspect the PDFs**, not a structured scientific/math review. Its source-locked claimant kept the first pass `SUBMITTED_OR_UNCERTAIN` with `HOLD`, issued NO challenge, had no paid Gemini API calls, and never approved or released academic material. Original response quarantine captured original model text (sha `fec037cff764afd1ae93e60b856c44448ac06f99e172c0adbed875ea76c9dcf6`), DOM model-response text length 905, one visible model node, no server outage or selector failure proven.
+
+Independent inspection found the actual **upstream defect**: the supposedly physically source-verified allowed citation for this claim stopped mid-sentence after `For example, the symbol we use for speed in this`. The actual publisher PDF next line contains `book is v, and in our notation, the dimensions of speed are written [v] 5 L/T`. PyMuPDF's extraction emits the printed equals-glyph as `5`, but the physical token `[v]` and ratio `L/T` are intact. The existing original PDF citation catalogue had **19 physically relevant spans**, including the complete symbolic claim, and `prove_source_quote_occurrence` independently verified it. The prior lexical ranker favored an incomplete earlier excerpt sharing narration words. Source fetching was working; relevance ranking failed to align a symbolic statement with its physical citation.
+
+## Durable executable correction
+
+Extend `selenium_pipeline/source_verified_quote_candidates.py` retrieval ranking with literal symbolic target fragment coverage (e.g., bracketed dimensions `[v]` and ratio `L/T`). A quote containing the exact visible symbolic fragments gets priority over a quote that ends before them, while the original physics source PDF physical geometry and SHA remain mandatory independently validated. Do NOT normalize the original publisher PDF `5` to an invented equals character or misrepresent a physically retrieved quote as mathematical proof. If the publisher excerpt lacks the formula, **no** source candidate may fabricate it.
+
+The correction is registered in `selenium_pipeline/recovery_registry.py` and `selenium_pipeline/recovery_registry_v1.json`, has independently runnable Windows fault-injection tests in `tests/test_g2_formula_complete_source_quote_v1.py`, and is restricted to **new source-review candidate creation**. The historic Nov28 ranked candidate, original initial Send and failure quarantine remain immutable. No automatic resend, no new paid API use, no substitution of code text for structured physics review, no academic approval/publication.
+
+## Independent proof and scope of claim
+
+A real read-only Dell rerank using unchanged original `source.pdf`, `slides.pdf`, and `script.txt` selected physically verified quotes including `[v] 5 L/T` as the top candidates, rather than stopping at `speed in this`. The selected source spans revalidated with original exact `prove_source_quote_occurrence`. No Gemini request was sent during quote reranking. Tests include synthetic source-PDF + slide PDF with intentionally split formula, literal formula retrieval priority, missing-formula non-invention, original source/slide/script SHAs unchanged and academic acceptance flags false.
+
+The code must pass exact-head protected Windows GitHub CI and guarded native Dell-115 deployment before future use. This is an **input fidelity fix**, not evidence that a new independent two-pass reviewer accepted the physics. Baseline remains G2 29/85, 0 academic gates accepted; the old claimed INITIAL response is in honest HOLD state.
