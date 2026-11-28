@@ -9,3 +9,5 @@ tests/fixtures/g3_pdf_caption_png_inventory_original_reply_v1.txt -text
 tests/fixtures/g3_caption_latex_original_ui_python_heading_v1.txt -text
 tests/fixtures/g3_wav_slide_alignment_v1_original_ui_python_v1.txt -text
 tests/fixtures/g3_mp4_page_alignment_v1_original_ui_python_v1.txt -text
+
+tests/fixtures/g3_highlight_speech_timing_original_ui_python_v1.txt -text
