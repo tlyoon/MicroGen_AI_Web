@@ -203,6 +203,34 @@ def cycle(*,backlog_root:Path,control_root:Path,catalog_path:Path,
         result["new_job"]={"status":"NEW_SOURCE_JOB_ADMISSION_HELD",
                            "error_class":type(exc).__name__,
                            "model_sends":0}
+    # An exhausted finite code catalog is not an acceptable academic steady
+    # state. Reconcile ACTUAL independently witnessed acceptance receipts and
+    # SHA-pinned original source quarantine, not just worker heartbeats.
+    # Do not invoke for synthetic/injected main owners or stale code.
+    if (native_source_owner
+            and result.get("new_job", {}).get("status")
+            == "SOURCE_G2G3_REQUIREMENT_TEST_JOBS_EXHAUSTED"
+            and result.get("source_sync", {}).get("status")
+            == "EXACT_PROTECTED_MAIN_CURRENT"):
+        try:
+            from .development_acceptance_frontier_v1 import assess
+            sha=subprocess.run(
+                ["git","-C",str(main_repo),"rev-parse","HEAD"],
+                capture_output=True,text=True,timeout=20,check=True
+            ).stdout.strip()
+            result["academic_frontier"]=assess(
+                acceptance_root=control_root.parent /
+                    "ACCEPTANCE_COMPLETION_SCHEDULER_V1",
+                backlog_root=backlog_root,control_root=control_root,
+                repo_root=main_repo,current_main_sha=sha)
+        except (ValueError,KeyError,OSError,TypeError,
+                subprocess.TimeoutExpired,subprocess.CalledProcessError) as exc:
+            result["academic_frontier"]={
+                "status":"ACADEMIC_FRONTIER_EVIDENCE_HELD",
+                "error_class":type(exc).__name__,
+                "provider_sends":0,"paid_api_requests":0,
+                "student_publication_authorized":False,
+            }
     return result
 
 

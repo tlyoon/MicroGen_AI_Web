@@ -42,6 +42,8 @@ _HANDLERS = {
         "NORMAL_STAGED_NEXT_SOURCE_PINNED_INDEPENDENT_CODE_TASK",
     "autonomous_g2g3_requirement_test_derivation":
         "NORMAL_SOURCE_GROUNDED_TEST_COMPILER_AND_ONE_CLAIM_DISPATCH",
+    "academic_evidence_frontier_recovery":
+        "NORMAL_SHA_PINNED_ACCEPTANCE_PROGRESS_AND_QUARANTINE_ESCALATION",
     "long_horizon_windows_task_self_heal":
         "NORMAL_SOURCE_GUARDED_WINDOWS_RECURRING_OWNER_RECOVERY",
     "ci_merged_old_daemon_cutover_reentry":

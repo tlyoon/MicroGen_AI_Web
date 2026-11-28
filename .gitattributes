@@ -11,3 +11,8 @@ tests/fixtures/g3_wav_slide_alignment_v1_original_ui_python_v1.txt -text
 tests/fixtures/g3_mp4_page_alignment_v1_original_ui_python_v1.txt -text
 
 tests/fixtures/g3_highlight_speech_timing_original_ui_python_v1.txt -text
+
+# Original SHA-verified independent G3 tests, copied byte-for-byte.
+tests/test_g3_figure_caption_identity_v1.py -text
+tests/test_g3_narration_segment_page_index_v1.py -text
+tests/test_g3_captioned_png_asset_coverage_v1.py -text
